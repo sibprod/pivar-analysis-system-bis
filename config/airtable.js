@@ -10,7 +10,7 @@ module.exports = {
   TABLES: {
     VISITEUR:  'VISITEUR',
     RESPONSES: 'RESPONSES',
-    BILAN:     'BILAN'
+    BILAN:     'Copie de BILAN 2'
     // GLOBAL: 'GLOBAL'  // non utilisé v8
   },
 
