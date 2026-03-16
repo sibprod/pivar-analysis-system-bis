@@ -24,7 +24,7 @@ async function addToQueue(session_id, priority = 'NORMAL') {
     }
 
     await airtableService.updateVisiteur(session_id, {
-      statut_analyse_reponses: 'en_cours',           // v8
+      statut_analyse_pivar: 'en_cours',           // champ Airtable VISITEUR
       derniere_activite: new Date().toISOString()
     });
 
@@ -75,7 +75,7 @@ async function processQueue() {
 async function getCandidatesFromAirtable() {
   try {
     const allCandidates = await airtableService.getVisiteursByStatus({
-      statut_analyse_reponses: ['NOUVEAU', 'ERREUR', 'en_cours'],  // v8
+      statut_analyse_pivar: ['NOUVEAU', 'ERREUR', 'en_cours'],  // champ Airtable VISITEUR
       statut_test: 'terminé',
       derniere_question_repondue: 25
     });
@@ -84,7 +84,7 @@ async function getCandidatesFromAirtable() {
       total: allCandidates.length,
       statuses: allCandidates.map(c => ({
         session_id: c.session_ID || c.candidate_ID,
-        statut: c.statut_analyse_reponses
+        statut: c.statut_analyse_pivar
       }))
     });
 
@@ -103,7 +103,7 @@ async function getCandidatesFromAirtable() {
 // ─── Priorité ─────────────────────────────────────────────────────────────
 
 function getPriority(candidate) {
-  const statut = candidate.statut_analyse_reponses;  // v8
+  const statut = candidate.statut_analyse_pivar;  // champ Airtable VISITEUR
 
   if (statut === 'ERREUR') {
     const classification = errorClassifier.classifyError({
@@ -143,9 +143,9 @@ async function processCandidate(session_id) {
   try {
     await orchestratorService.processCandidate(session_id);
 
-    // Marquer terminé
+    // Marquer terminé dans VISITEUR
     await airtableService.updateVisiteur(session_id, {
-      statut_analyse_reponses: 'terminé',        // v8
+      statut_analyse_pivar: 'terminé',           // champ Airtable VISITEUR
       derniere_activite: new Date().toISOString()
     });
 
@@ -156,7 +156,7 @@ async function processCandidate(session_id) {
     // Marquer ERREUR
     try {
       await airtableService.updateVisiteur(session_id, {
-        statut_analyse_reponses: 'ERREUR',       // v8
+        statut_analyse_pivar: 'ERREUR',          // champ Airtable VISITEUR
         erreur_analyse: error.message,
         derniere_activite: new Date().toISOString()
       });
