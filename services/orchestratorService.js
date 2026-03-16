@@ -102,10 +102,10 @@ function buildQuestionsDataPourAlgo(questions, verifArbitrages, agent2Analyses, 
 
       excellences,
 
-      // Qualification passation (Vérificateur)
-      repond_question:                  verif.repond_question || 'NON',
-      traite_problematique_situation:   verif.traite_problematique_situation || 'NON',
-      fait_processus_pilier:            verif.fait_processus_pilier || 'NON',
+      // Qualification passation — Single Select Airtable : "oui"/"non"
+      repond_question:                  q.repond_question === 'oui' || q.repond_question === true || q.repond_question === 'OUI' ? 'OUI' : 'NON',
+      traite_problematique_situation:   q.traite_problematique_situation === 'oui' || q.traite_problematique_situation === true || q.traite_problematique_situation === 'OUI' ? 'OUI' : 'NON',
+      fait_processus_pilier:            q.fait_processus_pilier === 'oui' || q.fait_processus_pilier === true || q.fait_processus_pilier === 'OUI' ? 'OUI' : 'NON',
 
       // Laconique (Agent 2 M8)
       laconique: m8.laconique || false,
