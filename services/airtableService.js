@@ -401,14 +401,14 @@ async function getVisiteursByStatus(filters = {}) {
   try {
     const conditions = [];
 
-    // v8 : utiliser statut_analyse_reponses (l'ancien champ VISITEUR s'appelait statut_analyse_pivar)
-    // On garde la compatibilité : le champ Airtable VISITEUR s'appelle statut_analyse_reponses
-    if (filters.statut_analyse_reponses) {
-      conditions.push(`OR(${filters.statut_analyse_reponses.map(v => `{statut_analyse_reponses} = "${v}"`).join(', ')})`);
-    }
-    // Compatibilité legacy si appelé avec l'ancien nom
+    // Le champ dans la table VISITEUR s'appelle statut_analyse_pivar (nom Airtable conservé)
+    // statut_analyse_reponses est un champ DISTINCT dans la table RESPONSES
     if (filters.statut_analyse_pivar) {
-      conditions.push(`OR(${filters.statut_analyse_pivar.map(v => `{statut_analyse_reponses} = "${v}"`).join(', ')})`);
+      conditions.push(`OR(${filters.statut_analyse_pivar.map(v => `{statut_analyse_pivar} = "${v}"`).join(', ')})`);
+    }
+    // Accepter aussi l'appel avec statut_analyse_reponses comme alias
+    if (filters.statut_analyse_reponses) {
+      conditions.push(`OR(${filters.statut_analyse_reponses.map(v => `{statut_analyse_pivar} = "${v}"`).join(', ')})`);
     }
 
     if (filters.statut_test) {
