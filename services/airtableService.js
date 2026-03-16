@@ -124,7 +124,7 @@ async function updateVisiteur(session_id, fields) {
     await base(airtableConfig.TABLES.VISITEUR).update([{
       id: visiteur.id,
       fields
-    }]);
+    }], { typecast: true });
 
     logger.debug('Visiteur updated', { session_id, fields: Object.keys(fields) });
   } catch (error) {
@@ -206,7 +206,7 @@ async function updateResponse(id_question, session_id, fields) {
     await base(airtableConfig.TABLES.RESPONSES).update([{
       id: records[0].id,
       fields: cleanedFields
-    }]);
+    }], { typecast: true });
 
     logger.debug('Response updated', { id_question, session_id });
   } catch (error) {
@@ -268,7 +268,7 @@ async function batchUpdateResponses(updates) {
 
       for (let i = 0; i < batchUpdates.length; i += 10) {
         const batch = batchUpdates.slice(i, i + 10);
-        await base(airtableConfig.TABLES.RESPONSES).update(batch);
+        await base(airtableConfig.TABLES.RESPONSES).update(batch, { typecast: true });
         totalUpdated += batch.length;
         if (i + 10 < batchUpdates.length) await sleep(200);
       }
@@ -356,12 +356,12 @@ async function createOrUpdateBilan(session_id, fields) {
       await base(airtableConfig.TABLES.BILAN).update([{
         id: existingBilan.id,
         fields: cleanedFields
-      }]);
+      }], { typecast: true });
       logger.debug('Bilan updated', { session_id });
     } else {
       await base(airtableConfig.TABLES.BILAN).create([{
         fields: { session_ID: session_id, ...cleanedFields }
-      }]);
+      }], { typecast: true });
       logger.debug('Bilan created', { session_id });
     }
   } catch (error) {
@@ -384,7 +384,7 @@ async function updateBilan(session_id, fields) {
     await base(airtableConfig.TABLES.BILAN).update([{
       id: bilan.id,
       fields: cleanedFields
-    }]);
+    }], { typecast: true });
 
     logger.debug('Bilan updated', { session_id, fieldsCount: Object.keys(cleanedFields).length });
   } catch (error) {
