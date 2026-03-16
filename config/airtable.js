@@ -23,7 +23,7 @@ module.exports = {
     Email:                       'Email',
     statut_test:                 'statut_test',
     derniere_question_repondue:  'derniere_question_repondue',
-    statut_analyse_reponses:     'statut_analyse_reponses',   // v8 : remplace statut_analyse_pivar
+    statut_analyse_pivar:        'statut_analyse_pivar',    // champ VISITEUR (conservé tel quel dans Airtable)
     erreur_analyse:              'erreur_analyse',
     derniere_activite:           'derniere_activite',
     backup_sommeil:              'backup_sommeil',
@@ -281,7 +281,8 @@ module.exports = {
   // ─── VALEURS AUTORISÉES ───────────────────────────────────────────────────
   ALLOWED_VALUES: {
     statut_test:             ['en_cours', 'terminé'],
-    statut_analyse_reponses: ['NOUVEAU', 'en_cours', 'terminé', 'ERREUR'],
+    statut_analyse_pivar:    ['NOUVEAU', 'en_cours', 'terminé', 'ERREUR'],  // table VISITEUR
+    statut_analyse_reponses: ['en_attente', 'analyse_ok', 'erreur'],        // table RESPONSES
     pilier:                  ['P1', 'P2', 'P3', 'P4', 'P5'],
     scenario_nom:            ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'],
     niveau_sophistication:   ['faible', 'moyen', 'élevé'],
