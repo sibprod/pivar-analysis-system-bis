@@ -210,8 +210,9 @@ async function processCandidate(session_id) {
   } else {
     try {
       logger.info('Orchestrateur: ÉTAPE 1 — Agent 1', { session_id });
+      await backupService.save(session_id, 'before_agent1', { step: 'debut_agent1', timestamp: new Date().toISOString() });
       agent1Result = await agent1Service.run(session_id, candidat, questions);
-      await backupService.save(session_id, 'after_agent1', { analyses: agent1Result.analyses.length });
+      await backupService.save(session_id, 'after_agent1', { analyses: agent1Result.analyses.length, step: 'agent1_ok' });
       logger.info('Orchestrateur: ÉTAPE 1 terminée', {
         session_id,
         duree_ms: Date.now() - step1Start,
@@ -265,7 +266,7 @@ async function processCandidate(session_id) {
     try {
       logger.info('Orchestrateur: ÉTAPE 3 — Vérificateur', { session_id });
       verifResult = await verificateurService.run(session_id, questions, agent1Result.analyses);
-      await backupService.save(session_id, 'after_agent2', { arbitrages: verifResult.arbitrages.length, step: 'verificateur' });
+      await backupService.save(session_id, 'before_agent2', { arbitrages: verifResult.arbitrages.length, step: 'verificateur_ok' });
       logger.info('Orchestrateur: ÉTAPE 3 terminée', {
         session_id,
         duree_ms: Date.now() - step3Start,
@@ -298,7 +299,7 @@ async function processCandidate(session_id) {
     try {
       logger.info('Orchestrateur: ÉTAPE 4 — Agent 2', { session_id });
       agent2Result = await agent2Service.run(session_id, questions, verifResult.arbitrages);
-      await backupService.save(session_id, 'after_agent2', { analyses: agent2Result.analyses.length, step: 'agent2' });
+      await backupService.save(session_id, 'after_agent2', { analyses: agent2Result.analyses.length, step: 'agent2_ok' });
       logger.info('Orchestrateur: ÉTAPE 4 terminée', {
         session_id,
         duree_ms: Date.now() - step4Start,
@@ -344,7 +345,7 @@ async function processCandidate(session_id) {
       await backupService.save(session_id, 'before_algo', {
         analyses: agent3Result.analyses.length,
         syntheses: Object.keys(agent3Result.syntheses).length,
-        step: 'agent3'
+        step: 'agent3_ok'
       });
       logger.info('Orchestrateur: ÉTAPE 5 terminée', {
         session_id,
@@ -396,7 +397,7 @@ async function processCandidate(session_id) {
 
       await backupService.save(session_id, 'after_algo', {
         niveau_global: algoResult.output?.synthese_globale?.niveau_global,
-        step: 'algorithme'
+        step: 'algorithme_ok'
       });
 
       logger.info('Orchestrateur: ÉTAPE 6 terminée', {
@@ -424,6 +425,7 @@ async function processCandidate(session_id) {
   } else {
     try {
       logger.info('Orchestrateur: ÉTAPE 7 — Certificateur', { session_id });
+      await backupService.save(session_id, 'before_certif', { step: 'debut_certif', timestamp: new Date().toISOString() });
 
       // Recharger questions pour avoir tous les verbatims
       questions = await airtableService.getResponsesBySession(session_id);
