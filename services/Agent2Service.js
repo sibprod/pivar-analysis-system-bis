@@ -120,13 +120,16 @@ function mapToAirtableFields(parsed) {
   const mesure = parsed.agent2_mesure || {};
 
   // M4 — dimensions simples (agrégées toutes piliers)
+  // Structure M4 output : { nombre_actions, nombre_criteres, total_dimensions_simples, liste_actions, liste_criteres }
   const m4 = mesure.mission_4_dimensions_simples?.par_pilier || {};
-  const totalSimples = Object.values(m4).reduce((sum, p) => sum + (p.total || 0), 0);
-  const listeDimSimples = Object.values(m4).flatMap(p => p.liste || []);
+  const totalSimples = Object.values(m4).reduce((sum, p) => sum + (p.total_dimensions_simples || p.total || 0), 0);
+  const totalDetails = Object.values(m4).reduce((sum, p) => sum + (p.nombre_criteres || 0), 0);
+  const listeDimSimples = Object.values(m4).flatMap(p => [...(p.liste_actions || p.liste || []), ...(p.liste_criteres || [])]);
 
   // M5 — dimensions sophistiquées (agrégées toutes piliers)
+  // Structure M5 output : { nombre, liste }
   const m5 = mesure.mission_5_dimensions_sophistiquees?.par_pilier || {};
-  const totalSoph = Object.values(m5).reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalSoph = Object.values(m5).reduce((sum, p) => sum + (p.nombre || p.total || 0), 0);
   const listeDimSoph = Object.values(m5).flatMap(p => p.liste || []);
 
   // Niveau sophistication global
