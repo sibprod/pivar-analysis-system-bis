@@ -211,7 +211,7 @@ async function processCandidate(session_id) {
     try {
       logger.info('Orchestrateur: ÉTAPE 1 — Agent 1', { session_id });
       agent1Result = await agent1Service.run(session_id, candidat, questions);
-      await backupService.saveStep(session_id, 'agent1', { analyses: agent1Result.analyses.length });
+      await backupService.save(session_id, 'agent1', { analyses: agent1Result.analyses.length });
       logger.info('Orchestrateur: ÉTAPE 1 terminée', {
         session_id,
         duree_ms: Date.now() - step1Start,
@@ -265,7 +265,7 @@ async function processCandidate(session_id) {
     try {
       logger.info('Orchestrateur: ÉTAPE 3 — Vérificateur', { session_id });
       verifResult = await verificateurService.run(session_id, questions, agent1Result.analyses);
-      await backupService.saveStep(session_id, 'verificateur', { arbitrages: verifResult.arbitrages.length });
+      await backupService.save(session_id, 'verificateur', { arbitrages: verifResult.arbitrages.length });
       logger.info('Orchestrateur: ÉTAPE 3 terminée', {
         session_id,
         duree_ms: Date.now() - step3Start,
@@ -298,7 +298,7 @@ async function processCandidate(session_id) {
     try {
       logger.info('Orchestrateur: ÉTAPE 4 — Agent 2', { session_id });
       agent2Result = await agent2Service.run(session_id, questions, verifResult.arbitrages);
-      await backupService.saveStep(session_id, 'agent2', { analyses: agent2Result.analyses.length });
+      await backupService.save(session_id, 'agent2', { analyses: agent2Result.analyses.length });
       logger.info('Orchestrateur: ÉTAPE 4 terminée', {
         session_id,
         duree_ms: Date.now() - step4Start,
@@ -341,7 +341,7 @@ async function processCandidate(session_id) {
       agent3Result = await agent3Service.run(
         session_id, questions, verifResult.arbitrages, agent2Result.analyses
       );
-      await backupService.saveStep(session_id, 'agent3', {
+      await backupService.save(session_id, 'agent3', {
         analyses: agent3Result.analyses.length,
         syntheses: Object.keys(agent3Result.syntheses).length
       });
@@ -393,7 +393,7 @@ async function processCandidate(session_id) {
         agent1Result.corpus
       );
 
-      await backupService.saveStep(session_id, 'algorithme', {
+      await backupService.save(session_id, 'algorithme', {
         niveau_global: algoResult.output?.synthese_globale?.niveau_global
       });
 
@@ -443,7 +443,7 @@ async function processCandidate(session_id) {
         questionsDataPourCertif
       );
 
-      await backupService.saveStep(session_id, 'certificateur', { statut: 'certifie' });
+      await backupService.save(session_id, 'certificateur', { statut: 'certifie' });
 
       logger.info('Orchestrateur: ÉTAPE 7 terminée', {
         session_id,
@@ -510,7 +510,8 @@ async function markError(session_id, etape, error) {
   logger.error(`Orchestrateur: ERREUR ${etape}`, { session_id, error: error.message });
   try {
     await airtableService.updateVisiteur(session_id, {
-      statut_analyse_pivar: `ERREUR_${etape.replace(/ /g, '_').toUpperCase()}`  // champ Airtable VISITEUR
+      statut_analyse_pivar: 'ERREUR',                          // valeur Single Select autorisée
+      erreur_analyse: `${etape}: ${error.message}`             // détail dans champ texte
     });
   } catch (e) {
     logger.warn('Orchestrateur: impossible de marquer ERREUR dans VISITEUR', { error: e.message });
