@@ -57,7 +57,7 @@ app.use((err, req, res, next) => {
 let pollingInterval = null;
 
 app.listen(PORT, () => {
-  logger.info('Profil Cognitif Analysis System v8.0');
+  logger.info('Profil Cognitif Analysis System v8.0 — pivar-analysis-system-bis');
   logger.info('Server started', {
     port: PORT,
     env: process.env.NODE_ENV || 'development',
