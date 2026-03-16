@@ -96,9 +96,10 @@ function deepCleanString(value) {
 
 async function getVisiteur(session_id) {
   try {
+    // Dans la table VISITEUR, le champ identifiant s'appelle candidate_ID
     const records = await base(airtableConfig.TABLES.VISITEUR)
       .select({
-        filterByFormula: `{session_ID} = "${session_id}"`,
+        filterByFormula: `{candidate_ID} = "${session_id}"`,
         maxRecords: 1
       })
       .firstPage();
@@ -401,12 +402,9 @@ async function getVisiteursByStatus(filters = {}) {
   try {
     const conditions = [];
 
-    // Le champ dans la table VISITEUR s'appelle statut_analyse_pivar (nom Airtable conservé)
-    // statut_analyse_reponses est un champ DISTINCT dans la table RESPONSES
     if (filters.statut_analyse_pivar) {
       conditions.push(`OR(${filters.statut_analyse_pivar.map(v => `{statut_analyse_pivar} = "${v}"`).join(', ')})`);
     }
-    // Accepter aussi l'appel avec statut_analyse_reponses comme alias
     if (filters.statut_analyse_reponses) {
       conditions.push(`OR(${filters.statut_analyse_reponses.map(v => `{statut_analyse_pivar} = "${v}"`).join(', ')})`);
     }
