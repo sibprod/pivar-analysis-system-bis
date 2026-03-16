@@ -470,7 +470,7 @@ async function run(session_id, questions, verificateurArbitrages, agent2Analyses
   const coherenceGlobale = aggregateCoherence(analyses);
 
   Object.assign(bilanFields, {
-    limbique_detecte:       limbique.limbique_detecte,
+    limbique_detecte:       limbique.limbique_detecte ? 'oui' : 'non',  // Single Select BILAN
     limbique_intensite_max: limbique.limbique_intensite_max,
     nb_questions_limbiques: limbique.nb_questions_limbiques,
     coherence_agents:       coherenceGlobale
