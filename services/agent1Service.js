@@ -233,7 +233,7 @@ async function run(session_id, candidat, questions) {
     // Champs plats extraits du JSON Agent 1
     const r = result.result;
     if (r.pilier_coeur)    a1Fields.pilier_reponse_coeur = r.pilier_coeur;
-    if (r.niveau_coeur)    a1Fields.niveau_amplitude_reponse = r.niveau_coeur;
+    if (r.niveau_coeur != null) a1Fields.niveau_amplitude_reponse = String(r.niveau_coeur); // Single Select "1"→"9"
     if (r.sequence)        a1Fields.liste_piliers_actives = r.sequence;
     if (r.piliers_actives) a1Fields.circuits_actives_pilier_coeur = JSON.stringify(r.piliers_actives);
     if (r.boucles && r.boucles.length > 0) {
