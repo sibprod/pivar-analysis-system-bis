@@ -31,15 +31,44 @@ const SINGLE_SELECT_FIELDS = [
 // Mapping noms d'excellence interne → Airtable
 // JAMAIS angles_morts / anglesmorts — toujours vue_systemique
 const EXCELLENCE_MAPPING = {
-  'anticipation_spontanee': 'anticipation',
-  'decentration_cognitive':  'decentration',
-  'meta_cognition':          'metacognition',
-  'vue_systemique':          'vue_systemique',
-  // Accepter aussi les formes courtes
+  // Formes longues
+  'anticipation_spontanee':   'anticipation',
+  'anticipation spontanée':   'anticipation',
+  'décentration_cognitive':   'decentration',
+  'decentration_cognitive':   'decentration',
+  'décentration cognitive':   'decentration',
+  'meta_cognition':           'metacognition',
+  'méta_cognition':           'metacognition',
+  'métacognition':            'metacognition',
+  'vue_systemique':           'vue_systemique',
+  'vue systémique':           'vue_systemique',
+  'vision_systemique':        'vue_systemique',
+  'vision systémique':        'vue_systemique',
+  'angles_morts':             'vue_systemique',
+  // Formes courtes
   'anticipation':  'anticipation',
   'decentration':  'decentration',
-  'metacognition': 'metacognition'
+  'décentration':  'decentration',
+  'metacognition': 'metacognition',
+  'métacognition': 'metacognition'
 };
+
+// Valeurs valides pour les Single Select pattern dans BILAN
+// Airtable : "systématique" / "contextuel" / "situationnel"
+const PATTERN_VALUES = ['systématique', 'contextuel', 'situationnel'];
+
+function normalizePattern(value) {
+  if (!value) return null;
+  const v = value.toString().toLowerCase().trim();
+  if (v.includes('systémat') || v.includes('systemat')) return 'systématique';
+  if (v.includes('contextuel')) return 'contextuel';
+  if (v.includes('situationnel') || v.includes('situation')) return 'situationnel';
+  // Si la valeur est déjà exacte
+  if (PATTERN_VALUES.includes(v)) return v;
+  // Si c'est un texte long (synthèse narrative écrite par erreur dans ce champ), retourner null
+  if (value.length > 30) return null;
+  return value;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CHARGEMENT DU PROMPT
@@ -73,36 +102,16 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
   const scoresPiliers = algo.scores_par_pilier_reel || {};
 
   // ── synthese_globale ──────────────────────────────────────────────────────
+  // ⚠️ NE PAS inclure pilier_dominant / pilier_structurant / scores ici.
+  // Le certificateur fait lui-même le classement en étape 2A depuis syntheses_par_pilier.
+  // Les scores sont réservés à l'étape 2 uniquement (scores_verification).
   const syntheseGlobale = {
+    // Niveau global (info fond uniquement, pas score)
     niveau_global:      sg.niveau_global,
     nom_niveau_global:  sg.nom_niveau_global,
-    score_global:       sg.score_global,
     zone_globale:       sg.zone_globale || null,
-    base_calcul:        sg.base_calcul || 'Moyenne TOP 3 piliers réels (scores CONTENU uniquement)',
-    pilier_dominant:    sg.pilier_dominant ? {
-      pilier:              sg.pilier_dominant.pilier,
-      nom:                 sg.pilier_dominant.nom,
-      niveau_moyen:        sg.pilier_dominant.niveau_moyen,
-      nom_niveau_moyen:    sg.pilier_dominant.nom_niveau_moyen,
-      niveau_max:          sg.pilier_dominant.niveau_max,
-      nom_niveau_max:      sg.pilier_dominant.nom_niveau_max,
-      nb_questions_reelles: sg.pilier_dominant.nb_questions_reel,
-      ecart_theorique:     `${sg.pilier_dominant.nb_questions_reel - 5 >= 0 ? '+' : ''}${sg.pilier_dominant.nb_questions_reel - 5}`,
-      poids_cognitif:      sg.pilier_dominant.poids_cognitif
-    } : null,
-    pilier_structurant: sg.pilier_structurant ? {
-      pilier:              sg.pilier_structurant.pilier,
-      nom:                 sg.pilier_structurant.nom,
-      niveau_moyen:        sg.pilier_structurant.niveau_moyen,
-      nom_niveau_moyen:    sg.pilier_structurant.nom_niveau_moyen,
-      niveau_max:          sg.pilier_structurant.niveau_max,
-      nom_niveau_max:      sg.pilier_structurant.nom_niveau_max,
-      nb_questions_reelles: sg.pilier_structurant.nb_questions_reel,
-      ecart_theorique:     `${sg.pilier_structurant.nb_questions_reel - 5 >= 0 ? '+' : ''}${sg.pilier_structurant.nb_questions_reel - 5}`,
-      poids_cognitif:      sg.pilier_structurant.poids_cognitif
-    } : null,
-    piliers_moteurs:    sg.piliers_moteurs || [],
-    piliers_exclus:     sg.piliers_exclus || [],
+
+    // Distribution réelle — base de l'arbitrage fond
     profil_type:        dist.profil_type || null,
     distribution_reelle: Object.fromEntries(
       Object.entries(dist.distribution_reelle || {}).map(([p, nb]) => [
@@ -112,7 +121,9 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
     piliers_forte_concentration:  dist.piliers_forte_concentration || [],
     piliers_faible_concentration: dist.piliers_faible_concentration || [],
     piliers_conformes:            dist.piliers_conformes || [],
-    pattern_emergent:  algo.signature_cognitive?.pattern_recurrent || null,
+
+    // Signature cognitive (Agent 1 + Agent 3)
+    pattern_emergent: algo.signature_cognitive?.pattern_recurrent || null,
     signature_cognitive: {
       pattern_recurrent:    algo.signature_cognitive?.pattern_recurrent || null,
       coherence_agents:     algo.signature_cognitive?.coherence_agents || null,
@@ -122,6 +133,8 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
       signature_cloture:    agent1Corpus?.section_B?.signature_cloture || null,
       profil_laconique:     algo.signature_cognitive?.profil_laconique || null
     }
+    // pilier_dominant, pilier_structurant, piliers_moteurs, score_global :
+    // ABSENTS — le certificateur les détermine lui-même en étape 2A depuis syntheses_par_pilier
   };
 
   // ── syntheses_par_pilier ──────────────────────────────────────────────────
@@ -229,14 +242,47 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
     profil_type:        dist.profil_type || null
   };
 
+  // ── classement_2A pré-calculé ─────────────────────────────────────────────
+  // Le certificateur doit classer par nb_questions_reel (étape 2A)
+  // On le pré-calcule ici pour éviter qu'il utilise synthese_globale.pilier_dominant
+  const classement2A = Object.entries(NOM_PILIERS).map(([p, nom]) => {
+    const key = `${p}_${nom}`;
+    const sp = scoresPiliers[key] || {};
+    return {
+      pilier: p,
+      nom,
+      nb_questions_reel: sp.nb_questions_reel || 0,
+      total_soph:        sp.total_soph || 0,
+      niveau_max:        sp.niveau_max || 0,
+      nom_niveau_max:    sp.nom_niveau_max || null
+    };
+  }).sort((a, b) => {
+    // Tri 1 : nb_questions_reel DESC
+    if (b.nb_questions_reel !== a.nb_questions_reel) return b.nb_questions_reel - a.nb_questions_reel;
+    // Tri 2 : total_soph DESC (départage)
+    if (b.total_soph !== a.total_soph) return b.total_soph - a.total_soph;
+    // Tri 3 : niveau_max DESC (2ème départage)
+    return b.niveau_max - a.niveau_max;
+  });
+
+  const [p2ADominant, p2AStructurant, p2A3eme] = classement2A;
+
+  const classement2AOutput = {
+    classement: classement2A.map((p, i) => ({ rang: i + 1, ...p })),
+    pilier_dominant_2A:    { pilier: p2ADominant.pilier,    niveau_max: p2ADominant.niveau_max,    nb_questions_reel: p2ADominant.nb_questions_reel },
+    pilier_structurant_2A: { pilier: p2AStructurant.pilier, niveau_max: p2AStructurant.niveau_max, nb_questions_reel: p2AStructurant.nb_questions_reel },
+    pilier_3_2A:           { pilier: p2A3eme.pilier,        niveau_max: p2A3eme.niveau_max,        nb_questions_reel: p2A3eme.nb_questions_reel },
+    note: "Classement calculé par nb_questions_reel (étape 2A obligatoire). À utiliser PRIORITAIREMENT sur synthese_globale.pilier_dominant pour identifier les piliers dominant/structurant/3ème."
+  };
+
   return {
-    session_id:            algo.session_ID,
-    candidat:              algo.candidat,
-    date_analyse:          algo.date_analyse,
-    synthese_globale:      syntheseGlobale,
-    syntheses_par_pilier:  synthesesParPilier,
+    session_id:               algo.session_ID,
+    candidat:                 algo.candidat,
+    date_analyse:             algo.date_analyse,
+    synthese_globale:         syntheseGlobale,
+    syntheses_par_pilier:     synthesesParPilier,
     excellences_par_scenario: excellencesParScenario,
-    scores_verification:   scoresVerification
+    scores_verification:      scoresVerification
   };
 }
 
@@ -274,6 +320,30 @@ function cleanCertificateurResult(raw) {
   }
   if (cleaned.excellence_secondaire) {
     cleaned.excellence_secondaire = mapExcellenceName(cleaned.excellence_secondaire);
+  }
+
+  // Normaliser les champs _pattern (Single Select : systématique/contextuel/situationnel)
+  // et _synthese (Single Select dans BILAN — ne pas y écrire de texte long)
+  const PATTERN_FIELDS = [
+    'anticipation_pattern', 'decentration_pattern', 'metacognition_pattern', 'vue_systemique_pattern'
+  ];
+  const SYNTHESE_AS_SELECT = [
+    'vue_systemique_synthese'  // Single Select dans BILAN — seulement le pattern court
+  ];
+  for (const f of PATTERN_FIELDS) {
+    if (cleaned[f]) cleaned[f] = normalizePattern(cleaned[f]);
+  }
+  for (const f of SYNTHESE_AS_SELECT) {
+    if (cleaned[f]) {
+      const normalized = normalizePattern(cleaned[f]);
+      // Si c'est un texte long (narratif), on le met dans vue_systemique_qualification à la place
+      if (normalized === null && cleaned[f].length > 30) {
+        cleaned['vue_systemique_qualification'] = cleaned['vue_systemique_qualification'] || cleaned[f];
+        cleaned[f] = null;
+      } else {
+        cleaned[f] = normalized;
+      }
+    }
   }
 
   // Garantir que jamais angles_morts / anglesmorts ne passe dans les champs
@@ -428,7 +498,12 @@ async function run(session_id, algoOutput, agent3Syntheses, agent1Corpus, questi
 // ═══════════════════════════════════════════════════════════════════════════
 
 function buildUserPrompt(inputJson) {
-  return `Génère le rapport de profil cognitif certifié pour ce candidat en suivant les 5 étapes du prompt système.
+  return `Génère le rapport de profil cognitif certifié pour ce candidat en suivant STRICTEMENT les étapes du prompt système.
+
+⚠️ RAPPEL ÉTAPE 2A OBLIGATOIRE :
+synthese_globale ne contient PAS de pilier_dominant pré-calculé.
+Tu dois classer toi-même les 5 piliers par nb_questions_reelles depuis syntheses_par_pilier.
+C'est la seule base valide pour identifier dominant / structurant / 3ème pilier.
 
 Voici les données complètes :
 
@@ -438,7 +513,6 @@ Produis UNIQUEMENT le JSON final certifié tel que défini dans la section "OUTP
 Pas de commentaire avant ou après le JSON.
 Le champ rapport_markdown_complet doit assembler TOUTES les sections du rapport.`;
 }
-
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
