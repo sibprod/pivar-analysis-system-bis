@@ -197,7 +197,13 @@ function mapToAirtableFields(parsed) {
 
   // M7 — detail par niveaux (JSON stringify de l'objet par pilier)
   const detailParNiveaux = piliersCles.length > 0 ? JSON.stringify(m7) : null;
-  const plusieursNiveaux = piliersCles.length > 1;
+  // plusieurs_niveaux_reponse est un multipleSelects → array des noms de niveaux activés
+  const plusieursNiveauxArray = piliersCles.length > 1
+    ? Object.values(m7)
+        .filter(d => d.amplitude)
+        .map(d => NOM_AMPLITUDE[d.amplitude])
+        .filter(Boolean)
+    : [];
 
   // M8 — lecture cognitive
   const m8 = mesure.mission_8_lecture_cognitive || {};
@@ -246,7 +252,7 @@ function mapToAirtableFields(parsed) {
     niveau_amplitude_max:         nomAmplitude,        // "EXÉCUTEUR" ... "ARCHITECTE"
     zone_amplitude_max:           zoneAmplitude,       // "Exécution" / "Opérationnelle" / "Stratégique"
     detail_par_niveaux:           detailParNiveaux,
-    plusieurs_niveaux_reponse:    plusieursNiveaux,
+    plusieurs_niveaux_reponse:    plusieursNiveauxArray,  // array de strings pour multipleSelects
 
     // M8 — limbique_intensite : valeurs exactes Airtable : "aucune"/"faible"/"modérée"/"forte"
     nombre_mots_reponse:  m8.nombre_mots_reponse || 0,
