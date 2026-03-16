@@ -491,9 +491,9 @@ async function run(session_id, candidat, questionsData, agent3Syntheses, agent1C
   const piliersConformes = PILIERS.filter(p => Math.abs(ecarts[p]) <= 1);
 
   // ── ÉTAPE 7 : Agrégations qualité passation ───────────────────────────────
-  const tauxRepond        = questionsAvecScores.filter(q => q.repond_question === 'OUI'    || q.repond_question === true).length;
-  const tauxProblematique = questionsAvecScores.filter(q => q.traite_problematique_situation === 'OUI' || q.traite_problematique_situation === true).length;
-  const tauxProcessus     = questionsAvecScores.filter(q => q.fait_processus_pilier === 'OUI' || q.fait_processus_pilier === true).length;
+  const tauxRepond        = questionsAvecScores.filter(q => q.repond_question === 'OUI' || q.repond_question === true || q.repond_question === 'oui').length;
+  const tauxProblematique = questionsAvecScores.filter(q => q.traite_problematique_situation === 'OUI' || q.traite_problematique_situation === true || q.traite_problematique_situation === 'oui').length;
+  const tauxProcessus     = questionsAvecScores.filter(q => q.fait_processus_pilier === 'OUI' || q.fait_processus_pilier === true || q.fait_processus_pilier === 'oui').length;
   const nbLaconiques    = questionsAvecScores.filter(q => q.laconique === true).length;
 
   // ── ÉTAPE 8 : Verbatims et manifestations agrégés ────────────────────────
