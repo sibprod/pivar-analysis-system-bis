@@ -130,6 +130,147 @@ function buildQuestionsDataPourAlgo(questions, verifArbitrages, agent2Analyses, 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RESET — Effacer toutes les analyses précédentes (NOUVEAU)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Effacer toutes les données d'analyse dans RESPONSES (25 questions) et BILAN.
+ * Utilisé quand statut_analyse_pivar = NOUVEAU pour repartir de zéro.
+ */
+async function resetAnalyses(session_id) {
+  logger.info('Orchestrateur: reset analyses', { session_id });
+
+  try {
+    const questions = await airtableService.getResponsesBySession(session_id);
+
+    // Champs à effacer dans RESPONSES — valeurs null pour chaque type
+    const resetFields = {
+      // Textes longs
+      fld8sIIerm9D7aqDW: null,  // analyse_json_agent1
+      fldHjYiLRvHX1MFZr: null,  // analyse_json_verificateur
+      flduytD4EVUSGjeER: null,  // analyse_json_agent2
+      fldG9q1pPAHmRmbRY: null,  // analyse_json_agent3
+      fldguBgRnrluNU5Ho: null,  // verification_coeur
+      fldRbdhTxjPqcKKP1: null,  // justification_attribution_pilier_coeur
+      fldmSUdxO4kEiBdDr: null,  // circuits_actives_pilier_coeur
+      fldXy4v9LYKONyh60: null,  // circuits_actives
+      fldyfEJoRbfgtc6at: null,  // boucles_detectees
+      fldjmq6qGYTTAyGR4: null,  // liste_piliers_actives
+      fld2UA6fw7rT8Arxj: null,  // lecture_cognitive_m8
+      fldXDq7iGLTCL4pSt: null,  // profiling_qualifie
+      // Single Select → null
+      fldVH4l1Ma7ByteEw: null,  // statut_analyse_reponses
+      fldnHZ2DonVK0kDdf: null,  // limbique_intensite
+      fld31aTEofMKzRjqc: null,  // anticipation_niveau
+      fld1UGZoOrW1KS6NZ: null,  // decentration_niveau
+      fldkpqxLmzjNDazfZ: null,  // metacognition_niveau
+      fldCCSk8y87qeFcwA: null,  // vue_systemique_niveau
+      fldSCklKBCDXbDiJQ: null,  // repond_question
+      fldLUpIAyQalo9xYA: null,  // traite_problematique_situation
+      fld3l1nAzn2TnRqb8: null,  // fait_processus_pilier
+      fldxEastGthoLFKrp: null,  // niveau_sophistication
+      fld3QPIoJequzxH0k: null,  // coherence_agent1_agent3
+      fldqEHRq4Rw8DSDRW: null,  // pilier_reponse_coeur
+      fldeZp63BUu379mVT: null,  // coherence
+      fldTsHPEMhAt4XFG8: null,  // pilier_reponse_coeur_confirme
+      fldZTMdFSl00Xym4p: null,  // niveau_amplitude_reponse
+      fldhbYNZyn2yhXvM8: null,  // niveau_amplitude_max
+      fldXd1T7qERS48L8K: null,  // zone_amplitude_max
+      fldJuhvXxR7WnvYeY: null,  // coherence_agents
+      // Checkbox → false
+      fld7Sv7yZqLZ8HWE1: false, // question_analysee
+      fld5TD44ZbsgOwzt4: false, // question_scoree
+      fldo3Ik7I8aheCE5O: false, // limbique_detecte
+      // Numbers → null
+      fldz9zfaVQRz7v7x6: null,  // dimensions_simples
+      fldOwW1YZwGURtNBk: null,  // nombre_criteres_details
+      fldWT7XTIPz2UjyWG: null,  // dimensions_sophistiquees
+      fldXUKnMYk8wHovAe: null,  // nombre_boucles
+      fldYk6u7YOOz5hgIk: null,  // score_question_niveau
+      fldltYFYS4RwsUN3H: null,  // score_question_calcule
+    };
+
+    // Effacer par batch de 10 (limite Airtable)
+    const Airtable = require('airtable');
+    const airtableConfig = require('../config/airtable');
+    const base = new Airtable({ apiKey: airtableConfig.TOKEN }).base(airtableConfig.BASE_ID);
+
+    for (let i = 0; i < questions.length; i += 10) {
+      const batch = questions.slice(i, i + 10).map(q => ({
+        id: q.airtable_id,
+        fields: resetFields
+      }));
+      await base(airtableConfig.TABLES.RESPONSES).update(batch, { typecast: true });
+    }
+
+    // Effacer le BILAN
+    const bilan = await airtableService.getBilan(session_id);
+    if (bilan) {
+      // Effacer les champs d'analyse dans BILAN (garder session_ID, Prenom, Nom, Email)
+      const bilanResetFields = {};
+      const bilanFieldsToClear = [
+        'synthese_json_complete','coherence_agents','profil_laconique',
+        'taux_repond_question','taux_traite_problematique','taux_fait_processus_pilier',
+        'moteur_cognitif','binome_actif','reaction_flou','signature_cloture',
+        'score_pilier_P1','niveau_max_P1','score_pilier_P2','niveau_max_P2',
+        'score_pilier_P3','niveau_max_P3','score_pilier_P4','niveau_max_P4',
+        'score_pilier_P5','niveau_max_P5',
+        'type_profil_cognitif','niveau_profil_cognitif','nom_niveau_profil_cognitif',
+        'zone_profil_cognitif','pilier_dominant_certif','pilier_structurant_certif',
+        'piliers_moteurs_certif','boucle_cognitive_ordre',
+        'profil_coché_P1','profil_coché_P2','profil_coché_P3','profil_coché_P4','profil_coché_P5',
+        'limbique_detecte','limbique_intensite_max','nb_questions_limbiques',
+        'anticipation_niveau','anticipation_pattern','anticipation_declencheur','anticipation_synthese','anticipation_qualification',
+        'decentration_niveau','decentration_pattern','decentration_declencheur','decentration_synthese','decentration_qualification',
+        'metacognition_niveau','metacognition_pattern','metacognition_declencheur','metacognition_synthese','metacognition_qualification',
+        'vue_systemique_niveau','vue_systemique_pattern','vue_systemique_declencheur','vue_systemique_synthese','vue_systemique_qualification',
+        'anticipation_verbatims_agreges','anticipation_manifestations_agreges',
+        'decentration_verbatims_agreges','decentration_manifestations_agreges',
+        'metacognition_verbatims_agreges','metacognition_manifestations_agreges',
+        'vue_systemique_verbatims_agreges','vue_systemique_manifestations_agreges',
+        'excellences_SOMMEIL','excellences_WEEKEND','excellences_ANIMAL','excellences_PANNE',
+        'excellence_dominante','excellence_secondaire','profil_excellences',
+        'circuits_top3_P1','circuits_top3_P2','circuits_top3_P3','circuits_top3_P4','circuits_top3_P5',
+        'boucles_detectees_pilier_P1','boucles_detectees_pilier_P2','boucles_detectees_pilier_P3','boucles_detectees_pilier_P4','boucles_detectees_pilier_P5',
+        'lecture_cognitive_enrichie_P1','lecture_cognitive_enrichie_P2','lecture_cognitive_enrichie_P3','lecture_cognitive_enrichie_P4','lecture_cognitive_enrichie_P5',
+        'profil_neuroscientifique_P1','profil_neuroscientifique_P2','profil_neuroscientifique_P3','profil_neuroscientifique_P4','profil_neuroscientifique_P5',
+        'definition_type_profil_cognitif','profil_personnalise','Nom_signature_excellence','section_signature_excellence',
+        'section_vigilance_limbique','section_excellences',
+        'section_pilier_P1','section_pilier_P2','section_pilier_P3','section_pilier_P4','section_pilier_P5',
+        'talent_definition','trois_capacites','pitch_recruteur','amplitude_deployee',
+        'pattern_navigation_revele','mantra_profil','points_vigilance_complet','rapport_markdown_complet',
+        'agent1_rapport','etape_1_arbitrage_fond','etape_2_lecture_algo','etape_3_diagnostics',
+        'statut_certification','notes_certificateur',
+        'encadrement_verdict','encadrement_diagnostic','encadrement_scenario','encadrement_bloquant',
+        'management_verdict','management_diagnostic','management_scenario','management_bloquant',
+        'tableau_comparatif_encadrer_manager',
+        'P1_simples_total','P1_simples_synthese','P1_sophistiquees_total','P1_sophistiquees_synthese',
+        'P2_simples_total','P2_simples_synthese','P2_sophistiquees_total','P2_sophistiquees_synthese',
+        'P3_simples_total','P3_simples_synthese','P3_sophistiquees_total','P3_sophistiquees_synthese',
+        'P4_simples_total','P4_simples_synthese','P4_sophistiquees_total','P4_sophistiquees_synthese',
+        'P5_simples_total','P5_simples_synthese','P5_sophistiquees_total','P5_sophistiquees_synthese',
+        'dimensions_simples_json','dimensions_sophistiquees_json','dimensions_superieures_liste','dimensions_superieures_count'
+      ];
+      for (const f of bilanFieldsToClear) bilanResetFields[f] = null;
+      await airtableService.updateBilan(session_id, bilanResetFields);
+    }
+
+    // Effacer les backups dans VISITEUR
+    await airtableService.updateVisiteur(session_id, {
+      backup_before_agent1: null, backup_after_agent1: null,
+      backup_before_agent2: null, backup_after_agent2: null,
+      backup_before_algo:   null, backup_after_algo:   null,
+      backup_before_certif: null, backup_after_certif: null,
+      backup_error:         null
+    });
+
+    logger.info('Orchestrateur: reset terminé', { session_id, questions: questions.length });
+  } catch (error) {
+    logger.warn('Orchestrateur: reset partiel (non bloquant)', { session_id, error: error.message });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PROCESSUS PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -142,7 +283,7 @@ async function processCandidate(session_id) {
 
   logger.info('Orchestrateur: démarrage pipeline', { session_id });
 
-  // ── Récupérer le visiteur et le bilan ────────────────────────────────────
+  // ── Récupérer le visiteur ────────────────────────────────────────────────
   let visiteur;
   try {
     visiteur = await airtableService.getVisiteur(session_id);
@@ -150,6 +291,18 @@ async function processCandidate(session_id) {
   } catch (error) {
     logger.error('Orchestrateur: visiteur introuvable', { session_id, error: error.message });
     throw error;
+  }
+
+  // ── Bloquer si déjà terminé ──────────────────────────────────────────────
+  if (visiteur.statut_analyse_pivar === 'terminé') {
+    logger.info('Orchestrateur: statut terminé — pipeline bloqué', { session_id });
+    return { session_id, statut: 'skip_terminé', duree_ms: 0 };
+  }
+
+  // ── Reset si NOUVEAU : effacer toutes les analyses précédentes ───────────
+  if (visiteur.statut_analyse_pivar === 'NOUVEAU') {
+    logger.info('Orchestrateur: statut NOUVEAU — reset des analyses précédentes', { session_id });
+    await resetAnalyses(session_id);
   }
 
   const candidat = {
