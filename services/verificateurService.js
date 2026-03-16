@@ -205,9 +205,8 @@ async function run(session_id, questions, agent1Analyses) {
 
     // Écriture immédiate dans RESPONSES
     const fields = mapToAirtableFields(result.result);
-    // JSON complet du vérificateur stocké dans analyse_json_agent2
-    // (sera écrasé par Agent 2 — à remplacer par analyse_json_verificateur quand colonne créée dans Airtable)
-    fields.analyse_json_agent2 = JSON.stringify(result.result);
+    // JSON complet du vérificateur dans son champ dédié
+    fields.analyse_json_verificateur = JSON.stringify(result.result);
     await airtableService.updateResponse(question.id_question, session_id, fields);
 
     const arbitrage = result.result.verificateur_arbitrage || {};
