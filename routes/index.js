@@ -110,7 +110,7 @@ router.get('/status/:session_id', async (req, res) => {
 
     res.json({
       session_id,
-      statut_analyse_reponses: visiteur.statut_analyse_reponses || null,  // v8
+      statut_analyse_pivar:    visiteur.statut_analyse_pivar || null,   // champ VISITEUR
       statut_test:             visiteur.statut_test,
       derniere_question_repondue: visiteur.derniere_question_repondue,
       derniere_activite:       visiteur.derniere_activite,
