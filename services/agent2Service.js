@@ -111,6 +111,17 @@ Produis UNIQUEMENT le JSON complet agent2_mesure tel que défini dans le prompt 
 // EXTRACTION DES CHAMPS AIRTABLE DEPUIS LE JSON AGENT 2
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Normaliser limbique_intensite vers les valeurs exactes Airtable
+function normalizeLimbique(v) {
+  if (!v) return 'aucune';
+  const n = v.toString().toLowerCase().trim();
+  if (n === 'aucune' || n === 'aucun' || n === 'none') return 'aucune';
+  if (n === 'faible') return 'faible';
+  if (n.includes('modér') || n.includes('moder')) return 'modérée';
+  if (n === 'forte' || n === 'fort') return 'forte';
+  return 'aucune';
+}
+
 /**
  * Mapper le JSON agent2 vers les champs plats Airtable RESPONSES.
  * @param {Object} parsed - JSON brut produit par Agent 2
@@ -153,19 +164,35 @@ function mapToAirtableFields(parsed) {
   let justifAmplitude = null;
   let amplitudeNiveau = null;
 
+  // Mapping zone amplitude → valeurs exactes Airtable
+  // Airtable accepte : "Exécution" / "Opérationnelle" / "Stratégique"
+  function normalizeZone(z) {
+    if (!z) return null;
+    const v = z.toLowerCase();
+    if (v.includes('exécut') || v.includes('execut') || v.includes('fondament')) return 'Exécution';
+    if (v.includes('opérat') || v.includes('operat') || v.includes('tactique')) return 'Opérationnelle';
+    if (v.includes('stratég') || v.includes('strateg')) return 'Stratégique';
+    return z; // pass-through si inconnu
+  }
+
+  // Mapping amplitude numérique → nom Airtable
+  const NOM_AMPLITUDE = {
+    1: 'EXÉCUTEUR', 2: 'SYSTÉMATIQUE', 3: 'MÉTHODIQUE', 4: 'OPTIMISATEUR',
+    5: 'ADAPTATEUR', 6: 'DÉTECTEUR', 7: 'ORCHESTRATEUR', 8: 'MAÎTRE', 9: 'ARCHITECTE'
+  };
+
   if (piliersCles.length > 0) {
-    // Prendre l'amplitude du pilier avec la valeur la plus haute
     let maxVal = -1;
     for (const [pilier, data] of Object.entries(m7)) {
       if ((data.amplitude || 0) > maxVal) {
         maxVal = data.amplitude;
         amplitudeMax = data.amplitude;
-        nomAmplitude = data.nom_amplitude || null;
-        zoneAmplitude = data.zone_amplitude || null;
+        nomAmplitude = NOM_AMPLITUDE[data.amplitude] || data.nom_amplitude || null;
+        zoneAmplitude = normalizeZone(data.zone_amplitude);
         justifAmplitude = data.justification_qualitative || null;
       }
     }
-    amplitudeNiveau = amplitudeMax;
+    amplitudeNiveau = amplitudeMax ? String(amplitudeMax) : null; // "1" à "9" strings
   }
 
   // M7 — detail par niveaux (JSON stringify de l'objet par pilier)
@@ -215,17 +242,17 @@ function mapToAirtableFields(parsed) {
     vue_systemique_contexte_activation: vueSystemique.contexte_activation || null,
 
     // M7 — amplitude
-    niveau_amplitude_reponse:     amplitudeNiveau,
-    niveau_amplitude_max:         amplitudeMax,
-    zone_amplitude_max:           zoneAmplitude,
+    niveau_amplitude_reponse:     amplitudeNiveau,    // "1" à "9" (string)
+    niveau_amplitude_max:         nomAmplitude,        // "EXÉCUTEUR" ... "ARCHITECTE"
+    zone_amplitude_max:           zoneAmplitude,       // "Exécution" / "Opérationnelle" / "Stratégique"
     detail_par_niveaux:           detailParNiveaux,
     plusieurs_niveaux_reponse:    plusieursNiveaux,
 
-    // M8
+    // M8 — limbique_intensite : valeurs exactes Airtable : "aucune"/"faible"/"modérée"/"forte"
     nombre_mots_reponse:  m8.nombre_mots_reponse || 0,
     laconique:            m8.laconique || false,
     limbique_detecte:     m8.limbique_detecte || false,
-    limbique_intensite:   m8.limbique_intensite || null,
+    limbique_intensite:   normalizeLimbique(m8.limbique_intensite),
     limbique_detail:      m8.limbique_detail || null,
     marqueurs_emotionnels_detectes: m8.limbique_detail || null,
 
