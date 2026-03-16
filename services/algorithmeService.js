@@ -603,7 +603,7 @@ async function run(session_id, candidat, questionsData, agent3Syntheses, agent1C
     // Scores et niveaux par pilier
     ...Object.fromEntries(PILIERS.flatMap(p => [
       [`score_pilier_${p}`, scoresPiliers[p].score_contenu_moyen],
-      [`niveau_max_${p}`,   scoresPiliers[p].niveau_max]
+      [`niveau_max_${p}`,   scoresPiliers[p].nom_niveau_max]   // nom ex: "MAÎTRE" pas chiffre
     ])),
 
     // Profil global
