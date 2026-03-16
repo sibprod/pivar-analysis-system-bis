@@ -1,7 +1,7 @@
 {
-  "name": "pivar-analysis-system",
-  "version": "7.0.0",
-  "description": "Système d'analyse cognitive PIVAR v7.0 - Architecture 2 agents + Algorithme + Certificateur",
+  "name": "profil-cognitif-analysis-system",
+  "version": "8.0.0",
+  "description": "Système d'analyse du profil cognitif v8.0 - Pipeline 6 agents (Agent1, Vérificateur, Agent2, Agent3, Algorithme, Certificateur)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,7 +12,7 @@
     "lint:fix": "eslint . --fix"
   },
   "keywords": [
-    "pivar",
+    "profil-cognitif",
     "cognitive-analysis",
     "profiling",
     "airtable",
@@ -42,9 +42,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/pivar-analysis-system.git"
+    "url": "https://github.com/YOUR_USERNAME/profil-cognitif-analysis-system.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/pivar-analysis-system/issues"
+    "url": "https://github.com/YOUR_USERNAME/profil-cognitif-analysis-system/issues"
   }
 }
