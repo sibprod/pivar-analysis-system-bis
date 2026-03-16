@@ -16,8 +16,7 @@ module.exports = {
 
   // ─── VISITEUR ─────────────────────────────────────────────────────────────
   VISITEUR_FIELDS: {
-    session_ID:                  'session_ID',
-    candidate_ID:                'candidate_ID',
+    candidate_ID:                'candidate_ID',             // identifiant session dans VISITEUR
     Prenom:                      'Prenom',
     Nom:                         'Nom',
     Email:                       'Email',
