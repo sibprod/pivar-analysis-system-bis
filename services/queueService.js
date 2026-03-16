@@ -63,7 +63,8 @@ async function processQueue() {
     });
 
     for (const candidate of toProcess) {
-      processCandidate(candidate.session_ID || candidate.candidate_ID);
+      // Dans VISITEUR le champ identifiant s'appelle candidate_ID
+      processCandidate(candidate.candidate_ID);
     }
   } catch (error) {
     logger.error('Queue processing error', { error: error.message });
@@ -83,15 +84,12 @@ async function getCandidatesFromAirtable() {
     logger.info('Candidates fetched from Airtable', {
       total: allCandidates.length,
       statuses: allCandidates.map(c => ({
-        session_id: c.session_ID || c.candidate_ID,
+        session_id: c.candidate_ID,
         statut: c.statut_analyse_pivar
       }))
     });
 
-    const available = allCandidates.filter(c => {
-      const sid = c.session_ID || c.candidate_ID;
-      return !runningAnalyses.has(sid);
-    });
+    const available = allCandidates.filter(c => !runningAnalyses.has(c.candidate_ID));
 
     return available.sort((a, b) => getPriority(b) - getPriority(a));
   } catch (error) {
@@ -117,7 +115,7 @@ function getPriority(candidate) {
     const elapsedMinutes = (Date.now() - lastActivity) / 1000 / 60;
     if (elapsedMinutes > 30) {
       logger.warn('Stuck analysis detected', {
-        session_id: candidate.session_ID || candidate.candidate_ID,
+        session_id: candidate.candidate_ID,
         elapsedMinutes: elapsedMinutes.toFixed(1)
       });
       return 50;
