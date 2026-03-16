@@ -510,7 +510,7 @@ async function markError(session_id, etape, error) {
   logger.error(`Orchestrateur: ERREUR ${etape}`, { session_id, error: error.message });
   try {
     await airtableService.updateVisiteur(session_id, {
-      statut_analyse_reponses: `ERREUR_${etape.replace(/ /g, '_').toUpperCase()}`
+      statut_analyse_pivar: `ERREUR_${etape.replace(/ /g, '_').toUpperCase()}`  // champ Airtable VISITEUR
     });
   } catch (e) {
     logger.warn('Orchestrateur: impossible de marquer ERREUR dans VISITEUR', { error: e.message });
