@@ -128,12 +128,14 @@ function mapToAirtableFields(parsed) {
     justification_actions_majoritairement_faites: arbitrage.reserve_eventuelle || null,
     justification_attribution_niveau:   arbitrage.difficulte_referentiel || null,
 
-    // Qualification de la réponse
-    repond_question:                    parsed.repond_question || null,
-    traite_problematique_situation:     parsed.traite_problematique_situation || null,
-    fait_processus_pilier:              parsed.fait_processus_pilier || null,
+    // Qualification de la réponse — Single Select Airtable : "oui" / "non" (minuscules)
+    repond_question:                    parsed.repond_question === 'OUI' ? 'oui' : parsed.repond_question === 'NON' ? 'non' : null,
+    traite_problematique_situation:     parsed.traite_problematique_situation === 'OUI' ? 'oui' : parsed.traite_problematique_situation === 'NON' ? 'non' : null,
+    fait_processus_pilier:              parsed.fait_processus_pilier === 'OUI' ? 'oui' : parsed.fait_processus_pilier === 'NON' ? 'non' : null,
 
-    // Cohérence inter-agents — champ texte libre
+    // coherence = statut arbitrage vérificateur : "CONFIRMÉ" / "CORRIGÉ" / "MAINTENU_AVEC_RÉSERVE"
+    coherence:                          parsed.verificateur_statut || null,
+    // coherence_agents = même valeur (double écriture pour compatibilité)
     coherence_agents:                   parsed.verificateur_statut || null
   };
 }
