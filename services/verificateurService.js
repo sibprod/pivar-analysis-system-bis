@@ -121,7 +121,7 @@ function mapToAirtableFields(parsed) {
     // Pilier et niveau arbitrés finaux
     pilier_reponse_coeur:               arbitrage.pilier_coeur_final || null,
     verification_coeur:                 arbitrage.justification_arbitrage || null,
-    coherence:                          parsed.verificateur_statut || null,
+    // 'coherence' est un Single Select avec options fixes — ne pas écrire de nouvelles valeurs
     pilier_reponse_coeur_confirme:      arbitrage.pilier_coeur_final || null,
     justification_attribution_pilier_coeur: arbitrage.justification_arbitrage || null,
     circuits_actives_pilier_coeur:      JSON.stringify(parsed.piliers_actives || []),
@@ -133,7 +133,7 @@ function mapToAirtableFields(parsed) {
     traite_problematique_situation:     parsed.traite_problematique_situation || null,
     fait_processus_pilier:              parsed.fait_processus_pilier || null,
 
-    // Cohérence inter-agents (statut du vérificateur = CONFIRMÉ/CORRIGÉ/MAINTENU_AVEC_RÉSERVE)
+    // Cohérence inter-agents — champ texte libre
     coherence_agents:                   parsed.verificateur_statut || null
   };
 }
