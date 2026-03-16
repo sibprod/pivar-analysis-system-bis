@@ -292,11 +292,12 @@ module.exports = {
   // ─── MAPPING VALEURS ──────────────────────────────────────────────────────
   VALUE_MAPPING: {
     limbique_intensite: {
-      'modérée': 'modéré',
-      'moderee': 'modéré',
-      'aucune':  'aucune',
-      'faible':  'faible',
-      'forte':   'forte'
+      'moderee':  'modérée',
+      'modéree':  'modérée',
+      'moderate': 'modérée',
+      'aucune':   'aucune',
+      'faible':   'faible',
+      'forte':    'forte'
     }
   }
 };
