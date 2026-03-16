@@ -1,5 +1,5 @@
 {
-  "name": "profil-cognitif-analysis-system",
+  "name": "pivar-analysis-system-bis",
   "version": "8.0.0",
   "description": "Système d'analyse du profil cognitif v8.0 - Pipeline 6 agents (Agent1, Vérificateur, Agent2, Agent3, Algorithme, Certificateur)",
   "main": "server.js",
@@ -42,9 +42,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/profil-cognitif-analysis-system.git"
+    "url": "https://github.com/YOUR_USERNAME/pivar-analysis-system-bis.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/profil-cognitif-analysis-system/issues"
-  }
+    "url": "https://github.com/YOUR_USERNAME/pivar-analysis-system-bis/issues"
+  },
+  "homepage": "https://pivar-analysis-system-bis.onrender.com"
 }
