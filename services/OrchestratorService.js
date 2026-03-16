@@ -75,10 +75,11 @@ function buildQuestionsDataPourAlgo(questions, verifArbitrages, agent2Analyses, 
       || 1;
 
     // Dimensions sur le pilier cœur
-    const simplesCoeur = m4[pilierCoeur]?.total || 0;
-    const sophCoeur    = m5[pilierCoeur]?.total || 0;
-    // details = nombre_criteres_details du pilier cœur (approximé par total simples)
-    const detailsCoeur = simplesCoeur; // Agent 2 M4 comptage inclut les détails dans les simples
+    // M4 output : { total_dimensions_simples, nombre_criteres, liste_actions, liste_criteres }
+    // M5 output : { nombre, liste }
+    const simplesCoeur = m4[pilierCoeur]?.total_dimensions_simples || m4[pilierCoeur]?.total || 0;
+    const detailsCoeur = m4[pilierCoeur]?.nombre_criteres || 0;
+    const sophCoeur    = m5[pilierCoeur]?.nombre || m5[pilierCoeur]?.total || 0;
 
     // Excellences
     const excellences = {
@@ -189,7 +190,7 @@ async function processCandidate(session_id) {
   // ═══════════════════════════════════════════════════════════════════════
   const step1Start = Date.now();
 
-  if (etapeDejaFaite(questions, 'analyse_json_agent1')) {
+  if (etapeDejaFaite(questions, 'analyse_json_agent1') && bilanChampRenseigne(bilan, 'moteur_cognitif')) {
     logger.info('Orchestrateur: ÉTAPE 1 déjà faite — skip', { session_id });
     // Reconstruire agent1Result depuis Airtable
     agent1Result = {
