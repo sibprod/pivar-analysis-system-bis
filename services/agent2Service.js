@@ -166,13 +166,14 @@ function mapToAirtableFields(parsed) {
 
   // Mapping zone amplitude → valeurs exactes Airtable
   // Airtable accepte : "Exécution" / "Opérationnelle" / "Stratégique"
+  // 3 zones autorisées uniquement — toute autre valeur → null
   function normalizeZone(z) {
     if (!z) return null;
     const v = z.toLowerCase();
     if (v.includes('exécut') || v.includes('execut') || v.includes('fondament')) return 'Exécution';
     if (v.includes('opérat') || v.includes('operat') || v.includes('tactique')) return 'Opérationnelle';
     if (v.includes('stratég') || v.includes('strateg')) return 'Stratégique';
-    return z; // pass-through si inconnu
+    return null; // zone non reconnue → null, jamais d'invention
   }
 
   // Mapping amplitude numérique → nom Airtable
