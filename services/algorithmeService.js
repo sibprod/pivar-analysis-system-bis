@@ -24,13 +24,14 @@ const SCORE_NIVEAU = {
 };
 
 // Mapping score → niveau (plages)
+// 3 zones autorisées : Exécution (1-3) | Opérationnelle (4-6) | Stratégique (7-9)
 const PLAGES_NIVEAU = [
-  { min: 0.00, max: 0.49, niveau: 1, nom: 'EXÉCUTEUR',     zone: 'Fondamentale' },
-  { min: 0.50, max: 0.99, niveau: 2, nom: 'SYSTÉMATIQUE',  zone: 'Fondamentale' },
-  { min: 1.00, max: 1.49, niveau: 3, nom: 'MÉTHODIQUE',    zone: 'Opérationnelle' },
+  { min: 0.00, max: 0.49, niveau: 1, nom: 'EXÉCUTEUR',     zone: 'Exécution' },
+  { min: 0.50, max: 0.99, niveau: 2, nom: 'SYSTÉMATIQUE',  zone: 'Exécution' },
+  { min: 1.00, max: 1.49, niveau: 3, nom: 'MÉTHODIQUE',    zone: 'Exécution' },
   { min: 1.50, max: 1.99, niveau: 4, nom: 'OPTIMISATEUR',  zone: 'Opérationnelle' },
   { min: 2.00, max: 2.49, niveau: 5, nom: 'ADAPTATEUR',    zone: 'Opérationnelle' },
-  { min: 2.50, max: 2.99, niveau: 6, nom: 'DÉTECTEUR',     zone: 'Tactique' },
+  { min: 2.50, max: 2.99, niveau: 6, nom: 'DÉTECTEUR',     zone: 'Opérationnelle' },
   { min: 3.00, max: 3.49, niveau: 7, nom: 'ORCHESTRATEUR', zone: 'Stratégique' },
   { min: 3.50, max: 3.79, niveau: 8, nom: 'MAÎTRE',        zone: 'Stratégique' },
   { min: 3.80, max: 4.00, niveau: 9, nom: 'ARCHITECTE',    zone: 'Stratégique' }
@@ -371,9 +372,8 @@ function construireBoucleCognitive(top3) {
 
 function zoneGlobale(niveau) {
   if (niveau >= 7) return 'Stratégique';
-  if (niveau >= 6) return 'Tactique';
-  if (niveau >= 3) return 'Opérationnelle';
-  return 'Fondamentale';
+  if (niveau >= 4) return 'Opérationnelle';
+  return 'Exécution';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
