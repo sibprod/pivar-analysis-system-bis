@@ -1,23 +1,21 @@
 // config/airtable.js
-// Configuration Airtable v8.1 — Pipeline profil cognitif
+// Configuration Airtable v8.2 — Pipeline profil cognitif
 //
-// CORRECTIONS v8.1 (au fur et à mesure des audits) :
+// CORRECTIONS v8.1 :
+// - circuits_actives_pilier_coeur SUPPRIMÉ — champ inexistant dans Airtable
+// - pilier_reponse_coeur_confirme SUPPRIMÉ — doublon de pilier_reponse_coeur
+// - justification_attribution_pilier_coeur SUPPRIMÉ — doublon de verification_coeur
+// - boucles_detectees ajouté — reçoit boucles_finales arbitrées du Vérificateur
+// - pattern_emergent ajouté dans BILAN — reçoit section_C appel corpus Agent 1
 //
-// RESPONSES_FIELDS :
-// - circuits_actives_pilier_coeur SUPPRIMÉ — champ inexistant dans Airtable (ancien nom)
-// - pilier_reponse_coeur_confirme SUPPRIMÉ — doublon de pilier_reponse_coeur (organigramme v3)
-// - justification_attribution_pilier_coeur SUPPRIMÉ — doublon de verification_coeur (organigramme v3)
-// - boucles_detectees ajouté — reçoit boucles_finales arbitrées du Vérificateur (v8.1)
-// - marqueurs_emotionnels_detectes SUPPRIMÉ — doublon de limbique_detail (organigramme v3 C8)
-// - impact_excellences_profil SUPPRIMÉ — doublon de capacites_detectees (organigramme v3 C8)
-// - coherence_agents SUPPRIMÉ de RESPONSES — doublon BILAN (organigramme v3 Agent 3)
-//
-// BILAN_FIELDS :
-// - pattern_emergent ajouté sous Agent 1 — reçoit section_C de l'appel corpus (v8.1)
-//
-// ALLOWED_VALUES :
-// - coherence_agent1_agent3 ajouté — TOTALE/PARTIELLE/FAIBLE (Agent 3)
-// - profiling_qualifie ajouté — OK/FLAG_REVISION (Agent 3)
+// CORRECTIONS v8.2 (Agent 2 + Agent 3 + Algorithme) :
+// - marqueurs_emotionnels_detectes SUPPRIMÉ — doublon de limbique_detail
+// - impact_excellences_profil SUPPRIMÉ — doublon de capacites_detectees
+// - coherence_agents SUPPRIMÉ de RESPONSES — doublon BILAN (Agent 3)
+// - coherence_agent1_agent3 et profiling_qualifie ajoutés dans ALLOWED_VALUES
+// - score_question_calcule reçoit score CONTENU uniquement (jamais barème)
+// - score_question_niveau reçoit niveau CONTENU uniquement (jamais barème)
+// - synthese_json_complete reçoit outputCertificateur (score CONTENU, jamais barème)
 
 module.exports = {
   BASE_ID: process.env.AIRTABLE_BASE_ID,
@@ -31,13 +29,13 @@ module.exports = {
 
   // ─── VISITEUR ─────────────────────────────────────────────────────────────
   VISITEUR_FIELDS: {
-    candidate_ID:               'candidate_ID',         // identifiant session dans VISITEUR
+    candidate_ID:               'candidate_ID',
     Prenom:                     'Prenom',
     Nom:                        'Nom',
     Email:                      'Email',
     statut_test:                'statut_test',
     derniere_question_repondue: 'derniere_question_repondue',
-    statut_analyse_pivar:       'statut_analyse_pivar', // champ VISITEUR — conservé tel quel dans Airtable
+    statut_analyse_pivar:       'statut_analyse_pivar',
     erreur_analyse:             'erreur_analyse',
     derniere_activite:          'derniere_activite',
     backup_sommeil:             'backup_sommeil',
@@ -58,61 +56,50 @@ module.exports = {
   // ─── RESPONSES ────────────────────────────────────────────────────────────
   RESPONSES_FIELDS: {
 
-    // ── Identité (lecture seule) ──────────────────────────────────────────────
-    session_ID:    'session_ID',
-    id_question:   'id_question',
-    numero_global: 'numero_global',
-    pilier:        'pilier',
-    scenario_nom:  'scenario_nom',
-    question_text: 'question_text',
-    response_text: 'response_text',
+    // Identité (lecture seule)
+    session_ID:     'session_ID',
+    id_question:    'id_question',
+    numero_global:  'numero_global',
+    pilier:         'pilier',
+    scenario_nom:   'scenario_nom',
+    question_text:  'question_text',
+    response_text:  'response_text',
     statut_reponse: 'statut_reponse',
     date_response:  'date_response',
 
-    // ── Agent 1 ───────────────────────────────────────────────────────────────
-    // Écrits par agent1Service.js
+    // ── Agent 1 — écrit par agent1Service.js ─────────────────────────────────
     analyse_json_agent1:      'analyse_json_agent1',
     question_analysee:        'question_analysee',        // checkpoint Agent 1
-    pilier_reponse_coeur:     'pilier_reponse_coeur',     // pilier_coeur brut Agent 1 — écrasé par Vérificateur
-    niveau_amplitude_reponse: 'niveau_amplitude_reponse', // niveau_coeur brut Agent 1 — écrasé par Vérificateur
-    liste_piliers_actives:    'liste_piliers_actives',    // sequence brute Agent 1 — écrasée par Vérificateur
-    piliers_actives_final:    'piliers_actives_final',    // piliers_actives array — mis à jour par Vérificateur
-    boucles_detectees_agent1: 'boucles_detectees_agent1', // boucles narratives Agent 1 (version brute)
+    pilier_reponse_coeur:     'pilier_reponse_coeur',     // écrasé par Vérificateur
+    niveau_amplitude_reponse: 'niveau_amplitude_reponse', // écrasé par Vérificateur
+    liste_piliers_actives:    'liste_piliers_actives',    // écrasée par Vérificateur
+    piliers_actives_final:    'piliers_actives_final',
+    boucles_detectees_agent1: 'boucles_detectees_agent1',
     nombre_boucles_agent1:    'nombre_boucles_agent1',
 
-    // ── Vérificateur ──────────────────────────────────────────────────────────
-    // Écrits par verificateurService.js — écrasent ou complètent les champs Agent 1
-    analyse_json_verificateur:                  'analyse_json_verificateur',
-    // pilier_reponse_coeur écrasé avec pilier_coeur_final arbitré
-    // niveau_amplitude_reponse écrasé avec niveau_coeur_final arbitré
-    // liste_piliers_actives écrasée avec sequence_finale arbitrée
-    // piliers_actives_final mis à jour avec piliers_actives arbitrés
-    boucles_detectees:                          'boucles_detectees',          // boucles_finales arbitrées (v8.1)
-    verification_coeur:                         'verification_coeur',         // justification arbitrage
-    // justification_attribution_pilier_coeur SUPPRIMÉ — doublon de verification_coeur
-    justification_actions_majoritairement_faites: 'justification_actions_majoritairement_faites', // reserve_eventuelle
-    justification_attribution_niveau:           'justification_attribution_niveau',               // difficulte_referentiel
-    repond_question:                            'repond_question',
-    traite_problematique_situation:             'traite_problematique_situation',
-    fait_processus_pilier:                      'fait_processus_pilier',
-    coherence:                                  'coherence',                  // verificateur_statut — checkpoint orchestrateur
-    // coherence_agents est écrit par Agent 3, pas le Vérificateur
+    // ── Vérificateur — écrit par verificateurService.js ──────────────────────
+    analyse_json_verificateur:                    'analyse_json_verificateur',
+    boucles_detectees:                            'boucles_detectees',          // boucles_finales arbitrées
+    verification_coeur:                           'verification_coeur',
+    // justification_attribution_pilier_coeur SUPPRIMÉ — doublon verification_coeur
+    justification_actions_majoritairement_faites: 'justification_actions_majoritairement_faites',
+    justification_attribution_niveau:             'justification_attribution_niveau',
+    repond_question:                              'repond_question',
+    traite_problematique_situation:               'traite_problematique_situation',
+    fait_processus_pilier:                        'fait_processus_pilier',
+    coherence:                                    'coherence',                  // checkpoint orchestrateur
 
-    // ── Agent 2 ───────────────────────────────────────────────────────────────
-    // Écrits par agent2Service.js
+    // ── Agent 2 — écrit par agent2Service.js ─────────────────────────────────
     analyse_json_agent2:            'analyse_json_agent2',
-
     // M4 — dimensions simples
     dimensions_simples:             'dimensions_simples',
     liste_dimensions_simples:       'liste_dimensions_simples',
     nombre_criteres_details:        'nombre_criteres_details',
     liste_criteres_details:         'liste_criteres_details',
-
     // M5 — dimensions sophistiquées
     dimensions_sophistiquees:       'dimensions_sophistiquees',
     liste_dimensions_sophistiquees: 'liste_dimensions_sophistiquees',
     niveau_sophistication:          'niveau_sophistication',
-
     // M6 — 4 excellences
     anticipation_niveau:              'anticipation_niveau',
     anticipation_verbatim:            'anticipation_verbatim',
@@ -130,38 +117,37 @@ module.exports = {
     vue_systemique_verbatim:          'vue_systemique_verbatim',
     vue_systemique_manifestation:     'vue_systemique_manifestation',
     vue_systemique_contexte_activation: 'vue_systemique_contexte_activation',
-
     // M7 — amplitude
-    niveau_amplitude_max:      'niveau_amplitude_max',       // nom du niveau : "MAÎTRE" etc.
+    niveau_amplitude_max:      'niveau_amplitude_max',
     zone_amplitude_max:        'zone_amplitude_max',
     detail_par_niveaux:        'detail_par_niveaux',
     plusieurs_niveaux_reponse: 'plusieurs_niveaux_reponse',
-
     // M8 — lecture cognitive
     nombre_mots_reponse: 'nombre_mots_reponse',
     laconique:           'laconique',
     limbique_detecte:    'limbique_detecte',
     limbique_intensite:  'limbique_intensite',
     limbique_detail:     'limbique_detail',
+    // marqueurs_emotionnels_detectes SUPPRIMÉ — doublon limbique_detail
     capacites_detectees: 'capacites_detectees',
+    // impact_excellences_profil SUPPRIMÉ — doublon capacites_detectees
 
-    // ── Agent 3 ───────────────────────────────────────────────────────────────
-    // Écrits par agent3Service.js
+    // ── Agent 3 — écrit par agent3Service.js ─────────────────────────────────
     analyse_json_agent3:      'analyse_json_agent3',
-    circuits_actives:         'circuits_actives',            // numéros circuits par pilier
-    boucles_detectees_agent3: 'boucles_detectees_agent3',   // boucles version circuits Agent 3
+    circuits_actives:         'circuits_actives',
+    boucles_detectees_agent3: 'boucles_detectees_agent3',
     nombre_boucles_agent3:    'nombre_boucles_agent3',
-    coherence_agent1_agent3:  'coherence_agent1_agent3',    // TOTALE/PARTIELLE/FAIBLE
-    profiling_qualifie:       'profiling_qualifie',          // OK / FLAG_REVISION
+    coherence_agent1_agent3:  'coherence_agent1_agent3',  // TOTALE/PARTIELLE/FAIBLE
+    profiling_qualifie:       'profiling_qualifie',        // OK/FLAG_REVISION
     lecture_cognitive_m8:     'lecture_cognitive_m8',
-    // coherence_agents SUPPRIMÉ de RESPONSES — doublon BILAN (organigramme v3)
+    // coherence_agents SUPPRIMÉ de RESPONSES — doublon BILAN
 
-    // ── Algorithme ────────────────────────────────────────────────────────────
-    // Écrits par algorithmeService.js
+    // ── Algorithme — écrit par algorithmeService.js ───────────────────────────
+    // score CONTENU uniquement — le barème ne sort jamais dans Airtable
     score_question_calcule:  'score_question_calcule',
     score_question_niveau:   'score_question_niveau',
-    question_scoree:         'question_scoree',              // checkpoint Algorithme
-    statut_analyse_reponses: 'statut_analyse_reponses'       // 'analyse_ok' quand scorée
+    question_scoree:         'question_scoree',
+    statut_analyse_reponses: 'statut_analyse_reponses'
   },
 
   // ─── BILAN ────────────────────────────────────────────────────────────────
@@ -171,15 +157,15 @@ module.exports = {
     bilan_ID:   'bilan_ID',
     session_ID: 'session_ID',
 
-    // ── Agent 1 (appel corpus) ────────────────────────────────────────────────
+    // ── Agent 1 — appel corpus ────────────────────────────────────────────────
     moteur_cognitif:   'moteur_cognitif',
     binome_actif:      'binome_actif',
     reaction_flou:     'reaction_flou',
     signature_cloture: 'signature_cloture',
     agent1_rapport:    'agent1_rapport',
-    pattern_emergent:  'pattern_emergent',   // CORRECTION v8.1 — Section C, ajouté
+    pattern_emergent:  'pattern_emergent',   // Section C — ajouté v8.1
 
-    // ── Agent 3 (synthèses pilier) ────────────────────────────────────────────
+    // ── Agent 3 — synthèses pilier ────────────────────────────────────────────
     circuits_top3_P1:            'circuits_top3_P1',
     circuits_top3_P2:            'circuits_top3_P2',
     circuits_top3_P3:            'circuits_top3_P3',
@@ -205,7 +191,7 @@ module.exports = {
     nb_questions_limbiques:      'nb_questions_limbiques',
     coherence_agents:            'coherence_agents',
 
-    // ── Algorithme ────────────────────────────────────────────────────────────
+    // ── Algorithme — scores CONTENU uniquement, jamais barème ─────────────────
     score_pilier_P1:            'score_pilier_P1',
     niveau_max_P1:              'niveau_max_P1',
     score_pilier_P2:            'score_pilier_P2',
@@ -264,7 +250,7 @@ module.exports = {
     dimensions_sophistiquees_json: 'dimensions_sophistiquees_json',
     dimensions_superieures_liste: 'dimensions_superieures_liste',
     dimensions_superieures_count: 'dimensions_superieures_count',
-    synthese_json_complete:       'synthese_json_complete',
+    synthese_json_complete:       'synthese_json_complete',     // outputCertificateur — score CONTENU uniquement
     niveau_global:                'niveau_global',
     zone_globale:                 'zone_globale',
     score_global:                 'score_global',
@@ -342,6 +328,8 @@ module.exports = {
     statut_analyse_pivar:    ['NOUVEAU', 'en_cours', 'terminé', 'ERREUR'],
     statut_analyse_reponses: ['en_attente', 'analyse_ok', 'erreur'],
     coherence:               ['CONFIRMÉ', 'CORRIGÉ', 'MAINTENU_AVEC_RÉSERVE'],
+    coherence_agent1_agent3: ['TOTALE', 'PARTIELLE', 'FAIBLE'],
+    profiling_qualifie:      ['OK', 'FLAG_REVISION'],
     pilier:                  ['P1', 'P2', 'P3', 'P4', 'P5'],
     scenario_nom:            ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'],
     niveau_sophistication:   ['faible', 'moyen', 'élevé'],
@@ -349,9 +337,7 @@ module.exports = {
     zone_profil_cognitif:    ['Exécution', 'Opérationnelle', 'Stratégique'],
     repond_question:         ['oui', 'non'],
     traite_problematique_situation: ['oui', 'non'],
-    fait_processus_pilier:   ['oui', 'non'],
-    coherence_agent1_agent3: ['TOTALE', 'PARTIELLE', 'FAIBLE'],
-    profiling_qualifie:      ['OK', 'FLAG_REVISION']
+    fait_processus_pilier:   ['oui', 'non']
   },
 
   // ─── MAPPING VALEURS ──────────────────────────────────────────────────────
