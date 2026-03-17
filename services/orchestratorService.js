@@ -174,64 +174,59 @@ async function resetAnalyses(session_id) {
   try {
     const questions = await airtableService.getResponsesBySession(session_id);
 
-    // Champs à effacer dans RESPONSES — valeurs null pour chaque type
+    // Champs à effacer dans RESPONSES — noms exacts, via airtableService.updateResponse()
     const resetFields = {
-      // Textes longs
-      fld8sIIerm9D7aqDW: null,  // analyse_json_agent1
-      fldHjYiLRvHX1MFZr: null,  // analyse_json_verificateur
-      flduytD4EVUSGjeER: null,  // analyse_json_agent2
-      fldG9q1pPAHmRmbRY: null,  // analyse_json_agent3
-      fldguBgRnrluNU5Ho: null,  // verification_coeur
-      fldRbdhTxjPqcKKP1: null,  // justification_attribution_pilier_coeur
-      // fldmSUdxO4kEiBdDr SUPPRIMÉ — circuits_actives_pilier_coeur renommé en piliers_actives_final (champ Airtable à mettre à jour manuellement)
-      fldXy4v9LYKONyh60: null,  // circuits_actives
-      // fldyfEJoRbfgtc6at SUPPRIMÉ — boucles_detectees remplacé par boucles_detectees_agent1 + boucles_detectees_agent3 (nouveaux champs Airtable)
-      fldjmq6qGYTTAyGR4: null,  // liste_piliers_actives
-      fld2UA6fw7rT8Arxj: null,  // lecture_cognitive_m8
-      fldXDq7iGLTCL4pSt: null,  // profiling_qualifie
+      // JSON agents
+      analyse_json_agent1:          null,
+      analyse_json_verificateur:    null,
+      analyse_json_agent2:          null,
+      analyse_json_agent3:          null,
+      // Vérificateur
+      verification_coeur:           null,
+      justification_attribution_pilier_coeur: null,
+      justification_actions_majoritairement_faites: null,
+      justification_attribution_niveau: null,
+      piliers_actives_final:        null,
+      // Agent 3
+      circuits_actives:             null,
+      boucles_detectees_agent1:     null,
+      boucles_detectees_agent3:     null,
+      nombre_boucles_agent1:        null,
+      nombre_boucles_agent3:        null,
+      liste_piliers_actives:        null,
+      lecture_cognitive_m8:         null,
+      profiling_qualifie:           null,
+      coherence_agent1_agent3:      null,
       // Single Select → null
-      fldVH4l1Ma7ByteEw: null,  // statut_analyse_reponses
-      fldnHZ2DonVK0kDdf: null,  // limbique_intensite
-      fld31aTEofMKzRjqc: null,  // anticipation_niveau
-      fld1UGZoOrW1KS6NZ: null,  // decentration_niveau
-      fldkpqxLmzjNDazfZ: null,  // metacognition_niveau
-      fldCCSk8y87qeFcwA: null,  // vue_systemique_niveau
-      fldSCklKBCDXbDiJQ: null,  // repond_question
-      fldLUpIAyQalo9xYA: null,  // traite_problematique_situation
-      fld3l1nAzn2TnRqb8: null,  // fait_processus_pilier
-      fldxEastGthoLFKrp: null,  // niveau_sophistication
-      fld3QPIoJequzxH0k: null,  // coherence_agent1_agent3
-      fldqEHRq4Rw8DSDRW: null,  // pilier_reponse_coeur
-      fldeZp63BUu379mVT: null,  // coherence
-      fldTsHPEMhAt4XFG8: null,  // pilier_reponse_coeur_confirme — SUPPRIMÉ du service (doublon décision session B5) mais champ Airtable pas encore supprimé manuellement
-      fldZTMdFSl00Xym4p: null,  // niveau_amplitude_reponse
-      fldhbYNZyn2yhXvM8: null,  // niveau_amplitude_max
-      fldXd1T7qERS48L8K: null,  // zone_amplitude_max
-      fldJuhvXxR7WnvYeY: null,  // coherence_agents dans RESPONSES
+      statut_analyse_reponses:      null,
+      limbique_intensite:           null,
+      anticipation_niveau:          null,
+      decentration_niveau:          null,
+      metacognition_niveau:         null,
+      vue_systemique_niveau:        null,
+      repond_question:              null,
+      traite_problematique_situation: null,
+      fait_processus_pilier:        null,
+      pilier_reponse_coeur:         null,
+      coherence:                    null,
+      niveau_amplitude_reponse:     null,
+      niveau_amplitude_max:         null,
+      zone_amplitude_max:           null,
       // Checkbox → false
-      fld7Sv7yZqLZ8HWE1: false, // question_analysee
-      fld5TD44ZbsgOwzt4: false, // question_scoree
-      fldo3Ik7I8aheCE5O: false, // limbique_detecte
+      question_analysee:            false,
+      question_scoree:              false,
+      limbique_detecte:             false,
       // Numbers → null
-      fldz9zfaVQRz7v7x6: null,  // dimensions_simples
-      fldOwW1YZwGURtNBk: null,  // nombre_criteres_details
-      fldWT7XTIPz2UjyWG: null,  // dimensions_sophistiquees
-      // fldXUKnMYk8wHovAe SUPPRIMÉ — nombre_boucles remplacé par nombre_boucles_agent1 + nombre_boucles_agent3 (nouveaux champs Airtable)
-      fldYk6u7YOOz5hgIk: null,  // score_question_niveau
-      fldltYFYS4RwsUN3H: null,  // score_question_calcule
+      dimensions_simples:           null,
+      nombre_criteres_details:      null,
+      dimensions_sophistiquees:     null,
+      score_question_niveau:        null,
+      score_question_calcule:       null
     };
 
-    // Effacer par batch de 10 (limite Airtable)
-    const Airtable = require('airtable');
-    const airtableConfig = require('../config/airtable');
-    const base = new Airtable({ apiKey: airtableConfig.TOKEN }).base(airtableConfig.BASE_ID);
-
-    for (let i = 0; i < questions.length; i += 10) {
-      const batch = questions.slice(i, i + 10).map(q => ({
-        id: q.airtable_id,
-        fields: resetFields
-      }));
-      await base(airtableConfig.TABLES.RESPONSES).update(batch, { typecast: true });
+    // Effacer question par question via airtableService (noms de champs, typecast: true)
+    for (const q of questions) {
+      await airtableService.updateResponse(q.id_question, session_id, resetFields);
     }
 
     // Effacer le BILAN
