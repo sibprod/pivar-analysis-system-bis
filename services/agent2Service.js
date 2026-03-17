@@ -182,14 +182,28 @@ function mapToAirtableFields(parsed) {
   };
 
   if (piliersCles.length > 0) {
-    let maxVal = -1;
-    for (const [pilier, data] of Object.entries(m7)) {
-      if ((data.amplitude || 0) > maxVal) {
-        maxVal = data.amplitude;
-        amplitudeMax = data.amplitude;
-        nomAmplitude = NOM_AMPLITUDE[data.amplitude] || data.nom_amplitude || null;
-        zoneAmplitude = normalizeZone(data.zone_amplitude);
-        justifAmplitude = data.justification_qualitative || null;
+    // Le prompt dit : amplitude = celle du PILIER CŒUR FINAL (arbitré par le Vérificateur)
+    // Le pilier cœur final est transmis dans parsed.verificateur_arbitrage.pilier_coeur_final
+    // On cherche ce pilier dans m7, sinon on prend le max comme fallback
+    const pilierCoeurFinal = parsed.verificateur_arbitrage?.pilier_coeur_final || null;
+    const dataCoeur = pilierCoeurFinal ? m7[pilierCoeurFinal] : null;
+
+    if (dataCoeur) {
+      amplitudeMax = dataCoeur.amplitude;
+      nomAmplitude = NOM_AMPLITUDE[dataCoeur.amplitude] || dataCoeur.nom_amplitude || null;
+      zoneAmplitude = normalizeZone(dataCoeur.zone_amplitude);
+      justifAmplitude = dataCoeur.justification_qualitative || null;
+    } else {
+      // Fallback : prendre le max si pilier cœur absent de m7
+      let maxVal = -1;
+      for (const [pilier, data] of Object.entries(m7)) {
+        if ((data.amplitude || 0) > maxVal) {
+          maxVal = data.amplitude;
+          amplitudeMax = data.amplitude;
+          nomAmplitude = NOM_AMPLITUDE[data.amplitude] || data.nom_amplitude || null;
+          zoneAmplitude = normalizeZone(data.zone_amplitude);
+          justifAmplitude = data.justification_qualitative || null;
+        }
       }
     }
     amplitudeNiveau = amplitudeMax ? String(amplitudeMax) : null; // "1" à "9" strings
