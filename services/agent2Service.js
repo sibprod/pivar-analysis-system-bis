@@ -293,7 +293,7 @@ function mapToAirtableFields(parsed) {
     niveau_amplitude_max:      nomAmplitude,       // "EXÉCUTEUR" ... "ARCHITECTE"
     zone_amplitude_max:        zoneAmplitude,      // "Exécution" / "Opérationnelle" / "Stratégique"
     detail_par_niveaux:        detailParNiveaux,   // JSON M7 complet par pilier
-    plusieurs_niveaux_reponse: plusieursNiveaux,   // CORRECTION v8.1 — booléen, pas array
+    plusieurs_niveaux_reponse: plusieursNiveaux ? 'oui' : 'non',
 
     // M8 — lecture cognitive
     nombre_mots_reponse: m8.nombre_mots_reponse || 0,
