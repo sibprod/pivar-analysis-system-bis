@@ -134,9 +134,8 @@ function mapToAirtableFields(parsed) {
     fait_processus_pilier:              parsed.fait_processus_pilier === 'OUI' ? 'oui' : parsed.fait_processus_pilier === 'NON' ? 'non' : null,
 
     // coherence = statut arbitrage vérificateur : "CONFIRMÉ" / "CORRIGÉ" / "MAINTENU_AVEC_RÉSERVE"
-    coherence:                          parsed.verificateur_statut || null,
-    // coherence_agents = même valeur (double écriture pour compatibilité)
-    coherence_agents:                   parsed.verificateur_statut || null
+    coherence:                          parsed.verificateur_statut || null
+    // coherence_agents N'EST PAS écrit ici — c'est Agent 3 qui l'écrit (TOTALE/PARTIELLE/FAIBLE)
   };
 }
 
