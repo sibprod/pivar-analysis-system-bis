@@ -413,8 +413,19 @@ async function run(session_id, questions, verificateurArbitrages, agent2Analyses
   const bilanFields = {};
 
   for (const pilier of PILIERS) {
-    // Regrouper les questions dont le pilier_question correspond
-    const questionsPilier = questions.filter(q => q.pilier === pilier);
+    // Regrouper les questions dont le pilier_REPONSE_COEUR correspond (pas pilier_question)
+    // Le prompt synthétise par pilier réellement activé (distribution réelle), pas pilier demandé
+    // Le pilier_reponse_coeur est dans l'analyse Agent 3 : mission_2_circuits.pilier_reponse_coeur
+    // ou dans le JSON vérificateur : verificateur_arbitrage.pilier_coeur_final
+    const questionsPilier = questions.filter(q => {
+      // Chercher dans les analyses : pilier_reponse_coeur de cette question
+      const analyse = analyses.find(a => a.id_question === q.id_question);
+      const coeur = analyse?.result?.agent3_verification?.mission_2_circuits?.pilier_reponse_coeur
+                 || analyse?.result?.verificateur_arbitrage?.pilier_coeur_final
+                 || q.pilier_reponse_coeur  // depuis Airtable si disponible
+                 || q.pilier;              // fallback sur pilier_question
+      return coeur === pilier;
+    });
     const resultsPilier = questionsPilier.map(q => {
       return analyses.find(a => a.id_question === q.id_question);
     }).filter(Boolean);
