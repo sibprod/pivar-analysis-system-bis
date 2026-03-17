@@ -1,9 +1,14 @@
 // services/agent1Service.js
-// Agent 1 v8.0 — Observateur cognitif
+// Agent 1 v8.1 — Observateur cognitif
 // Prompt : agent1_v2.txt (version 10.3)
 // Architecture : 25 appels indépendants (1/question) + 1 appel final (Sections A/B/C + rapport)
-// Écriture : analyse_json_agent1 dans RESPONSES × 25
-//            moteur_cognitif, binome_actif, reaction_flou, signature_cloture, agent1_rapport dans BILAN
+// Écriture RESPONSES (×25) : analyse_json_agent1 + champs plats
+// Écriture BILAN (×1)      : moteur_cognitif, binome_actif, reaction_flou, signature_cloture,
+//                            agent1_rapport, pattern_emergent
+//
+// CORRECTION v8.1 :
+// - pattern_emergent (Section C) ajouté dans l'écriture BILAN
+//   → était produit par l'appel corpus, parsé, mais jamais écrit dans Airtable
 
 'use strict';
 
@@ -43,11 +48,10 @@ async function loadPrompt() {
  * Analyser une seule réponse candidat.
  * @param {string} session_id
  * @param {Object} question - { id_question, scenario_nom, pilier, question_text, response_text, numero_global }
- * @returns {Object} { id_question, result: Object (JSON agent1), raw: string }
+ * @returns {Object} { id_question, result: Object (JSON agent1), cost }
  */
 async function analyzeQuestion(session_id, question) {
   const systemPrompt = await loadPrompt();
-
   const userPrompt = buildQuestionPrompt(question);
 
   logger.info('Agent 1: analyse question', {
@@ -66,7 +70,6 @@ async function analyzeQuestion(session_id, question) {
 
   const parsed = claudeService.parseClaudeJSON(response.content);
 
-  // Validation minimale
   if (!parsed || !parsed.pilier_coeur) {
     throw new Error(`Agent 1: réponse invalide pour ${question.id_question} — champ pilier_coeur manquant`);
   }
@@ -105,12 +108,11 @@ Produis UNIQUEMENT le JSON de l'output par question tel que défini dans le prom
  * Appel final après les 25 questions : produit Sections A/B/C et agent1_rapport.
  * @param {string} session_id
  * @param {Object} candidat - { prenom, nom }
- * @param {Array} analyses25 - tableau des 25 résultats JSON de l'étape question-par-question
+ * @param {Array} analyses25 - tableau des 25 résultats JSON
  * @returns {Object} { section_A, section_B, section_C, agent1_rapport, cost }
  */
 async function analyzeCorpus(session_id, candidat, analyses25) {
   const systemPrompt = await loadPrompt();
-
   const userPrompt = buildCorpusPrompt(session_id, candidat, analyses25);
 
   logger.info('Agent 1: appel final corpus', { session_id, nb_questions: analyses25.length });
@@ -129,11 +131,11 @@ async function analyzeCorpus(session_id, candidat, analyses25) {
   }
 
   return {
-    section_A: parsed.section_A_stats_piliers || {},
-    section_B: parsed.section_B_mode_operatoire || {},
-    section_C: parsed.section_C_pattern_emergent || '',
-    agent1_rapport: parsed.agent1_rapport || '',
-    cost: response.cost || 0
+    section_A:      parsed.section_A_stats_piliers      || {},
+    section_B:      parsed.section_B_mode_operatoire    || {},
+    section_C:      parsed.section_C_pattern_emergent   || '',
+    agent1_rapport: parsed.agent1_rapport               || '',
+    cost:           response.cost || 0
   };
 }
 
@@ -174,18 +176,18 @@ Produis UNIQUEMENT ce JSON. Pas de commentaire avant ou après.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FONCTION PRINCIPALE : analyser toutes les questions + appel final
+// FONCTION PRINCIPALE
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Pipeline complet Agent 1 pour un candidat.
- * Étape 1 : 25 appels question par question → écriture analyse_json_agent1 dans RESPONSES
- * Étape 2 : 1 appel final corpus → écriture moteur_cognitif etc. dans BILAN
+ * Étape 1 : 25 appels question par question → écriture dans RESPONSES
+ * Étape 2 : 1 appel final corpus → écriture dans BILAN
  *
  * @param {string} session_id
  * @param {Object} candidat - { prenom, nom }
- * @param {Array} questions - 25 questions avec { id_question, scenario_nom, pilier, question_text, response_text }
- * @returns {Object} { analyses: Array<{id_question, result}>, corpus: Object, totalCost: number }
+ * @param {Array} questions - 25 questions
+ * @returns {Object} { analyses, corpus, totalCost }
  */
 async function run(session_id, candidat, questions) {
   if (!questions || questions.length !== 25) {
@@ -224,34 +226,32 @@ async function run(session_id, candidat, questions) {
     analyses.push({ id_question: question.id_question, result: result.result });
     totalCost += result.cost;
 
-    // Écriture immédiate dans RESPONSES : JSON complet + champs plats
+    // Écriture immédiate dans RESPONSES
+    const r = result.result;
     const a1Fields = {
-      analyse_json_agent1: JSON.stringify(result.result),
-      question_analysee:   true
+      analyse_json_agent1:     JSON.stringify(r),
+      question_analysee:       true,
+      pilier_reponse_coeur:    r.pilier_coeur                    || null,
+      niveau_amplitude_reponse: r.niveau_coeur != null ? String(r.niveau_coeur) : null,
+      liste_piliers_actives:   r.sequence                        || null,
+      piliers_actives_final:   r.piliers_actives ? JSON.stringify(r.piliers_actives) : null
     };
 
-    // Champs plats extraits du JSON Agent 1
-    const r = result.result;
-    if (r.pilier_coeur)    a1Fields.pilier_reponse_coeur = r.pilier_coeur;
-    if (r.niveau_coeur != null) a1Fields.niveau_amplitude_reponse = String(r.niveau_coeur); // Single Select "1"→"9"
-    if (r.sequence)        a1Fields.liste_piliers_actives = r.sequence;
-    if (r.piliers_actives) a1Fields.piliers_actives_final = JSON.stringify(r.piliers_actives); // RENOMMÉ : contenait des piliers (P1,P3...) pas des circuits
     if (r.boucles && r.boucles.length > 0) {
-      a1Fields.boucles_detectees_agent1 = r.boucles.map(b => `${b.pilier}(N${b.niveau})`).join(', '); // RENOMMÉ : version narrative Agent 1, distinct de boucles_detectees_agent3
-      a1Fields.nombre_boucles_agent1 = r.boucles.length; // RENOMMÉ : version Agent 1
+      a1Fields.boucles_detectees_agent1 = r.boucles.map(b => `${b.pilier}(N${b.niveau})`).join(', ');
+      a1Fields.nombre_boucles_agent1    = r.boucles.length;
     }
 
     await airtableService.updateResponse(question.id_question, session_id, a1Fields);
 
     logger.info(`Agent 1: question ${i + 1}/25 traitée`, {
       session_id,
-      id_question: question.id_question,
-      pilier_coeur: result.result.pilier_coeur,
-      niveau_coeur: result.result.niveau_coeur,
-      conforme: result.result.conforme
+      id_question:  question.id_question,
+      pilier_coeur: r.pilier_coeur,
+      niveau_coeur: r.niveau_coeur,
+      conforme:     r.conforme
     });
 
-    // Rate limiting : 1s entre chaque appel
     if (i < questions.length - 1) {
       await sleep(1000);
     }
@@ -284,13 +284,14 @@ async function run(session_id, candidat, questions) {
 
   totalCost += corpus.cost;
 
-  // Écriture dans BILAN
+  // Écriture dans BILAN — tous les champs produits par l'appel corpus
   await airtableService.updateBilan(session_id, {
-    moteur_cognitif: corpus.section_B.moteur_cognitif || null,
-    binome_actif: corpus.section_B.binome_actif || null,
-    reaction_flou: corpus.section_B.reaction_flou || null,
-    signature_cloture: corpus.section_B.signature_cloture || null,
-    agent1_rapport: corpus.agent1_rapport || null
+    moteur_cognitif:   corpus.section_B.moteur_cognitif   || null,
+    binome_actif:      corpus.section_B.binome_actif       || null,
+    reaction_flou:     corpus.section_B.reaction_flou      || null,
+    signature_cloture: corpus.section_B.signature_cloture  || null,
+    agent1_rapport:    corpus.agent1_rapport               || null,
+    pattern_emergent:  corpus.section_C                    || null   // CORRECTION v8.1 — était produit mais non écrit
   });
 
   logger.info('Agent 1: pipeline terminé', {
@@ -300,8 +301,8 @@ async function run(session_id, candidat, questions) {
   });
 
   return {
-    analyses,       // Array de { id_question, result } — utilisé par Vérificateur
-    corpus,         // { section_A, section_B, section_C, agent1_rapport }
+    analyses,  // Array de { id_question, result } — utilisé par le Vérificateur
+    corpus,    // { section_A, section_B, section_C, agent1_rapport }
     totalCost
   };
 }
@@ -312,6 +313,6 @@ async function run(session_id, candidat, questions) {
 
 module.exports = {
   run,
-  analyzeQuestion,  // exposé pour retry granulaire depuis orchestrateur
+  analyzeQuestion,  // exposé pour retry granulaire
   analyzeCorpus     // exposé pour tests
 };
