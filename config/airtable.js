@@ -286,7 +286,7 @@ module.exports = {
     scenario_nom:            ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'],
     niveau_sophistication:   ['faible', 'moyen', 'élevé'],
     limbique_intensite:      ['aucune', 'faible', 'modéré', 'forte'],
-    zone_profil_cognitif:    ['Fondamentale', 'Opérationnelle', 'Tactique', 'Stratégique']
+    zone_profil_cognitif:    ['Exécution', 'Opérationnelle', 'Stratégique']
   },
 
   // ─── MAPPING VALEURS ──────────────────────────────────────────────────────
