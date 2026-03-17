@@ -1,10 +1,26 @@
 // services/agent2Service.js
-// Agent 2 v8.0 — Mesure & Qualification
+// Agent 2 v8.1 — Mesure & Qualification
 // Prompt : agent2_v2.txt
 // Architecture : 25 appels indépendants (1/question)
 // Input : outputs Vérificateur (pilier_coeur_final, niveau_coeur_final, piliers_actives, boucles_finales, sequence_finale)
 // Missions : M4 (dimensions simples) M5 (dimensions sophistiquées) M6 (4 excellences) M7 (amplitude) M8 (lecture cognitive)
 // Écriture : analyse_json_agent2 + champs plats dans RESPONSES × 25
+//
+// CORRECTIONS v8.1 :
+// - nombre_criteres_details ← totalDetails (somme nombre_criteres M4 par pilier)
+//   était totalSimples — FAUX, les critères et les actions sont deux comptages distincts
+// - liste_criteres_details ← uniquement liste_criteres M4 par pilier
+//   était fusion actions+critères — FAUX
+// - liste_dimensions_simples ← uniquement liste_actions M4 par pilier
+//   séparée des critères comme le demande le prompt
+// - plusieurs_niveaux_reponse ← booléen true/false (Single Select Airtable)
+//   était array de strings — rejeté par Airtable
+// - capacites_detectees ← synthese M8 narrative (ce que le candidat déploie)
+//   était synthese_indices M6 — mauvais champ, synthese_indices = indices paliers pas capacités
+// - marqueurs_emotionnels_detectes SUPPRIMÉ — doublon de limbique_detail (organigramme v3 C8)
+// - impact_excellences_profil SUPPRIMÉ — doublon de capacites_detectees (organigramme v3 C8)
+// - normalizeZone : pass-through supprimé → null si zone non reconnue (évite valeurs parasites)
+// - amplitude : cherche d'abord le pilier_coeur_final, fallback max (conservé de la v8.0)
 
 'use strict';
 
@@ -52,14 +68,14 @@ async function analyzeQuestion(session_id, question, verificateurResult) {
 
   logger.info('Agent 2: analyse question', {
     session_id,
-    id_question: question.id_question,
+    id_question:        question.id_question,
     pilier_coeur_final: verificateurResult.verificateur_arbitrage?.pilier_coeur_final
   });
 
   const response = await claudeService.callClaude({
     systemPrompt,
     userPrompt,
-    service: 'agent2',
+    service:   'agent2',
     maxTokens: 4000
   });
 
@@ -71,8 +87,8 @@ async function analyzeQuestion(session_id, question, verificateurResult) {
 
   return {
     id_question: question.id_question,
-    result: parsed,
-    cost: response.cost || 0
+    result:      parsed,
+    cost:        response.cost || 0
   };
 }
 
@@ -83,15 +99,15 @@ function buildQuestionPrompt(question, verificateurResult) {
   const arbitrage = verificateurResult.verificateur_arbitrage || {};
 
   const inputData = {
-    question: question.id_question,
-    scenario: question.scenario_nom,
-    pilier_question: question.pilier,
-    verbatim: question.response_text,
+    question:           question.id_question,
+    scenario:           question.scenario_nom,
+    pilier_question:    question.pilier,
+    verbatim:           question.response_text,
     pilier_coeur_final: arbitrage.pilier_coeur_final || null,
     niveau_coeur_final: arbitrage.niveau_coeur_final || null,
-    piliers_actives: verificateurResult.piliers_actives || [],
-    boucles_finales: verificateurResult.boucles_finales || [],
-    sequence_finale: verificateurResult.sequence_finale || ''
+    piliers_actives:    verificateurResult.piliers_actives  || [],
+    boucles_finales:    verificateurResult.boucles_finales  || [],
+    sequence_finale:    verificateurResult.sequence_finale  || ''
   };
 
   return `Mesure la richesse cognitive de la réponse suivante et produis le JSON demandé dans le prompt système (missions M4 à M8).
@@ -108,10 +124,9 @@ Produis UNIQUEMENT le JSON complet agent2_mesure tel que défini dans le prompt 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EXTRACTION DES CHAMPS AIRTABLE DEPUIS LE JSON AGENT 2
+// HELPERS NORMALISATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Normaliser limbique_intensite vers les valeurs exactes Airtable
 function normalizeLimbique(v) {
   if (!v) return 'aucune';
   const n = v.toString().toLowerCase().trim();
@@ -122,6 +137,24 @@ function normalizeLimbique(v) {
   return 'aucune';
 }
 
+function normalizeZone(z) {
+  if (!z) return null;
+  const v = z.toLowerCase();
+  if (v.includes('exécut') || v.includes('execut') || v.includes('fondament')) return 'Exécution';
+  if (v.includes('opérat') || v.includes('operat') || v.includes('tactique')) return 'Opérationnelle';
+  if (v.includes('stratég') || v.includes('strateg')) return 'Stratégique';
+  return null; // zone non reconnue → null, jamais de valeur parasite
+}
+
+const NOM_AMPLITUDE = {
+  1: 'EXÉCUTEUR', 2: 'SYSTÉMATIQUE', 3: 'MÉTHODIQUE', 4: 'OPTIMISATEUR',
+  5: 'ADAPTATEUR', 6: 'DÉTECTEUR',   7: 'ORCHESTRATEUR', 8: 'MAÎTRE', 9: 'ARCHITECTE'
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTRACTION DES CHAMPS AIRTABLE DEPUIS LE JSON AGENT 2
+// ═══════════════════════════════════════════════════════════════════════════
+
 /**
  * Mapper le JSON agent2 vers les champs plats Airtable RESPONSES.
  * @param {Object} parsed - JSON brut produit par Agent 2
@@ -130,108 +163,101 @@ function normalizeLimbique(v) {
 function mapToAirtableFields(parsed) {
   const mesure = parsed.agent2_mesure || {};
 
-  // M4 — dimensions simples (agrégées toutes piliers)
-  // Structure M4 output : { nombre_actions, nombre_criteres, total_dimensions_simples, liste_actions, liste_criteres }
+  // ── M4 — dimensions simples par pilier ────────────────────────────────────
+  // Structure prompt : { nombre_actions, nombre_criteres, total_dimensions_simples,
+  //                      liste_actions, liste_criteres }
   const m4 = mesure.mission_4_dimensions_simples?.par_pilier || {};
-  const totalSimples = Object.values(m4).reduce((sum, p) => sum + (p.total_dimensions_simples || p.total || 0), 0);
-  const totalDetails = Object.values(m4).reduce((sum, p) => sum + (p.nombre_criteres || 0), 0);
-  const listeDimSimples = Object.values(m4).flatMap(p => [...(p.liste_actions || p.liste || []), ...(p.liste_criteres || [])]);
 
-  // M5 — dimensions sophistiquées (agrégées toutes piliers)
-  // Structure M5 output : { nombre, liste }
+  // total_dimensions_simples = nombre_actions par pilier agrégés
+  const totalSimples = Object.values(m4).reduce(
+    (sum, p) => sum + (p.total_dimensions_simples || p.nombre_actions || p.total || 0), 0
+  );
+
+  // nombre_criteres_details = nombre_criteres par pilier agrégés — DISTINCT de totalSimples
+  const totalDetails = Object.values(m4).reduce(
+    (sum, p) => sum + (p.nombre_criteres || 0), 0
+  );
+
+  // liste_dimensions_simples = uniquement les ACTIONS (pas les critères)
+  const listeActions = Object.values(m4).flatMap(p => p.liste_actions || p.liste || []);
+
+  // liste_criteres_details = uniquement les CRITÈRES (pas les actions)
+  const listeCriteres = Object.values(m4).flatMap(p => p.liste_criteres || []);
+
+  // ── M5 — dimensions sophistiquées par pilier ──────────────────────────────
   const m5 = mesure.mission_5_dimensions_sophistiquees?.par_pilier || {};
-  const totalSoph = Object.values(m5).reduce((sum, p) => sum + (p.nombre || p.total || 0), 0);
-  const listeDimSoph = Object.values(m5).flatMap(p => p.liste || []);
+  const totalSoph     = Object.values(m5).reduce((sum, p) => sum + (p.nombre || p.total || 0), 0);
+  const listeDimSoph  = Object.values(m5).flatMap(p => p.liste || []);
 
   // Niveau sophistication global
   let niveauSoph = 'faible';
-  if (totalSoph >= 3) niveauSoph = 'élevé';
+  if (totalSoph >= 3)      niveauSoph = 'élevé';
   else if (totalSoph >= 1) niveauSoph = 'moyen';
 
-  // M6 — excellences (4 dimensions)
-  const m6 = mesure.mission_6_excellences || {};
-  const anticipation = m6.anticipation_niveau || {};
-  const decentration = m6.decentration_niveau || {};
+  // ── M6 — 4 excellences ───────────────────────────────────────────────────
+  const m6           = mesure.mission_6_excellences || {};
+  const anticipation = m6.anticipation_niveau   || {};
+  const decentration = m6.decentration_niveau   || {};
   const metacognition = m6.metacognition_niveau || {};
   const vueSystemique = m6.vue_systemique_niveau || {};
 
-  // M7 — amplitude (pilier dominant = pilier cœur final, sinon max sur les piliers activés)
-  const m7 = mesure.mission_7_amplitude?.par_pilier || {};
+  // ── M7 — amplitude par pilier ─────────────────────────────────────────────
+  // Priorité : pilier_coeur_final du Vérificateur → fallback : amplitude max toutes piliers
+  const m7         = mesure.mission_7_amplitude?.par_pilier || {};
   const piliersCles = Object.keys(m7);
-  let amplitudeMax = null;
-  let nomAmplitude = null;
-  let zoneAmplitude = null;
-  let justifAmplitude = null;
+
+  let amplitudeMax   = null;
+  let nomAmplitude   = null;
+  let zoneAmplitude  = null;
   let amplitudeNiveau = null;
 
-  // Mapping zone amplitude → valeurs exactes Airtable
-  // Airtable accepte : "Exécution" / "Opérationnelle" / "Stratégique"
-  // 3 zones autorisées uniquement — toute autre valeur → null
-  function normalizeZone(z) {
-    if (!z) return null;
-    const v = z.toLowerCase();
-    if (v.includes('exécut') || v.includes('execut') || v.includes('fondament')) return 'Exécution';
-    if (v.includes('opérat') || v.includes('operat') || v.includes('tactique')) return 'Opérationnelle';
-    if (v.includes('stratég') || v.includes('strateg')) return 'Stratégique';
-    return null; // zone non reconnue → null, jamais d'invention
-  }
-
-  // Mapping amplitude numérique → nom Airtable
-  const NOM_AMPLITUDE = {
-    1: 'EXÉCUTEUR', 2: 'SYSTÉMATIQUE', 3: 'MÉTHODIQUE', 4: 'OPTIMISATEUR',
-    5: 'ADAPTATEUR', 6: 'DÉTECTEUR', 7: 'ORCHESTRATEUR', 8: 'MAÎTRE', 9: 'ARCHITECTE'
-  };
-
   if (piliersCles.length > 0) {
-    // Le prompt dit : amplitude = celle du PILIER CŒUR FINAL (arbitré par le Vérificateur)
-    // Le pilier cœur final est transmis dans parsed.verificateur_arbitrage.pilier_coeur_final
-    // On cherche ce pilier dans m7, sinon on prend le max comme fallback
+    // Chercher d'abord le pilier cœur final arbitré par le Vérificateur
     const pilierCoeurFinal = parsed.verificateur_arbitrage?.pilier_coeur_final || null;
     const dataCoeur = pilierCoeurFinal ? m7[pilierCoeurFinal] : null;
 
     if (dataCoeur) {
-      amplitudeMax = dataCoeur.amplitude;
-      nomAmplitude = NOM_AMPLITUDE[dataCoeur.amplitude] || dataCoeur.nom_amplitude || null;
+      amplitudeMax  = dataCoeur.amplitude;
+      nomAmplitude  = NOM_AMPLITUDE[dataCoeur.amplitude] || dataCoeur.nom_amplitude || null;
       zoneAmplitude = normalizeZone(dataCoeur.zone_amplitude);
-      justifAmplitude = dataCoeur.justification_qualitative || null;
     } else {
-      // Fallback : prendre le max si pilier cœur absent de m7
+      // Fallback : amplitude max sur tous les piliers activés
       let maxVal = -1;
-      for (const [pilier, data] of Object.entries(m7)) {
+      for (const data of Object.values(m7)) {
         if ((data.amplitude || 0) > maxVal) {
-          maxVal = data.amplitude;
-          amplitudeMax = data.amplitude;
-          nomAmplitude = NOM_AMPLITUDE[data.amplitude] || data.nom_amplitude || null;
+          maxVal        = data.amplitude;
+          amplitudeMax  = data.amplitude;
+          nomAmplitude  = NOM_AMPLITUDE[data.amplitude] || data.nom_amplitude || null;
           zoneAmplitude = normalizeZone(data.zone_amplitude);
-          justifAmplitude = data.justification_qualitative || null;
         }
       }
     }
-    amplitudeNiveau = amplitudeMax ? String(amplitudeMax) : null; // "1" à "9" strings
+    amplitudeNiveau = amplitudeMax ? String(amplitudeMax) : null;
   }
 
-  // M7 — detail par niveaux (JSON stringify de l'objet par pilier)
+  // detail_par_niveaux = JSON de tout M7 par pilier (pour Certificateur section 1A)
   const detailParNiveaux = piliersCles.length > 0 ? JSON.stringify(m7) : null;
-  // plusieurs_niveaux_reponse est un multipleSelects → array des noms de niveaux activés
-  const plusieursNiveauxArray = piliersCles.length > 1
-    ? Object.values(m7)
-        .filter(d => d.amplitude)
-        .map(d => NOM_AMPLITUDE[d.amplitude])
-        .filter(Boolean)
-    : [];
 
-  // M8 — lecture cognitive
+  // plusieurs_niveaux_reponse = booléen — plusieurs piliers activés dans cette réponse
+  // Single Select Airtable — ne pas envoyer d'array
+  const plusieursNiveaux = piliersCles.length > 1;
+
+  // ── M8 — lecture cognitive ────────────────────────────────────────────────
   const m8 = mesure.mission_8_lecture_cognitive || {};
+
+  // capacites_detectees = synthèse narrative M8 de ce que le candidat déploie
+  // PAS synthese_indices M6 qui est un résumé des indices paliers
+  const capacitesDetectees = m8.synthese || null;
 
   return {
     // JSON complet
     analyse_json_agent2: JSON.stringify(parsed),
 
-    // M4
+    // M4 — actions et critères SÉPARÉS
     dimensions_simples:       totalSimples,
-    liste_dimensions_simples: listeDimSimples.join(', ') || null,
-    nombre_criteres_details:  totalSimples,
-    liste_criteres_details:   listeDimSimples.join(', ') || null,
+    liste_dimensions_simples: listeActions.join(', ')  || null,   // uniquement les actions
+    nombre_criteres_details:  totalDetails,                        // CORRECTION v8.1
+    liste_criteres_details:   listeCriteres.join(', ') || null,   // CORRECTION v8.1 — uniquement les critères
 
     // M5
     dimensions_sophistiquees:       totalSoph,
@@ -239,47 +265,48 @@ function mapToAirtableFields(parsed) {
     niveau_sophistication:          niveauSoph,
 
     // M6 — anticipation
-    anticipation_niveau:              anticipation.niveau || 'nulle',
-    anticipation_verbatim:            anticipation.verbatim || null,
+    anticipation_niveau:              anticipation.niveau      || 'nulle',
+    anticipation_verbatim:            anticipation.verbatim    || null,
     anticipation_manifestation:       anticipation.manifestation || null,
     anticipation_contexte_activation: anticipation.contexte_activation || null,
 
     // M6 — décentration
-    decentration_niveau:              decentration.niveau || 'nulle',
-    decentration_verbatim:            decentration.verbatim || null,
+    decentration_niveau:              decentration.niveau      || 'nulle',
+    decentration_verbatim:            decentration.verbatim    || null,
     decentration_manifestation:       decentration.manifestation || null,
     decentration_contexte_activation: decentration.contexte_activation || null,
 
     // M6 — métacognition
-    metacognition_niveau:              metacognition.niveau || 'nulle',
-    metacognition_verbatim:            metacognition.verbatim || null,
+    metacognition_niveau:              metacognition.niveau      || 'nulle',
+    metacognition_verbatim:            metacognition.verbatim    || null,
     metacognition_manifestation:       metacognition.manifestation || null,
     metacognition_contexte_activation: metacognition.contexte_activation || null,
 
     // M6 — vue systémique (jamais angles_morts)
-    vue_systemique_niveau:              vueSystemique.niveau || 'nulle',
-    vue_systemique_verbatim:            vueSystemique.verbatim || null,
+    vue_systemique_niveau:              vueSystemique.niveau      || 'nulle',
+    vue_systemique_verbatim:            vueSystemique.verbatim    || null,
     vue_systemique_manifestation:       vueSystemique.manifestation || null,
     vue_systemique_contexte_activation: vueSystemique.contexte_activation || null,
 
-    // M7 — amplitude
-    niveau_amplitude_reponse:     amplitudeNiveau,    // "1" à "9" (string)
-    niveau_amplitude_max:         nomAmplitude,        // "EXÉCUTEUR" ... "ARCHITECTE"
-    zone_amplitude_max:           zoneAmplitude,       // "Exécution" / "Opérationnelle" / "Stratégique"
-    detail_par_niveaux:           detailParNiveaux,
-    plusieurs_niveaux_reponse:    plusieursNiveauxArray,  // array de strings pour multipleSelects
+    // M7 — amplitude du pilier cœur final
+    niveau_amplitude_reponse:  amplitudeNiveau,   // "1" à "9" string — Single Select
+    niveau_amplitude_max:      nomAmplitude,       // "EXÉCUTEUR" ... "ARCHITECTE"
+    zone_amplitude_max:        zoneAmplitude,      // "Exécution" / "Opérationnelle" / "Stratégique"
+    detail_par_niveaux:        detailParNiveaux,   // JSON M7 complet par pilier
+    plusieurs_niveaux_reponse: plusieursNiveaux,   // CORRECTION v8.1 — booléen, pas array
 
-    // M8 — limbique_intensite : valeurs exactes Airtable : "aucune"/"faible"/"modérée"/"forte"
-    nombre_mots_reponse:  m8.nombre_mots_reponse || 0,
-    laconique:            m8.laconique || false,
-    limbique_detecte:     m8.limbique_detecte || false,
-    limbique_intensite:   normalizeLimbique(m8.limbique_intensite),
-    limbique_detail:      m8.limbique_detail || null,
-    // marqueurs_emotionnels_detectes SUPPRIMÉ — doublon de limbique_detail (décision session C8)
+    // M8 — lecture cognitive
+    nombre_mots_reponse: m8.nombre_mots_reponse || 0,
+    laconique:           m8.laconique           || false,
+    limbique_detecte:    m8.limbique_detecte    || false,
+    limbique_intensite:  normalizeLimbique(m8.limbique_intensite),
+    limbique_detail:     m8.limbique_detail     || null,
+    // marqueurs_emotionnels_detectes SUPPRIMÉ — doublon de limbique_detail (organigramme v3 C8)
+    // impact_excellences_profil SUPPRIMÉ — doublon de capacites_detectees (organigramme v3 C8)
 
-    // Capacités (synthèse M6)
-    capacites_detectees:    m6.synthese_indices || null
-    // impact_excellences_profil SUPPRIMÉ — doublon de capacites_detectees (décision session C8)
+    // Capacités — synthèse narrative M8 de ce que le candidat déploie réellement
+    // CORRECTION v8.1 — était synthese_indices M6 (indices paliers, pas capacités)
+    capacites_detectees: capacitesDetectees
   };
 }
 
@@ -292,8 +319,8 @@ function mapToAirtableFields(parsed) {
  * 25 appels indépendants → écriture des champs dans RESPONSES.
  *
  * @param {string} session_id
- * @param {Array} questions - 25 questions avec { id_question, scenario_nom, pilier, question_text, response_text }
- * @param {Array} verificateurArbitrages - résultats Vérificateur : Array de { id_question, result }
+ * @param {Array} questions              - 25 questions
+ * @param {Array} verificateurArbitrages - Array de { id_question, result }
  * @returns {Object} { analyses: Array<{id_question, result}>, totalCost }
  */
 async function run(session_id, questions, verificateurArbitrages) {
@@ -304,7 +331,6 @@ async function run(session_id, questions, verificateurArbitrages) {
     throw new Error(`Agent 2: attendu 25 arbitrages Vérificateur, reçu ${verificateurArbitrages?.length ?? 0}`);
   }
 
-  // Indexer par id_question
   const verifByQuestion = {};
   for (const a of verificateurArbitrages) {
     verifByQuestion[a.id_question] = a.result;
@@ -312,11 +338,11 @@ async function run(session_id, questions, verificateurArbitrages) {
 
   logger.info('Agent 2: démarrage pipeline', { session_id });
 
-  const analyses = [];
-  let totalCost = 0;
+  const analyses  = [];
+  let totalCost   = 0;
 
   for (let i = 0; i < questions.length; i++) {
-    const question = questions[i];
+    const question   = questions[i];
     const verifResult = verifByQuestion[question.id_question];
 
     if (!verifResult) {
@@ -324,7 +350,7 @@ async function run(session_id, questions, verificateurArbitrages) {
     }
 
     let result;
-    let attempts = 0;
+    let attempts      = 0;
     const maxAttempts = 3;
 
     while (attempts < maxAttempts) {
@@ -354,8 +380,8 @@ async function run(session_id, questions, verificateurArbitrages) {
     logger.info(`Agent 2: question ${i + 1}/25 mesurée`, {
       session_id,
       id_question: question.id_question,
-      limbique: m8.limbique_detecte,
-      mots: m8.nombre_mots_reponse
+      limbique:    m8.limbique_detecte,
+      mots:        m8.nombre_mots_reponse
     });
 
     if (i < questions.length - 1) {
@@ -366,11 +392,11 @@ async function run(session_id, questions, verificateurArbitrages) {
   logger.info('Agent 2: pipeline terminé', {
     session_id,
     questions_traitees: analyses.length,
-    totalCost: totalCost.toFixed(4)
+    totalCost:          totalCost.toFixed(4)
   });
 
   return {
-    analyses,   // Array de { id_question, result } — utilisé par Agent 3
+    analyses,  // Array de { id_question, result } — utilisé par Agent 3
     totalCost
   };
 }
@@ -381,5 +407,5 @@ async function run(session_id, questions, verificateurArbitrages) {
 
 module.exports = {
   run,
-  analyzeQuestion  // exposé pour retry granulaire depuis orchestrateur
+  analyzeQuestion  // exposé pour retry granulaire
 };
