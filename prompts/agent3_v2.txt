@@ -308,6 +308,12 @@ OBJECTIF : VÉRIFIER indépendamment si le pilier cœur de l'Agent 1 est correct
 
 C'EST TON RÔLE DE CONTRE-POUVOIR !
 
+⚠️ INPUTS DISPONIBLES DEPUIS LE VÉRIFICATEUR :
+- verification_coeur : raisonnement du Vérificateur pour confirmer ou corriger le pilier — utilise-le pour cibler ta contre-vérification sur les points de tension déjà identifiés
+- justification_actions_majoritairement_faites : réserve éventuelle du Vérificateur sur sa propre décision (non null uniquement sur les cas MAINTENU_AVEC_RÉSERVE) — si renseigné, porte une attention particulière sur cette question dans ta vérification par circuits
+→ Si verification_coeur signale déjà une tension, concentre ton comptage circuits sur les piliers en conflit.
+→ Si reserve est non null, cette question porte une incertitude non résolue — ton rôle de contre-pouvoir est critique ici.
+
 MÉTHODE :
 1. Compter circuits par pilier (de M2)
 2. Comparer avec pilier_reponse_coeur (Agent 1)
@@ -330,6 +336,15 @@ Identifier enchaînements piliers :
 
 Ces boucles révèlent les patterns cognitifs naturels.
 
+⚠️ IMPORTANT — BOUCLES AGENT 1 VS AGENT 3 :
+Tu produis boucles_detectees_agent3 depuis les circuits (méthode structurelle).
+Agent 1 a produit boucles_detectees_agent1 depuis la lecture narrative du verbatim (méthode sémantique).
+Ces deux champs sont DISTINCTS et COMPLÉMENTAIRES — ne pas les fusionner.
+Le Certificateur recevra les deux séparément et statuera sur leur cohérence pour identifier les piliers dominants et structurants.
+→ Une boucle confirmée par les deux agents = signal fort, fiable.
+→ Une boucle détectée par Agent 1 seul = signal narratif à signaler.
+→ Une boucle détectée par toi seul = pattern structurel non visible à la lecture.
+
 ───────────────────────────────────────────────────────────────────────────────
 OUTPUT M5A
 ───────────────────────────────────────────────────────────────────────────────
@@ -350,7 +365,7 @@ EXEMPLE COHÉRENCE TOTALE :
     
     "verification_coeur": "P1 = 4 circuits (le plus) → Confirme pilier cœur Agent 1",
     
-    "boucles_detectees": ["P1→P3"],
+    "boucles_detectees_agent3": ["P1→P3"],
     
     "flag_revision": false
   }
@@ -374,7 +389,7 @@ EXEMPLE COHÉRENCE FAIBLE :
     
     "alerte": "INCOHÉRENCE DÉTECTÉE - Révision humaine recommandée",
     
-    "boucles_detectees": ["P2→P5"],
+    "boucles_detectees_agent3": ["P2→P5"],
     
     "flag_revision": true
   }
@@ -512,6 +527,13 @@ MISSION 7 : BILAN POUR CERTIFICATEUR
 
 OBJECTIF : Préparer bilan narratif pour révision humaine.
 
+⚠️ INPUT DISPONIBLE DEPUIS AGENT 2 :
+- capacites_detectees : capacités observées par Agent 2 depuis les dimensions et les excellences (ce que le candidat fait)
+→ Ta capacites_observees (issue des circuits) décrit COMMENT le candidat fait structurellement.
+→ capacites_detectees (Agent 2) décrit CE QU'IL FAIT depuis les dimensions et excellences.
+→ Croise les deux pour produire une liste complète : cite les capacités confirmées par les deux sources en premier, puis les capacités unilatérales avec leur source.
+→ Format : "Nom de la capacité (circuits PX-N + dimensions)" ou "Nom (circuit PX-N)" ou "Nom (dimensions Agent 2)"
+
 CONTENU :
 1. Processus dominant
 2. Capacités observées
@@ -533,8 +555,8 @@ OUTPUT M7
     },
     
     "capacites_observees": [
-      "Diversification proactive sources (circuit P1-2)",
-      "Recoupement multi-sources validant (circuit P1-10)",
+      "Diversification proactive sources (circuits P1-2 + dimensions Agent 2)",
+      "Recoupement multi-sources validant (circuit P1-10 + dimensions Agent 2)",
       "Innovation méthodologique IA (circuit P1-15)",
       "Sollicitation expertise spécialisée (circuit P1-13)"
     ],
