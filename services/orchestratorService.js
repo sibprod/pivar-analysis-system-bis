@@ -316,9 +316,15 @@ async function processCandidate(session_id) {
     return { session_id, statut: 'skip_terminé', duree_ms: 0 };
   }
 
-  if (visiteur.statut_analyse_pivar === 'NOUVEAU') {
-    logger.info('Orchestrateur: statut NOUVEAU — reset des analyses précédentes', { session_id });
-    await resetAnalyses(session_id);
+    if (visiteur.statut_analyse_pivar === 'NOUVEAU') {
+    const questionsCheck = await airtableService.getResponsesBySession(session_id);
+    const dejaCommence = questionsCheck.some(q => q.analyse_json_agent1);
+    if (dejaCommence) {
+      logger.info('Orchestrateur: statut NOUVEAU mais analyses partielles détectées — reprise sans reset', { session_id });
+    } else {
+      logger.info('Orchestrateur: statut NOUVEAU — reset des analyses précédentes', { session_id });
+      await resetAnalyses(session_id);
+    }
   }
 
   const candidat = {
