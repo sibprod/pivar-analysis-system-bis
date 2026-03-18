@@ -449,7 +449,7 @@ async function run(session_id, algoOutput, agent3Syntheses, agent1Corpus, questi
         systemPrompt,
         userPrompt,
         service: 'certificateur',
-        maxTokens: 16000
+        maxTokens: 32000
       });
 
       const parsed = claudeService.parseClaudeJSON(response.content);
