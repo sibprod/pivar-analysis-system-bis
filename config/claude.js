@@ -25,7 +25,7 @@ module.exports = {
   TEMPERATURE: 0.7,
   
   // Timeouts
-  TIMEOUT_MS: parseInt(process.env.CLAUDE_TIMEOUT) || 120000, // 2 minutes
+  TIMEOUT_MS: parseInt(process.env.CLAUDE_TIMEOUT) || 90000,
   
   // Retry
   MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 3,
