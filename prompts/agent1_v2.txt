@@ -835,9 +835,11 @@ EXEMPLES D'ÉCARTS RÉELS :
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT PAR QUESTION — FORMAT JSON
 ═══════════════════════════════════════════════════════════════════════════════
-
+⚠️ RÈGLE CRITIQUE : Le champ "question" doit contenir l'id_question EXACT 
+tel que transmis dans le prompt utilisateur (ex: "P1Q2", "P3Q8"). 
+JAMAIS le numéro d'ordre séquentiel (Q1, Q2...).
 {
-  "question": "Q12",
+  "question": "P1Q12",
   "scenario": "ANIMAL",
   "pilier_question": "P1",
 
