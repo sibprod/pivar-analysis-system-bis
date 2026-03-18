@@ -1533,9 +1533,11 @@ Ils permettent à l'algo de filtrer les questions fiables pour le scoring.
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT PAR QUESTION — FORMAT JSON
 ═══════════════════════════════════════════════════════════════════════════════
-
+⚠️ RÈGLE CRITIQUE : Le champ "question" doit contenir l'id_question EXACT 
+tel que transmis dans le prompt utilisateur (ex: "P1Q2", "P3Q8"). 
+JAMAIS le numéro d'ordre séquentiel (Q1, Q2...).
 {
-  "question": "Q4",
+  "question": "P4Q13",
   "scenario": "SOMMEIL",
   "pilier_question": "P4",
   "verbatim": "[verbatim exact du candidat]",
