@@ -78,7 +78,8 @@ async function callClaude({
         body,
         {
           headers,
-          timeout: claudeConfig.TIMEOUT_MS
+       timeout: claudeConfig.TIMEOUT_MS,
+       signal: AbortSignal.timeout(claudeConfig.TIMEOUT_MS)
         }
       );
       
