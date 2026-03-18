@@ -74,7 +74,7 @@ async function loadPrompt() {
     return cachedPrompt;
   } catch (error) {
     logger.error('Certificateur: échec chargement prompt', { error: error.message });
-    throw new Error('Prompt introuvable : prompts/certificateur_v4.txt');
+    throw new Error('Prompt introuvable : prompts/certificateur_v5.txt');
   }
 }
 
