@@ -15,11 +15,15 @@ module.exports = {
   
   // Max tokens par service
   MAX_TOKENS: {
-    agent1: 8000,
-    agent2: 10000,
-    certificateur: 32000,
-    default: 8000
-  },
+  agent1:        8000,
+  agent1_final:  6000,
+  agent2:        10000,
+  agent3:        8000,
+  agent3_pilier: 12000,
+  verificateur:  4000,
+  certificateur: 32000,
+  default:       8000
+},
   
   // Temperature
   TEMPERATURE: 0.7,
