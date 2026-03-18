@@ -326,7 +326,11 @@ async function processCandidate(session_id) {
       await resetAnalyses(session_id);
     }
   }
-
+  // Marquer EN COURS dans VISITEUR
+  await airtableService.updateVisiteur(session_id, {
+    statut_analyse_pivar: 'EN COURS'
+  });
+  
   const candidat = {
     prenom: visiteur.Prenom || visiteur.prenom || '',
     nom:    visiteur.Nom    || visiteur.nom    || '',
