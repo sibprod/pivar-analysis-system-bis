@@ -2040,11 +2040,10 @@ OUTPUT FINAL — FORMAT JSON CERTIFIÉ
   "vue_systemique_declencheur": "complexité multi-paramètres",
   "vue_systemique_qualification": "...",
 
-  "excellence_dominante": "metacognition",
-  "excellence_secondaire": "vue_systemique",
+  "excellence_dominante": "anticipation | decentration | metacognition | vue_systemique — valeur EXACTE obligatoire, JAMAIS metacognition_niveau ou vue_systemique_niveau",
+  "excellence_secondaire": "anticipation | decentration | metacognition | vue_systemique — valeur EXACTE obligatoire",
   "profil_excellences": "Méta-cognitif systémique",
   "section_excellences": "[Markdown selon template 4D]",
-
   "P1_simples_total": 0,
   "P1_simples_synthese": "...",
   "P1_sophistiquees_total": 0,
