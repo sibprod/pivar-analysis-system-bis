@@ -17,7 +17,7 @@ module.exports = {
   MAX_TOKENS: {
     agent1: 8000,
     agent2: 10000,
-    certificateur: 16000,
+    certificateur: 32000,
     default: 8000
   },
   
