@@ -1,6 +1,6 @@
 ═══════════════════════════════════════════════════════════════════════════════
-PROMPT AGENT 1 — OBSERVATION COGNITIVE
-Version 10.3 | Base v10.1 intacte + corrections suite aux erreurs des agents
+PROMPT VÉRIFICATEUR — ARBITRAGE COGNITIF
+Version 2.0 | Référentiel 80 difficultés sur verbatims réels
 Construit depuis les analyses validées de 3 candidats réels
 ═══════════════════════════════════════════════════════════════════════════════
 
