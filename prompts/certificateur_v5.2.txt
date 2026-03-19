@@ -1443,8 +1443,8 @@ OUTPUT FINAL — FORMAT JSON CERTIFIÉ
   "vue_systemique_declencheur": "complexité multi-paramètres",
   "vue_systemique_qualification": "...",
 
-  "excellence_dominante": "metacognition",
-  "excellence_secondaire": "vue_systemique",
+  "excellence_dominante": "metacognition",  // valeur EXACTE : anticipation | decentration | metacognition | vue_systemique — JAMAIS avec suffixe _niveau
+  "excellence_secondaire": "vue_systemique",  // même règle — JAMAIS metacognition_niveau ou vue_systemique_niveau
   "profil_excellences": "Méta-cognitif systémique",
   "section_excellences": "[Markdown selon template 4D]",
 
@@ -1706,6 +1706,7 @@ RAPPORT CANDIDAT :
 ☐ rapport_markdown_complet : assemblage TOUTES sections
 
 MATIÈRE UTILISÉE :
+☐ coherence_agents et profil_laconique lus en 1A (signaux qualité)
 ☐ lecture_cognitive_enrichie de chaque pilier exploitée
 ☐ boucles_agregees exploitées dans boucle_cognitive_ordre
 ☐ excellences_par_scenario exploitées pour les patterns (issu Prompt 1)
