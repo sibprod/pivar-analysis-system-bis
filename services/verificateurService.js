@@ -171,7 +171,8 @@ function mapToAirtableFields(parsed) {
 
     // Statut arbitrage — checkpoint orchestrateur + indicateur qualité
     // Valeurs : CONFIRMÉ / CORRIGÉ / MAINTENU_AVEC_RÉSERVE
-    coherence: parsed.verificateur_statut || null
+    coherence: parsed.verificateur_statut || null,
+    question_scoree: true
     // coherence_agents N'EST PAS écrit ici — c'est Agent 3 qui l'écrit (TOTALE/PARTIELLE/FAIBLE)
   };
 }
