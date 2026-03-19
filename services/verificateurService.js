@@ -1,5 +1,5 @@
 // services/verificateurService.js
-// Vérificateur v8.1 — Arbitrage des attributions Agent 1
+// Vérificateur v8.2 — Arbitrage des attributions Agent 1
 // Prompt : verificateur_v2.txt (version 2.0)
 // Architecture : 25 appels indépendants (1/question)
 // Écriture : champs arbitrés dans RESPONSES × 25
@@ -9,6 +9,10 @@
 // - boucles_detectees ← boucles_finales : boucles arbitrées finales en champ plat
 // - liste_piliers_actives ← sequence_finale : séquence arbitrée finale en champ plat
 // - justification_attribution_pilier_coeur SUPPRIMÉ : doublon de verification_coeur (organigramme v3)
+//
+// CORRECTIONS v8.2 — audit 19/03/2026 :
+// - question_scoree: true ajouté dans mapToAirtableFields (checkbox manquant)
+// - virgule corrigée sur coherence (erreur syntaxe JS)
 
 'use strict';
 
@@ -171,9 +175,12 @@ function mapToAirtableFields(parsed) {
 
     // Statut arbitrage — checkpoint orchestrateur + indicateur qualité
     // Valeurs : CONFIRMÉ / CORRIGÉ / MAINTENU_AVEC_RÉSERVE
-    coherence: parsed.verificateur_statut || null,
-    question_scoree: true
+    coherence:       parsed.verificateur_statut || null,
     // coherence_agents N'EST PAS écrit ici — c'est Agent 3 qui l'écrit (TOTALE/PARTIELLE/FAIBLE)
+
+    // Marqueur de traitement — checkbox RESPONSES
+    // CORRECTION v8.2 : manquait — symétrique de question_analysee (Agent 1)
+    question_scoree: true
   };
 }
 
