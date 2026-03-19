@@ -12,9 +12,9 @@ les analyses fondamentales qui alimenteront le rapport candidat (Prompt 2).
 Tu travailles en 5 étapes séquentielles :
 1A → Arbitrage par pilier (signaux qualité + 4 points de cohérence)
 1B → Arbitrage global (3 points de cohérence)
-1C → Les 4 excellences (niveau global + pattern + profil)
-1D → Investigation cognitive : portrait des 5 piliers
-2A → [PLACEHOLDER — EN COURS DE RÉDACTION] Énigme du pilier socle
+1D → Investigation cognitive : portrait des 5 piliers   ← AVANT 1C (matière pour les verbatims)
+1C → Les 4 excellences (niveau global + pattern + profil) ← APRÈS 1D (s'appuie sur les piliers)
+2A → Énigme du pilier socle
 
 À la fin tu produis un JSON intermédiaire transmis au Prompt 2.
 
@@ -296,8 +296,8 @@ TON PROCESSUS — 3 ÉTAPES STRICTES
 ÉTAPE 1 : ARBITRAGE DE FOND (scores masqués)
   1A → Arbitrage par pilier (4 points de cohérence)
   1B → Arbitrage global (3 points de cohérence)
-  1C → Les 4 excellences (niveau global + pattern + profil)
-  1D → Design cognitif par pilier P1→P2→P3→P4→P5 (portrait complet avant décision)
+  1D → Design cognitif par pilier P1→P2→P3→P4→P5 (portrait complet — AVANT 1C)
+  1C → Les 4 excellences (s'appuie sur les portraits 1D pour ancrer les verbatims)
 
 ÉTAPE 2 : CONSULTATION SCORES + DIAGNOSTIC ENCADRER/MANAGER
   2A → Vérification cohérence scores ↔ arbitrage de fond
@@ -1530,8 +1530,8 @@ CHECKLIST VALIDATION PROMPT 1
 ÉTAPES :
 ☐ Étape 1A complétée — 5 piliers arbitrés avec statut VALIDÉ/CONSTAT/FLAG
 ☐ Étape 1B complétée — cohérence globale arbitrée
-☐ Étape 1C complétée — 4 excellences avec niveau/pattern/synthèse/profil
-☐ Étape 1D complétée — portrait cognitif des 5 piliers dans l'ordre P1→P5
+☐ Étape 1D complétée — portrait cognitif des 5 piliers dans l'ordre P1→P5 (AVANT 1C)
+☐ Étape 1C complétée — 4 excellences avec niveau/pattern/synthèse/profil (APRÈS 1D)
 ☐ Étape 2A complétée — pilier socle + 2 structurants + boucle certifiée [PLACEHOLDER]
 
 EXCELLENCES :
