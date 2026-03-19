@@ -1,30 +1,39 @@
 // services/agent3Service.js
-// Agent 3 v8.0 — Circuits & Vérification
+// Agent 3 v8.1 — Circuits & Vérification
 // Prompt : agent3_v2.txt
 // Architecture : 25 appels question (M0, M2, M5A, M6) + 5 appels synthèse pilier (M5B, M7)
 // Input : outputs fusionnés Agent1 + Vérificateur + Agent2
 // Écriture : analyse_json_agent3 + champs plats dans RESPONSES × 25
 //            circuits_top3_PX, boucles_detectees_pilier_PX, lecture_cognitive_enrichie_PX,
 //            profil_neuroscientifique_PX, limbique_*, coherence_agents dans BILAN
+//
+// CORRECTIONS + SÉCURISATIONS v8.1 — audit 19/03/2026 :
+// - limbique_detecte BILAN : 'oui'/'non' → 'vrai'/'non' (options Airtable confirmées MCP)
+// - liste_piliers_actives : retiré du mapping RESPONSES — Agent 3 ne doit PAS écraser
+//   la valeur écrite par le Vérificateur (séquence arbitrée finale)
+// - normalizeCoherence() : sécurisation valeurs TOTALE/PARTIELLE/FAIBLE
+// - normalizeLimbiqueIntens() : sécurisation intensite_max avant écriture BILAN
+// - safeString() / safeNumber() : helpers défensifs
+// - try/catch global sur mapToAirtableFieldsQuestion et mapToAirtableFieldsBilan
+// - vérification session_id + inputs obligatoires en entrée de run()
 
 'use strict';
 
-const fs = require('fs').promises;
-const path = require('path');
-const claudeService = require('./claudeService');
+const fs              = require('fs').promises;
+const path            = require('path');
+const claudeService   = require('./claudeService');
 const airtableService = require('./airtableService');
-const logger = require('../utils/logger');
+const logger          = require('../utils/logger');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-let cachedPrompt = null;
-
-// Ordre des piliers pour les synthèses
 const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CHARGEMENT DU PROMPT
 // ═══════════════════════════════════════════════════════════════════════════
+
+let cachedPrompt = null;
 
 async function loadPrompt() {
   if (cachedPrompt) return cachedPrompt;
@@ -40,30 +49,64 @@ async function loadPrompt() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// HELPERS DÉFENSIFS — v8.1
+// ═══════════════════════════════════════════════════════════════════════════
+
+function safeString(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'string') return v.trim() || null;
+  if (typeof v === 'number' && !isNaN(v)) return String(v);
+  return null;
+}
+
+function safeNumber(v, defaultVal = 0) {
+  const n = Number(v);
+  return isNaN(n) ? defaultVal : Math.round(n);
+}
+
+/**
+ * Normalise coherence_agent1_agent3 et coherence_agents.
+ * Options Airtable confirmées MCP : TOTALE / PARTIELLE / FAIBLE
+ */
+function normalizeCoherence(v) {
+  if (!v) return null;
+  const n = v.toString().toUpperCase().trim();
+  if (n === 'TOTALE')    return 'TOTALE';
+  if (n === 'PARTIELLE') return 'PARTIELLE';
+  if (n === 'FAIBLE')    return 'FAIBLE';
+  logger.warn(`Agent 3: coherence non reconnue : "${v}" → null`);
+  return null;
+}
+
+/**
+ * Normalise limbique_intensite_max pour BILAN.
+ * Options Airtable confirmées MCP : aucune / faible / modérée / forte
+ */
+function normalizeLimbiqueIntens(v) {
+  if (!v) return 'aucune';
+  const n = v.toString().toLowerCase().trim();
+  if (['aucune', 'aucun', 'none'].includes(n))                                   return 'aucune';
+  if (n === 'faible')                                                             return 'faible';
+  if (n.includes('modér') || n.includes('moder'))                                return 'modérée';
+  if (['forte', 'fort', 'élevée'].includes(n))                                   return 'forte';
+  logger.warn(`Agent 3: limbique_intensite_max non reconnue : "${v}" → aucune`);
+  return 'aucune';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ANALYSE D'UNE QUESTION — M0, M2, M5A, M6 (1 appel API)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Identifier circuits, vérifier cohérence, préparer données algo pour une question.
- * @param {string} session_id
- * @param {Object} question - { id_question, scenario_nom, pilier, question_text, response_text }
- * @param {Object} verifResult - JSON Vérificateur pour cette question
- * @param {Object} agent2Result - JSON Agent 2 pour cette question
- * @returns {Object} { id_question, result: Object (JSON agent3), cost }
- */
 async function analyzeQuestion(session_id, question, verifResult, agent2Result) {
   const systemPrompt = await loadPrompt();
-  const userPrompt = buildQuestionPrompt(question, verifResult, agent2Result);
+  const userPrompt   = buildQuestionPrompt(question, verifResult, agent2Result);
 
-  logger.info('Agent 3: analyse question', {
-    session_id,
-    id_question: question.id_question
-  });
+  logger.info('Agent 3: analyse question', { session_id, id_question: question.id_question });
 
   const response = await claudeService.callClaude({
     systemPrompt,
     userPrompt,
-    service: 'agent3',
+    service:   'agent3',
     maxTokens: 4000
   });
 
@@ -76,26 +119,18 @@ async function analyzeQuestion(session_id, question, verifResult, agent2Result) 
     throw new Error(`Agent 3: mission_6_donnees_algo manquante pour ${question.id_question}`);
   }
 
-  return {
-    id_question: question.id_question,
-    result: parsed,
-    cost: response.cost || 0
-  };
+  return { id_question: question.id_question, result: parsed, cost: response.cost || 0 };
 }
 
-/**
- * Construire le prompt utilisateur pour une question (missions M0/M2/M5A/M6).
- */
 function buildQuestionPrompt(question, verifResult, agent2Result) {
   const arbitrage = verifResult.verificateur_arbitrage || {};
-  const mesure = agent2Result.agent2_mesure || {};
+  const mesure    = agent2Result.agent2_mesure || {};
   const m4 = mesure.mission_4_dimensions_simples?.par_pilier || {};
   const m5 = mesure.mission_5_dimensions_sophistiquees?.par_pilier || {};
   const m6 = mesure.mission_6_excellences || {};
   const m7 = mesure.mission_7_amplitude?.par_pilier || {};
   const m8 = mesure.mission_8_lecture_cognitive || {};
 
-  // Construire dimensions par pilier
   const piliersCombines = new Set([
     ...(verifResult.piliers_actives || []),
     ...Object.keys(m4),
@@ -104,35 +139,33 @@ function buildQuestionPrompt(question, verifResult, agent2Result) {
   const dimensionsParPilier = {};
   for (const p of piliersCombines) {
     dimensionsParPilier[p] = {
-      simples: m4[p]?.total || 0,
+      simples:      m4[p]?.total || 0,
       sophistiquees: m5[p]?.total || 0
     };
   }
 
   const inputData = {
-    question: question.id_question,
-    scenario: question.scenario_nom,
-    pilier_question: question.pilier,
-    verbatim: question.response_text,
-    // Données Agent 1 + Vérificateur
+    question:           question.id_question,
+    scenario:           question.scenario_nom,
+    pilier_question:    question.pilier,
+    verbatim:           question.response_text,
     pilier_coeur_final: arbitrage.pilier_coeur_final || null,
     niveau_coeur_final: arbitrage.niveau_coeur_final || null,
-    piliers_actives: verifResult.piliers_actives || [],
-    boucles_finales: verifResult.boucles_finales || [],
-    sequence_finale: verifResult.sequence_finale || '',
-    // Données Agent 2
+    piliers_actives:    verifResult.piliers_actives  || [],
+    boucles_finales:    verifResult.boucles_finales  || [],
+    sequence_finale:    verifResult.sequence_finale  || '',
     dimensions_par_pilier: dimensionsParPilier,
     excellences: {
-      anticipation: m6.anticipation_niveau?.niveau || 'nulle',
-      decentration: m6.decentration_niveau?.niveau || 'nulle',
-      metacognition: m6.metacognition_niveau?.niveau || 'nulle',
+      anticipation:   m6.anticipation_niveau?.niveau   || 'nulle',
+      decentration:   m6.decentration_niveau?.niveau   || 'nulle',
+      metacognition:  m6.metacognition_niveau?.niveau  || 'nulle',
       vue_systemique: m6.vue_systemique_niveau?.niveau || 'nulle'
     },
     amplitude_par_pilier: Object.fromEntries(
       Object.entries(m7).map(([p, d]) => [p, d.amplitude || null])
     ),
     limbique: {
-      detecte: m8.limbique_detecte || false,
+      detecte:  m8.limbique_detecte  || false,
       intensite: m8.limbique_intensite || 'aucune'
     }
   };
@@ -154,23 +187,16 @@ Produis UNIQUEMENT le JSON complet agent3_verification (missions M0, M2, M5A, M6
 // SYNTHÈSE PAR PILIER — M5B, M7 (1 appel API par pilier)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Synthèse transversale sur les 5 questions d'un pilier.
- * @param {string} session_id
- * @param {string} pilier - 'P1'|'P2'|'P3'|'P4'|'P5'
- * @param {Array} questionsResultsPilier - Array des résultats agent3 des questions du pilier (selon pilier_question)
- * @returns {Object} { pilier, synthese: Object (JSON M5B+M7), cost }
- */
 async function synthesePilier(session_id, pilier, questionsResultsPilier) {
   const systemPrompt = await loadPrompt();
-  const userPrompt = buildSynthesePrompt(pilier, questionsResultsPilier);
+  const userPrompt   = buildSynthesePrompt(pilier, questionsResultsPilier);
 
   logger.info('Agent 3: synthèse pilier', { session_id, pilier, nb: questionsResultsPilier.length });
 
   const response = await claudeService.callClaude({
     systemPrompt,
     userPrompt,
-    service: 'agent3_synthese',
+    service:   'agent3_synthese',
     maxTokens: 4000
   });
 
@@ -183,16 +209,9 @@ async function synthesePilier(session_id, pilier, questionsResultsPilier) {
     throw new Error(`Agent 3: synthèse invalide pour ${pilier} — mission_7_bilan_certificateur manquante`);
   }
 
-  return {
-    pilier,
-    synthese: parsed,
-    cost: response.cost || 0
-  };
+  return { pilier, synthese: parsed, cost: response.cost || 0 };
 }
 
-/**
- * Construire le prompt utilisateur pour une synthèse pilier (M5B + M7).
- */
 function buildSynthesePrompt(pilier, questionsResultsPilier) {
   const corpusJson = JSON.stringify(
     questionsResultsPilier.map(qr => qr.result?.agent3_verification || qr.result),
@@ -232,66 +251,77 @@ Produis UNIQUEMENT ce JSON. Pas de commentaire avant ou après.`;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXTRACTION DES CHAMPS AIRTABLE RESPONSES (par question)
+// try/catch global — erreur mapping ne plante pas le pipeline
 // ═══════════════════════════════════════════════════════════════════════════
 
-function mapToAirtableFieldsQuestion(parsed) {
-  const verif = parsed.agent3_verification || {};
-  const m0 = verif.mission_0_limbique || {};
-  const m2 = verif.mission_2_circuits || {};
-  const m5A = verif.mission_5A_coherence || {};
+function mapToAirtableFieldsQuestion(parsed, id_question) {
+  try {
+    const verif = parsed.agent3_verification || {};
+    const m2    = verif.mission_2_circuits   || {};
+    const m5A   = verif.mission_5A_coherence || {};
 
-  // circuits_actives : JSON des circuits par pilier
-  const circuitsParPilier = m2.circuits_par_pilier || {};
+    const circuitsParPilier = m2.circuits_par_pilier || {};
+    const boucles           = Array.isArray(m5A.boucles_detectees) ? m5A.boucles_detectees : [];
 
-  // boucles_detectees
-  const boucles = m5A.boucles_detectees || [];
+    return {
+      analyse_json_agent3:      JSON.stringify(parsed),
+      circuits_actives:         JSON.stringify(circuitsParPilier),
 
-  // liste_piliers_actives depuis les circuits ou depuis m2
-  const pilierReponseCoeur = m2.pilier_reponse_coeur || null;
+      // boucles_detectees_agent3 : version structurelle Agent 3 (circuits)
+      // distinct de boucles_detectees_agent1 (narratif Agent 1)
+      boucles_detectees_agent3: boucles.length > 0 ? boucles.join(', ') : null,
+      nombre_boucles_agent3:    safeNumber(boucles.length),
 
-  return {
-    analyse_json_agent3:      JSON.stringify(parsed),
-    circuits_actives:         JSON.stringify(circuitsParPilier),
-    boucles_detectees_agent3: boucles.join(', ') || null, // RENOMMÉ : version structurelle Agent 3 (circuits), distinct de boucles_detectees_agent1 (narratif Agent 1)
-    nombre_boucles_agent3:    boucles.length,             // RENOMMÉ : version Agent 3
-    coherence_agent1_agent3:  m5A.coherence_agents || null,
-    liste_piliers_actives:    JSON.stringify(Object.keys(circuitsParPilier)),
-    profiling_qualifie:       m5A.flag_revision ? 'FLAG_REVISION' : 'OK',
-    lecture_cognitive_m8:     null  // rempli lors de la synthèse pilier
-  };
+      // coherence_agent1_agent3 : singleSelect TOTALE/PARTIELLE/FAIBLE
+      coherence_agent1_agent3:  normalizeCoherence(m5A.coherence_agents),
+
+      // ⚠️ CORRECTION v8.1 : liste_piliers_actives RETIRÉ
+      // Agent 3 ne doit PAS écraser la séquence arbitrée du Vérificateur
+      // La valeur du Vérificateur (sequence_finale) est la référence pour le pipeline aval
+
+      profiling_qualifie:  m5A.flag_revision ? 'FLAG_REVISION' : 'OK',
+      lecture_cognitive_m8: null  // rempli lors de la synthèse pilier (étape 2)
+    };
+  } catch (err) {
+    logger.error(`Agent 3: erreur mapToAirtableFieldsQuestion pour ${id_question || '?'}`, { error: err.message });
+    return { analyse_json_agent3: JSON.stringify(parsed) };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXTRACTION DES CHAMPS AIRTABLE BILAN (depuis synthèse pilier)
+// try/catch global — erreur mapping ne plante pas le pipeline
 // ═══════════════════════════════════════════════════════════════════════════
 
 function mapToAirtableFieldsBilan(pilier, synthese) {
-  const m5B = synthese.mission_5B_synthese || {};
-  const m7 = synthese.mission_7_bilan_certificateur || {};
+  try {
+    const m5B = synthese.mission_5B_synthese          || {};
+    const m7  = synthese.mission_7_bilan_certificateur || {};
 
-  const fields = {};
+    const fields = {};
 
-  const pNum = pilier; // ex: 'P1'
+    // circuits_top3_PX
+    fields[`circuits_top3_${pilier}`] = JSON.stringify(m5B.circuits_recurrents_top3 || []);
 
-  // circuits_top3_PX
-  fields[`circuits_top3_${pNum}`] = JSON.stringify(m5B.circuits_recurrents_top3 || []);
+    // boucles_detectees_pilier_PX
+    fields[`boucles_detectees_pilier_${pilier}`] = JSON.stringify(m5B.boucles_agregees || {});
 
-  // boucles_detectees_pilier_PX
-  fields[`boucles_detectees_pilier_${pNum}`] = JSON.stringify(m5B.boucles_agregees || {});
+    // lecture_cognitive_enrichie_PX
+    fields[`lecture_cognitive_enrichie_${pilier}`] = safeString(m7.lecture_cognitive_enrichie);
 
-  // lecture_cognitive_enrichie_PX
-  fields[`lecture_cognitive_enrichie_${pNum}`] = m7.lecture_cognitive_enrichie || null;
+    // profil_neuroscientifique_PX
+    fields[`profil_neuroscientifique_${pilier}`] = JSON.stringify(m7.profil_neuroscientifique || {});
 
-  // profil_neuroscientifique_PX
-  fields[`profil_neuroscientifique_${pNum}`] = JSON.stringify(m7.profil_neuroscientifique || {});
+    // excellences_par_pilier_PX — agrégation qualitative des 4 excellences sur ce pilier
+    if (m5B.excellences_par_pilier) {
+      fields[`excellences_par_pilier_${pilier}`] = JSON.stringify(m5B.excellences_par_pilier);
+    }
 
-  // excellences_par_pilier_PX — agrégation qualitative des 4 excellences sur ce pilier
-  // Source : mission_5B_synthese.excellences_par_pilier (produit par Agent 3 M5B)
-  if (m5B.excellences_par_pilier) {
-    fields[`excellences_par_pilier_${pNum}`] = JSON.stringify(m5B.excellences_par_pilier);
+    return fields;
+  } catch (err) {
+    logger.error(`Agent 3: erreur mapToAirtableFieldsBilan pour ${pilier}`, { error: err.message });
+    return {};
   }
-
-  return fields;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -300,9 +330,9 @@ function mapToAirtableFieldsBilan(pilier, synthese) {
 
 function aggregateLimbique(allAnalyses) {
   const intensiteOrder = { 'aucune': 0, 'faible': 1, 'modérée': 2, 'forte': 3 };
-  let detecte = false;
+  let detecte      = false;
   let intensiteMax = 'aucune';
-  let nbLimbiques = 0;
+  let nbLimbiques  = 0;
 
   for (const { result } of allAnalyses) {
     const m0 = result?.agent3_verification?.mission_0_limbique || {};
@@ -316,7 +346,11 @@ function aggregateLimbique(allAnalyses) {
     }
   }
 
-  return { limbique_detecte: detecte, limbique_intensite_max: intensiteMax, nb_questions_limbiques: nbLimbiques };
+  return {
+    limbique_detecte:        detecte,
+    limbique_intensite_max:  intensiteMax,
+    nb_questions_limbiques:  nbLimbiques
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -325,13 +359,13 @@ function aggregateLimbique(allAnalyses) {
 
 function aggregateCoherence(allAnalyses) {
   // Cohérence globale = la plus faible sur l'ensemble
-  const order = { 'TOTALE': 2, 'PARTIELLE': 1, 'FAIBLE': 0 };
+  const order   = { 'TOTALE': 2, 'PARTIELLE': 1, 'FAIBLE': 0 };
+  const reverse = { 2: 'TOTALE',  1: 'PARTIELLE',  0: 'FAIBLE'  };
   let min = 2;
   for (const { result } of allAnalyses) {
     const coh = result?.agent3_verification?.mission_5A_coherence?.coherence_agents || 'TOTALE';
     if ((order[coh] ?? 2) < min) min = order[coh] ?? 2;
   }
-  const reverse = { 2: 'TOTALE', 1: 'PARTIELLE', 0: 'FAIBLE' };
   return reverse[min] || 'TOTALE';
 }
 
@@ -339,45 +373,42 @@ function aggregateCoherence(allAnalyses) {
 // FONCTION PRINCIPALE
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Pipeline complet Agent 3 pour un candidat.
- * - 25 appels question (M0/M2/M5A/M6) → RESPONSES
- * - 5 appels synthèse pilier (M5B/M7) → BILAN
- *
- * @param {string} session_id
- * @param {Array} questions - 25 questions
- * @param {Array} verificateurArbitrages - Array de { id_question, result }
- * @param {Array} agent2Analyses - Array de { id_question, result }
- * @returns {Object} { analyses, syntheses, totalCost }
- */
 async function run(session_id, questions, verificateurArbitrages, agent2Analyses) {
+  if (!session_id) {
+    throw new Error('Agent 3: session_id manquant');
+  }
   if (!questions || questions.length !== 25) {
     throw new Error(`Agent 3: attendu 25 questions, reçu ${questions?.length ?? 0}`);
   }
+  if (!verificateurArbitrages || verificateurArbitrages.length !== 25) {
+    throw new Error(`Agent 3: attendu 25 arbitrages Vérificateur, reçu ${verificateurArbitrages?.length ?? 0}`);
+  }
+  if (!agent2Analyses || agent2Analyses.length !== 25) {
+    throw new Error(`Agent 3: attendu 25 analyses Agent 2, reçu ${agent2Analyses?.length ?? 0}`);
+  }
 
   // Indexer les inputs
-  const verifByQuestion = {};
-  for (const a of verificateurArbitrages) verifByQuestion[a.id_question] = a.result;
-
+  const verifByQuestion  = {};
   const agent2ByQuestion = {};
-  for (const a of agent2Analyses) agent2ByQuestion[a.id_question] = a.result;
+  for (const a of verificateurArbitrages) verifByQuestion[a.id_question]  = a.result;
+  for (const a of agent2Analyses)         agent2ByQuestion[a.id_question] = a.result;
 
   logger.info('Agent 3: démarrage pipeline', { session_id });
 
   const analyses = [];
-  let totalCost = 0;
+  let totalCost  = 0;
 
   // ── ÉTAPE 1 : 25 appels question ──────────────────────────────────────────
   for (let i = 0; i < questions.length; i++) {
-    const question = questions[i];
-    const verifResult = verifByQuestion[question.id_question];
+    const question    = questions[i];
+    const verifResult  = verifByQuestion[question.id_question];
     const agent2Result = agent2ByQuestion[question.id_question];
 
-    if (!verifResult) throw new Error(`Agent 3: résultat Vérificateur introuvable pour ${question.id_question}`);
+    if (!verifResult)  throw new Error(`Agent 3: résultat Vérificateur introuvable pour ${question.id_question}`);
     if (!agent2Result) throw new Error(`Agent 3: résultat Agent 2 introuvable pour ${question.id_question}`);
 
     let result;
-    let attempts = 0;
+    let attempts      = 0;
     const maxAttempts = 3;
 
     while (attempts < maxAttempts) {
@@ -400,51 +431,46 @@ async function run(session_id, questions, verificateurArbitrages, agent2Analyses
     totalCost += result.cost;
 
     // Écriture immédiate dans RESPONSES
-    const fields = mapToAirtableFieldsQuestion(result.result);
+    const fields = mapToAirtableFieldsQuestion(result.result, question.id_question);
     await airtableService.updateResponse(question.id_question, session_id, fields);
 
     logger.info(`Agent 3: question ${i + 1}/25 analysée`, {
       session_id,
       id_question: question.id_question,
-      coherence: result.result?.agent3_verification?.mission_5A_coherence?.coherence_agents
+      coherence:   result.result?.agent3_verification?.mission_5A_coherence?.coherence_agents
     });
 
-    if (i < questions.length - 1) {
-      await sleep(1000);
-    }
+    if (i < questions.length - 1) await sleep(1000);
   }
 
   // ── ÉTAPE 2 : 5 synthèses pilier ──────────────────────────────────────────
-  const syntheses = {};
+  const syntheses  = {};
   const bilanFields = {};
 
   for (const pilier of PILIERS) {
-    // Regrouper les questions dont le pilier_REPONSE_COEUR correspond (pas pilier_question)
-    // Le prompt synthétise par pilier réellement activé (distribution réelle), pas pilier demandé
-    // Le pilier_reponse_coeur est dans l'analyse Agent 3 : mission_2_circuits.pilier_reponse_coeur
-    // ou dans le JSON vérificateur : verificateur_arbitrage.pilier_coeur_final
+    // Regrouper par pilier_reponse_coeur réellement déployé (pas pilier_question)
     const questionsPilier = questions.filter(q => {
-      // Chercher dans les analyses : pilier_reponse_coeur de cette question
       const analyse = analyses.find(a => a.id_question === q.id_question);
-      const coeur = analyse?.result?.agent3_verification?.mission_2_circuits?.pilier_reponse_coeur
-                 || analyse?.result?.verificateur_arbitrage?.pilier_coeur_final
-                 || q.pilier_reponse_coeur  // depuis Airtable si disponible
-                 || q.pilier;              // fallback sur pilier_question
+      const coeur   = analyse?.result?.agent3_verification?.mission_2_circuits?.pilier_reponse_coeur
+                   || analyse?.result?.verificateur_arbitrage?.pilier_coeur_final
+                   || q.pilier_reponse_coeur
+                   || q.pilier;
       return coeur === pilier;
     });
-    const resultsPilier = questionsPilier.map(q => {
-      return analyses.find(a => a.id_question === q.id_question);
-    }).filter(Boolean);
+
+    const resultsPilier = questionsPilier
+      .map(q => analyses.find(a => a.id_question === q.id_question))
+      .filter(Boolean);
 
     if (resultsPilier.length === 0) {
-      logger.warn(`Agent 3: aucune question pour pilier ${pilier}`, { session_id });
+      logger.warn(`Agent 3: aucune question pour pilier ${pilier} — synthèse ignorée`, { session_id });
       continue;
     }
 
     await sleep(1000);
 
     let synthResult;
-    let attempts = 0;
+    let attempts      = 0;
     const maxAttempts = 3;
 
     while (attempts < maxAttempts) {
@@ -482,15 +508,16 @@ async function run(session_id, questions, verificateurArbitrages, agent2Analyses
     logger.info(`Agent 3: synthèse pilier ${pilier} terminée`, { session_id });
   }
 
-  // Agrégations globales pour BILAN
-  const limbique = aggregateLimbique(analyses);
+  // ── Agrégations globales BILAN ─────────────────────────────────────────────
+  const limbique        = aggregateLimbique(analyses);
   const coherenceGlobale = aggregateCoherence(analyses);
 
   Object.assign(bilanFields, {
-    limbique_detecte:       limbique.limbique_detecte ? 'oui' : 'non',  // Single Select BILAN
-    limbique_intensite_max: limbique.limbique_intensite_max,
-    nb_questions_limbiques: limbique.nb_questions_limbiques,
-    coherence_agents:       coherenceGlobale
+    // CORRECTION v8.1 : 'oui' → 'vrai' (options Airtable confirmées MCP : vrai/faux/non)
+    limbique_detecte:       limbique.limbique_detecte ? 'vrai' : 'non',
+    limbique_intensite_max: normalizeLimbiqueIntens(limbique.limbique_intensite_max),
+    nb_questions_limbiques: safeNumber(limbique.nb_questions_limbiques),
+    coherence_agents:       normalizeCoherence(coherenceGlobale) || 'TOTALE'
   });
 
   // Écriture dans BILAN
@@ -498,9 +525,9 @@ async function run(session_id, questions, verificateurArbitrages, agent2Analyses
 
   logger.info('Agent 3: pipeline terminé', {
     session_id,
-    questions_traitees: analyses.length,
-    syntheses_piliers: Object.keys(syntheses).length,
-    totalCost: totalCost.toFixed(4)
+    questions_traitees:  analyses.length,
+    syntheses_piliers:   Object.keys(syntheses).length,
+    totalCost:           totalCost.toFixed(4)
   });
 
   return {
@@ -516,6 +543,8 @@ async function run(session_id, questions, verificateurArbitrages, agent2Analyses
 
 module.exports = {
   run,
-  analyzeQuestion,  // exposé pour retry granulaire
-  synthesePilier    // exposé pour tests
+  analyzeQuestion,              // exposé pour retry granulaire
+  synthesePilier,               // exposé pour tests
+  mapToAirtableFieldsQuestion,  // exposé pour tests unitaires
+  mapToAirtableFieldsBilan      // exposé pour tests unitaires
 };
