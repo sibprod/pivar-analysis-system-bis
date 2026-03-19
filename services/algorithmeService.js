@@ -147,48 +147,9 @@ function calculerPilier(pilier, questionsReelles) {
   };
 }
 
-// ── Agrégations verbatims × 4 excellences ──
-function agregerVerbatims(questionsData) {
-  const keys = ['anticipation', 'decentration', 'metacognition', 'vue_systemique'];
-  const v = {}, m = {};
-  keys.forEach(k => { v[k] = []; m[k] = []; });
-  for (const q of questionsData) {
-    for (const k of keys) {
-      if (q[`${k}_verbatim`])      v[k].push(q[`${k}_verbatim`]);
-      if (q[`${k}_manifestation`]) m[k].push(q[`${k}_manifestation`]);
-    }
-  }
-  const result = {};
-  for (const k of keys) {
-    result[`${k}_verbatims_agreges`]      = v[k].length > 0 ? v[k].join(' | ') : null;
-    result[`${k}_manifestations_agreges`] = m[k].length > 0 ? m[k].join(' | ') : null;
-  }
-  return result;
-}
+// agregerVerbatims supprimée — pas du ressort de l'Algo
 
-// ── Excellences par scénario ──
-function agregerExcellencesParScenario(questionsData) {
-  const scenarios = { SOMMEIL: [], WEEKEND: [], ANIMAL: [], PANNE: [] };
-  const keys = ['anticipation_niveau', 'decentration_niveau', 'metacognition_niveau', 'vue_systemique_niveau'];
-  for (const q of questionsData) { if (scenarios[q.scenario_nom]) scenarios[q.scenario_nom].push(q); }
-  const niveauOrder = { nulle: 0, faible: 1, moyen: 2, 'élevé': 3 };
-  const niveauNames = ['nulle', 'faible', 'moyen', 'élevé'];
-  const result = {};
-  for (const [sc, qs] of Object.entries(scenarios)) {
-    if (qs.length === 0) { result[`excellences_${sc}`] = null; continue; }
-    const mx = {};
-    for (const k of keys) {
-      let max = 0;
-      for (const q of qs) {
-        const niv = (q[k] || 'nulle').toLowerCase();
-        if ((niveauOrder[niv] || 0) > max) max = niveauOrder[niv] || 0;
-      }
-      mx[k] = niveauNames[max];
-    }
-    result[`excellences_${sc}`] = JSON.stringify(mx);
-  }
-  return result;
-}
+// agregerExcellencesParScenario supprimée — pas du ressort de l'Algo
 
 // ── Excellences agrégées par pilier cœur (niveau max par excellence sur ce pilier) ──
 function agregerExcellencesParPilier(dist) {
@@ -253,16 +214,10 @@ async function run(session_id, candidat, questionsData, agent3Syntheses, agent1C
   const scoresPiliers = {};
   for (const p of PILIERS) scoresPiliers[p] = calculerPilier(p, dist[p]);
 
-  // ÉTAPE 4 : Qualité passation
-  const tauxRepond        = questionsAvecScores.filter(q => ['OUI', 'oui', true].includes(q.repond_question)).length;
-  const tauxProblematique = questionsAvecScores.filter(q => ['OUI', 'oui', true].includes(q.traite_problematique_situation)).length;
-  const tauxProcessus     = questionsAvecScores.filter(q => ['OUI', 'oui', true].includes(q.fait_processus_pilier)).length;
-  const nbLaconiques      = questionsAvecScores.filter(q => q.laconique === true).length;
+  // ÉTAPE 4 : (qualité passation supprimée — pas du ressort de l'Algo)
 
-  // ÉTAPE 5 : Agrégations
-  const verbatimsAgreges         = agregerVerbatims(questionsAvecScores);
-  const excellencesScenario      = agregerExcellencesParScenario(questionsAvecScores);
-  const excellencesParPilier     = agregerExcellencesParPilier(dist);
+  // ÉTAPE 5 : Excellences agrégées par pilier
+  const excellencesParPilier = agregerExcellencesParPilier(dist);
 
   // Dimensions par pilier (champs plats BILAN)
   const dimsBilan = {};
@@ -276,63 +231,26 @@ async function run(session_id, candidat, questionsData, agent3Syntheses, agent1C
     dimsBilan[`PX_details_total_${p}`]        = sp.total_details || 0;
   }
 
-  // JSON interne — consultation uniquement, JAMAIS transmis au Certificateur
-  const jsonInterne = {
-    session_ID:         session_id,
-    candidat:           { prenom: candidat.prenom, nom: candidat.nom },
-    date_analyse:       new Date().toISOString().split('T')[0],
-    version_algorithme: '8.5',
-    usage:              'CONSULTATION INTERNE UNIQUEMENT',
-    scores_par_pilier:  Object.fromEntries(PILIERS.map(p => [p, scoresPiliers[p]])),
-    nb_questions_par_pilier: Object.fromEntries(PILIERS.map(p => [p, dist[p].length])),
-    statistiques_qualite: {
-      taux_repond_question:       tauxRepond,
-      taux_traite_problematique:  tauxProblematique,
-      taux_fait_processus_pilier: tauxProcessus,
-      profil_laconique:           round2(nbLaconiques / 25)
-    }
-  };
 
-  // ── ÉCRITURE BILAN ──────────────────────────────────────────────────────
+
+  // ── ÉCRITURE BILAN — 40 champs par pilier (calculatrice pure) ──────────
   const bilanFields = {
-    // Scores et niveaux par pilier cœur — BILAN interne uniquement, jamais transmis au Certificateur
+
+    // Scores et niveaux par pilier (× 5)
     ...Object.fromEntries(PILIERS.flatMap(p => [
       [`score_pilier_${p}`, scoresPiliers[p].score_contenu_moyen],
       [`niveau_max_${p}`,   scoresPiliers[p].nom_niveau_max]
     ])),
 
-    // Qualité passation
-    taux_repond_question:       tauxRepond,
-    taux_traite_problematique:  tauxProblematique,
-    taux_fait_processus_pilier: tauxProcessus,
-    profil_laconique:           round2(nbLaconiques / 25),
+    // Dimensions par pilier — champs plats (× 5 × 5 = 25 champs)
+    ...dimsBilan,
 
-    // Verbatims agrégés × 4 excellences
-    ...Object.fromEntries(
-      ['anticipation', 'decentration', 'metacognition', 'vue_systemique'].flatMap(k => [
-        [`${k}_verbatims_agreges`,      verbatimsAgreges[`${k}_verbatims_agreges`]],
-        [`${k}_manifestations_agreges`, verbatimsAgreges[`${k}_manifestations_agreges`]]
-      ])
-    ),
-
-    // Excellences par scénario
-    ...excellencesScenario,
-
-    // Excellences agrégées par pilier cœur — transmises au Certif dans dossier pilier
+    // Excellences agrégées par pilier → JSON envoyé au Certif (× 5)
     ...Object.fromEntries(
       PILIERS
         .filter(p => excellencesParPilier[p] !== null)
         .map(p => [`excellences_par_pilier_${p}`, JSON.stringify(excellencesParPilier[p])])
     ),
-
-    // Dimensions par pilier cœur (simples + details + soph)
-    ...dimsBilan,
-
-    // Agent 1 corpus
-    pattern_emergent: agent1Corpus?.section_C || agent1Corpus?.pattern_emergent || null,
-
-    // JSON interne — consultation uniquement
-    synthese_json_complete: JSON.stringify(jsonInterne)
   };
 
   await airtableService.updateBilan(session_id, bilanFields);
