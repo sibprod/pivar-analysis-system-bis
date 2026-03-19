@@ -183,7 +183,16 @@ Ces conclusions sont TA MISSION — tu les produis toi-même depuis la matière.
         "reserve_eventuelle":             []
       },
 
-      "flag_revision": false
+      "flag_revision": false,
+
+      // Excellences agrégées sur CE pilier — Agent 3 M5B (nouveau v8.5)
+      // niveau max observé + verbatim + manifestation + contexte_activation par excellence
+      "excellences_par_pilier": {
+        "anticipation":   { "niveau": "moyen",  "verbatim": "...", "manifestation": "...", "contexte_activation": "..." },
+        "decentration":   { "niveau": "élevé",  "verbatim": "...", "manifestation": "...", "contexte_activation": "..." },
+        "metacognition":  { "niveau": "nulle",  "verbatim": null,  "manifestation": null,  "contexte_activation": null  },
+        "vue_systemique": { "niveau": "faible", "verbatim": "...", "manifestation": "...", "contexte_activation": "..." }
+      }
     },
 
     "P2_TRI":       { },
@@ -265,7 +274,10 @@ LÉGENDE CHAMPS INPUT — Version 3.0
 - lecture_cognitive_enrichie → synthèse narrative Agent 3 M7 sur 5 questions — SOURCE CLÉ
 - profil_neuroscientifique.traduction → mécanismes cérébraux activés — révèle la profondeur réelle
 - capacites_observees → capacités structurelles observées depuis les circuits (Agent 3 M7)
-- excellences_consolidees → niveaux + verbatims + manifestations + contextes par excellence
+- excellences_consolidees → niveaux + verbatims + manifestations + contextes par excellence (Agent 2)
+- excellences_par_pilier → agrégation qualitative des 4 excellences sur CE pilier (Agent 3 M5B)
+  niveau max observé + verbatim + manifestation + contexte_activation les plus révélateurs
+  ⚠️ Source complémentaire à excellences_consolidees — permet la LECTURE 6 dans 1D
 - signaux_qualite.coherence_agent1_agent3 → cohérence par question sur ce pilier
 - signaux_qualite.profiling_qualifie → FLAG_REVISION = incohérence majeure Agent 3
 - detail_amplitude.plusieurs_niveaux → candidat déploie plusieurs niveaux dans ses réponses
@@ -895,6 +907,22 @@ LECTURE 5 — ANALYSE NARRATIVE
   = pilier de haut niveau de traitement cognitif.
 
 ─────────────────────────────────────────────
+LECTURE 6 — EXCELLENCES ACTIVÉES SUR CE PILIER
+─────────────────────────────────────────────
+→ excellences_par_pilier (Agent 3 M5B) :
+  Lire les 4 excellences agrégées sur les questions de CE pilier.
+  Pour chaque excellence active (niveau ≠ nulle) :
+  - Quel niveau s'active sur ce pilier ?
+  - Quel verbatim illustre cette activation ?
+  - Comment se manifeste-t-elle concrètement ?
+  - Dans quel contexte s'active-t-elle sur ce pilier ?
+
+⚠️ Cette lecture est LOCALE au pilier — elle prépare la synthèse globale de 1C.
+   Un pilier peut activer fortement une excellence que d'autres piliers n'activent pas.
+   → Signal fort : excellence élevée sur un seul pilier = activation très contextualisée
+   → Signal faible : excellence nulle sur tous les piliers sauf un = déclencheur spécifique à identifier
+
+─────────────────────────────────────────────
 SYNTHÈSE PAR PILIER
 ─────────────────────────────────────────────
 Après ces 5 lectures, rédiger pour chaque pilier :
@@ -1475,6 +1503,12 @@ Produis UNIQUEMENT ce JSON. Il sera transmis intégralement au Prompt 2.
       "boucles":     { "emetteur_vers": [], "recepteur_depuis": [], "signal": "initiateur | recepteur | bidirectionnel" },
       "circuits":    { "top1": "nom + fréquence", "top2": "...", "top3": "...", "signal": "sophistiqués | basiques" },
       "narrative":   { "lce_resume": "1 phrase clé", "neuro_signal": "mécanisme dominant" },
+      "excellences_pilier": {
+        "anticipation":   { "niveau": "nulle | faible | moyen | élevé", "signal": "note si activation notable" },
+        "decentration":   { "niveau": "...", "signal": "..." },
+        "metacognition":  { "niveau": "...", "signal": "..." },
+        "vue_systemique": { "niveau": "...", "signal": "..." }
+      },
       "synthese_pilier": {
         "role": "fort | moyen | faible | absent",
         "nature": "initiateur | transformateur | exécutant | support",
