@@ -19,8 +19,8 @@ Tu travailles en séquence :
 2C → Diagnostic Encadrement/Management Passe 2 (affinage déclencheurs)
 3A → Diagnostics finaux affinés (narratifs complets)
 3B → Tableau comparatif Encadrer vs Manager
-4A → Profil type et navigation cognitive
-4B → Profils par pilier et lexiques
+4B → Profils par pilier et lexiques            ← AVANT 4A (produit les profil_coché)
+4A → Profil type et navigation cognitive       ← APRÈS 4B (utilise les profil_coché)
 4C → Signature d'excellence
 4D → Excellences cognitives
 4E → Talent, capacités, pitch, mantra
@@ -1678,7 +1678,7 @@ DIAGNOSTICS :
 ☐ tableau_comparatif_encadrer_manager produit
 
 PROFILS ET PILIERS :
-☐ profil_coché_PX (5 piliers) — issu Prompt 1, repris ici
+☐ profil_coché_PX (5 piliers) — produits en 4B AVANT 4A
 ☐ Circuits en texte fluide (PAS de liste) dans section_pilier
 ☐ Minimum 3-5 verbatims par pilier entre guillemets simples
 ☐ Au moins 1 capacité certifiée (Agent 2 + Agent 3) dans "Votre style"
@@ -1732,6 +1732,7 @@ FORMAT :
 
 DIMENSIONS :
 ☐ PX_simples_total et PX_sophistiquees_total LUS depuis dimensions.total_simples / total_soph (PAS recalculés)
+☐ PX_simples_synthese et PX_sophistiquees_synthese rédigées (×5 piliers)
 ☐ dimensions_superieures_count = somme des total_soph sur les 5 piliers
 ☐ dimensions_simples_json et dimensions_sophistiquees_json construits depuis les valeurs par pilier
 
