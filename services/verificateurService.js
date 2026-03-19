@@ -134,7 +134,7 @@ function mapToAirtableFields(parsed) {
     analyse_json_verificateur: null, // rempli dans run() après mapToAirtableFields
 
     // Pilier arbitré final — verdict du Vérificateur
-    pilier_reponse_coeur: arbitrage.pilier_coeur_final || null,
+    pilier_reponse_coeur_confirme: arbitrage.pilier_coeur_final || null,
 
     // Niveau arbitré final — écrase la valeur brute d'Agent 1
     // CORRECTION v8.1 : niveau_coeur_final en champ plat pour Agent 2 (M7) et Agent 3
