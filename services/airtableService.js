@@ -1,358 +1,298 @@
-// config/airtable.js
-// Configuration Airtable v8.5 — Pipeline profil cognitif
+// services/airtableService.js
+// Service Airtable v8.2 — Pipeline profil cognitif
+// Couche d'accès unique à l'API Airtable REST
 //
-// CORRECTIONS v8.4 :
-// - pilier_structurant2_certif ajouté dans BILAN (2ème pilier structurant certifié)
-// - Algo v8.4 : synthese_json_complete = JSON interne uniquement (jamais transmis au Certificateur)
-// - Certificateur lit directement les champs BILAN via airtableService.getBilan()
-// - etape_1_arbitrage_fond / etape_2_lecture_algo / etape_3_diagnostics renommés
-//   → etape_1_arbitrage_fond / etape_2_lecture_algo / etape_3_diagnostics (Prompt 1)
-//   → etape_diagnostics / etape_rapport (Prompt 2)
+// ARCHITECTURE :
+// - Toutes les opérations Airtable passent par ce service
+// - Jamais d'appels directs à l'API depuis les autres services
+// - Noms de champs en string (typecast: true) — jamais d'IDs fldXXX
+// - Tables : VISITEUR (tblslPP9B71FveOX5) | RESPONSES (tblLnWhszYAQldZOJ) | BILAN (tbljRMIMjM9SwVyox)
+//
+// FONCTIONS EXPORTÉES :
+//   getVisiteur(session_id)                         → objet visiteur ou null
+//   getVisiteursByStatus(statuts[])                 → array de visiteurs
+//   updateVisiteur(session_id, fields)              → void
+//   getResponsesBySession(session_id)               → array 25 questions triées
+//   updateResponse(id_question, session_id, fields) → void
+//   getBilan(session_id)                            → objet bilan ou null
+//   updateBilan(session_id, fields)                 → void
+
+'use strict';
+
+const logger = require('../utils/logger');
+
+// ─── CONFIGURATION ────────────────────────────────────────────────────────────
+
+const BASE_ID = process.env.AIRTABLE_BASE_ID;
+const TOKEN   = process.env.AIRTABLE_TOKEN;
+
+const TABLES = {
+  VISITEUR:  'tblslPP9B71FveOX5',
+  RESPONSES: 'tblLnWhszYAQldZOJ',
+  BILAN:     'tbljRMIMjM9SwVyox',   // "Copie de BILAN 2" — table de production
+};
+
+const BASE_URL = `https://api.airtable.com/v0/${BASE_ID}`;
+
+// ─── HELPERS HTTP ─────────────────────────────────────────────────────────────
+
+function headers() {
+  return {
+    'Authorization': `Bearer ${TOKEN}`,
+    'Content-Type':  'application/json',
+  };
+}
+
+/**
+ * GET paginé — retourne tous les records d'une table avec filtre optionnel.
+ */
+async function fetchAllRecords(tableId, filterFormula = null) {
+  const records = [];
+  let offset    = null;
+
+  do {
+    const params = new URLSearchParams();
+    if (filterFormula) params.set('filterByFormula', filterFormula);
+    if (offset)        params.set('offset', offset);
+
+    const url = `${BASE_URL}/${tableId}?${params.toString()}`;
+    const res = await fetch(url, { headers: headers() });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Airtable GET ${tableId} — HTTP ${res.status}: ${body}`);
+    }
+
+    const data = await res.json();
+    records.push(...(data.records || []));
+    offset = data.offset || null;
+
+  } while (offset);
+
+  return records;
+}
+
+/**
+ * PATCH — mise à jour partielle d'un record existant.
+ * typecast: true pour accepter les noms de champs directement sans IDs.
+ */
+async function patchRecord(tableId, recordId, fields) {
+  const url = `${BASE_URL}/${tableId}/${recordId}`;
+
+  const res = await fetch(url, {
+    method:  'PATCH',
+    headers: headers(),
+    body:    JSON.stringify({ fields, typecast: true }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Airtable PATCH ${tableId}/${recordId} — HTTP ${res.status}: ${body}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Supprime les clés undefined avant envoi (conserve null pour effacer un champ).
+ */
+function sanitizeFields(fields) {
+  const clean = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  return clean;
+}
+
+// ─── CACHE RECORD IDS ─────────────────────────────────────────────────────────
+// Les record IDs Airtable (recXXX) sont nécessaires pour les PATCH.
+// Mis en cache pour éviter les GET répétés.
+
+const cache = {
+  visiteurs: new Map(),  // session_id → record_id
+  responses: new Map(),  // "id_question::session_id" → record_id
+  bilans:    new Map(),  // session_id → record_id
+};
+
+// ─── VISITEUR ─────────────────────────────────────────────────────────────────
+
+/**
+ * Récupère un visiteur par session_id (= candidate_ID dans VISITEUR).
+ * @returns {Object|null}
+ */
+async function getVisiteur(session_id) {
+  if (!session_id) throw new Error('getVisiteur: session_id manquant');
+
+  const formula = `{candidate_ID}="${session_id}"`;
+  const records = await fetchAllRecords(TABLES.VISITEUR, formula);
+
+  if (records.length === 0) {
+    logger.warn('airtableService.getVisiteur: aucun enregistrement', { session_id });
+    return null;
+  }
+
+  const record = records[0];
+  cache.visiteurs.set(session_id, record.id);
+  logger.info('airtableService.getVisiteur: trouvé', { session_id, record_id: record.id });
+  return { _record_id: record.id, ...record.fields };
+}
+
+/**
+ * Récupère tous les visiteurs ayant l'un des statuts donnés.
+ * @param {string[]} statuts — ex: ['NOUVEAU', 'EN COURS']
+ * @returns {Object[]}
+ */
+async function getVisiteursByStatus(statuts) {
+  if (!statuts || statuts.length === 0) {
+    throw new Error('getVisiteursByStatus: tableau de statuts vide');
+  }
+
+  const conditions = statuts.map(s => `{statut_analyse_pivar}="${s}"`).join(', ');
+  const formula    = statuts.length === 1 ? conditions : `OR(${conditions})`;
+
+  const records = await fetchAllRecords(TABLES.VISITEUR, formula);
+
+  return records.map(r => {
+    cache.visiteurs.set(r.fields.candidate_ID, r.id);
+    return { _record_id: r.id, ...r.fields };
+  });
+}
+
+/**
+ * Met à jour les champs d'un visiteur.
+ */
+async function updateVisiteur(session_id, fields) {
+  if (!session_id) throw new Error('updateVisiteur: session_id manquant');
+  if (!fields || Object.keys(fields).length === 0) return;
+
+  let record_id = cache.visiteurs.get(session_id);
+  if (!record_id) {
+    const visiteur = await getVisiteur(session_id);
+    if (!visiteur) throw new Error(`updateVisiteur: visiteur ${session_id} introuvable`);
+    record_id = visiteur._record_id;
+  }
+
+  const clean = sanitizeFields(fields);
+  await patchRecord(TABLES.VISITEUR, record_id, clean);
+  logger.info('airtableService.updateVisiteur: mis à jour', { session_id, champs: Object.keys(clean) });
+}
+
+// ─── RESPONSES ────────────────────────────────────────────────────────────────
+
+/**
+ * Récupère les 25 réponses d'un candidat, triées par numero_global.
+ * @returns {Object[]}
+ */
+async function getResponsesBySession(session_id) {
+  if (!session_id) throw new Error('getResponsesBySession: session_id manquant');
+
+  const formula = `{session_ID}="${session_id}"`;
+  const records = await fetchAllRecords(TABLES.RESPONSES, formula);
+
+  if (records.length === 0) {
+    logger.warn('airtableService.getResponsesBySession: aucune réponse', { session_id });
+    return [];
+  }
+
+  for (const r of records) {
+    const key = `${r.fields.id_question}::${session_id}`;
+    cache.responses.set(key, r.id);
+  }
+
+  const sorted = records
+    .map(r => ({ _record_id: r.id, ...r.fields }))
+    .sort((a, b) => (a.numero_global || 0) - (b.numero_global || 0));
+
+  logger.info('airtableService.getResponsesBySession: chargé', { session_id, count: sorted.length });
+  return sorted;
+}
+
+/**
+ * Met à jour les champs d'une réponse (une question).
+ * @param {string} id_question  — ex: "S1Q3"
+ * @param {string} session_id
+ * @param {Object} fields
+ */
+async function updateResponse(id_question, session_id, fields) {
+  if (!id_question) throw new Error('updateResponse: id_question manquant');
+  if (!session_id)  throw new Error('updateResponse: session_id manquant');
+  if (!fields || Object.keys(fields).length === 0) return;
+
+  const cacheKey = `${id_question}::${session_id}`;
+  let record_id  = cache.responses.get(cacheKey);
+
+  if (!record_id) {
+    const formula = `AND({id_question}="${id_question}", {session_ID}="${session_id}")`;
+    const records = await fetchAllRecords(TABLES.RESPONSES, formula);
+
+    if (records.length === 0) {
+      throw new Error(`updateResponse: réponse introuvable — id_question=${id_question} session=${session_id}`);
+    }
+
+    record_id = records[0].id;
+    cache.responses.set(cacheKey, record_id);
+  }
+
+  const clean = sanitizeFields(fields);
+  await patchRecord(TABLES.RESPONSES, record_id, clean);
+
+  logger.debug('airtableService.updateResponse: mis à jour', {
+    id_question,
+    session_id,
+    champs: Object.keys(clean).slice(0, 5),
+  });
+}
+
+// ─── BILAN ────────────────────────────────────────────────────────────────────
+
+/**
+ * Récupère le bilan d'un candidat.
+ * @returns {Object|null}
+ */
+async function getBilan(session_id) {
+  if (!session_id) throw new Error('getBilan: session_id manquant');
+
+  const formula = `{session_ID}="${session_id}"`;
+  const records = await fetchAllRecords(TABLES.BILAN, formula);
+
+  if (records.length === 0) {
+    logger.warn('airtableService.getBilan: aucun bilan trouvé', { session_id });
+    return null;
+  }
+
+  const record = records[0];
+  cache.bilans.set(session_id, record.id);
+  logger.info('airtableService.getBilan: trouvé', { session_id, record_id: record.id });
+  return { _record_id: record.id, ...record.fields };
+}
+
+/**
+ * Met à jour les champs du bilan d'un candidat.
+ */
+async function updateBilan(session_id, fields) {
+  if (!session_id) throw new Error('updateBilan: session_id manquant');
+  if (!fields || Object.keys(fields).length === 0) return;
+
+  let record_id = cache.bilans.get(session_id);
+  if (!record_id) {
+    const bilan = await getBilan(session_id);
+    if (!bilan) throw new Error(`updateBilan: bilan introuvable pour session ${session_id}`);
+    record_id = bilan._record_id;
+  }
+
+  const clean = sanitizeFields(fields);
+  await patchRecord(TABLES.BILAN, record_id, clean);
+  logger.info('airtableService.updateBilan: mis à jour', { session_id, nb_champs: Object.keys(clean).length });
+}
+
+// ─── EXPORTS ──────────────────────────────────────────────────────────────────
 
 module.exports = {
-  BASE_ID: process.env.AIRTABLE_BASE_ID,
-  TOKEN:   process.env.AIRTABLE_TOKEN,
-
-  TABLES: {
-    VISITEUR:  'VISITEUR',
-    RESPONSES: 'RESPONSES',
-    BILAN:     'Copie de BILAN 2'
-  },
-
-  // ─── VISITEUR ─────────────────────────────────────────────────────────────
-  VISITEUR_FIELDS: {
-    candidate_ID:               'candidate_ID',
-    Prenom:                     'Prenom',
-    Nom:                        'Nom',
-    Email:                      'Email',
-    statut_test:                'statut_test',
-    derniere_question_repondue: 'derniere_question_repondue',
-    statut_analyse_pivar:       'statut_analyse_pivar',
-    erreur_analyse:             'erreur_analyse',
-    derniere_activite:          'derniere_activite',
-    backup_sommeil:             'backup_sommeil',
-    backup_weekend:             'backup_weekend',
-    backup_animal:              'backup_animal',
-    backup_panne:               'backup_panne',
-    backup_before_agent1:       'backup_before_agent1',
-    backup_after_agent1:        'backup_after_agent1',
-    backup_before_agent2:       'backup_before_agent2',
-    backup_after_agent2:        'backup_after_agent2',
-    backup_before_algo:         'backup_before_algo',
-    backup_after_algo:          'backup_after_algo',
-    backup_before_certif:       'backup_before_certif',
-    backup_after_certif:        'backup_after_certif',
-    backup_error:               'backup_error'
-  },
-
-  // ─── RESPONSES ────────────────────────────────────────────────────────────
-  RESPONSES_FIELDS: {
-
-    // Identité (lecture seule)
-    session_ID:     'session_ID',
-    id_question:    'id_question',
-    numero_global:  'numero_global',
-    pilier:         'pilier',
-    scenario_nom:   'scenario_nom',
-    question_text:  'question_text',
-    response_text:  'response_text',
-    statut_reponse: 'statut_reponse',
-    date_response:  'date_response',
-
-    // ── Agent 1 ───────────────────────────────────────────────────────────────
-    analyse_json_agent1:      'analyse_json_agent1',
-    question_analysee:        'question_analysee',
-    pilier_reponse_coeur:              'pilier_reponse_coeur',              // écrit par Agent 1
-    pilier_reponse_coeur_confirme:     'pilier_reponse_coeur_confirme',     // arbitré définitivement par le Vérificateur ← BASE DES CALCULS ALGO
-    niveau_amplitude_reponse: 'niveau_amplitude_reponse',
-    liste_piliers_actives:    'liste_piliers_actives',
-    piliers_actives_final:    'piliers_actives_final',
-    boucles_detectees_agent1: 'boucles_detectees_agent1',
-    nombre_boucles_agent1:    'nombre_boucles_agent1',
-
-    // ── Vérificateur ──────────────────────────────────────────────────────────
-    analyse_json_verificateur:                    'analyse_json_verificateur',
-    boucles_detectees:                            'boucles_detectees',
-    verification_coeur:                           'verification_coeur',
-    justification_actions_majoritairement_faites: 'justification_actions_majoritairement_faites',
-    justification_attribution_niveau:             'justification_attribution_niveau',
-    repond_question:                              'repond_question',
-    traite_problematique_situation:               'traite_problematique_situation',
-    fait_processus_pilier:                        'fait_processus_pilier',
-    coherence:                                    'coherence',
-
-    // ── Agent 2 ───────────────────────────────────────────────────────────────
-    analyse_json_agent2:            'analyse_json_agent2',
-    dimensions_simples:             'dimensions_simples',
-    liste_dimensions_simples:       'liste_dimensions_simples',
-    nombre_criteres_details:        'nombre_criteres_details',
-    liste_criteres_details:         'liste_criteres_details',
-    dimensions_sophistiquees:       'dimensions_sophistiquees',
-    liste_dimensions_sophistiquees: 'liste_dimensions_sophistiquees',
-    niveau_sophistication:          'niveau_sophistication',
-    anticipation_niveau:              'anticipation_niveau',
-    anticipation_verbatim:            'anticipation_verbatim',
-    anticipation_manifestation:       'anticipation_manifestation',
-    anticipation_contexte_activation: 'anticipation_contexte_activation',
-    decentration_niveau:              'decentration_niveau',
-    decentration_verbatim:            'decentration_verbatim',
-    decentration_manifestation:       'decentration_manifestation',
-    decentration_contexte_activation: 'decentration_contexte_activation',
-    metacognition_niveau:             'metacognition_niveau',
-    metacognition_verbatim:           'metacognition_verbatim',
-    metacognition_manifestation:      'metacognition_manifestation',
-    metacognition_contexte_activation: 'metacognition_contexte_activation',
-    vue_systemique_niveau:            'vue_systemique_niveau',
-    vue_systemique_verbatim:          'vue_systemique_verbatim',
-    vue_systemique_manifestation:     'vue_systemique_manifestation',
-    vue_systemique_contexte_activation: 'vue_systemique_contexte_activation',
-    niveau_amplitude_max:      'niveau_amplitude_max',
-    zone_amplitude_max:        'zone_amplitude_max',
-    detail_par_niveaux:        'detail_par_niveaux',
-    plusieurs_niveaux_reponse: 'plusieurs_niveaux_reponse',
-    nombre_mots_reponse:       'nombre_mots_reponse',
-    laconique:                 'laconique',
-    limbique_detecte:          'limbique_detecte',
-    limbique_intensite:        'limbique_intensite',
-    limbique_detail:           'limbique_detail',
-    capacites_detectees:       'capacites_detectees',
-
-    // ── Agent 3 ───────────────────────────────────────────────────────────────
-    analyse_json_agent3:      'analyse_json_agent3',
-    circuits_actives:         'circuits_actives',
-    boucles_detectees_agent3: 'boucles_detectees_agent3',
-    nombre_boucles_agent3:    'nombre_boucles_agent3',
-    coherence_agent1_agent3:  'coherence_agent1_agent3',
-    profiling_qualifie:       'profiling_qualifie',
-    lecture_cognitive_m8:     'lecture_cognitive_m8',
-
-    // ── Algorithme ────────────────────────────────────────────────────────────
-    score_question_calcule:  'score_question_calcule',
-    score_question_niveau:   'score_question_niveau',
-    question_scoree:         'question_scoree',
-    statut_analyse_reponses: 'statut_analyse_reponses'
-  },
-
-  // ─── BILAN ────────────────────────────────────────────────────────────────
-  BILAN_FIELDS: {
-
-    // Identité
-    bilan_ID:   'bilan_ID',
-    session_ID: 'session_ID',
-
-    // ── Agent 1 ───────────────────────────────────────────────────────────────
-    moteur_cognitif:   'moteur_cognitif',
-    binome_actif:      'binome_actif',
-    reaction_flou:     'reaction_flou',
-    signature_cloture: 'signature_cloture',
-    agent1_rapport:    'agent1_rapport',
-    pattern_emergent:  'pattern_emergent',
-
-    // ── Agent 3 — synthèses pilier ────────────────────────────────────────────
-    circuits_top3_P1:              'circuits_top3_P1',
-    circuits_top3_P2:              'circuits_top3_P2',
-    circuits_top3_P3:              'circuits_top3_P3',
-    circuits_top3_P4:              'circuits_top3_P4',
-    circuits_top3_P5:              'circuits_top3_P5',
-    boucles_detectees_pilier_P1:   'boucles_detectees_pilier_P1',
-    boucles_detectees_pilier_P2:   'boucles_detectees_pilier_P2',
-    boucles_detectees_pilier_P3:   'boucles_detectees_pilier_P3',
-    boucles_detectees_pilier_P4:   'boucles_detectees_pilier_P4',
-    boucles_detectees_pilier_P5:   'boucles_detectees_pilier_P5',
-    lecture_cognitive_enrichie_P1: 'lecture_cognitive_enrichie_P1',
-    lecture_cognitive_enrichie_P2: 'lecture_cognitive_enrichie_P2',
-    lecture_cognitive_enrichie_P3: 'lecture_cognitive_enrichie_P3',
-    lecture_cognitive_enrichie_P4: 'lecture_cognitive_enrichie_P4',
-    lecture_cognitive_enrichie_P5: 'lecture_cognitive_enrichie_P5',
-    profil_neuroscientifique_P1:   'profil_neuroscientifique_P1',
-    profil_neuroscientifique_P2:   'profil_neuroscientifique_P2',
-    profil_neuroscientifique_P3:   'profil_neuroscientifique_P3',
-    profil_neuroscientifique_P4:   'profil_neuroscientifique_P4',
-    profil_neuroscientifique_P5:   'profil_neuroscientifique_P5',
-    // Excellences agrégées par pilier — v8.5
-    excellences_par_pilier_P1:     'excellences_par_pilier_P1',
-    excellences_par_pilier_P2:     'excellences_par_pilier_P2',
-    excellences_par_pilier_P3:     'excellences_par_pilier_P3',
-    excellences_par_pilier_P4:     'excellences_par_pilier_P4',
-    excellences_par_pilier_P5:     'excellences_par_pilier_P5',
-    limbique_detecte:              'limbique_detecte',
-    limbique_intensite_max:        'limbique_intensite_max',
-    nb_questions_limbiques:        'nb_questions_limbiques',
-    coherence_agents:              'coherence_agents',
-
-    // ── Algorithme v8.5 — scores CONTENU par pilier cœur uniquement ─────────
-    // Calculs globaux supprimés : niveau_global, dominant, structurant → Certificateur
-    score_pilier_P1:            'score_pilier_P1',
-    niveau_max_P1:              'niveau_max_P1',
-    score_pilier_P2:            'score_pilier_P2',
-    niveau_max_P2:              'niveau_max_P2',
-    score_pilier_P3:            'score_pilier_P3',
-    niveau_max_P3:              'niveau_max_P3',
-    score_pilier_P4:            'score_pilier_P4',
-    niveau_max_P4:              'niveau_max_P4',
-    score_pilier_P5:            'score_pilier_P5',
-    niveau_max_P5:              'niveau_max_P5',
-    pattern_emergent:           'pattern_emergent',
-    // Critères détails par pilier cœur (nouveau v8.5)
-    PX_details_total_P1:        'PX_details_total_P1',
-    PX_details_total_P2:        'PX_details_total_P2',
-    PX_details_total_P3:        'PX_details_total_P3',
-    PX_details_total_P4:        'PX_details_total_P4',
-    PX_details_total_P5:        'PX_details_total_P5',
-    taux_repond_question:        'taux_repond_question',
-    taux_traite_problematique:   'taux_traite_problematique',
-    taux_fait_processus_pilier:  'taux_fait_processus_pilier',
-    profil_laconique:            'profil_laconique',
-    anticipation_verbatims_agreges:        'anticipation_verbatims_agreges',
-    anticipation_manifestations_agreges:   'anticipation_manifestations_agreges',
-    decentration_verbatims_agreges:        'decentration_verbatims_agreges',
-    decentration_manifestations_agreges:   'decentration_manifestations_agreges',
-    metacognition_verbatims_agreges:       'metacognition_verbatims_agreges',
-    metacognition_manifestations_agreges:  'metacognition_manifestations_agreges',
-    vue_systemique_verbatims_agreges:      'vue_systemique_verbatims_agreges',
-    vue_systemique_manifestations_agreges: 'vue_systemique_manifestations_agreges',
-    excellences_SOMMEIL:        'excellences_SOMMEIL',
-    excellences_WEEKEND:        'excellences_WEEKEND',
-    excellences_ANIMAL:         'excellences_ANIMAL',
-    excellences_PANNE:          'excellences_PANNE',
-    P1_simples_total:           'P1_simples_total',
-    P1_simples_synthese:        'P1_simples_synthese',
-    P1_sophistiquees_total:     'P1_sophistiquees_total',
-    P1_sophistiquees_synthese:  'P1_sophistiquees_synthese',
-    P2_simples_total:           'P2_simples_total',
-    P2_simples_synthese:        'P2_simples_synthese',
-    P2_sophistiquees_total:     'P2_sophistiquees_total',
-    P2_sophistiquees_synthese:  'P2_sophistiquees_synthese',
-    P3_simples_total:           'P3_simples_total',
-    P3_simples_synthese:        'P3_simples_synthese',
-    P3_sophistiquees_total:     'P3_sophistiquees_total',
-    P3_sophistiquees_synthese:  'P3_sophistiquees_synthese',
-    P4_simples_total:           'P4_simples_total',
-    P4_simples_synthese:        'P4_simples_synthese',
-    P4_sophistiquees_total:     'P4_sophistiquees_total',
-    P4_sophistiquees_synthese:  'P4_sophistiquees_synthese',
-    P5_simples_total:           'P5_simples_total',
-    P5_simples_synthese:        'P5_simples_synthese',
-    P5_sophistiquees_total:     'P5_sophistiquees_total',
-    P5_sophistiquees_synthese:  'P5_sophistiquees_synthese',
-    dimensions_simples_json:       'dimensions_simples_json',
-    dimensions_sophistiquees_json: 'dimensions_sophistiquees_json',
-    dimensions_superieures_liste:  'dimensions_superieures_liste',
-    dimensions_superieures_count:  'dimensions_superieures_count',
-    synthese_json_complete:        'synthese_json_complete', // JSON interne algo — consultation uniquement
-
-    // ── Certificateur — Prompt 1 (analyses) ───────────────────────────────────
-    'profil_coché_P1':             'profil_coché_P1',
-    'profil_coché_P2':             'profil_coché_P2',
-    'profil_coché_P3':             'profil_coché_P3',
-    'profil_coché_P4':             'profil_coché_P4',
-    'profil_coché_P5':             'profil_coché_P5',
-    P1_simples_synthese:    'P1_simples_synthese',    // rempli par Certif P1
-    P1_sophistiquees_synthese: 'P1_sophistiquees_synthese',
-    anticipation_niveau:           'anticipation_niveau',
-    anticipation_pattern:          'anticipation_pattern',
-    anticipation_declencheur:      'anticipation_declencheur',
-    anticipation_synthese:         'anticipation_synthese',
-    anticipation_qualification:    'anticipation_qualification',
-    decentration_niveau:           'decentration_niveau',
-    decentration_pattern:          'decentration_pattern',
-    decentration_declencheur:      'decentration_declencheur',
-    decentration_synthese:         'decentration_synthese',
-    decentration_qualification:    'decentration_qualification',
-    metacognition_niveau:          'metacognition_niveau',
-    metacognition_pattern:         'metacognition_pattern',
-    metacognition_declencheur:     'metacognition_declencheur',
-    metacognition_synthese:        'metacognition_synthese',
-    metacognition_qualification:   'metacognition_qualification',
-    vue_systemique_niveau:         'vue_systemique_niveau',
-    vue_systemique_pattern:        'vue_systemique_pattern',
-    vue_systemique_declencheur:    'vue_systemique_declencheur',
-    vue_systemique_synthese:       'vue_systemique_synthese',
-    vue_systemique_qualification:  'vue_systemique_qualification',
-    excellence_dominante:          'excellence_dominante',
-    excellence_secondaire:         'excellence_secondaire',
-    profil_excellences:            'profil_excellences',
-    // Pilier socle certifié (étape 2A Prompt 1)
-    pilier_structurant2_certif:    'pilier_structurant2_certif', // NOUVEAU v8.4
-    piliers_moteurs_certif:        'piliers_moteurs_certif',
-    boucle_cognitive_ordre:        'boucle_cognitive_ordre',
-    // Calculs globaux remplis par le Certificateur (supprimés de l'Algo v8.5)
-    niveau_global:                 'niveau_global',
-    zone_globale:                  'zone_globale',
-    score_global:                  'score_global',
-    profil_type:                   'profil_type',
-    distribution_reelle:           'distribution_reelle',
-    niveau_profil_cognitif:        'niveau_profil_cognitif',
-    nom_niveau_profil_cognitif:    'nom_niveau_profil_cognitif',
-
-    // ── Certificateur — Prompt 2 (rapport) ────────────────────────────────────
-    encadrement_verdict:          'encadrement_verdict',
-    encadrement_diagnostic:       'encadrement_diagnostic',
-    encadrement_scenario:         'encadrement_scenario',
-    encadrement_bloquant:         'encadrement_bloquant',
-    management_verdict:           'management_verdict',
-    management_diagnostic:        'management_diagnostic',
-    management_scenario:          'management_scenario',
-    management_bloquant:          'management_bloquant',
-    tableau_comparatif_encadrer_manager: 'tableau_comparatif_encadrer_manager',
-    definition_type_profil_cognitif: 'definition_type_profil_cognitif',
-    profil_personnalise:          'profil_personnalise',
-    Nom_signature_excellence:     'Nom_signature_excellence',
-    section_signature_excellence: 'section_signature_excellence',
-    section_vigilance_limbique:   'section_vigilance_limbique',
-    section_excellences:          'section_excellences',
-    section_pilier_P1:            'section_pilier_P1',
-    section_pilier_P2:            'section_pilier_P2',
-    section_pilier_P3:            'section_pilier_P3',
-    section_pilier_P4:            'section_pilier_P4',
-    section_pilier_P5:            'section_pilier_P5',
-    talent_definition:            'talent_definition',
-    trois_capacites:              'trois_capacites',
-    pitch_recruteur:              'pitch_recruteur',
-    amplitude_deployee:           'amplitude_deployee',
-    pattern_navigation_revele:    'pattern_navigation_revele',
-    mantra_profil:                'mantra_profil',
-    points_vigilance_complet:     'points_vigilance_complet',
-    rapport_markdown_complet:     'rapport_markdown_complet',
-    // Étapes certification
-    etape_1_arbitrage_fond:      'etape_1_arbitrage_fond',    // champ Airtable existant
-    etape_2_lecture_algo:  'etape_2_lecture_algo',      // champ Airtable existant
-    etape_3_diagnostics:         'etape_3_diagnostics',       // champ Airtable existant
-    statut_certification:         'statut_certification',
-    notes_certificateur:          'notes_certificateur',
-    date_generation:              'date_generation'
-  },
-
-  // ─── VALEURS AUTORISÉES (Single Select Airtable) ──────────────────────────
-  ALLOWED_VALUES: {
-    statut_test:             ['en_cours', 'terminé'],
-    statut_analyse_pivar:    ['NOUVEAU', 'en_cours', 'terminé', 'ERREUR'],
-    statut_analyse_reponses: ['en_attente', 'analyse_ok', 'erreur'],
-    coherence:               ['CONFIRMÉ', 'CORRIGÉ', 'MAINTENU_AVEC_RÉSERVE'],
-    coherence_agent1_agent3: ['TOTALE', 'PARTIELLE', 'FAIBLE'],
-    profiling_qualifie:      ['OK', 'FLAG_REVISION'],
-    pilier:                  ['P1', 'P2', 'P3', 'P4', 'P5'],
-    pilier_dominant_certif:    ['P1', 'P2', 'P3', 'P4', 'P5'],
-    pilier_structurant_certif: ['P1', 'P2', 'P3', 'P4', 'P5'],
-    pilier_structurant2_certif: ['P1', 'P2', 'P3', 'P4', 'P5'],
-    scenario_nom:            ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'],
-    niveau_sophistication:   ['faible', 'moyen', 'élevé'],
-    limbique_intensite:      ['aucune', 'faible', 'modérée', 'forte'],
-    zone_profil_cognitif:    ['Exécution', 'Opérationnelle', 'Stratégique'],
-    repond_question:         ['oui', 'non'],
-    traite_problematique_situation: ['oui', 'non'],
-    fait_processus_pilier:   ['oui', 'non']
-  },
-
-  // ─── MAPPING VALEURS ──────────────────────────────────────────────────────
-  VALUE_MAPPING: {
-    limbique_intensite: {
-      'moderee':  'modérée',
-      'modéree':  'modérée',
-      'moderate': 'modérée',
-      'aucune':   'aucune',
-      'faible':   'faible',
-      'forte':    'forte'
-    }
-  }
+  getVisiteur,
+  getVisiteursByStatus,
+  updateVisiteur,
+  getResponsesBySession,
+  updateResponse,
+  getBilan,
+  updateBilan,
 };
