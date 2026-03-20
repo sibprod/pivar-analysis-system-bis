@@ -42,39 +42,21 @@ async function save(session_id, step, data) {
       return; // Skip silencieusement
     }
     
-    // Stringify data
+    // Extraire uniquement les métadonnées clés — jamais les JSONs complets des agents
+    // (trop volumineux → tronqués inutilement)
+    const metadata = extractMetadata(step, data);
+
     const jsonData = JSON.stringify({
-      step: step,
+      step,
       timestamp: new Date().toISOString(),
-      data: data
+      data: metadata
     });
-    
-    // Limiter taille (Airtable max 100,000 chars par field)
-    if (jsonData.length > 100000) {
-      logger.warn('Backup data too large, truncating', {
-        session_id,
-        step,
-        originalSize: jsonData.length
-      });
-      
-      // Sauvegarder version tronquée avec métadonnées seulement
-      const truncatedData = JSON.stringify({
-        step: step,
-        timestamp: new Date().toISOString(),
-        data: {
-          truncated: true,
-          originalSize: jsonData.length,
-          summary: 'Data too large for backup'
-        }
-      });
-      
-      await airtableService.updateVisiteur(session_id, {
-        [columnName]: truncatedData
-      });
-      
-      return;
+
+    // Vérification de sécurité (ne devrait jamais dépasser avec les métadonnées)
+    if (jsonData.length > 10000) {
+      logger.warn('Backup metadata unexpectedly large', { session_id, step, size: jsonData.length });
     }
-    
+
     // Sauvegarder
     await airtableService.updateVisiteur(session_id, {
       [columnName]: jsonData
@@ -259,6 +241,32 @@ async function hasBackups(session_id) {
     });
     return false;
   }
+}
+
+// Extraire uniquement les métadonnées pertinentes selon l'étape
+// Évite de sauvegarder les JSONs complets des agents (trop volumineux)
+function extractMetadata(step, data) {
+  if (!data || typeof data !== 'object') return { value: data };
+
+  // Métadonnées communes
+  const meta = {
+    timestamp: new Date().toISOString()
+  };
+
+  // Extraire selon l'étape
+  if (step.includes('agent1'))    return { ...meta, analyses: data.analyses?.length, corpus_ok: !!data.corpus };
+  if (step.includes('agent2'))    return { ...meta, analyses: data.analyses?.length };
+  if (step.includes('boucles'))   return { ...meta, syntheses: Object.keys(data.syntheses || {}).length };
+  if (step.includes('algo'))      return { ...meta, niveau_global: data.output?.synthese_globale?.niveau_global, nom_niveau: data.output?.synthese_globale?.nom_niveau_global };
+  if (step.includes('certif'))    return { ...meta, statut: data.statut, type_profil: data.type_profil_cognitif };
+  if (step === 'error')           return { ...meta, error: data.error || data };
+
+  // Fallback : garder uniquement les champs scalaires (pas les arrays/objects profonds)
+  const simple = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (typeof v !== 'object' || v === null) simple[k] = v;
+  }
+  return { ...meta, ...simple };
 }
 
 module.exports = {
