@@ -1,98 +1,161 @@
 // services/certificateurService.js
-// Certificateur v8.1 — Arbitrage qualitatif final + rapport narratif
-// Corrections v8.1 :
-// - pattern_emergent : source corrigée (Section C Agent 1, pas boucle cognitive)
-// - excellences_par_scenario : distribution complète NULLE/FAIBLE/MOYEN/ÉLEVÉ construite depuis questionsData
-// - verbatims_marquants : TOUS les verbatims + manifestations + contexte_activation par excellence par pilier
-// - classement2AOutput : ajouté dans le return final
-// - barème supprimé : score_bareme_moyen, delta, convergence retirés de amplitude
-// - score_bareme retiré de scores_verification
-// - taux qualité passation ajoutés dans synthese_globale
-// - limbique consolidé ajouté dans synthese_globale
+// Certificateur v1.0 — Pipeline 3 prompts séquentiels
+//
+// Architecture :
+//   Prompt 1 → Portraits piliers + Excellences (etape_1_arbitrage_fond)
+//   Prompt 2 → Énigme profil + Diagnostics    (etape_2_lecture_algo + etape_3_diagnostics)
+//   Prompt 3 → Livrables candidat              (rapport_markdown_complet + sections)
+//
+// Chaque prompt reçoit uniquement la matière indispensable à sa mission.
+// Le Prompt 2 reçoit le JSON intermédiaire du Prompt 1.
+// Le Prompt 3 reçoit les JSON intermédiaires des Prompts 1 et 2.
+//
+// Règle absolue : l'Algorithme ne transmet JAMAIS ses scores de classement
+// au Certificateur — le Certificateur résout l'énigme depuis la matière brute.
 
 'use strict';
 
-const fs = require('fs').promises;
+const fs   = require('fs').promises;
 const path = require('path');
-const claudeService = require('./claudeService');
+const claudeService  = require('./claudeService');
 const airtableService = require('./airtableService');
 const logger = require('../utils/logger');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-let cachedPrompt = null;
+// ─── Cache prompts ───────────────────────────────────────────────────────────
+let cachedPrompt1 = null;
+let cachedPrompt2 = null;
+let cachedPrompt3 = null;
 
-const NOM_PILIERS = { P1: 'COLLECTE', P2: 'TRI', P3: 'ANALYSE', P4: 'SOLUTIONS', P5: 'EXÉCUTION' };
+// ─── Constantes ──────────────────────────────────────────────────────────────
 
-const SINGLE_SELECT_FIELDS = [
+const NOM_PILIERS = {
+  P1: 'COLLECTE',
+  P2: 'TRI',
+  P3: 'ANALYSE',
+  P4: 'SOLUTIONS',
+  P5: 'EXECUTION'
+};
+
+const EXCELLENCE_KEYS = ['anticipation', 'decentration', 'metacognition', 'vue_systemique'];
+
+const SCENARIOS = ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'];
+
+// Champs singleSelect BILAN — normalisés avant écriture Airtable
+const SINGLE_SELECT_BILAN = [
   'anticipation_niveau', 'decentration_niveau', 'metacognition_niveau', 'vue_systemique_niveau',
+  'anticipation_pattern', 'decentration_pattern', 'metacognition_pattern', 'vue_systemique_pattern',
   'excellence_dominante', 'excellence_secondaire',
+  'pilier_dominant_certif', 'pilier_structurant_certif', 'pilier_structurant2_certif',
   'type_profil_cognitif', 'nom_niveau_profil_cognitif', 'zone_profil_cognitif',
+  'encadrement_verdict', 'management_verdict',
   'statut_certification'
 ];
 
+// Mapping noms variants → clés normalisées pour les excellences
 const EXCELLENCE_MAPPING = {
-  'anticipation_spontanee':   'anticipation',
-  'anticipation spontanée':   'anticipation',
-  'décentration_cognitive':   'decentration',
-  'decentration_cognitive':   'decentration',
-  'décentration cognitive':   'decentration',
-  'meta_cognition':           'metacognition',
-  'méta_cognition':           'metacognition',
-  'métacognition':            'metacognition',
-  'vue_systemique':           'vue_systemique',
-  'vue systémique':           'vue_systemique',
-  'vision_systemique':        'vue_systemique',
-  'vision systémique':        'vue_systemique',
-  'angles_morts':             'vue_systemique',
-  'anticipation':             'anticipation',
-  'decentration':             'decentration',
-  'décentration':             'decentration',
-  'metacognition':            'metacognition',
-  'métacognition':            'metacognition'
+  'anticipation_spontanee': 'anticipation',
+  'anticipation spontanée': 'anticipation',
+  'anticipation':           'anticipation',
+  'decentration_cognitive': 'decentration',
+  'décentration_cognitive': 'decentration',
+  'décentration cognitive': 'decentration',
+  'decentration':           'decentration',
+  'décentration':           'decentration',
+  'meta_cognition':         'metacognition',
+  'méta_cognition':         'metacognition',
+  'métacognition':          'metacognition',
+  'metacognition':          'metacognition',
+  'vue_systemique':         'vue_systemique',
+  'vue systémique':         'vue_systemique',
+  'vision_systemique':      'vue_systemique',
+  'vision systémique':      'vue_systemique'
 };
 
 const PATTERN_VALUES = ['systématique', 'contextuel', 'situationnel'];
 
-function normalizePattern(value) {
-  if (!value) return null;
-  const v = value.toString().toLowerCase().trim();
-  if (v.includes('systémat') || v.includes('systemat')) return 'systématique';
-  if (v.includes('contextuel')) return 'contextuel';
-  if (v.includes('situationnel') || v.includes('situation')) return 'situationnel';
-  if (PATTERN_VALUES.includes(v)) return v;
-  if (value.length > 30) return null;
-  return value;
-}
+const CHAMPS_PROMPT1 = [
+  'profil_coché_P1', 'profil_coché_P2', 'profil_coché_P3', 'profil_coché_P4', 'profil_coché_P5',
+  'P1_simples_synthese', 'P1_sophistiquees_synthese',
+  'P2_simples_synthese', 'P2_sophistiquees_synthese',
+  'P3_simples_synthese', 'P3_sophistiquees_synthese',
+  'P4_simples_synthese', 'P4_sophistiquees_synthese',
+  'P5_simples_synthese', 'P5_sophistiquees_synthese',
+  'anticipation_niveau', 'anticipation_pattern', 'anticipation_declencheur',
+  'anticipation_synthese', 'anticipation_qualification',
+  'decentration_niveau', 'decentration_pattern', 'decentration_declencheur',
+  'decentration_synthese', 'decentration_qualification',
+  'metacognition_niveau', 'metacognition_pattern', 'metacognition_declencheur',
+  'metacognition_synthese', 'metacognition_qualification',
+  'vue_systemique_niveau', 'vue_systemique_pattern', 'vue_systemique_declencheur',
+  'vue_systemique_synthese', 'vue_systemique_qualification',
+  'excellence_dominante', 'excellence_secondaire', 'profil_excellences',
+  'etape_1_arbitrage_fond'
+];
 
-async function loadPrompt() {
-  if (cachedPrompt) return cachedPrompt;
+const CHAMPS_PROMPT2 = [
+  'pilier_dominant_certif', 'pilier_structurant_certif', 'pilier_structurant2_certif',
+  'piliers_moteurs_certif', 'boucle_cognitive_ordre',
+  'type_profil_cognitif', 'niveau_profil_cognitif', 'nom_niveau_profil_cognitif', 'zone_profil_cognitif',
+  'encadrement_verdict', 'encadrement_diagnostic', 'encadrement_scenario', 'encadrement_bloquant',
+  'management_verdict', 'management_diagnostic', 'management_scenario', 'management_bloquant',
+  'tableau_comparatif_encadrer_manager',
+  'etape_2_lecture_algo', 'etape_3_diagnostics'
+];
+
+const CHAMPS_PROMPT3 = [
+  'definition_type_profil_cognitif', 'profil_personnalise',
+  'Nom_signature_excellence', 'section_signature_excellence',
+  'section_vigilance_limbique', 'section_excellences',
+  'section_pilier_P1', 'section_pilier_P2', 'section_pilier_P3', 'section_pilier_P4', 'section_pilier_P5',
+  'talent_definition', 'trois_capacites', 'pitch_recruteur',
+  'amplitude_deployee', 'pattern_navigation_revele', 'mantra_profil',
+  'points_vigilance_complet', 'rapport_markdown_complet',
+  'statut_certification', 'notes_certificateur'
+];
+
+// ─── Chargement prompts ───────────────────────────────────────────────────────
+
+async function loadPrompts() {
+  if (cachedPrompt1 && cachedPrompt2 && cachedPrompt3) {
+    return { p1: cachedPrompt1, p2: cachedPrompt2, p3: cachedPrompt3 };
+  }
   try {
-    const promptPath = path.join(__dirname, '../prompts/certificateur_v4.txt');
-    cachedPrompt = await fs.readFile(promptPath, 'utf8');
-    logger.info('Certificateur: prompt chargé', { length: cachedPrompt.length });
-    return cachedPrompt;
+    const [p1, p2, p3] = await Promise.all([
+      fs.readFile(path.join(__dirname, '../prompts/certificateur_prompt1_v3.txt'), 'utf8'),
+      fs.readFile(path.join(__dirname, '../prompts/certificateur_prompt2_v3.txt'), 'utf8'),
+      fs.readFile(path.join(__dirname, '../prompts/certificateur_prompt3_v3.txt'), 'utf8')
+    ]);
+    cachedPrompt1 = p1;
+    cachedPrompt2 = p2;
+    cachedPrompt3 = p3;
+    logger.info('Certificateur: 3 prompts chargés', {
+      p1_length: p1.length, p2_length: p2.length, p3_length: p3.length
+    });
+    return { p1, p2, p3 };
   } catch (error) {
-    logger.error('Certificateur: échec chargement prompt', { error: error.message });
-    throw new Error('Prompt introuvable : prompts/certificateur_v5.txt');
+    logger.error('Certificateur: échec chargement prompts', { error: error.message });
+    throw new Error(`Certificateur: prompts introuvables — ${error.message}`);
   }
 }
 
-function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, questionsData) {
-  const algo = algoOutput.output || algoOutput;
-  const sg   = algo.synthese_globale       || {};
-  const dist = algo.distribution_cognitive || {};
-  const scoresPiliers = algo.scores_par_pilier_reel || {};
+// ─── Construction input Prompt 1 ─────────────────────────────────────────────
+// Reçoit : signaux qualité + dossiers piliers × 5 + dossier excellences
+// Ne reçoit PAS : dossier global (moteur/binôme/flou/cloture)
 
+function buildInputPrompt1(algoOutput, agent3Syntheses, agent1Corpus, questionsData) {
+  const algo        = algoOutput.output || algoOutput;
+  const sg          = algo.synthese_globale       || {};
+  const scoresPiliers = algo.scores_par_pilier_reel || {};
   const niveauOrder = { nulle: 0, faible: 1, moyen: 2, 'élevé': 3 };
   const niveauNames = ['nulle', 'faible', 'moyen', 'élevé'];
-  const EXCELLENCE_KEYS = ['anticipation', 'decentration', 'metacognition', 'vue_systemique'];
 
   function getNiveauExcellence(q, key) {
-    const field = key === 'anticipation'  ? 'anticipation_niveau'
-                : key === 'decentration'  ? 'decentration_niveau'
-                : key === 'metacognition' ? 'metacognition_niveau'
-                : 'vue_systemique_niveau';
+    const field = key === 'anticipation' ? 'anticipation_niveau'
+      : key === 'decentration'  ? 'decentration_niveau'
+      : key === 'metacognition' ? 'metacognition_niveau'
+      : 'vue_systemique_niveau';
     return (q[field] || 'nulle').toLowerCase();
   }
 
@@ -105,57 +168,31 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
     return niveauNames[max];
   }
 
-  // DOSSIER GLOBAL
-  const patternEmergent = agent1Corpus?.section_C
-                       || agent1Corpus?.pattern_emergent
-                       || null;
-
+  // ── BLOC 1 : Signaux qualité + Limbique ──
   const statsGlobales = algo.statistiques_globales || {};
+  const questionsLimbiques = (questionsData || []).filter(q =>
+    q.limbique_detecte === true || q.limbique_detecte === 'vrai'
+  );
 
-  const questionsLimbiques = (questionsData || []).filter(q => q.limbique_detecte === true);
-  const limbiqueConso = {
-    detecte:      questionsLimbiques.length > 0,
-    nb_questions: questionsLimbiques.length,
-    intensite_max: questionsLimbiques.length > 0
-      ? niveauNames[Math.max(...questionsLimbiques.map(q => niveauOrder[(q.limbique_intensite || 'nulle').toLowerCase()] || 0))]
-      : null
+  const bloc1_signaux = {
+    coherence_agents:           algo.signature_cognitive?.coherence_agents || null,
+    profil_laconique:           algo.signature_cognitive?.profil_laconique || null,
+    taux_repond_question:       statsGlobales.taux_repond_question          || null,
+    taux_traite_problematique:  statsGlobales.taux_traite_problematique     || null,
+    taux_fait_processus_pilier: statsGlobales.taux_fait_processus_pilier    || null,
+    limbique: {
+      detecte:      questionsLimbiques.length > 0,
+      nb_questions: questionsLimbiques.length,
+      intensite_max: questionsLimbiques.length > 0
+        ? niveauNames[Math.max(...questionsLimbiques.map(q =>
+            niveauOrder[(q.limbique_intensite || 'nulle').toLowerCase()] || 0
+          ))]
+        : null
+    }
   };
 
-  const syntheseGlobale = {
-    niveau_global:     sg.niveau_global,
-    nom_niveau_global: sg.nom_niveau_global,
-    zone_globale:      sg.zone_globale || null,
-    profil_type:       dist.profil_type || null,
-    distribution_reelle: Object.fromEntries(
-      Object.entries(dist.distribution_reelle || {}).map(([p, nb]) => [
-        p, { nb_questions: nb, ecart: dist.ecarts?.[p] || '0' }
-      ])
-    ),
-    piliers_forte_concentration:  dist.piliers_forte_concentration  || [],
-    piliers_faible_concentration: dist.piliers_faible_concentration || [],
-    piliers_conformes:            dist.piliers_conformes            || [],
-    pattern_emergent: patternEmergent,
-    signature_cognitive: {
-      pattern_recurrent: algo.signature_cognitive?.pattern_recurrent || null,
-      coherence_agents:  algo.signature_cognitive?.coherence_agents  || null,
-      moteur_cognitif:   agent1Corpus?.section_B?.moteur_cognitif    || null,
-      binome_actif:      agent1Corpus?.section_B?.binome_actif       || null,
-      reaction_flou:     agent1Corpus?.section_B?.reaction_flou      || null,
-      signature_cloture: agent1Corpus?.section_B?.signature_cloture  || null,
-      profil_laconique:  algo.signature_cognitive?.profil_laconique  || null
-    },
-    signaux_qualite_globaux: {
-      coherence_agents:           algo.signature_cognitive?.coherence_agents || null,
-      profil_laconique:           algo.signature_cognitive?.profil_laconique || null,
-      taux_repond_question:       statsGlobales.taux_repond_question          || null,
-      taux_traite_problematique:  statsGlobales.taux_traite_problematique     || null,
-      taux_fait_processus_pilier: statsGlobales.taux_fait_processus_pilier    || null
-    },
-    limbique: limbiqueConso
-  };
-
-  // DOSSIER PILIERS
-  const synthesesParPilier = {};
+  // ── BLOC 2 : Dossiers piliers × 5 ──
+  const bloc2_piliers = {};
 
   for (const [pilier, nom] of Object.entries(NOM_PILIERS)) {
     const key    = `${pilier}_${nom}`;
@@ -164,16 +201,16 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
     const m7     = synth3.mission_7_bilan_certificateur || {};
     const m5B    = synth3.mission_5B_synthese           || {};
 
-    const qsPilier = (questionsData || []).filter(q => q.pilier_reponse_coeur === pilier);
+    const qsPilier = (questionsData || []).filter(q =>
+      q.pilier_reponse_coeur_confirme === pilier || q.pilier_reponse_coeur === pilier
+    );
 
+    // Excellences consolidées par pilier
     const excellencesPilier = {};
     for (const k of EXCELLENCE_KEYS) {
-      const fieldVerb = `${k}_verbatim`;
-      const fieldMani = `${k}_manifestation`;
-      const fieldCtx  = `${k}_contexte_activation`;
-      const verbatims = qsPilier.map(q => q[fieldVerb]).filter(Boolean);
-      const manifests = qsPilier.map(q => q[fieldMani]).filter(Boolean);
-      const contextes = qsPilier.map(q => q[fieldCtx]).filter(Boolean);
+      const verbatims = qsPilier.map(q => q[`${k}_verbatim`]).filter(Boolean);
+      const manifests = qsPilier.map(q => q[`${k}_manifestation`]).filter(Boolean);
+      const contextes = qsPilier.map(q => q[`${k}_contexte_activation`]).filter(Boolean);
       excellencesPilier[k] = {
         niveau:              maxNiveau(qsPilier, k),
         verbatims_marquants: verbatims.length > 0 ? verbatims : null,
@@ -182,75 +219,59 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
       };
     }
 
-    synthesesParPilier[key] = {
+    // Dimensions — listes nommées
+    const listesSimples    = qsPilier.flatMap(q => q.liste_dimensions_simples
+      ? q.liste_dimensions_simples.split(', ') : []).filter(Boolean);
+    const listesSoph       = qsPilier.flatMap(q => q.liste_dimensions_sophistiquees
+      ? q.liste_dimensions_sophistiquees.split(', ') : []).filter(Boolean);
+
+    bloc2_piliers[`${pilier}_${nom}`] = {
       pilier,
       nom,
-      nb_questions_reelles: sp.nb_questions_reel || 0,
-      ecart_theorique:      dist.ecarts?.[pilier] || '0',
       amplitude: {
-        niveau_moyen:        sp.niveau_moyen       || null,
-        nom_niveau_moyen:    sp.nom_niveau_moyen   || null,
-        niveau_max:          sp.niveau_max         || null,
-        nom_niveau_max:      sp.nom_niveau_max     || null,
-        zone:                sp.zone               || null,
+        niveau_max:          sp.niveau_max          || null,
+        niveau_moyen:        sp.niveau_moyen        || null,
+        zone:                sp.zone                || null,
         score_contenu_moyen: sp.score_contenu_moyen || null
       },
       dimensions: {
-        total_simples:          sp.total_simples || 0,
-        total_details:          sp.total_details || 0,
-        total_soph:             sp.total_soph    || 0,
-        ratio_soph:             sp.total_simples > 0
+        total_simples:             sp.total_simples || 0,
+        total_soph:                sp.total_soph    || 0,
+        ratio_soph:                sp.total_simples > 0
           ? `${((sp.total_soph || 0) / sp.total_simples * 100).toFixed(1)}%`
           : '0%',
-        simples_synthese:       `${sp.total_simples || 0} dimensions simples sur ${sp.nb_questions_reel || 0} questions`,
-        sophistiquees_synthese: `${sp.total_soph    || 0} dimensions sophistiquées sur ${sp.nb_questions_reel || 0} questions`
+        listes_dimensions: {
+          simples:       [...new Set(listesSimples)],
+          sophistiquees: [...new Set(listesSoph)]
+        }
       },
-      excellences_consolidees: excellencesPilier,
-      circuits_top3:    m5B.circuits_recurrents_top3 || [],
-      boucles_agregees: m5B.boucles_agregees         || {},
+      boucles_agregees:        m5B.boucles_agregees || {},
       boucles_detectees_agent1: qsPilier.map(q => q.boucles_detectees_agent1).filter(Boolean).join(' | ') || null,
       boucles_detectees_agent3: qsPilier.map(q => q.boucles_detectees_agent3).filter(Boolean).join(' | ') || null,
+      circuits_top3:           m5B.circuits_recurrents_top3 || [],
       lecture_cognitive_enrichie: m7.lecture_cognitive_enrichie || null,
       profil_neuroscientifique:   m7.profil_neuroscientifique   || null,
       capacites_observees:        m7.capacites_observees        || [],
-      flag_revision:              m7.flags?.revision_necessaire || false,
+      excellences_consolidees:    excellencesPilier,
+      excellences_par_pilier:     m5B.excellences_par_pilier    || null,
       signaux_qualite: {
-        coherence_agent1_agent3:          qsPilier.map(q => q.coherence_agent1_agent3).filter(Boolean),
-        profiling_qualifie:               qsPilier.map(q => q.profiling_qualifie).filter(v => v === 'FLAG_REVISION'),
-        justification_attribution_niveau: qsPilier.map(q => q.justification_attribution_niveau).filter(Boolean)
-      },
-      detail_amplitude: {
-        zone_amplitude_agent2: qsPilier.map(q => q.zone_amplitude_max).filter(Boolean)[0] || null,
-        plusieurs_niveaux:     qsPilier.some(q => q.plusieurs_niveaux_reponse === true || q.plusieurs_niveaux_reponse === 'true'),
-        detail_par_niveaux:    qsPilier.map(q => q.detail_par_niveaux).filter(Boolean),
-        niveau_sophistication: qsPilier.map(q => q.niveau_sophistication).filter(Boolean)
+        coherence_a1_a3:      qsPilier.map(q => q.coherence_agent1_agent3).filter(Boolean),
+        profiling_qualifie:   qsPilier.map(q => q.profiling_qualifie).filter(v => v === 'FLAG_REVISION'),
+        reserve_eventuelle:   qsPilier.map(q => q.justification_actions_majoritairement_faites).filter(Boolean)
       },
       donnees_granulaires: {
-        circuits_actives_par_question: qsPilier.map(q => ({
-          id_question: q.id_question,
-          circuits: q.circuits_actives ? (() => { try { return JSON.parse(q.circuits_actives); } catch { return q.circuits_actives; } })() : {}
-        })),
-        lecture_cognitive_par_question: qsPilier.map(q => ({
-          id_question: q.id_question,
-          lecture: q.lecture_cognitive_m8
-        })).filter(q => q.lecture),
-        listes_dimensions: {
-          simples:       qsPilier.flatMap(q => q.liste_dimensions_simples       ? q.liste_dimensions_simples.split(', ')       : []).filter(Boolean),
-          sophistiquees: qsPilier.flatMap(q => q.liste_dimensions_sophistiquees ? q.liste_dimensions_sophistiquees.split(', ') : []).filter(Boolean),
-          criteres:      qsPilier.flatMap(q => q.liste_criteres_details         ? q.liste_criteres_details.split(', ')         : []).filter(Boolean)
-        },
         capacites_detectees_agent2: qsPilier.map(q => q.capacites_detectees).filter(Boolean),
-        limbique_detail:            qsPilier.map(q => ({ id_question: q.id_question, detail: q.limbique_detail })).filter(q => q.detail),
         verification_coeur:         qsPilier.map(q => q.verification_coeur).filter(Boolean),
-        reserve_eventuelle:         qsPilier.map(q => q.justification_actions_majoritairement_faites).filter(Boolean)
+        limbique_detail:            qsPilier.map(q => ({ id_question: q.id_question, detail: q.limbique_detail })).filter(q => q.detail)
       }
     };
   }
 
-  // DOSSIER EXCELLENCES — distribution complète
-  const SCENARIOS = ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'];
-  const excellencesParScenario = {};
+  // ── BLOC 3 : Dossier excellences ──
+  const bloc3_excellences = {};
 
+  // Distribution par scénario
+  const excellencesParScenario = {};
   for (const sc of SCENARIOS) {
     const qsSc = (questionsData || []).filter(q => q.scenario_nom === sc);
     excellencesParScenario[sc] = {};
@@ -271,6 +292,7 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
       };
     }
   }
+  bloc3_excellences.excellences_par_scenario = excellencesParScenario;
 
   // Verbatims agrégés × 4 excellences
   const verbatimsAgreges = {};
@@ -284,13 +306,38 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
       contextes_activation: allCtx.length  > 0 ? allCtx  : null
     };
   }
+  bloc3_excellences.verbatims_agreges = verbatimsAgreges;
 
-  // SCORES VÉRIFICATION — barème supprimé
-  const scoresVerification = {
-    score_global_contenu: sg.score_global,
-    niveau_global:        sg.niveau_global,
-    nom_niveau_global:    sg.nom_niveau_global,
-    zone_globale:         sg.zone_globale,
+  return {
+    session_id:   algo.session_ID,
+    candidat:     algo.candidat,
+    bloc1_signaux_qualite:  bloc1_signaux,
+    bloc2_dossiers_piliers: bloc2_piliers,
+    bloc3_dossier_excellences: bloc3_excellences
+  };
+}
+
+// ─── Construction input Prompt 2 ─────────────────────────────────────────────
+// Reçoit : JSON Prompt 1 + dossier global (moteur/binôme/flou/cloture) + scores vérification
+
+function buildInputPrompt2(jsonPrompt1, algoOutput, agent1Corpus) {
+  const algo = algoOutput.output || algoOutput;
+  const sg   = algo.synthese_globale       || {};
+  const scoresPiliers = algo.scores_par_pilier_reel || {};
+
+  // ── BLOC 2 : Dossier global — matière d'enquête pour résoudre l'énigme ──
+  const bloc2_dossier_global = {
+    signature_cognitive: {
+      moteur_cognitif:   agent1Corpus?.section_B?.moteur_cognitif    || null,
+      binome_actif:      agent1Corpus?.section_B?.binome_actif       || null,
+      reaction_flou:     agent1Corpus?.section_B?.reaction_flou      || null,
+      signature_cloture: agent1Corpus?.section_B?.signature_cloture  || null,
+      pattern_emergent:  agent1Corpus?.section_C || agent1Corpus?.pattern_emergent || null
+    }
+  };
+
+  // ── BLOC 3 : Scores vérification (consultation légère) ──
+  const bloc3_scores = {
     scores_par_pilier: Object.fromEntries(
       Object.entries(NOM_PILIERS).map(([p, nom]) => {
         const key = `${p}_${nom}`;
@@ -299,52 +346,71 @@ function buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, ques
           score_contenu:  sp.score_contenu_moyen || null,
           niveau_moyen:   sp.niveau_moyen        || null,
           niveau_max:     sp.niveau_max          || null,
-          nom_niveau_max: sp.nom_niveau_max      || null
+          total_simples:  sp.total_simples       || 0,
+          total_soph:     sp.total_soph          || 0
         }];
       })
-    ),
-    profil_type: dist.profil_type || null
-  };
-
-  // CLASSEMENT 2A
-  const classement2A = Object.entries(NOM_PILIERS).map(([p, nom]) => {
-    const key = `${p}_${nom}`;
-    const sp  = scoresPiliers[key] || {};
-    return {
-      pilier:            p,
-      nom,
-      nb_questions_reel: sp.nb_questions_reel || 0,
-      total_soph:        sp.total_soph        || 0,
-      niveau_max:        sp.niveau_max        || 0,
-      nom_niveau_max:    sp.nom_niveau_max    || null
-    };
-  }).sort((a, b) => {
-    if (b.nb_questions_reel !== a.nb_questions_reel) return b.nb_questions_reel - a.nb_questions_reel;
-    if (b.total_soph        !== a.total_soph)        return b.total_soph        - a.total_soph;
-    return b.niveau_max - a.niveau_max;
-  });
-
-  const [p2ADominant, p2AStructurant, p2A3eme] = classement2A;
-
-  const classement2AOutput = {
-    classement:            classement2A.map((p, i) => ({ rang: i + 1, ...p })),
-    pilier_dominant_2A:    { pilier: p2ADominant?.pilier,    niveau_max: p2ADominant?.niveau_max,    nb_questions_reel: p2ADominant?.nb_questions_reel },
-    pilier_structurant_2A: { pilier: p2AStructurant?.pilier, niveau_max: p2AStructurant?.niveau_max, nb_questions_reel: p2AStructurant?.nb_questions_reel },
-    pilier_3_2A:           { pilier: p2A3eme?.pilier,        niveau_max: p2A3eme?.niveau_max,        nb_questions_reel: p2A3eme?.nb_questions_reel },
-    note: 'Classement par nb_questions_reel puis total_soph puis niveau_max. Utiliser PRIORITAIREMENT pour identifier dominant/structurant/3ème.'
+    )
   };
 
   return {
-    session_id:               algo.session_ID,
-    candidat:                 algo.candidat,
-    date_analyse:             algo.date_analyse,
-    synthese_globale:         syntheseGlobale,
-    syntheses_par_pilier:     synthesesParPilier,
-    excellences_par_scenario: excellencesParScenario,
-    verbatims_agreges:        verbatimsAgreges,
-    classement_2A:            classement2AOutput,
-    scores_verification:      scoresVerification
+    session_id: jsonPrompt1.session_id,
+    candidat:   jsonPrompt1.candidat,
+    bloc1_json_prompt1:     jsonPrompt1,
+    bloc2_dossier_global:   bloc2_dossier_global,
+    bloc3_scores_verification: bloc3_scores
   };
+}
+
+// ─── Construction input Prompt 3 ─────────────────────────────────────────────
+// Reçoit : JSON Prompts 1+2 + matière narrative (LCE + excellences piliers)
+
+function buildInputPrompt3(jsonPrompt1, jsonPrompt2, algoOutput, agent3Syntheses) {
+  const algo = algoOutput.output || algoOutput;
+  const scoresPiliers = algo.scores_par_pilier_reel || {};
+
+  // Matière narrative par pilier (LCE + excellences consolidées)
+  const matiereNarrative = {};
+  for (const [pilier, nom] of Object.entries(NOM_PILIERS)) {
+    const key    = `${pilier}_${nom}`;
+    const sp     = scoresPiliers[key] || {};
+    const synth3 = agent3Syntheses?.[pilier] || {};
+    const m7     = synth3.mission_7_bilan_certificateur || {};
+    const m5B    = synth3.mission_5B_synthese           || {};
+
+    matiereNarrative[`${pilier}_${nom}`] = {
+      pilier,
+      nom,
+      lecture_cognitive_enrichie: m7.lecture_cognitive_enrichie || null,
+      profil_neuroscientifique:   m7.profil_neuroscientifique   || null,
+      capacites_observees:        m7.capacites_observees        || [],
+      circuits_top3:              m5B.circuits_recurrents_top3  || [],
+      boucles_agregees:           m5B.boucles_agregees          || {},
+      niveau_max:                 sp.niveau_max                 || null,
+      zone:                       sp.zone                       || null
+    };
+  }
+
+  return {
+    session_id: jsonPrompt1.session_id,
+    candidat:   jsonPrompt1.candidat,
+    bloc1_json_prompt1:   jsonPrompt1,
+    bloc2_json_prompt2:   jsonPrompt2,
+    bloc3_matiere_narrative: matiereNarrative
+  };
+}
+
+// ─── Normalisation des valeurs sortantes ─────────────────────────────────────
+
+function normalizePattern(value) {
+  if (!value) return null;
+  const v = value.toString().toLowerCase().trim();
+  if (v.includes('systémat') || v.includes('systemat')) return 'systématique';
+  if (v.includes('contextuel'))                          return 'contextuel';
+  if (v.includes('situationnel') || v.includes('situation')) return 'situationnel';
+  if (PATTERN_VALUES.includes(v)) return v;
+  if (value.length > 30) return null;
+  return value;
 }
 
 function cleanSelectValue(value) {
@@ -358,160 +424,362 @@ function mapExcellenceName(value) {
   return EXCELLENCE_MAPPING[cleaned] || cleaned;
 }
 
-function cleanCertificateurResult(raw) {
+function cleanParsedOutput(raw) {
   const cleaned = { ...raw };
 
-  for (const field of SINGLE_SELECT_FIELDS) {
+  // Extraire depuis champs_bilan_* si le LLM les a encapsulés
+  const bilanKey = Object.keys(cleaned).find(k => k.startsWith('champs_bilan'));
+  if (bilanKey && typeof cleaned[bilanKey] === 'object') {
+    Object.assign(cleaned, cleaned[bilanKey]);
+    delete cleaned[bilanKey];
+  }
+
+  // Normaliser les singleSelect
+  for (const field of SINGLE_SELECT_BILAN) {
     if (cleaned[field] !== undefined && cleaned[field] !== null) {
-      cleaned[field] = cleanSelectValue(cleaned[field]);
+      cleaned[field] = cleanSelectValue(String(cleaned[field]));
     }
   }
 
+  // Normaliser les excellences
   if (cleaned.excellence_dominante)  cleaned.excellence_dominante  = mapExcellenceName(cleaned.excellence_dominante);
   if (cleaned.excellence_secondaire) cleaned.excellence_secondaire = mapExcellenceName(cleaned.excellence_secondaire);
 
+  // Normaliser les patterns
   const PATTERN_FIELDS = ['anticipation_pattern', 'decentration_pattern', 'metacognition_pattern', 'vue_systemique_pattern'];
   for (const f of PATTERN_FIELDS) {
     if (cleaned[f]) cleaned[f] = normalizePattern(cleaned[f]);
   }
 
+  // vue_systemique_synthese : si c'est un pattern court → le déplacer en qualification
   if (cleaned.vue_systemique_synthese) {
     const normalized = normalizePattern(cleaned.vue_systemique_synthese);
-    if (normalized === null && cleaned.vue_systemique_synthese.length > 30) {
+    if (normalized !== null && cleaned.vue_systemique_synthese.length <= 30) {
       cleaned['vue_systemique_qualification'] = cleaned['vue_systemique_qualification'] || cleaned.vue_systemique_synthese;
       cleaned.vue_systemique_synthese = null;
-    } else {
-      cleaned.vue_systemique_synthese = normalized;
     }
   }
 
+  // Nettoyer les variantes de noms de champs
   for (const key of Object.keys(cleaned)) {
     if (key.includes('angles_morts') || key.includes('anglesmorts')) {
       const newKey = key.replace('angles_morts', 'vue_systemique').replace('anglesmorts', 'vue_systemique');
       cleaned[newKey] = cleaned[key];
       delete cleaned[key];
     }
-    if (key.includes('type_pivar'))       { cleaned['type_profil_cognitif']       = cleaned[key]; delete cleaned[key]; }
-    if (key.includes('niveau_pivar') && !key.includes('nom_')) { cleaned['niveau_profil_cognitif'] = cleaned[key]; delete cleaned[key]; }
-    if (key.includes('zone_pivar'))       { cleaned['zone_profil_cognitif']        = cleaned[key]; delete cleaned[key]; }
-    if (key.includes('nom_niveau_pivar')) { cleaned['nom_niveau_profil_cognitif']  = cleaned[key]; delete cleaned[key]; }
+  }
+
+  // pilier_structurant2_certif : peut arriver sous pilier_structurant1_certif ou pilier_structurant2_certif
+  if (!cleaned.pilier_structurant2_certif && cleaned.pilier_structurant1_certif) {
+    // pilier_structurant_certif = structurant 1, chercher le 2 dans piliers_moteurs_certif
+    const moteurs = cleaned.piliers_moteurs_certif;
+    if (moteurs && typeof moteurs === 'string') {
+      const parts = moteurs.split(',').map(s => s.trim());
+      const dom   = cleaned.pilier_dominant_certif;
+      const str1  = cleaned.pilier_structurant_certif;
+      const str2  = parts.find(p => p !== dom && p !== str1);
+      if (str2) cleaned.pilier_structurant2_certif = str2;
+    }
+  }
+
+  // encadrement_scenario / management_scenario : s'assurer que c'est un number
+  if (cleaned.encadrement_scenario !== undefined) {
+    cleaned.encadrement_scenario = parseInt(cleaned.encadrement_scenario, 10) || 0;
+  }
+  if (cleaned.management_scenario !== undefined) {
+    cleaned.management_scenario = parseInt(cleaned.management_scenario, 10) || 0;
+  }
+
+  // niveau_profil_cognitif : s'assurer que c'est un number
+  if (cleaned.niveau_profil_cognitif !== undefined) {
+    cleaned.niveau_profil_cognitif = parseInt(cleaned.niveau_profil_cognitif, 10) || null;
+  }
+
+  // etape_*_* : serialiser si objet
+  for (const etapeKey of ['etape_1_arbitrage_fond', 'etape_2_lecture_algo', 'etape_3_diagnostics']) {
+    if (cleaned[etapeKey] && typeof cleaned[etapeKey] === 'object') {
+      cleaned[etapeKey] = JSON.stringify(cleaned[etapeKey]);
+    }
   }
 
   return cleaned;
 }
 
-function mapToAirtableFields(parsed) {
-  const CHAMPS_CERTIF = [
-    'etape_1_arbitrage_fond', 'etape_2_lecture_algo', 'etape_3_diagnostics',
-    'profil_coché_P1', 'profil_coché_P2', 'profil_coché_P3', 'profil_coché_P4', 'profil_coché_P5',
-    'type_profil_cognitif', 'niveau_profil_cognitif', 'nom_niveau_profil_cognitif', 'zone_profil_cognitif',
-    'pilier_dominant_certif', 'pilier_structurant_certif', 'piliers_moteurs_certif', 'boucle_cognitive_ordre',
-    'coherence_agents', 'profil_laconique', 'moteur_cognitif', 'binome_actif', 'reaction_flou', 'signature_cloture',
-    'anticipation_niveau', 'anticipation_pattern', 'anticipation_declencheur', 'anticipation_synthese', 'anticipation_qualification',
-    'decentration_niveau', 'decentration_pattern', 'decentration_declencheur', 'decentration_synthese', 'decentration_qualification',
-    'metacognition_niveau', 'metacognition_pattern', 'metacognition_declencheur', 'metacognition_synthese', 'metacognition_qualification',
-    'vue_systemique_niveau', 'vue_systemique_pattern', 'vue_systemique_declencheur', 'vue_systemique_synthese', 'vue_systemique_qualification',
-    'excellence_dominante', 'excellence_secondaire', 'profil_excellences',
-    'encadrement_verdict', 'encadrement_diagnostic', 'encadrement_scenario', 'encadrement_bloquant',
-    'management_verdict', 'management_diagnostic', 'management_scenario', 'management_bloquant',
-    'tableau_comparatif_encadrer_manager',
-    'definition_type_profil_cognitif', 'profil_personnalise',
-    'Nom_signature_excellence', 'section_signature_excellence',
-    'section_vigilance_limbique', 'section_excellences',
-    'section_pilier_P1', 'section_pilier_P2', 'section_pilier_P3', 'section_pilier_P4', 'section_pilier_P5',
-    'talent_definition', 'trois_capacites', 'pitch_recruteur',
-    'amplitude_deployee', 'pattern_navigation_revele', 'mantra_profil',
-    'points_vigilance_complet', 'rapport_markdown_complet',
-    'statut_certification', 'notes_certificateur'
-  ];
+// ─── Extraction champs BILAN depuis résultat nettoyé ─────────────────────────
 
+function mapToAirtableFields(parsed, champsAutorises) {
   const fields = {};
-  for (const champ of CHAMPS_CERTIF) {
-    if (parsed[champ] !== undefined) fields[champ] = parsed[champ];
+  for (const champ of champsAutorises) {
+    const val = parsed[champ];
+    if (val !== undefined && val !== null && val !== '') {
+      fields[champ] = val;
+    }
   }
   return fields;
 }
 
-async function run(session_id, algoOutput, agent3Syntheses, agent1Corpus, questionsData) {
-  const systemPrompt = await loadPrompt();
-  const inputJson    = buildCertificateurInput(algoOutput, agent3Syntheses, agent1Corpus, questionsData);
-  const userPrompt   = buildUserPrompt(inputJson);
+// ─── Appel Claude avec retry ──────────────────────────────────────────────────
 
-  logger.info('Certificateur: démarrage génération rapport', { session_id });
-
-  let result;
-  let attempts = 0;
+async function callCertificateurPrompt(systemPrompt, userPrompt, label, session_id, maxTokens = 16000) {
   const maxAttempts = 3;
+  let attempts = 0;
 
   while (attempts < maxAttempts) {
     try {
       const response = await claudeService.callClaude({
         systemPrompt,
         userPrompt,
-        service: 'certificateur',
-        maxTokens: 32000
+        service: `certificateur_${label}`,
+        maxTokens
       });
 
       const parsed = claudeService.parseClaudeJSON(response.content);
 
-      if (!parsed || !parsed.statut_certification) {
-        throw new Error('Certificateur: réponse invalide — statut_certification manquant');
-      }
-      if (!parsed.rapport_markdown_complet) {
-        throw new Error('Certificateur: réponse invalide — rapport_markdown_complet manquant');
+      if (!parsed) {
+        throw new Error(`Certificateur ${label}: JSON invalide ou vide`);
       }
 
-      result = { parsed, cost: response.cost || 0 };
-      break;
+      logger.info(`Certificateur ${label}: réponse parsée`, {
+        session_id, keys: Object.keys(parsed).length, cost: response.cost
+      });
+
+      return { parsed, cost: response.cost || 0 };
+
     } catch (error) {
       attempts++;
-      logger.warn(`Certificateur: erreur (tentative ${attempts}/${maxAttempts})`, { error: error.message });
+      logger.warn(`Certificateur ${label}: erreur (tentative ${attempts}/${maxAttempts})`, {
+        session_id, error: error.message
+      });
       if (attempts >= maxAttempts) {
-        throw new Error(`Certificateur: échec définitif : ${error.message}`);
+        throw new Error(`Certificateur ${label}: échec définitif — ${error.message}`);
       }
       await sleep(3000 * attempts);
     }
   }
+}
 
-  const cleaned = cleanCertificateurResult(result.parsed);
-  const fields  = mapToAirtableFields(cleaned);
+// ─── Validation des outputs ───────────────────────────────────────────────────
 
-  await airtableService.updateBilan(session_id, fields);
+function validatePrompt1Output(parsed, session_id) {
+  const required = [
+    'profil_coché_P1', 'profil_coché_P2', 'profil_coché_P3', 'profil_coché_P4', 'profil_coché_P5',
+    'anticipation_niveau', 'metacognition_niveau', 'vue_systemique_niveau',
+    'excellence_dominante', 'excellence_secondaire', 'profil_excellences'
+  ];
+  const missing = required.filter(k => !parsed[k] && parsed[k] !== 0);
+  if (missing.length > 0) {
+    logger.warn('Certificateur P1: champs manquants', { session_id, missing });
+  }
+  return missing.length === 0;
+}
 
-  logger.info('Certificateur: BILAN écrit', {
+function validatePrompt2Output(parsed, session_id) {
+  const required = [
+    'pilier_dominant_certif', 'pilier_structurant_certif',
+    'type_profil_cognitif', 'encadrement_verdict', 'management_verdict'
+  ];
+  const missing = required.filter(k => !parsed[k]);
+  if (missing.length > 0) {
+    logger.warn('Certificateur P2: champs manquants', { session_id, missing });
+  }
+  if (!parsed.pilier_dominant_certif) {
+    throw new Error('Certificateur P2: pilier_dominant_certif manquant — arrêt pipeline');
+  }
+  return missing.length === 0;
+}
+
+function validatePrompt3Output(parsed, session_id) {
+  const required = [
+    'rapport_markdown_complet', 'statut_certification',
+    'section_pilier_P1', 'talent_definition', 'mantra_profil'
+  ];
+  const missing = required.filter(k => !parsed[k]);
+  if (missing.length > 0) {
+    logger.warn('Certificateur P3: champs manquants', { session_id, missing });
+  }
+  if (!parsed.rapport_markdown_complet) {
+    throw new Error('Certificateur P3: rapport_markdown_complet manquant — arrêt pipeline');
+  }
+  return missing.length === 0;
+}
+
+// ─── User prompts ─────────────────────────────────────────────────────────────
+
+function buildUserPromptP1(inputJson) {
+  return `Tu es le Certificateur — Prompt 1 : Investigation cognitive.
+
+Réalise les 4 étapes dans l'ordre strict : 1D (portraits piliers) → 1C (excellences) → 1A (arbitrage pilier) → 1B (arbitrage global).
+
+Produis UNIQUEMENT le JSON final de l'OUTPUT FINAL tel que défini dans le prompt système.
+Pas de commentaire avant ou après le JSON.
+
+Données candidat :
+
+${JSON.stringify(inputJson, null, 2)}`;
+}
+
+function buildUserPromptP2(inputJson) {
+  return `Tu es le Certificateur — Prompt 2 : Énigme du profil + Diagnostics.
+
+Réalise les 5 étapes dans l'ordre strict : 2A (énigme pilier socle) → 2B (tables référence) → 2C (affinage patterns) → 3A (narratifs) → 3B (tableau comparatif).
+
+⚠️ RÈGLE ABSOLUE : Le pilier_dominant_certif est décidé UNE SEULE FOIS en 2A depuis les 3 temps.
+Jamais depuis les scores précalculés de l'Algorithme.
+
+Produis UNIQUEMENT le JSON final de l'OUTPUT FINAL PROMPT 2 tel que défini dans le prompt système.
+Pas de commentaire avant ou après le JSON.
+
+Données candidat :
+
+${JSON.stringify(inputJson, null, 2)}`;
+}
+
+function buildUserPromptP3(inputJson) {
+  return `Tu es le Certificateur — Prompt 3 : Livrables candidat.
+
+Réalise les étapes dans l'ordre : 4B (profils piliers) → 4A (type + navigation) → 4C (signature) → 4D (excellences) → 4E (talent/pitch/mantra) → 4F (vigilances) → Certification.
+
+⚠️ RÈGLE ABSOLUE : Le vocabulaire doit correspondre au niveau du candidat.
+Aucun chiffre, aucun score visible pour le candidat.
+Minimum 2 verbatims du candidat par section.
+
+Produis UNIQUEMENT le JSON final de l'OUTPUT FINAL PROMPT 3 tel que défini dans le prompt système.
+Pas de commentaire avant ou après le JSON.
+
+Données candidat :
+
+${JSON.stringify(inputJson, null, 2)}`;
+}
+
+// ─── Fonction principale ──────────────────────────────────────────────────────
+
+async function run(session_id, algoOutput, agent3Syntheses, agent1Corpus, questionsData) {
+  logger.info('Certificateur: démarrage pipeline 3 prompts', { session_id });
+
+  const { p1: sysP1, p2: sysP2, p3: sysP3 } = await loadPrompts();
+
+  let totalCost = 0;
+  let jsonP1, jsonP2, jsonP3;
+
+  // ════════════════════════════════════════════════════════════
+  // PROMPT 1 — Portraits piliers + Excellences
+  // ════════════════════════════════════════════════════════════
+  logger.info('Certificateur P1: construction input', { session_id });
+  const inputP1    = buildInputPrompt1(algoOutput, agent3Syntheses, agent1Corpus, questionsData);
+  const userPromP1 = buildUserPromptP1(inputP1);
+
+  const resultP1 = await callCertificateurPrompt(sysP1, userPromP1, 'P1', session_id, 16000);
+  totalCost += resultP1.cost;
+
+  const cleanedP1 = cleanParsedOutput(resultP1.parsed);
+  validatePrompt1Output(cleanedP1, session_id);
+
+  // Écriture immédiate en BILAN après P1
+  const fieldsP1 = mapToAirtableFields(cleanedP1, CHAMPS_PROMPT1);
+  await airtableService.updateBilan(session_id, fieldsP1);
+  logger.info('Certificateur P1: BILAN mis à jour', { session_id, nb_champs: Object.keys(fieldsP1).length });
+
+  // JSON intermédiaire P1 (transmis à P2 et P3)
+  jsonP1 = {
     session_id,
-    statut:      cleaned.statut_certification,
-    type_profil: cleaned.type_profil_cognitif,
-    niveau:      cleaned.niveau_profil_cognitif
+    candidat:             inputP1.candidat,
+    etape_1D_portraits:   cleanedP1.design_cognitif_piliers || cleanedP1.etape_1D_portraits || {},
+    etape_1C_excellences: cleanedP1.analyse_excellences     || cleanedP1.etape_1C_excellences || {
+      nb_excellences_actives: countActiveExcellences(cleanedP1)
+    },
+    etape_1A_arbitrage_piliers: cleanedP1.arbitrage_1A || cleanedP1.etape_1A_arbitrage_piliers || {},
+    etape_1B_arbitrage_global:  cleanedP1.arbitrage_1B || cleanedP1.etape_1B_arbitrage_global  || {},
+    champs_bilan_prompt1: fieldsP1
+  };
+
+  // ════════════════════════════════════════════════════════════
+  // PROMPT 2 — Énigme profil + Diagnostics
+  // ════════════════════════════════════════════════════════════
+  logger.info('Certificateur P2: construction input', { session_id });
+  const inputP2    = buildInputPrompt2(jsonP1, algoOutput, agent1Corpus);
+  const userPromP2 = buildUserPromptP2(inputP2);
+
+  const resultP2 = await callCertificateurPrompt(sysP2, userPromP2, 'P2', session_id, 12000);
+  totalCost += resultP2.cost;
+
+  const cleanedP2 = cleanParsedOutput(resultP2.parsed);
+  validatePrompt2Output(cleanedP2, session_id);
+
+  // Écriture immédiate en BILAN après P2
+  const fieldsP2 = mapToAirtableFields(cleanedP2, CHAMPS_PROMPT2);
+  await airtableService.updateBilan(session_id, fieldsP2);
+  logger.info('Certificateur P2: BILAN mis à jour', { session_id, nb_champs: Object.keys(fieldsP2).length });
+
+  // JSON intermédiaire P2 (transmis à P3)
+  jsonP2 = {
+    session_id,
+    etape_2A_pilier_socle: cleanedP2.enigme_pilier_socle || cleanedP2.etape_2A_pilier_socle || {},
+    diagnostics_3A:        cleanedP2.diagnostics_3A      || {},
+    champs_bilan_prompt2:  fieldsP2
+  };
+
+  // ════════════════════════════════════════════════════════════
+  // PROMPT 3 — Livrables candidat
+  // ════════════════════════════════════════════════════════════
+  logger.info('Certificateur P3: construction input', { session_id });
+  const inputP3    = buildInputPrompt3(jsonP1, jsonP2, algoOutput, agent3Syntheses);
+  const userPromP3 = buildUserPromptP3(inputP3);
+
+  const resultP3 = await callCertificateurPrompt(sysP3, userPromP3, 'P3', session_id, 20000);
+  totalCost += resultP3.cost;
+
+  const cleanedP3 = cleanParsedOutput(resultP3.parsed);
+  validatePrompt3Output(cleanedP3, session_id);
+
+  // Écriture finale en BILAN après P3
+  const fieldsP3 = mapToAirtableFields(cleanedP3, CHAMPS_PROMPT3);
+  await airtableService.updateBilan(session_id, fieldsP3);
+  logger.info('Certificateur P3: BILAN mis à jour', { session_id, nb_champs: Object.keys(fieldsP3).length });
+
+  // ════════════════════════════════════════════════════════════
+  // Résultat final consolidé
+  // ════════════════════════════════════════════════════════════
+  const finalResult = {
+    ...cleanedP1,
+    ...cleanedP2,
+    ...cleanedP3
+  };
+
+  logger.info('Certificateur: pipeline terminé', {
+    session_id,
+    statut:               cleanedP3.statut_certification,
+    pilier_dominant:      cleanedP2.pilier_dominant_certif,
+    type_profil:          cleanedP2.type_profil_cognitif,
+    niveau:               cleanedP2.niveau_profil_cognitif,
+    encadrement_verdict:  cleanedP2.encadrement_verdict,
+    management_verdict:   cleanedP2.management_verdict,
+    totalCost
   });
 
-  return { result: cleaned, totalCost: result.cost };
+  return {
+    result: finalResult,
+    totalCost
+  };
 }
 
-function buildUserPrompt(inputJson) {
-  return `Génère le rapport de profil cognitif certifié pour ce candidat en suivant STRICTEMENT les étapes du prompt système.
+// ─── Helper : compter les excellences actives (niveau ≥ moyen) ───────────────
 
-⚠️ RAPPEL ÉTAPE 2A OBLIGATOIRE :
-Le dossier classement_2A contient le classement pré-calculé des piliers par nb_questions_reel.
-Utilise classement_2A.pilier_dominant_2A, classement_2A.pilier_structurant_2A, classement_2A.pilier_3_2A
-pour identifier dominant / structurant / 3ème pilier. C'est la seule base valide.
-
-⚠️ RAPPEL EXCELLENCES :
-excellences_par_scenario contient la distribution complète (nb NULLE/FAIBLE/MOYEN/ÉLEVÉ)
-pour chaque excellence × chaque scénario. Utilise ces comptes pour calculer les seuils en 1C.
-verbatims_agreges contient tous les verbatims + manifestations + contextes_activation par excellence.
-
-Voici les données complètes :
-
-${JSON.stringify(inputJson, null, 2)}
-
-Produis UNIQUEMENT le JSON final certifié tel que défini dans la section "OUTPUT FINAL — FORMAT JSON CERTIFIÉ" du prompt système.
-Pas de commentaire avant ou après le JSON.
-Le champ rapport_markdown_complet doit assembler TOUTES les sections du rapport.`;
+function countActiveExcellences(parsed) {
+  const niveaux = ['moyen', 'élevé'];
+  let count = 0;
+  for (const k of EXCELLENCE_KEYS) {
+    const niveau = parsed[`${k}_niveau`];
+    if (niveau && niveaux.includes(niveau.toLowerCase())) count++;
+  }
+  return count;
 }
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
   run,
-  buildCertificateurInput,
-  cleanCertificateurResult
+  buildInputPrompt1,
+  buildInputPrompt2,
+  buildInputPrompt3,
+  cleanParsedOutput
 };
