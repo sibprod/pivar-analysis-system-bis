@@ -559,11 +559,21 @@ async function processCandidate(session_id) {
     statut_analyse_pivar: 'EN COURS'
   });
   
+  // Noms de champs exacts Airtable VISITEUR (confirmes MCP) :
+  // 'Prenom' (majuscule), 'Nom' (majuscule), 'Email' (majuscule)
   const candidat = {
-    prenom: visiteur.Prenom || visiteur.prenom || '',
-    nom:    visiteur.Nom    || visiteur.nom    || '',
-    email:  visiteur.Email  || visiteur.email  || ''
+    prenom: visiteur.Prenom || '',
+    nom:    visiteur.Nom    || '',
+    email:  visiteur.Email  || ''
   };
+
+  if (!candidat.prenom || !candidat.nom) {
+    logger.warn('Orchestrateur: Prenom ou Nom absent dans VISITEUR', {
+      session_id,
+      Prenom: visiteur.Prenom,
+      Nom: visiteur.Nom
+    });
+  }
 
   // ── Récupérer les 25 réponses ────────────────────────────────────────────
   let questions;
