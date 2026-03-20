@@ -10,7 +10,10 @@
 //
 // FONCTIONS EXPORTÉES :
 //   getVisiteur(session_id)                         → objet visiteur ou null
-//   getVisiteursByStatus(statuts[])                 → array de visiteurs
+//   getVisiteursByStatus(filtre)                    → array de visiteurs
+//     filtre peut être :
+//       - array de statuts : ['NOUVEAU', 'ERREUR']
+//       - objet multi-conditions : { statut_analyse_pivar: ['NOUVEAU'], statut_test: 'terminé', derniere_question_repondue: 25 }
 //   updateVisiteur(session_id, fields)              → void
 //   getResponsesBySession(session_id)               → array 25 questions triées
 //   updateResponse(id_question, session_id, fields) → void
@@ -104,9 +107,37 @@ function sanitizeFields(fields) {
   return clean;
 }
 
+/**
+ * Construit une formule Airtable depuis un objet de conditions.
+ * Supporte :
+ *   - valeur string/number simple → {champ}="valeur"
+ *   - array de strings → OR({champ}="v1", {champ}="v2")
+ */
+function buildFormuleFromObject(conditions) {
+  const clauses = [];
+
+  for (const [champ, valeur] of Object.entries(conditions)) {
+    if (Array.isArray(valeur)) {
+      if (valeur.length === 0) continue;
+      if (valeur.length === 1) {
+        clauses.push(`{${champ}}="${valeur[0]}"`);
+      } else {
+        const orParts = valeur.map(v => `{${champ}}="${v}"`).join(', ');
+        clauses.push(`OR(${orParts})`);
+      }
+    } else if (typeof valeur === 'number') {
+      clauses.push(`{${champ}}=${valeur}`);
+    } else {
+      clauses.push(`{${champ}}="${valeur}"`);
+    }
+  }
+
+  if (clauses.length === 0) return null;
+  if (clauses.length === 1) return clauses[0];
+  return `AND(${clauses.join(', ')})`;
+}
+
 // ─── CACHE RECORD IDS ─────────────────────────────────────────────────────────
-// Les record IDs Airtable (recXXX) sont nécessaires pour les PATCH.
-// Mis en cache pour éviter les GET répétés.
 
 const cache = {
   visiteurs: new Map(),  // session_id → record_id
@@ -138,22 +169,38 @@ async function getVisiteur(session_id) {
 }
 
 /**
- * Récupère tous les visiteurs ayant l'un des statuts donnés.
- * @param {string[]} statuts — ex: ['NOUVEAU', 'EN COURS']
+ * Récupère les visiteurs selon un filtre.
+ *
+ * @param {string[]|Object} filtre
+ *   - Array de statuts : ['NOUVEAU', 'ERREUR', 'en_cours']
+ *     → filtre sur statut_analyse_pivar uniquement
+ *   - Objet multi-conditions : { statut_analyse_pivar: ['NOUVEAU'], statut_test: 'terminé', derniere_question_repondue: 25 }
+ *     → toutes les conditions combinées en AND
+ *
  * @returns {Object[]}
  */
-async function getVisiteursByStatus(statuts) {
-  if (!statuts || statuts.length === 0) {
-    throw new Error('getVisiteursByStatus: tableau de statuts vide');
-  }
+async function getVisiteursByStatus(filtre) {
+  let formula;
 
-  const conditions = statuts.map(s => `{statut_analyse_pivar}="${s}"`).join(', ');
-  const formula    = statuts.length === 1 ? conditions : `OR(${conditions})`;
+  if (Array.isArray(filtre)) {
+    // Format simple — array de statuts
+    if (filtre.length === 0) throw new Error('getVisiteursByStatus: tableau vide');
+    formula = buildFormuleFromObject({ statut_analyse_pivar: filtre });
+
+  } else if (filtre && typeof filtre === 'object') {
+    // Format objet multi-conditions
+    formula = buildFormuleFromObject(filtre);
+
+  } else {
+    throw new Error(`getVisiteursByStatus: format de filtre non supporté — reçu: ${typeof filtre}`);
+  }
 
   const records = await fetchAllRecords(TABLES.VISITEUR, formula);
 
   return records.map(r => {
-    cache.visiteurs.set(r.fields.candidate_ID, r.id);
+    if (r.fields.candidate_ID) {
+      cache.visiteurs.set(r.fields.candidate_ID, r.id);
+    }
     return { _record_id: r.id, ...r.fields };
   });
 }
@@ -209,9 +256,6 @@ async function getResponsesBySession(session_id) {
 
 /**
  * Met à jour les champs d'une réponse (une question).
- * @param {string} id_question  — ex: "S1Q3"
- * @param {string} session_id
- * @param {Object} fields
  */
 async function updateResponse(id_question, session_id, fields) {
   if (!id_question) throw new Error('updateResponse: id_question manquant');
