@@ -1,26 +1,27 @@
 // services/orchestratorService.js
-// Orchestrateur v8.2 — Pipeline profil cognitif
-// Chaîne : Agent1 (25+1) → Vérificateur (25) → Agent2 (25) → Agent3 (25+5) → Algo → Certificateur (3 prompts)
+// Orchestrateur v8.1 — Coordinateur principal du pipeline profil cognitif
+// Chaîne stricte : Agent1 (25+1) → Vérificateur (25) → Agent2 (25) → Agent3 (25+5) → Algo → Certificateur
 //
-// CHANGEMENTS v8.2 vs v8.1 :
-// - Certificateur : 1 appel run() transparent — 3 prompts internes (P1/P2/P3)
-// - Checkpoint Certificateur : pilier_dominant_certif non-null dans BILAN
-//   (plus robuste que statut_certification qui peut être null si P3 seul planté)
-// - Reset BILAN : ajout pilier_structurant2_certif dans les champs à effacer
-// - buildQuestionsDataPourCertif : ajout contexte_activation × 4 excellences
-//   (requis par buildInputPrompt1 du certificateurService)
+// CORRECTIONS v8.1 :
+// - Checkpoint étape 3 (Vérificateur) : utilise 'coherence' au lieu de 'pilier_reponse_coeur'
+//   → 'pilier_reponse_coeur' est écrit par Agent 1, pas par le Vérificateur
+//   → 'coherence' est écrit UNIQUEMENT par le Vérificateur (CONFIRMÉ/CORRIGÉ/MAINTENU_AVEC_RÉSERVE)
+// - Skip Vérificateur reconstruit depuis les vrais champs v8 (piliers_actives_final, verification_coeur)
+//   au lieu de l'ancien champ 'circuits_actives_pilier_coeur' inexistant dans Airtable
+// - Gardes séquentielles : chaque étape vérifie que la précédente est réellement complète
+//   avant de démarrer — pas de skip silencieux sur données incomplètes
 
 'use strict';
 
-const airtableService      = require('./airtableService');
-const agent1Service        = require('./agent1Service');
-const verificateurService  = require('./verificateurService');
-const agent2Service        = require('./agent2Service');
-const agent3Service        = require('./agent3Service');
-const algorithmeService    = require('./algorithmeService');
+const airtableService     = require('./airtableService');
+const agent1Service       = require('./agent1Service');
+const verificateurService = require('./verificateurService');
+const agent2Service       = require('./agent2Service');
+const agent3Service       = require('./agent3Service');
+const algorithmeService   = require('./algorithmeService');
 const certificateurService = require('./certificateurService');
-const backupService        = require('./backupService');
-const logger               = require('../utils/logger');
+const backupService       = require('./backupService');
+const logger              = require('../utils/logger');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -28,6 +29,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // HELPERS CHECKPOINT
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Vérifie si une étape est déjà complète sur TOUTES les 25 questions.
+ * Le champ doit être non-null ET non-vide sur chaque question.
+ */
 function etapeDejaFaite(questions, champ) {
   return questions.every(q => q[champ] !== null && q[champ] !== undefined && q[champ] !== '');
 }
@@ -36,6 +41,10 @@ function bilanChampRenseigne(bilan, champ) {
   return bilan[champ] !== null && bilan[champ] !== undefined && bilan[champ] !== '';
 }
 
+/**
+ * Garde séquentielle : si le champ requis est absent, lève une erreur explicite.
+ * Empêche une étape de tourner sur des données incomplètes de l'étape précédente.
+ */
 function verifierPrerequisEtape(questions, champRequis, etapePrecedente) {
   if (!etapeDejaFaite(questions, champRequis)) {
     throw new Error(
@@ -71,17 +80,21 @@ function buildQuestionsDataPourAlgo(questions, verifArbitrages, agent2Analyses, 
     const m8        = mesure.mission_8_lecture_cognitive || {};
     const m6Algo    = a3.agent3_verification?.mission_6_donnees_algo || {};
 
+    // Pilier cœur final arbitré par le Vérificateur
     const pilierCoeur = arbitrage.pilier_coeur_final || q.pilier_reponse_coeur || q.pilier;
 
+    // Amplitude max depuis mission_6_donnees_algo (interface Agent3 → Algo)
     const amplitudeMax = m6Algo.piliers?.amplitudes?.[pilierCoeur]
       || m6Algo.piliers?.paliers_grilles?.[pilierCoeur]
       || arbitrage.niveau_coeur_final
       || 1;
 
+    // Dimensions sur le pilier cœur
     const simplesCoeur = m4[pilierCoeur]?.total_dimensions_simples || m4[pilierCoeur]?.total || 0;
     const detailsCoeur = m4[pilierCoeur]?.nombre_criteres || 0;
     const sophCoeur    = m5[pilierCoeur]?.nombre || m5[pilierCoeur]?.total || 0;
 
+    // Excellences
     const excellences = {
       anticipation_niveau:   (m6.anticipation_niveau?.niveau   || 'nulle').toLowerCase(),
       decentration_niveau:   (m6.decentration_niveau?.niveau   || 'nulle').toLowerCase(),
@@ -94,8 +107,6 @@ function buildQuestionsDataPourAlgo(questions, verifArbitrages, agent2Analyses, 
       scenario_nom:         q.scenario_nom,
       pilier:               q.pilier,
       pilier_reponse_coeur: pilierCoeur,
-      // ⚠️ v8.2 : pilier_reponse_coeur_confirme ajouté — utilisé par buildInputPrompt1
-      pilier_reponse_coeur_confirme: q.pilier_reponse_coeur_confirme || pilierCoeur,
 
       simples:       simplesCoeur,
       details:       detailsCoeur,
@@ -109,55 +120,51 @@ function buildQuestionsDataPourAlgo(questions, verifArbitrages, agent2Analyses, 
       traite_problematique_situation: q.traite_problematique_situation === 'oui' || q.traite_problematique_situation === 'OUI' || q.traite_problematique_situation === true ? 'OUI' : 'NON',
       fait_processus_pilier:          q.fait_processus_pilier === 'oui' || q.fait_processus_pilier === 'OUI' || q.fait_processus_pilier === true ? 'OUI' : 'NON',
 
-      // Laconique
+      // Laconique (Agent 2 M8)
       laconique: m8.laconique || false,
 
-      // Verbatims + manifestations + contextes_activation ← v8.2 : contextes ajoutés
-      anticipation_verbatim:             m6.anticipation_niveau?.verbatim             || null,
-      anticipation_manifestation:        m6.anticipation_niveau?.manifestation        || null,
-      anticipation_contexte_activation:  m6.anticipation_niveau?.contexte_activation  || null,
-      decentration_verbatim:             m6.decentration_niveau?.verbatim             || null,
-      decentration_manifestation:        m6.decentration_niveau?.manifestation        || null,
-      decentration_contexte_activation:  m6.decentration_niveau?.contexte_activation  || null,
-      metacognition_verbatim:            m6.metacognition_niveau?.verbatim            || null,
-      metacognition_manifestation:       m6.metacognition_niveau?.manifestation       || null,
-      metacognition_contexte_activation: m6.metacognition_niveau?.contexte_activation || null,
-      vue_systemique_verbatim:           m6.vue_systemique_niveau?.verbatim           || null,
-      vue_systemique_manifestation:      m6.vue_systemique_niveau?.manifestation      || null,
-      vue_systemique_contexte_activation: m6.vue_systemique_niveau?.contexte_activation || null,
+      // Verbatims et manifestations (Agent 2 M6)
+      anticipation_verbatim:       m6.anticipation_niveau?.verbatim || null,
+      anticipation_manifestation:  m6.anticipation_niveau?.manifestation || null,
+      decentration_verbatim:       m6.decentration_niveau?.verbatim || null,
+      decentration_manifestation:  m6.decentration_niveau?.manifestation || null,
+      metacognition_verbatim:      m6.metacognition_niveau?.verbatim || null,
+      metacognition_manifestation: m6.metacognition_niveau?.manifestation || null,
+      vue_systemique_verbatim:     m6.vue_systemique_niveau?.verbatim || null,
+      vue_systemique_manifestation: m6.vue_systemique_niveau?.manifestation || null,
 
       // Niveaux excellences à plat
-      anticipation_niveau:   excellences.anticipation_niveau,
-      decentration_niveau:   excellences.decentration_niveau,
-      metacognition_niveau:  excellences.metacognition_niveau,
-      vue_systemique_niveau: excellences.vue_systemique_niveau,
+      anticipation_niveau:    excellences.anticipation_niveau,
+      decentration_niveau:    excellences.decentration_niveau,
+      metacognition_niveau:   excellences.metacognition_niveau,
+      vue_systemique_niveau:  excellences.vue_systemique_niveau,
 
-      // Boucles (deux sources indépendantes)
+      // Boucles séparées Agent1 (narratif) vs Agent3 (circuits)
       boucles_detectees_agent1: q.boucles_detectees_agent1 || null,
       boucles_detectees_agent3: q.boucles_detectees_agent3 || null,
 
       // Signaux qualité
-      coherence_agent1_agent3:          q.coherence_agent1_agent3          || null,
-      profiling_qualifie:               q.profiling_qualifie               || null,
+      coherence_agent1_agent3:          q.coherence_agent1_agent3 || null,
+      profiling_qualifie:               q.profiling_qualifie || null,
       justification_attribution_niveau: q.justification_attribution_niveau || null,
 
       // Données Vérificateur
-      verification_coeur:                           q.verification_coeur                           || null,
+      verification_coeur:                           q.verification_coeur || null,
       justification_actions_majoritairement_faites: q.justification_actions_majoritairement_faites || null,
 
       // Données Agent 2 granulaires
-      niveau_sophistication:          q.niveau_sophistication          || null,
-      liste_dimensions_simples:       q.liste_dimensions_simples       || null,
+      niveau_sophistication:          q.niveau_sophistication || null,
+      liste_dimensions_simples:       q.liste_dimensions_simples || null,
       liste_dimensions_sophistiquees: q.liste_dimensions_sophistiquees || null,
-      liste_criteres_details:         q.liste_criteres_details         || null,
-      zone_amplitude_max:             q.zone_amplitude_max             || null,
-      detail_par_niveaux:             q.detail_par_niveaux             || null,
-      plusieurs_niveaux_reponse:      q.plusieurs_niveaux_reponse      || null,
-      limbique_detail:                q.limbique_detail                || null,
-      capacites_detectees:            q.capacites_detectees            || null,
+      liste_criteres_details:         q.liste_criteres_details || null,
+      zone_amplitude_max:             q.zone_amplitude_max || null,
+      detail_par_niveaux:             q.detail_par_niveaux || null,
+      plusieurs_niveaux_reponse:      q.plusieurs_niveaux_reponse || null,
+      limbique_detail:                q.limbique_detail || null,
+      capacites_detectees:            q.capacites_detectees || null,
 
       // Données Agent 3 granulaires
-      circuits_actives:     q.circuits_actives     || null,
+      circuits_actives:    q.circuits_actives || null,
       lecture_cognitive_m8: q.lecture_cognitive_m8 || null
     };
   });
@@ -231,10 +238,8 @@ async function resetAnalyses(session_id) {
         'score_pilier_P1','niveau_max_P1','score_pilier_P2','niveau_max_P2',
         'score_pilier_P3','niveau_max_P3','score_pilier_P4','niveau_max_P4',
         'score_pilier_P5','niveau_max_P5',
-        // Certificateur — v8.2 : pilier_structurant2_certif ajouté
         'type_profil_cognitif','niveau_profil_cognitif','nom_niveau_profil_cognitif',
         'zone_profil_cognitif','pilier_dominant_certif','pilier_structurant_certif',
-        'pilier_structurant2_certif',
         'piliers_moteurs_certif','boucle_cognitive_ordre',
         'profil_coché_P1','profil_coché_P2','profil_coché_P3','profil_coché_P4','profil_coché_P5',
         'limbique_detecte','limbique_intensite_max','nb_questions_limbiques',
@@ -277,7 +282,8 @@ async function resetAnalyses(session_id) {
       backup_before_agent1: null, backup_after_agent1: null,
       backup_before_agent2: null, backup_after_agent2: null,
       backup_before_algo:   null, backup_after_algo:   null,
-      backup_before_certif: null, backup_after_certif: null
+      backup_before_certif: null, backup_after_certif: null,
+      backup_error:         null
     });
 
     logger.info('Orchestrateur: reset terminé', { session_id, questions: questions.length });
@@ -295,6 +301,7 @@ async function processCandidate(session_id) {
 
   logger.info('Orchestrateur: démarrage pipeline', { session_id });
 
+  // ── Récupérer le visiteur ────────────────────────────────────────────────
   let visiteur;
   try {
     visiteur = await airtableService.getVisiteur(session_id);
@@ -309,25 +316,28 @@ async function processCandidate(session_id) {
     return { session_id, statut: 'skip_terminé', duree_ms: 0 };
   }
 
-  if (visiteur.statut_analyse_pivar === 'NOUVEAU') {
+    if (visiteur.statut_analyse_pivar === 'NOUVEAU') {
     const questionsCheck = await airtableService.getResponsesBySession(session_id);
     const dejaCommence = questionsCheck.some(q => q.analyse_json_agent1);
     if (dejaCommence) {
-      logger.info('Orchestrateur: statut NOUVEAU mais analyses partielles — reprise sans reset', { session_id });
+      logger.info('Orchestrateur: statut NOUVEAU mais analyses partielles détectées — reprise sans reset', { session_id });
     } else {
-      logger.info('Orchestrateur: statut NOUVEAU — reset analyses', { session_id });
+      logger.info('Orchestrateur: statut NOUVEAU — reset des analyses précédentes', { session_id });
       await resetAnalyses(session_id);
     }
   }
-
-  await airtableService.updateVisiteur(session_id, { statut_analyse_pivar: 'EN COURS' });
-
+  // Marquer EN COURS dans VISITEUR
+  await airtableService.updateVisiteur(session_id, {
+    statut_analyse_pivar: 'en_cours'
+  });
+  
+  // ⚠️ ANONYMISATION : les agents ne reçoivent PAS l'identité du candidat
+  // Seule la civilité est transmise pour les accords de genre (il/elle)
   const candidat = {
-    prenom: visiteur.Prenom || visiteur.prenom || '',
-    nom:    visiteur.Nom    || visiteur.nom    || '',
-    email:  visiteur.Email  || visiteur.email  || ''
+    civilite: visiteur.civilite_candidat || null  // 'Monsieur' | 'Madame' | null
   };
 
+  // ── Récupérer les 25 réponses ────────────────────────────────────────────
   let questions;
   try {
     questions = await airtableService.getResponsesBySession(session_id);
@@ -351,6 +361,8 @@ async function processCandidate(session_id) {
 
   // ═══════════════════════════════════════════════════════════════════════
   // ÉTAPE 1 — AGENT 1 : 25 appels question + 1 appel corpus
+  // Checkpoint : analyse_json_agent1 non-null sur les 25 questions
+  //            + moteur_cognitif non-null dans BILAN (appel corpus fait)
   // ═══════════════════════════════════════════════════════════════════════
   const step1Start = Date.now();
 
@@ -378,7 +390,9 @@ async function processCandidate(session_id) {
       agent1Result = await agent1Service.run(session_id, candidat, questions);
       await backupService.save(session_id, 'after_agent1', { analyses: agent1Result.analyses.length, step: 'agent1_ok' });
       logger.info('Orchestrateur: ÉTAPE 1 terminée', {
-        session_id, duree_ms: Date.now() - step1Start, cout: agent1Result.totalCost
+        session_id,
+        duree_ms: Date.now() - step1Start,
+        cout: agent1Result.totalCost
       });
     } catch (error) {
       await markError(session_id, 'ÉTAPE 1 Agent 1', error);
@@ -388,7 +402,18 @@ async function processCandidate(session_id) {
 
   // ═══════════════════════════════════════════════════════════════════════
   // ÉTAPE 3 — VÉRIFICATEUR : 25 arbitrages
-  // Checkpoint : 'coherence' non-null sur les 25 questions (écrit uniquement par le Vérificateur)
+  //
+  // CORRECTION v8.1 :
+  // Checkpoint : 'coherence' non-null sur les 25 questions
+  // → 'coherence' est écrit UNIQUEMENT par le Vérificateur
+  //   (valeurs : CONFIRMÉ / CORRIGÉ / MAINTENU_AVEC_RÉSERVE)
+  // → 'pilier_reponse_coeur' NE PEUT PAS servir de checkpoint
+  //   car Agent 1 l'écrit déjà — le Vérificateur serait toujours sauté
+  //
+  // Skip reconstruit depuis les vrais champs v8 :
+  // → piliers_actives_final (écrit par le Vérificateur, liste des piliers)
+  // → verification_coeur (justification arbitrage)
+  // → repond_question / traite_problematique_situation / fait_processus_pilier
   // ═══════════════════════════════════════════════════════════════════════
   const step3Start = Date.now();
 
@@ -408,13 +433,13 @@ async function processCandidate(session_id) {
             reserve_eventuelle:       q.justification_actions_majoritairement_faites || null,
             difficulte_referentiel:   q.justification_attribution_niveau || null
           },
-          verificateur_statut:            q.coherence,
-          piliers_actives:                safeParseJSON(q.piliers_actives_final) || [],
-          boucles_finales:                safeParseJSON(q.analyse_json_verificateur)?.boucles_finales || [],
-          sequence_finale:                safeParseJSON(q.analyse_json_verificateur)?.sequence_finale || '',
-          repond_question:                q.repond_question,
+          verificateur_statut:          q.coherence,
+          piliers_actives:              safeParseJSON(q.piliers_actives_final) || [],
+          boucles_finales:              safeParseJSON(q.analyse_json_verificateur)?.boucles_finales || [],
+          sequence_finale:              safeParseJSON(q.analyse_json_verificateur)?.sequence_finale || '',
+          repond_question:              q.repond_question,
           traite_problematique_situation: q.traite_problematique_situation,
-          fait_processus_pilier:          q.fait_processus_pilier
+          fait_processus_pilier:        q.fait_processus_pilier
         }
       }))
     };
@@ -424,7 +449,9 @@ async function processCandidate(session_id) {
       verifResult = await verificateurService.run(session_id, questions, agent1Result.analyses);
       await backupService.save(session_id, 'before_agent2', { arbitrages: verifResult.arbitrages.length, step: 'verificateur_ok' });
       logger.info('Orchestrateur: ÉTAPE 3 terminée', {
-        session_id, duree_ms: Date.now() - step3Start, cout: verifResult.totalCost
+        session_id,
+        duree_ms: Date.now() - step3Start,
+        cout: verifResult.totalCost
       });
     } catch (error) {
       await markError(session_id, 'ÉTAPE 3 Vérificateur', error);
@@ -434,6 +461,8 @@ async function processCandidate(session_id) {
 
   // ═══════════════════════════════════════════════════════════════════════
   // ÉTAPE 4 — AGENT 2 : mesures (25 questions)
+  // Checkpoint : analyse_json_agent2 non-null sur les 25 questions
+  // Garde : 'coherence' doit être rempli (Vérificateur terminé)
   // ═══════════════════════════════════════════════════════════════════════
   const step4Start = Date.now();
 
@@ -449,13 +478,17 @@ async function processCandidate(session_id) {
       }))
     };
   } else {
+    // Garde séquentielle : Vérificateur doit être complet
     verifierPrerequisEtape(questions, 'coherence', 'Vérificateur (ÉTAPE 3)');
+
     try {
       logger.info('Orchestrateur: ÉTAPE 4 — Agent 2', { session_id });
       agent2Result = await agent2Service.run(session_id, questions, verifResult.arbitrages);
       await backupService.save(session_id, 'after_agent2', { analyses: agent2Result.analyses.length, step: 'agent2_ok' });
       logger.info('Orchestrateur: ÉTAPE 4 terminée', {
-        session_id, duree_ms: Date.now() - step4Start, cout: agent2Result.totalCost
+        session_id,
+        duree_ms: Date.now() - step4Start,
+        cout: agent2Result.totalCost
       });
     } catch (error) {
       await markError(session_id, 'ÉTAPE 4 Agent 2', error);
@@ -464,7 +497,10 @@ async function processCandidate(session_id) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ÉTAPE 5 — AGENT 3 : circuits + synthèses pilier
+  // ÉTAPE 5 — AGENT 3 : circuits + synthèses pilier (25 + 5 appels)
+  // Checkpoint : analyse_json_agent3 non-null sur les 25 questions
+  //            + circuits_top3_P1 non-null dans BILAN (synthèses faites)
+  // Garde : 'analyse_json_agent2' doit être rempli (Agent 2 terminé)
   // ═══════════════════════════════════════════════════════════════════════
   const step5Start = Date.now();
 
@@ -488,19 +524,23 @@ async function processCandidate(session_id) {
       }
     };
   } else {
+    // Garde séquentielle : Agent 2 doit être complet
     verifierPrerequisEtape(questions, 'analyse_json_agent2', 'Agent 2 (ÉTAPE 4)');
+
     try {
       logger.info('Orchestrateur: ÉTAPE 5 — Agent 3', { session_id });
       agent3Result = await agent3Service.run(
         session_id, questions, verifResult.arbitrages, agent2Result.analyses
       );
       await backupService.save(session_id, 'before_algo', {
-        analyses:  agent3Result.analyses.length,
+        analyses: agent3Result.analyses.length,
         syntheses: Object.keys(agent3Result.syntheses).length,
         step: 'agent3_ok'
       });
       logger.info('Orchestrateur: ÉTAPE 5 terminée', {
-        session_id, duree_ms: Date.now() - step5Start, cout: agent3Result.totalCost
+        session_id,
+        duree_ms: Date.now() - step5Start,
+        cout: agent3Result.totalCost
       });
     } catch (error) {
       await markError(session_id, 'ÉTAPE 5 Agent 3', error);
@@ -510,6 +550,8 @@ async function processCandidate(session_id) {
 
   // ═══════════════════════════════════════════════════════════════════════
   // ÉTAPE 6 — ALGORITHME : calculs purs
+  // Checkpoint : synthese_json_complete non-null dans BILAN
+  // Garde : circuits_top3_P1 doit être rempli dans BILAN (Agent 3 terminé)
   // ═══════════════════════════════════════════════════════════════════════
   const step6Start = Date.now();
 
@@ -518,16 +560,18 @@ async function processCandidate(session_id) {
   if (bilanChampRenseigne(bilan, 'synthese_json_complete')) {
     logger.info('Orchestrateur: ÉTAPE 6 (Algorithme) déjà faite — skip', { session_id });
     algoResult = {
-      output:      safeParseJSON(bilan.synthese_json_complete),
+      output: safeParseJSON(bilan.synthese_json_complete),
       bilanFields: {}
     };
   } else {
+    // Garde séquentielle : Agent 3 doit être complet (synthèses dans BILAN)
     if (!bilanChampRenseigne(bilan, 'circuits_top3_P1')) {
       throw new Error(
         'Prérequis manquant pour ÉTAPE 6 : circuits_top3_P1 absent dans BILAN. ' +
         'Agent 3 (ÉTAPE 5) doit être complet avant de lancer l\'Algorithme.'
       );
     }
+
     try {
       logger.info('Orchestrateur: ÉTAPE 6 — Algorithme', { session_id });
 
@@ -556,7 +600,7 @@ async function processCandidate(session_id) {
 
       logger.info('Orchestrateur: ÉTAPE 6 terminée', {
         session_id,
-        duree_ms:    Date.now() - step6Start,
+        duree_ms: Date.now() - step6Start,
         niveau_global: algoResult.output?.synthese_globale?.niveau_global,
         nom_niveau:    algoResult.output?.synthese_globale?.nom_niveau_global
       });
@@ -567,14 +611,8 @@ async function processCandidate(session_id) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ÉTAPE 7 — CERTIFICATEUR : 3 prompts séquentiels
-  //
-  // Checkpoint v8.2 : pilier_dominant_certif non-null dans BILAN
-  // → Plus robuste que statut_certification :
-  //   si P1+P2 sont faits mais P3 a planté, pilier_dominant_certif est rempli
-  //   → on peut reprendre depuis P3 sans refaire P1 et P2
-  //   Le certificateurService gère lui-même le skip des prompts déjà écrits.
-  //
+  // ÉTAPE 7 — CERTIFICATEUR : rapport final
+  // Checkpoint : statut_certification = 'certifie' dans BILAN
   // Garde : synthese_json_complete doit être rempli dans BILAN (Algo terminé)
   // ═══════════════════════════════════════════════════════════════════════
   const step7Start = Date.now();
@@ -582,8 +620,9 @@ async function processCandidate(session_id) {
   bilan = await airtableService.getBilan(session_id) || {};
 
   if (bilanChampRenseigne(bilan, 'statut_certification') && bilan.statut_certification === 'certifie') {
-    logger.info('Orchestrateur: ÉTAPE 7 (Certificateur) déjà terminée — skip', { session_id });
+    logger.info('Orchestrateur: ÉTAPE 7 (Certificateur) déjà faite — skip', { session_id });
   } else {
+    // Garde séquentielle : Algo doit être complet
     if (!bilanChampRenseigne(bilan, 'synthese_json_complete')) {
       throw new Error(
         'Prérequis manquant pour ÉTAPE 7 : synthese_json_complete absent dans BILAN. ' +
@@ -592,15 +631,12 @@ async function processCandidate(session_id) {
     }
 
     try {
-      logger.info('Orchestrateur: ÉTAPE 7 — Certificateur (3 prompts)', { session_id });
-      await backupService.save(session_id, 'before_certif', {
-        step: 'debut_certif', timestamp: new Date().toISOString()
-      });
+      logger.info('Orchestrateur: ÉTAPE 7 — Certificateur', { session_id });
+      await backupService.save(session_id, 'before_certif', { step: 'debut_certif', timestamp: new Date().toISOString() });
 
       questions = await airtableService.getResponsesBySession(session_id);
       questions.sort((a, b) => (a.numero_global || 0) - (b.numero_global || 0));
 
-      // Même structure que pour l'Algo — les contextes_activation sont maintenant inclus (v8.2)
       const questionsDataPourCertif = buildQuestionsDataPourAlgo(
         questions,
         verifResult.arbitrages,
@@ -608,7 +644,6 @@ async function processCandidate(session_id) {
         agent3Result.analyses
       );
 
-      // API identique — le service gère les 3 prompts en interne
       await certificateurService.run(
         session_id,
         algoResult,
@@ -629,7 +664,7 @@ async function processCandidate(session_id) {
     }
   }
 
-  // ── Finalisation ──────────────────────────────────────────────────────────
+  // ── Finalisation ─────────────────────────────────────────────────────────
   const dureeTotal = Date.now() - startTime;
 
   logger.info('Orchestrateur: pipeline complet terminé', {
@@ -651,6 +686,64 @@ async function processCandidate(session_id) {
 // HELPERS INTERNES
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ─── Vérification conformité BILAN ───────────────────────────────────────────
+// Vérifie que les 80 champs produits par le Certificateur sont remplis.
+// Retourne la liste des champs vides — [] si tout est conforme.
+
+const CHAMPS_OBLIGATOIRES_BILAN = [
+  // Prompt 1 — 39 champs
+  'profil_coché_P1','profil_coché_P2','profil_coché_P3','profil_coché_P4','profil_coché_P5',
+  'P1_simples_synthese','P1_sophistiquees_synthese',
+  'P2_simples_synthese','P2_sophistiquees_synthese',
+  'P3_simples_synthese','P3_sophistiquees_synthese',
+  'P4_simples_synthese','P4_sophistiquees_synthese',
+  'P5_simples_synthese','P5_sophistiquees_synthese',
+  'anticipation_niveau','anticipation_pattern','anticipation_synthese','anticipation_qualification',
+  'decentration_niveau','decentration_pattern','decentration_synthese','decentration_qualification',
+  'metacognition_niveau','metacognition_pattern','metacognition_synthese','metacognition_qualification',
+  'vue_systemique_niveau','vue_systemique_pattern','vue_systemique_synthese','vue_systemique_qualification',
+  'excellence_dominante','excellence_secondaire','profil_excellences',
+  'etape_1_arbitrage_fond',
+  // Prompt 2 — 20 champs
+  'pilier_dominant_certif','pilier_structurant_certif','pilier_structurant2_certif',
+  'piliers_moteurs_certif','boucle_cognitive_ordre',
+  'type_profil_cognitif','niveau_profil_cognitif','nom_niveau_profil_cognitif','zone_profil_cognitif',
+  'encadrement_verdict','encadrement_diagnostic',
+  'management_verdict','management_diagnostic',
+  'tableau_comparatif_encadrer_manager',
+  'etape_2_lecture_algo','etape_3_diagnostics',
+  // Prompt 3 — champs narratifs clés
+  'definition_type_profil_cognitif','profil_personnalise',
+  'Nom_signature_excellence','section_signature_excellence',
+  'section_excellences',
+  'section_pilier_P1','section_pilier_P2','section_pilier_P3','section_pilier_P4','section_pilier_P5',
+  'talent_definition','trois_capacites','pitch_recruteur',
+  'mantra_profil','points_vigilance_complet','rapport_markdown_complet',
+  'statut_certification'
+];
+
+function verifierConformiteBilan(bilan, session_id) {
+  const champsVides = [];
+
+  for (const champ of CHAMPS_OBLIGATOIRES_BILAN) {
+    const val = bilan[champ];
+    if (val === null || val === undefined || val === '') {
+      champsVides.push(champ);
+    }
+  }
+
+  if (champsVides.length > 0) {
+    logger.warn('Orchestrateur: champs BILAN vides détectés', {
+      session_id,
+      nb_vides: champsVides.length,
+      nb_total: CHAMPS_OBLIGATOIRES_BILAN.length,
+      champs: champsVides
+    });
+  }
+
+  return champsVides;
+}
+
 function safeParseJSON(value) {
   if (!value) return null;
   if (typeof value === 'object') return value;
@@ -658,6 +751,10 @@ function safeParseJSON(value) {
   catch { return null; }
 }
 
+/**
+ * Reconstruire la structure synthèse Agent 3 depuis les champs BILAN
+ * (utilisé uniquement quand l'étape 5 est skippée via checkpoint).
+ */
 function buildSyntheseFromBilan(bilan, pilier) {
   return {
     mission_5B_synthese: {
@@ -673,6 +770,9 @@ function buildSyntheseFromBilan(bilan, pilier) {
   };
 }
 
+/**
+ * Marquer une erreur dans VISITEUR et logger.
+ */
 async function markError(session_id, etape, error) {
   logger.error(`Orchestrateur: ERREUR ${etape}`, { session_id, error: error.message });
   try {
