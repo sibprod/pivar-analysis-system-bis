@@ -1,6 +1,6 @@
 // services/queueService.js
 // Service de file d'attente v8.0
-// v8 : statut_analyse_pivar → statut_analyse_reponses
+// v8.2 : statuts normalisés sur les valeurs Airtable réelles
 
 'use strict';
 
@@ -76,7 +76,7 @@ async function processQueue() {
 async function getCandidatesFromAirtable() {
   try {
     const allCandidates = await airtableService.getVisiteursByStatus({
-      statut_analyse_pivar: ['NOUVEAU', 'ERREUR', 'en_cours'],  // champ Airtable VISITEUR
+      statut_analyse_pivar: ['NOUVEAU', 'ERREUR', 'en_cours', 'interrompu'],  // valeurs Airtable réelles
       statut_test: 'terminé',
       derniere_question_repondue: 25
     });
@@ -124,6 +124,7 @@ function getPriority(candidate) {
   }
 
   if (statut === 'NOUVEAU') return 10;
+  if (statut === 'interrompu') return 30;  // priorité haute — analyse interrompue
 
   return 0;
 }
