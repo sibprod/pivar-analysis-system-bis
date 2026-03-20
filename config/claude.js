@@ -15,18 +15,21 @@ module.exports = {
   
   // Max tokens par service
   MAX_TOKENS: {
-  agent1:        8000,
-  agent1_final:  6000,
-  agent2:        10000,
-  agent3:        8000,
-  agent3_pilier: 12000,
-  verificateur:  4000,
-  certificateur: 32000,
-  default:       8000
-},
+    agent1:              8000,
+    agent1_final:        6000,
+    agent2:              10000,
+    agent3:              8000,
+    agent3_pilier:       12000,
+    verificateur:        4000,
+    certificateur:       16000,  // legacy — remplacé par P1/P2/P3
+    certificateur_P1:    16000,  // Portraits & Excellences
+    certificateur_P2:    12000,  // Énigme & Diagnostics
+    certificateur_P3:    20000,  // Livrables candidat (rapport complet)
+    default:             8000
+  },
   
   // Temperature
-  TEMPERATURE: 0.7,
+  TEMPERATURE: 0.3,  // Analyse normée — déterministe
   
   // Timeouts
   TIMEOUT_MS: parseInt(process.env.CLAUDE_TIMEOUT) || 90000,
