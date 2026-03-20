@@ -1,15 +1,16 @@
 // services/orchestratorService.js
-// Orchestrateur v8.1 — Coordinateur principal du pipeline profil cognitif
+// Orchestrateur v8.3 — Coordinateur principal du pipeline profil cognitif
 // Chaîne stricte : Agent1 (25+1) → Vérificateur (25) → Agent2 (25) → Agent3 (25+5) → Algo → Certificateur
 //
-// CORRECTIONS v8.1 :
-// - Checkpoint étape 3 (Vérificateur) : utilise 'coherence' au lieu de 'pilier_reponse_coeur'
-//   → 'pilier_reponse_coeur' est écrit par Agent 1, pas par le Vérificateur
-//   → 'coherence' est écrit UNIQUEMENT par le Vérificateur (CONFIRMÉ/CORRIGÉ/MAINTENU_AVEC_RÉSERVE)
-// - Skip Vérificateur reconstruit depuis les vrais champs v8 (piliers_actives_final, verification_coeur)
-//   au lieu de l'ancien champ 'circuits_actives_pilier_coeur' inexistant dans Airtable
-// - Gardes séquentielles : chaque étape vérifie que la précédente est réellement complète
-//   avant de démarrer — pas de skip silencieux sur données incomplètes
+// CORRECTIONS v8.3 :
+// - NOUVEAU = reset complet systematique (suppression logique "analyses partielles")
+// - Statuts de reprise granulaire depuis Airtable (sans reset des etapes precedentes) :
+//   REPRENDRE_AGENT1       : vide Agent1 uniquement + repart Agent1
+//   REPRENDRE_VERIFICATEUR : vide Verificateur uniquement + repart Verificateur
+//   REPRENDRE_AGENT2       : vide Agent2 uniquement + repart Agent2
+//   REPRENDRE_AGENT3       : vide Agent3 uniquement + repart Agent3
+//   REPRENDRE_ALGO         : vide Algo uniquement + repart Algo
+//   REPRENDRE_CERTIF       : vide Certif uniquement + repart Certif (3 prompts)
 
 'use strict';
 
@@ -293,6 +294,204 @@ async function resetAnalyses(session_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RESETS PARTIELS — Par étape uniquement
+// Chaque fonction vide uniquement les champs de l'étape concernée.
+// Les données des étapes précédentes sont préservées.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function resetAgent1(session_id) {
+  logger.info('Orchestrateur: reset Agent 1', { session_id });
+  const questions = await airtableService.getResponsesBySession(session_id);
+  const fields = {
+    analyse_json_agent1:      null,
+    pilier_reponse_coeur:     null,
+    niveau_amplitude_reponse: null,
+    liste_piliers_actives:    null,
+    piliers_actives_final:    null,
+    boucles_detectees_agent1: null,
+    nombre_boucles_agent1:    null,
+    question_analysee:        false,
+  };
+  for (const q of questions) {
+    await airtableService.updateResponse(q.id_question, session_id, fields);
+  }
+  const bilan = await airtableService.getBilan(session_id);
+  if (bilan) {
+    await airtableService.updateBilan(session_id, {
+      moteur_cognitif: null, binome_actif: null,
+      reaction_flou: null, signature_cloture: null,
+      pattern_emergent: null, agent1_rapport: null,
+    });
+  }
+}
+
+async function resetVerificateur(session_id) {
+  logger.info('Orchestrateur: reset Vérificateur', { session_id });
+  const questions = await airtableService.getResponsesBySession(session_id);
+  const fields = {
+    analyse_json_verificateur:    null,
+    pilier_reponse_coeur_confirme: null,
+    verification_coeur:           null,
+    justification_attribution_pilier_coeur: null,
+    justification_actions_majoritairement_faites: null,
+    justification_attribution_niveau: null,
+    piliers_actives_final:        null,
+    boucles_detectees:            null,
+    liste_piliers_actives:        null,
+    repond_question:              null,
+    traite_problematique_situation: null,
+    fait_processus_pilier:        null,
+    coherence:                    null,
+    question_scoree:              false,
+  };
+  for (const q of questions) {
+    await airtableService.updateResponse(q.id_question, session_id, fields);
+  }
+}
+
+async function resetAgent2(session_id) {
+  logger.info('Orchestrateur: reset Agent 2', { session_id });
+  const questions = await airtableService.getResponsesBySession(session_id);
+  const fields = {
+    analyse_json_agent2:          null,
+    dimensions_simples:           null,
+    liste_dimensions_simples:     null,
+    nombre_criteres_details:      null,
+    liste_criteres_details:       null,
+    dimensions_sophistiquees:     null,
+    liste_dimensions_sophistiquees: null,
+    niveau_sophistication:        null,
+    anticipation_niveau:          null, anticipation_verbatim: null,
+    anticipation_manifestation:   null, anticipation_contexte_activation: null,
+    decentration_niveau:          null, decentration_verbatim: null,
+    decentration_manifestation:   null, decentration_contexte_activation: null,
+    metacognition_niveau:         null, metacognition_verbatim: null,
+    metacognition_manifestation:  null, metacognition_contexte_activation: null,
+    vue_systemique_niveau:        null, vue_systemique_verbatim: null,
+    vue_systemique_manifestation: null, vue_systemique_contexte_activation: null,
+    niveau_amplitude_max:         null,
+    zone_amplitude_max:           null,
+    detail_par_niveaux:           null,
+    plusieurs_niveaux_reponse:    null,
+    nombre_mots_reponse:          null,
+    laconique:                    false,
+    limbique_detecte:             false,
+    limbique_intensite:           null,
+    limbique_detail:              null,
+    capacites_detectees:          null,
+  };
+  for (const q of questions) {
+    await airtableService.updateResponse(q.id_question, session_id, fields);
+  }
+}
+
+async function resetAgent3(session_id) {
+  logger.info('Orchestrateur: reset Agent 3', { session_id });
+  const questions = await airtableService.getResponsesBySession(session_id);
+  const fields = {
+    analyse_json_agent3:      null,
+    circuits_actives:         null,
+    boucles_detectees_agent3: null,
+    nombre_boucles_agent3:    null,
+    coherence_agent1_agent3:  null,
+    profiling_qualifie:       null,
+    lecture_cognitive_m8:     null,
+  };
+  for (const q of questions) {
+    await airtableService.updateResponse(q.id_question, session_id, fields);
+  }
+  const bilan = await airtableService.getBilan(session_id);
+  if (bilan) {
+    const bilanFields = {};
+    [
+      'circuits_top3_P1','circuits_top3_P2','circuits_top3_P3','circuits_top3_P4','circuits_top3_P5',
+      'boucles_detectees_pilier_P1','boucles_detectees_pilier_P2','boucles_detectees_pilier_P3',
+      'boucles_detectees_pilier_P4','boucles_detectees_pilier_P5',
+      'lecture_cognitive_enrichie_P1','lecture_cognitive_enrichie_P2','lecture_cognitive_enrichie_P3',
+      'lecture_cognitive_enrichie_P4','lecture_cognitive_enrichie_P5',
+      'profil_neuroscientifique_P1','profil_neuroscientifique_P2','profil_neuroscientifique_P3',
+      'profil_neuroscientifique_P4','profil_neuroscientifique_P5',
+      'excellences_par_pilier_P1','excellences_par_pilier_P2','excellences_par_pilier_P3',
+      'excellences_par_pilier_P4','excellences_par_pilier_P5',
+      'limbique_detecte','limbique_intensite_max','nb_questions_limbiques','coherence_agents',
+    ].forEach(f => bilanFields[f] = null);
+    await airtableService.updateBilan(session_id, bilanFields);
+  }
+}
+
+async function resetAlgo(session_id) {
+  logger.info('Orchestrateur: reset Algorithme', { session_id });
+  const questions = await airtableService.getResponsesBySession(session_id);
+  const fields = {
+    score_question_calcule: null,
+    score_question_niveau:  null,
+    statut_analyse_reponses: null,
+  };
+  for (const q of questions) {
+    await airtableService.updateResponse(q.id_question, session_id, fields);
+  }
+  const bilan = await airtableService.getBilan(session_id);
+  if (bilan) {
+    const bilanFields = {};
+    [
+      'synthese_json_complete','coherence_agents','profil_laconique',
+      'niveau_global','zone_globale','score_global','profil_type','distribution_reelle',
+      'taux_repond_question','taux_traite_problematique','taux_fait_processus_pilier',
+      'score_pilier_P1','niveau_max_P1','score_pilier_P2','niveau_max_P2',
+      'score_pilier_P3','niveau_max_P3','score_pilier_P4','niveau_max_P4',
+      'score_pilier_P5','niveau_max_P5',
+      'P1_simples_total','P1_simples_synthese','P1_sophistiquees_total','P1_sophistiquees_synthese',
+      'P2_simples_total','P2_simples_synthese','P2_sophistiquees_total','P2_sophistiquees_synthese',
+      'P3_simples_total','P3_simples_synthese','P3_sophistiquees_total','P3_sophistiquees_synthese',
+      'P4_simples_total','P4_simples_synthese','P4_sophistiquees_total','P4_sophistiquees_synthese',
+      'P5_simples_total','P5_simples_synthese','P5_sophistiquees_total','P5_sophistiquees_synthese',
+      'dimensions_simples_json','dimensions_sophistiquees_json',
+      'dimensions_superieures_liste','dimensions_superieures_count',
+    ].forEach(f => bilanFields[f] = null);
+    await airtableService.updateBilan(session_id, bilanFields);
+  }
+}
+
+async function resetCertif(session_id) {
+  logger.info('Orchestrateur: reset Certificateur', { session_id });
+  const bilan = await airtableService.getBilan(session_id);
+  if (!bilan) return;
+  const bilanFields = {};
+  [
+    'type_profil_cognitif','niveau_profil_cognitif','nom_niveau_profil_cognitif',
+    'zone_profil_cognitif','pilier_dominant_certif','pilier_structurant_certif',
+    'pilier_structurant2_certif','piliers_moteurs_certif','boucle_cognitive_ordre',
+    'definition_type_profil_cognitif','profil_personnalise',
+    'profil_coché_P1','profil_coché_P2','profil_coché_P3','profil_coché_P4','profil_coché_P5',
+    'anticipation_niveau','anticipation_pattern','anticipation_declencheur',
+    'anticipation_synthese','anticipation_qualification',
+    'anticipation_verbatims_agreges','anticipation_manifestations_agreges',
+    'decentration_niveau','decentration_pattern','decentration_declencheur',
+    'decentration_synthese','decentration_qualification',
+    'decentration_verbatims_agreges','decentration_manifestations_agreges',
+    'metacognition_niveau','metacognition_pattern','metacognition_declencheur',
+    'metacognition_synthese','metacognition_qualification',
+    'metacognition_verbatims_agreges','metacognition_manifestations_agreges',
+    'vue_systemique_niveau','vue_systemique_pattern','vue_systemique_declencheur',
+    'vue_systemique_synthese','vue_systemique_qualification',
+    'vue_systemique_verbatims_agreges','vue_systemique_manifestations_agreges',
+    'excellences_SOMMEIL','excellences_WEEKEND','excellences_ANIMAL','excellences_PANNE',
+    'excellence_dominante','excellence_secondaire','profil_excellences',
+    'encadrement_verdict','encadrement_diagnostic','encadrement_scenario','encadrement_bloquant',
+    'management_verdict','management_diagnostic','management_scenario','management_bloquant',
+    'tableau_comparatif_encadrer_manager',
+    'Nom_signature_excellence','section_signature_excellence',
+    'section_vigilance_limbique','section_excellences',
+    'section_pilier_P1','section_pilier_P2','section_pilier_P3','section_pilier_P4','section_pilier_P5',
+    'talent_definition','trois_capacites','pitch_recruteur','amplitude_deployee',
+    'pattern_navigation_revele','mantra_profil','points_vigilance_complet','rapport_markdown_complet',
+    'etape_1_arbitrage_fond','etape_2_lecture_algo','etape_3_diagnostics',
+    'statut_certification','notes_certificateur',
+  ].forEach(f => bilanFields[f] = null);
+  await airtableService.updateBilan(session_id, bilanFields);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PROCESSUS PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -316,25 +515,54 @@ async function processCandidate(session_id) {
     return { session_id, statut: 'skip_terminé', duree_ms: 0 };
   }
 
-    if (visiteur.statut_analyse_pivar === 'NOUVEAU') {
-    const questionsCheck = await airtableService.getResponsesBySession(session_id);
-    const dejaCommence = questionsCheck.some(q => q.analyse_json_agent1);
-    if (dejaCommence) {
-      logger.info('Orchestrateur: statut NOUVEAU mais analyses partielles détectées — reprise sans reset', { session_id });
-    } else {
-      logger.info('Orchestrateur: statut NOUVEAU — reset des analyses précédentes', { session_id });
-      await resetAnalyses(session_id);
-    }
+  // ── Dispatch selon statut ────────────────────────────────────────────────
+  // NOUVEAU           → reset complet, repart de l'Agent 1
+  // REPRENDRE_AGENTX  → reset de l'étape ciblée uniquement, les étapes
+  //                     précédentes sont préservées (checkpoints actifs)
+  // EN COURS / ERREUR → reprise via checkpoints sans reset supplémentaire
+  const statut = visiteur.statut_analyse_pivar;
+
+  if (statut === 'NOUVEAU') {
+    logger.info('Orchestrateur: statut NOUVEAU — reset complet', { session_id });
+    await resetAnalyses(session_id);
+
+  } else if (statut === 'REPRENDRE_AGENT1') {
+    logger.info('Orchestrateur: statut REPRENDRE_AGENT1 — reset Agent 1 uniquement', { session_id });
+    await resetAgent1(session_id);
+
+  } else if (statut === 'REPRENDRE_VERIFICATEUR') {
+    logger.info('Orchestrateur: statut REPRENDRE_VERIFICATEUR — reset Vérificateur uniquement', { session_id });
+    await resetVerificateur(session_id);
+
+  } else if (statut === 'REPRENDRE_AGENT2') {
+    logger.info('Orchestrateur: statut REPRENDRE_AGENT2 — reset Agent 2 uniquement', { session_id });
+    await resetAgent2(session_id);
+
+  } else if (statut === 'REPRENDRE_AGENT3') {
+    logger.info('Orchestrateur: statut REPRENDRE_AGENT3 — reset Agent 3 uniquement', { session_id });
+    await resetAgent3(session_id);
+
+  } else if (statut === 'REPRENDRE_ALGO') {
+    logger.info('Orchestrateur: statut REPRENDRE_ALGO — reset Algorithme uniquement', { session_id });
+    await resetAlgo(session_id);
+
+  } else if (statut === 'REPRENDRE_CERTIF') {
+    logger.info('Orchestrateur: statut REPRENDRE_CERTIF — reset Certificateur uniquement', { session_id });
+    await resetCertif(session_id);
+
+  } else {
+    // EN COURS, ERREUR, en_cours → reprise via checkpoints, aucun reset
+    logger.info('Orchestrateur: reprise via checkpoints', { session_id, statut });
   }
   // Marquer EN COURS dans VISITEUR
   await airtableService.updateVisiteur(session_id, {
-    statut_analyse_pivar: 'en_cours'
+    statut_analyse_pivar: 'EN COURS'
   });
   
-  // ⚠️ ANONYMISATION : les agents ne reçoivent PAS l'identité du candidat
-  // Seule la civilité est transmise pour les accords de genre (il/elle)
   const candidat = {
-    civilite: visiteur.civilite_candidat || null  // 'Monsieur' | 'Madame' | null
+    prenom: visiteur.Prenom || visiteur.prenom || '',
+    nom:    visiteur.Nom    || visiteur.nom    || '',
+    email:  visiteur.Email  || visiteur.email  || ''
   };
 
   // ── Récupérer les 25 réponses ────────────────────────────────────────────
@@ -385,7 +613,12 @@ async function processCandidate(session_id) {
     };
   } else {
     try {
-      logger.info('Orchestrateur: ÉTAPE 1 — Agent 1', { session_id });
+      logger.info('Orchestrateur: ÉTAPE 1 — Agent 1 (cascade: reset Verif+A2+A3+Algo+Certif)', { session_id });
+      await resetVerificateur(session_id);
+      await resetAgent2(session_id);
+      await resetAgent3(session_id);
+      await resetAlgo(session_id);
+      await resetCertif(session_id);
       await backupService.save(session_id, 'before_agent1', { step: 'debut_agent1', timestamp: new Date().toISOString() });
       agent1Result = await agent1Service.run(session_id, candidat, questions);
       await backupService.save(session_id, 'after_agent1', { analyses: agent1Result.analyses.length, step: 'agent1_ok' });
@@ -445,7 +678,11 @@ async function processCandidate(session_id) {
     };
   } else {
     try {
-      logger.info('Orchestrateur: ÉTAPE 3 — Vérificateur', { session_id });
+      logger.info('Orchestrateur: ÉTAPE 3 — Vérificateur (cascade: reset A2+A3+Algo+Certif)', { session_id });
+      await resetAgent2(session_id);
+      await resetAgent3(session_id);
+      await resetAlgo(session_id);
+      await resetCertif(session_id);
       verifResult = await verificateurService.run(session_id, questions, agent1Result.analyses);
       await backupService.save(session_id, 'before_agent2', { arbitrages: verifResult.arbitrages.length, step: 'verificateur_ok' });
       logger.info('Orchestrateur: ÉTAPE 3 terminée', {
@@ -482,7 +719,10 @@ async function processCandidate(session_id) {
     verifierPrerequisEtape(questions, 'coherence', 'Vérificateur (ÉTAPE 3)');
 
     try {
-      logger.info('Orchestrateur: ÉTAPE 4 — Agent 2', { session_id });
+      logger.info('Orchestrateur: ÉTAPE 4 — Agent 2 (cascade: reset A3+Algo+Certif)', { session_id });
+      await resetAgent3(session_id);
+      await resetAlgo(session_id);
+      await resetCertif(session_id);
       agent2Result = await agent2Service.run(session_id, questions, verifResult.arbitrages);
       await backupService.save(session_id, 'after_agent2', { analyses: agent2Result.analyses.length, step: 'agent2_ok' });
       logger.info('Orchestrateur: ÉTAPE 4 terminée', {
@@ -528,7 +768,9 @@ async function processCandidate(session_id) {
     verifierPrerequisEtape(questions, 'analyse_json_agent2', 'Agent 2 (ÉTAPE 4)');
 
     try {
-      logger.info('Orchestrateur: ÉTAPE 5 — Agent 3', { session_id });
+      logger.info('Orchestrateur: ÉTAPE 5 — Agent 3 (cascade: reset Algo+Certif)', { session_id });
+      await resetAlgo(session_id);
+      await resetCertif(session_id);
       agent3Result = await agent3Service.run(
         session_id, questions, verifResult.arbitrages, agent2Result.analyses
       );
@@ -573,7 +815,8 @@ async function processCandidate(session_id) {
     }
 
     try {
-      logger.info('Orchestrateur: ÉTAPE 6 — Algorithme', { session_id });
+      logger.info('Orchestrateur: ÉTAPE 6 — Algorithme (cascade: reset Certif)', { session_id });
+      await resetCertif(session_id);
 
       questions = await airtableService.getResponsesBySession(session_id);
       questions.sort((a, b) => (a.numero_global || 0) - (b.numero_global || 0));
@@ -685,64 +928,6 @@ async function processCandidate(session_id) {
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS INTERNES
 // ═══════════════════════════════════════════════════════════════════════════
-
-// ─── Vérification conformité BILAN ───────────────────────────────────────────
-// Vérifie que les 80 champs produits par le Certificateur sont remplis.
-// Retourne la liste des champs vides — [] si tout est conforme.
-
-const CHAMPS_OBLIGATOIRES_BILAN = [
-  // Prompt 1 — 39 champs
-  'profil_coché_P1','profil_coché_P2','profil_coché_P3','profil_coché_P4','profil_coché_P5',
-  'P1_simples_synthese','P1_sophistiquees_synthese',
-  'P2_simples_synthese','P2_sophistiquees_synthese',
-  'P3_simples_synthese','P3_sophistiquees_synthese',
-  'P4_simples_synthese','P4_sophistiquees_synthese',
-  'P5_simples_synthese','P5_sophistiquees_synthese',
-  'anticipation_niveau','anticipation_pattern','anticipation_synthese','anticipation_qualification',
-  'decentration_niveau','decentration_pattern','decentration_synthese','decentration_qualification',
-  'metacognition_niveau','metacognition_pattern','metacognition_synthese','metacognition_qualification',
-  'vue_systemique_niveau','vue_systemique_pattern','vue_systemique_synthese','vue_systemique_qualification',
-  'excellence_dominante','excellence_secondaire','profil_excellences',
-  'etape_1_arbitrage_fond',
-  // Prompt 2 — 20 champs
-  'pilier_dominant_certif','pilier_structurant_certif','pilier_structurant2_certif',
-  'piliers_moteurs_certif','boucle_cognitive_ordre',
-  'type_profil_cognitif','niveau_profil_cognitif','nom_niveau_profil_cognitif','zone_profil_cognitif',
-  'encadrement_verdict','encadrement_diagnostic',
-  'management_verdict','management_diagnostic',
-  'tableau_comparatif_encadrer_manager',
-  'etape_2_lecture_algo','etape_3_diagnostics',
-  // Prompt 3 — champs narratifs clés
-  'definition_type_profil_cognitif','profil_personnalise',
-  'Nom_signature_excellence','section_signature_excellence',
-  'section_excellences',
-  'section_pilier_P1','section_pilier_P2','section_pilier_P3','section_pilier_P4','section_pilier_P5',
-  'talent_definition','trois_capacites','pitch_recruteur',
-  'mantra_profil','points_vigilance_complet','rapport_markdown_complet',
-  'statut_certification'
-];
-
-function verifierConformiteBilan(bilan, session_id) {
-  const champsVides = [];
-
-  for (const champ of CHAMPS_OBLIGATOIRES_BILAN) {
-    const val = bilan[champ];
-    if (val === null || val === undefined || val === '') {
-      champsVides.push(champ);
-    }
-  }
-
-  if (champsVides.length > 0) {
-    logger.warn('Orchestrateur: champs BILAN vides détectés', {
-      session_id,
-      nb_vides: champsVides.length,
-      nb_total: CHAMPS_OBLIGATOIRES_BILAN.length,
-      champs: champsVides
-    });
-  }
-
-  return champsVides;
-}
 
 function safeParseJSON(value) {
   if (!value) return null;
