@@ -200,8 +200,22 @@ async function run(session_id, candidat, questions) {
   let totalCost = 0;
 
   // ── ÉTAPE 1 : 25 appels indépendants ──────────────────────────────────────
-  for (let i = 0; i < questions.length; i++) {
-    const question = questions[i];
+  // Reprise intra-étape : ignorer les questions déjà analysées
+  const questionsRestantes = questions.filter(q => !q.analyse_json_agent1);
+  if (questionsRestantes.length < questions.length) {
+    logger.info('Agent 1: reprise intra-étape', {
+      session_id,
+      deja_faites: questions.length - questionsRestantes.length,
+      restantes: questionsRestantes.length
+    });
+    const analysesExistantes = questions
+      .filter(q => q.analyse_json_agent1)
+      .map(q => ({ id_question: q.id_question, result: safeParseJSON(q.analyse_json_agent1) }));
+    analyses.push(...analysesExistantes);
+  }
+
+  for (let i = 0; i < questionsRestantes.length; i++) {
+    const question = questionsRestantes[i];
 
     let result;
     let attempts = 0;
@@ -244,7 +258,7 @@ async function run(session_id, candidat, questions) {
 
     await airtableService.updateResponse(question.id_question, session_id, a1Fields);
 
-    logger.info(`Agent 1: question ${i + 1}/25 traitée`, {
+    logger.info(`Agent 1: question ${i + 1}/${questionsRestantes.length} traitée`, {
       session_id,
       id_question:  question.id_question,
       pilier_coeur: r.pilier_coeur,
@@ -310,6 +324,8 @@ async function run(session_id, candidat, questions) {
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
+
+function safeParseJSON(v) { if (!v) return null; if (typeof v === "object") return v; try { return JSON.parse(v); } catch { return null; } }
 
 module.exports = {
   run,
