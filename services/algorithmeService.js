@@ -225,6 +225,20 @@ async function run(session_id, candidat, questionsData, agent3Syntheses, agent1C
 
     // NOTE v8.6 : excellences_par_pilier_PX SUPPRIMÉ de l'Algo
     // → produit exclusivement par Agent 3 M5B (analyse qualitative narrative par circuits)
+
+    // synthese_json_complete : données internes de l'Algo — checkpoint orchestrateur
+    // JAMAIS transmis au Certificateur — consultation interne uniquement
+    synthese_json_complete: JSON.stringify({
+      version: 'v8.7',
+      scores_piliers: Object.fromEntries(PILIERS.map(p => [p, {
+        nb_questions:        scoresPiliers[p].nb_questions_reel,
+        score_contenu_moyen: scoresPiliers[p].score_contenu_moyen,
+        niveau_moyen:        scoresPiliers[p].nom_niveau_moyen,
+        niveau_max:          scoresPiliers[p].nom_niveau_max,
+        zone:                scoresPiliers[p].zone,
+        regle_appliquee:     scoresPiliers[p].regle_appliquee
+      }]))
+    })
   };
 
   await airtableService.updateBilan(session_id, bilanFields);
