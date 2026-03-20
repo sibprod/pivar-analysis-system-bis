@@ -1,5 +1,5 @@
 // services/algorithmeService.js
-// Algorithme v8.6 — Calculs scores profil cognitif
+// Algorithme v8.7 — Calculs scores profil cognitif
 // ZÉRO appel API — calcul mathématique pur
 //
 // ARCHITECTURE v8.5 :
@@ -8,6 +8,10 @@
 // - Ces calculs globaux sont désormais du ressort du CERTIFICATEUR (analyse qualitative)
 // - Écriture RESPONSES : score_question_calcule, score_question_niveau, statut_analyse_reponses (×25)
 // - Écriture BILAN : scores + niveaux + dimensions par pilier + JSON interne consultation
+//
+// CORRECTION v8.7 — 20/03/2026 :
+// - calculerDistributionReelle : lecture pilier_reponse_coeur (clé réelle passée par orchestrateur)
+//   avec fallback pilier_reponse_coeur_confirme — corrige nb_q:0 sur tous les piliers
 //
 // CORRECTION v8.6 — audit 19/03/2026 :
 // - agregerExcellencesParPilier() SUPPRIMÉE — pas du ressort de l'Algo (calculatrice pure)
@@ -86,7 +90,8 @@ function calculerScoreQuestion(q) {
 function calculerDistributionReelle(questionsAvecScores) {
   const dist = { P1: [], P2: [], P3: [], P4: [], P5: [] };
   for (const q of questionsAvecScores) {
-    if (dist[q.pilier_reponse_coeur_confirme]) dist[q.pilier_reponse_coeur_confirme].push(q);
+    const pilierCoeur = q.pilier_reponse_coeur || q.pilier_reponse_coeur_confirme;
+    if (pilierCoeur && dist[pilierCoeur]) dist[pilierCoeur].push(q);
   }
   return dist;
 }
