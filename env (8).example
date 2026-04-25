@@ -1,0 +1,81 @@
+# ═══════════════════════════════════════════════════════════
+# PROFIL-COGNITIF v9.0 — CONFIGURATION ENVIRONNEMENT
+# Copier vers .env et remplir les vraies valeurs
+# ═══════════════════════════════════════════════════════════
+
+# Environment
+NODE_ENV=production
+
+# Server Configuration
+PORT=3000
+
+# ═══════════════════════════════════════════════════════════
+# AIRTABLE CONFIGURATION
+# ═══════════════════════════════════════════════════════════
+
+AIRTABLE_BASE_ID=your_airtable_base_id
+AIRTABLE_TOKEN=your_airtable_personal_access_token
+
+# ═══════════════════════════════════════════════════════════
+# CLAUDE API CONFIGURATION
+# ═══════════════════════════════════════════════════════════
+
+CLAUDE_API_KEY=your_anthropic_api_key
+
+# ⚠ IMPORTANT v9 — Modèle mis à jour vers Sonnet 4.6 (avril 2026)
+# L'ancien modèle claude-sonnet-4-20250514 (mai 2025) est dépassé.
+CLAUDE_MODEL=claude-sonnet-4-6
+
+# Timeout (ms) — augmenté à 180s pour les agents avec extended thinking
+# (notamment Agent Circuits qui peut générer jusqu'à 64000 tokens output)
+CLAUDE_TIMEOUT=180000
+
+# Max retries
+MAX_RETRIES=3
+
+# ═══════════════════════════════════════════════════════════
+# WORKFLOW CONFIGURATION
+# ═══════════════════════════════════════════════════════════
+
+# Polling de secours (backup webhook)
+ENABLE_POLLING=true
+POLLING_INTERVAL=300000
+
+# Délais entre questions/candidats (rate limiting)
+QUESTION_DELAY=2000
+CANDIDATE_DELAY=30000
+
+# ═══════════════════════════════════════════════════════════
+# MONITORING & LOGGING
+# ═══════════════════════════════════════════════════════════
+
+LOG_LEVEL=info
+DEBUG_MODE=false
+
+# ═══════════════════════════════════════════════════════════
+# SÉCURITÉ
+# ═══════════════════════════════════════════════════════════
+
+# Origines CORS autorisées
+CORS_ORIGINS=*
+
+# ═══════════════════════════════════════════════════════════
+# BUDGET MONITORING
+# ═══════════════════════════════════════════════════════════
+
+# Seuil d'alerte budget (80% = 0.8)
+BUDGET_ALERT_THRESHOLD=0.8
+
+# Budget maximum mensuel en dollars (optionnel)
+MAX_MONTHLY_BUDGET=100
+
+# ═══════════════════════════════════════════════════════════
+# NOTES IMPORTANTES v9
+# ═══════════════════════════════════════════════════════════
+
+# 1. Ne JAMAIS commiter le fichier .env (déjà dans .gitignore)
+# 2. Utiliser les secrets Render en production, pas ce fichier
+# 3. Coût estimé par candidat avec Sonnet 4.6 + extended thinking : $1.20-1.80
+#    (recalibré v9 — augmentation due aux 9 agents et au thinking étendu)
+# 4. Prompt caching activé = économie ~70% tokens input répétés
+# 5. Architecture v9 : 9 agents Étape 1 (T1, T2, T3 + 6 agents T4) + certificateur lexique

@@ -1,0 +1,80 @@
+# ═══════════════════════════════════════════════════════════
+# .gitignore — Profil-Cognitif v9.0
+# ═══════════════════════════════════════════════════════════
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Build outputs
+dist/
+build/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Secrets (extra precaution)
+secrets/
+*.pem
+*.key
+*.cert
+
+# Render specific
+.render/
+
+# Backup files
+*.bak
+*.backup
+
+# Prompts (versionnés — code et prompts vont ensemble)
+# prompts/*.txt
