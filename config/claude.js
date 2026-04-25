@@ -1,6 +1,6 @@
 // config/claude.js
-// Configuration Claude API — Profil-Cognitif v9.0
-// Modèle Sonnet 4.6 (avril 2026), prompt caching natif, extended thinking
+// Configuration Claude API — Profil-Cognitif v9.1
+// Modèle Sonnet 4.6 (avril 2026), prompt caching natif, extended thinking adaptive
 
 'use strict';
 
@@ -27,10 +27,10 @@ module.exports = {
     agent_t3:                32000,  // T3 v4 : analyse pilier × circuit (75 lignes/candidat)
 
     // ── Agents T4 (production du bilan ETAPE1_T4_BILAN) ───────────────────
-    agent_t4_architecture:   24000,  // Agent 1 : architecture des piliers (entête, rôle)
+    agent_t4_architecture:   24000,  // Agent 1 : architecture des piliers
     agent_t4_circuits:       64000,  // Agent 2 : circuits laboratoire/candidat (le plus volumineux)
     agent_t4_modes:          32000,  // Agent 3 : modes retenus par pilier
-    agent_t4_synthese:       32000,  // Agent 4 : synthèse cœur (filtre, boucle, finalité, signature)
+    agent_t4_synthese:       32000,  // Agent 4 : synthèse cœur (filtre, boucle, finalité)
     agent_t4_couts:          20000,  // Agent 5 : coûts cognitifs et conclusion
     agent_t4_transverses:    16000,  // Agent 6 : header, navigation, footer, schéma, lexique
 
@@ -41,24 +41,42 @@ module.exports = {
     default:                  8000
   },
 
-  // ─── Extended thinking (par agent) ─────────────────────────────────────────
-  // Indique pour chaque agent s'il faut activer le thinking étendu
-  // et le budget de tokens internes alloué
+  // ─── Extended thinking par agent (format Sonnet 4.6 adaptive) ─────────────
+  //
+  // Sur Sonnet 4.6 (avril 2026), le format recommandé est:
+  //   thinking: { type: 'adaptive' }
+  // → Claude évalue la complexité de la requête et décide automatiquement
+  //   combien réfléchir. Pas besoin de spécifier un budget précis.
+  //
+  // Le format legacy { type: 'enabled', budget_tokens: N } fonctionne encore
+  // mais est déprécié sur Sonnet 4.6 et sera retiré.
+  //
+  // Pour chaque agent on indique simplement s'il faut activer le thinking.
+  // - false  : pas de bloc thinking dans la requête (analyse mécanique)
+  // - true   : thinking adaptive activé
   THINKING: {
-    agent_t1:                { enabled: false }, // T1 : pas de thinking requis (analyse mécanique)
-    agent_t2:                { enabled: false }, // T2 : pas de thinking requis (redistribution)
-    agent_t3:                { enabled: true,  budget_tokens: 16000 }, // T3 : nuances + clusters
-    agent_t4_architecture:   { enabled: true,  budget_tokens: 16000 },
-    agent_t4_circuits:       { enabled: true,  budget_tokens: 16000 },
-    agent_t4_modes:          { enabled: true,  budget_tokens: 16000 },
-    agent_t4_synthese:       { enabled: true,  budget_tokens: 16000 }, // raisonnement filtre/boucle
-    agent_t4_couts:          { enabled: true,  budget_tokens: 16000 },
-    agent_t4_transverses:    { enabled: false }, // assemblage technique sans raisonnement
-    certificateur_lexique:   { enabled: true,  budget_tokens: 8000 }
+    agent_t1:                false, // T1 : pas de thinking requis (analyse mécanique)
+    agent_t2:                false, // T2 : pas de thinking requis (redistribution)
+    agent_t3:                true,  // T3 : nuances + clusters demandent du raisonnement
+    agent_t4_architecture:   true,
+    agent_t4_circuits:       true,
+    agent_t4_modes:          true,
+    agent_t4_synthese:       true,  // raisonnement filtre/boucle/finalité
+    agent_t4_couts:          true,
+    agent_t4_transverses:    false, // assemblage technique sans raisonnement
+    certificateur_lexique:   true   // détection de violations lexicales fines
   },
 
   // ─── Temperature ──────────────────────────────────────────────────────────
-  TEMPERATURE: 0,  // Analyse normée — déterminisme maximal
+  // ⚠ Quand thinking est activé, l'API ignore TEMPERATURE et accepte
+  // uniquement temperature=1 (ou pas de temperature). Le service Claude
+  // gère automatiquement ce cas en omettant le champ quand thinking=true.
+  TEMPERATURE: 0,  // Analyse normée — déterminisme maximal (quand pas de thinking)
+
+  // ─── Streaming requirements (v9) ──────────────────────────────────────────
+  // L'API Anthropic exige le streaming quand max_tokens > 21333.
+  // Notre service Claude active automatiquement le streaming au-dessus de ce seuil.
+  STREAMING_THRESHOLD: 21333,
 
   // ─── Timeouts ─────────────────────────────────────────────────────────────
   // 180s par défaut (augmenté depuis 90s en v9 pour les agents avec thinking
@@ -70,8 +88,8 @@ module.exports = {
   RETRY_DELAY_MS: 5000,
 
   // ─── Rate limiting ────────────────────────────────────────────────────────
-  QUESTION_DELAY_MS:  parseInt(process.env.QUESTION_DELAY) || 2000,   // 2s entre questions
-  CANDIDATE_DELAY_MS: parseInt(process.env.CANDIDATE_DELAY) || 30000, // 30s entre candidats
+  QUESTION_DELAY_MS:  parseInt(process.env.QUESTION_DELAY) || 2000,
+  CANDIDATE_DELAY_MS: parseInt(process.env.CANDIDATE_DELAY) || 30000,
 
   // ─── Pricing (Sonnet 4.6 — avril 2026) ────────────────────────────────────
   PRICING: {
@@ -81,6 +99,6 @@ module.exports = {
   },
 
   // ─── Budget monitoring ────────────────────────────────────────────────────
-  BUDGET_ALERT_THRESHOLD: parseFloat(process.env.BUDGET_ALERT_THRESHOLD) || 0.8,  // 80%
-  MAX_MONTHLY_BUDGET:     parseFloat(process.env.MAX_MONTHLY_BUDGET) || 100      // $100
+  BUDGET_ALERT_THRESHOLD: parseFloat(process.env.BUDGET_ALERT_THRESHOLD) || 0.8,
+  MAX_MONTHLY_BUDGET:     parseFloat(process.env.MAX_MONTHLY_BUDGET) || 100
 };
