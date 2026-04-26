@@ -202,45 +202,113 @@ async function callAgent({
  * Parse la sortie d'un agent Claude.
  * Gère les cas :
  *   - JSON pur
- *   - JSON entouré de ```json ... ```
- *   - JSON avec texte avant/après (extrait depuis premier { jusqu'au dernier })
+ *   - JSON entouré de ```json ... ``` (balises markdown)
+ *   - JSON avec texte/préambule avant (« Je vais analyser... »)
+ *   - JSON object {...}
+ *   - JSON array [...]
  *
  * @param {string} content - Contenu brut de la réponse Claude
- * @returns {Object} JSON parsé
+ * @returns {Object|Array} JSON parsé
  */
 function parseAgentOutput(content) {
+  if (!content || typeof content !== 'string') {
+    throw new Error('Empty or invalid content');
+  }
+
   // Tentative 1 : parsing direct via claudeService.parseClaudeJSON
   try {
     return claudeService.parseClaudeJSON(content);
   } catch (e1) {
-    // Tentative 2 : extraction du premier { au dernier }
+    // Tentative 2 : extraire le JSON d'un bloc ```json ... ``` ou ``` ... ```
     try {
-      const debut = content.indexOf('{');
-      const fin   = content.lastIndexOf('}');
-      if (debut === -1 || fin === -1 || fin <= debut) {
-        throw new Error('No JSON object found in agent output');
+      const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?```/;
+      const match = content.match(fenceRegex);
+      if (match && match[1]) {
+        return JSON.parse(match[1].trim());
       }
-      const extracted = content.substring(debut, fin + 1);
-      return JSON.parse(extracted);
+      throw new Error('No fenced JSON block found');
     } catch (e2) {
-      // Tentative 3 : extraction du premier [ au dernier ] (cas tableaux)
+      // Tentative 3 : trouver le premier '[' OU '{' valides
+      // Et leur correspondant fermant en respectant la profondeur
       try {
-        const debut = content.indexOf('[');
-        const fin   = content.lastIndexOf(']');
-        if (debut === -1 || fin === -1 || fin <= debut) {
-          throw new Error('No JSON array found in agent output');
-        }
-        const extracted = content.substring(debut, fin + 1);
-        return JSON.parse(extracted);
+        return extractFirstJsonStructure(content);
       } catch (e3) {
         logger.error('Failed to parse agent JSON output', {
           contentPreview: content.substring(0, 500),
+          contentLength:  content.length,
           errors: [e1.message, e2.message, e3.message]
         });
         throw new Error(`Cannot parse agent JSON output: ${e1.message}`);
       }
     }
   }
+}
+
+/**
+ * Extrait la première structure JSON valide ([..] ou {..}) depuis un texte
+ * en respectant la profondeur des crochets/accolades et en ignorant les
+ * crochets/accolades à l'intérieur des strings JSON.
+ *
+ * @param {string} content
+ * @returns {Object|Array} JSON parsé
+ */
+function extractFirstJsonStructure(content) {
+  // Trouver le premier '[' ou '{'
+  let startIdx = -1;
+  let openChar = '';
+  let closeChar = '';
+
+  for (let i = 0; i < content.length; i++) {
+    const c = content[i];
+    if (c === '[' || c === '{') {
+      startIdx = i;
+      openChar = c;
+      closeChar = (c === '[') ? ']' : '}';
+      break;
+    }
+  }
+
+  if (startIdx === -1) {
+    throw new Error('No JSON structure ([ or {) found in content');
+  }
+
+  // Parcourir en respectant la profondeur ET les strings JSON
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = startIdx; i < content.length; i++) {
+    const c = content[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (c === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (c === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (c === openChar)  depth++;
+    if (c === closeChar) {
+      depth--;
+      if (depth === 0) {
+        // On a trouvé la structure complète
+        const extracted = content.substring(startIdx, i + 1);
+        return JSON.parse(extracted);
+      }
+    }
+  }
+
+  throw new Error(`Unbalanced ${openChar}${closeChar} in JSON structure`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
