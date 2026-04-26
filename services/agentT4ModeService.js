@@ -23,10 +23,10 @@ const logger          = require('../utils/logger');
 const SERVICE_NAME = 'agent_t4_modes';
 const PROMPT_PATH  = 'etape1_t4/AGENT_3_MODE.md';
 
-async function runAgentT4Mode({ candidat_id, prenom, t1Rows, t2Rows, t3Rows }) {
+async function runAgentT4Mode({ candidat_id, civilite, t1Rows, t2Rows, t3Rows }) {
   logger.info('Agent T4-Mode starting', { candidat_id });
 
-  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, prenom, t1Rows, t2Rows, t3Rows });
+  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, civilite, t1Rows, t2Rows, t3Rows });
 
   // L'Agent Mode a besoin par pilier des circuits dominants avec leurs noms
   // exacts pour combiner le mode (ex: "Modulation + Pertinence + Personnalisation")
@@ -51,7 +51,7 @@ async function runAgentT4Mode({ candidat_id, prenom, t1Rows, t2Rows, t3Rows }) {
 
   const payload = {
     candidat_id,
-    prenom,
+    civilite,
     piliers
   };
 
