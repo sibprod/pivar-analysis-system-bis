@@ -24,10 +24,10 @@ const PROMPT_PATH  = 'PROMPT_CERTIFICATEUR.md';
  * Exécute le certificateur sur le bilan T4 d'un candidat
  * @param {Object} params
  * @param {string} params.candidat_id
- * @param {string} params.prenom
+ * @param {string} params.civilite
  * @returns {Promise<{report: Object, usage, cost, elapsedMs, isConforme: boolean}>}
  */
-async function runAgentCertificateur({ candidat_id, prenom }) {
+async function runAgentCertificateur({ candidat_id, civilite }) {
   logger.info('Certificateur starting', { candidat_id });
 
   // 1. Lire le bilan T4 complet depuis Airtable
@@ -91,7 +91,7 @@ async function runAgentCertificateur({ candidat_id, prenom }) {
   // 3. Construire le payload
   const payload = {
     candidat_id,
-    prenom,
+    civilite,
     sortie_agent_1,
     sortie_agent_2,
     sortie_agent_3,
