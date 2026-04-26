@@ -1,10 +1,14 @@
 // config/claude.js
-// Configuration Claude API — Profil-Cognitif v9.1
+// Configuration Claude API — Profil-Cognitif v9.1 (LOT 18)
 // Modèle Sonnet 4.6 (avril 2026), prompt caching natif, extended thinking adaptive
 //
 // LOT 17 (2026-04-26) — APPLICATION DE LA DOCTRINE DE PROMPTING :
 //   - agent_t1 : thinking passé à TRUE (Pilier 1 doctrine)
 //   - agent_t1_certificateur : NOUVEL agent (vérification post-T1, Pilier 6)
+//
+// LOT 18 (2026-04-26) — FIX bug "no text content found" :
+//   - agent_t1 : MAX_TOKENS passé de 24000 à 32000 (thinking adaptive consomme du quota)
+//   - agent_t1_certificateur : MAX_TOKENS passé de 16000 à 24000 (idem)
 
 'use strict';
 
@@ -16,21 +20,23 @@ module.exports = {
   API_VERSION: '2023-06-01',
 
   // ─── Prompt caching (natif en 2026, plus de header beta) ──────────────────
-  // En 2026, le prompt caching est natif sur l'API Messages.
-  // On utilise simplement cache_control: { type: 'ephemeral' } sur les blocs
-  // que l'on veut mettre en cache. Pas de header beta nécessaire.
   PROMPT_CACHING_ENABLED: true,
 
   // ─── Max tokens output par service (v9.1 — pipeline Étape 1 doctrinal) ────
   // 10 agents au total : T1 (4 appels par scénario), T1_Certificateur,
   // T2, T3 (amont) + 6 agents T4 (Architecture, Circuits, Modes, Synthèse,
   // Coûts, Transverses) + Certificateur lexique
+  //
+  // ⭐ LOT 18 — Quand thinking est activé, le max_tokens est partagé entre
+  // le thinking ET le texte de réponse. Si thinking consomme 20k tokens,
+  // il ne reste que 4k pour le JSON → bug "no text content found".
+  // → Pour les agents avec thinking ON, prévoir une marge confortable.
   MAX_TOKENS: {
     // ── Agents amont Étape 1 (production des tableaux T1, T2, T3) ─────────
-    agent_t1:                24000,  // T1 doctrinal : analyse brute (4 appels par scénario)
-    agent_t1_certificateur:  16000,  // ⭐ LOT 17 : vérification doctrinale T1 (1 appel/candidat)
-    agent_t2:                16000,  // T2 : synthèse par question (3 appels/candidat)
-    agent_t3:                32000,  // T3 v4 : analyse pilier × circuit (75 lignes/candidat)
+    agent_t1:                32000,  // ⭐ LOT 18 : 24000 → 32000 (thinking adaptive ON)
+    agent_t1_certificateur:  24000,  // ⭐ LOT 18 : 16000 → 24000 (thinking adaptive ON)
+    agent_t2:                16000,  // T2 : pas de thinking, OK
+    agent_t3:                32000,  // T3 v4 : déjà à 32000 avec thinking
 
     // ── Agents T4 (production du bilan ETAPE1_T4_BILAN) ───────────────────
     agent_t4_architecture:   24000,  // Agent 1 : architecture des piliers
@@ -61,11 +67,12 @@ module.exports = {
   // - false  : pas de bloc thinking dans la requête (analyse mécanique)
   // - true   : thinking adaptive activé
   //
-  // ⭐ LOT 17 (DOCTRINE) : agent_t1 et agent_t1_certificateur passent à true
-  //    car ils font de l'attribution doctrinale (Pilier 1 de la doctrine).
+  // ⚠ IMPORTANT — Quand thinking est activé, prévoir un MAX_TOKENS large
+  // car le thinking consomme du quota partagé avec le texte de réponse.
+  // Règle empirique : MAX_TOKENS = 2× le besoin réel en texte de sortie.
   THINKING: {
-    agent_t1:                true,   // ⭐ LOT 17 : DOCTRINE Pilier 1 (était false)
-    agent_t1_certificateur:  true,   // ⭐ LOT 17 : NOUVEAU — vérification doctrinale stricte
+    agent_t1:                true,   // ⭐ LOT 17 : DOCTRINE Pilier 1
+    agent_t1_certificateur:  true,   // ⭐ LOT 17 : vérification doctrinale stricte
     agent_t2:                false,  // T2 : pas de thinking requis (redistribution)
     agent_t3:                true,   // T3 : nuances + clusters demandent du raisonnement
     agent_t4_architecture:   true,
@@ -89,9 +96,8 @@ module.exports = {
   STREAMING_THRESHOLD: 21333,
 
   // ─── Timeouts ─────────────────────────────────────────────────────────────
-  // 180s par défaut (augmenté depuis 90s en v9 pour les agents avec thinking
-  // étendu, notamment Circuits qui peut générer 64000 tokens output)
-  TIMEOUT_MS: parseInt(process.env.CLAUDE_TIMEOUT) || 180000,
+  // 1200s (20 min) pour les agents avec thinking étendu et batches longs
+  TIMEOUT_MS: parseInt(process.env.CLAUDE_TIMEOUT) || 1200000,
 
   // ─── Retry ────────────────────────────────────────────────────────────────
   MAX_RETRIES:    parseInt(process.env.MAX_RETRIES) || 3,
