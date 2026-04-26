@@ -357,6 +357,10 @@ function processStreamEvent(event, finalMessage, currentBlocks) {
     case 'message_stop':
       // Fin du message — rien à faire de plus, on attend 'end' du stream
       break;
+
+    case 'error':
+      // ⭐ LOT 18 — Réintégré (avait été supprimé par erreur)
+      throw new Error(`Stream error: ${JSON.stringify(event.error)}`);
   }
 }
 
