@@ -27,7 +27,7 @@ module.exports = {
     ETAPE1_T2:          'ETAPE1_T2',                  // synthèse par question (25 lignes/candidat)
     ETAPE1_T3:          'ETAPE1_T3',                  // analyse pilier × circuit (75 lignes/candidat)
     ETAPE1_T4_BILAN:    'ETAPE1_T4_BILAN',            // bilan final (1 ligne/candidat)
-    REFERENTIEL_LEXIQUE: 'REFERENTIEL_LEXIQUE'        // 15 termes doctrinaux
+    REFERENTIEL_LEXIQUE: 'REFERENTIEL_LEXIQUE_BILAN'        // 15 termes doctrinaux
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
