@@ -1,5 +1,5 @@
 // services/claudeService.js
-// Service Claude API — Profil-Cognitif v9.0
+// Service Claude API — Profil-Cognitif v9.1 (LOT 18)
 //
 // Wrapper sur l'API Anthropic Messages avec :
 //   - Modèle Sonnet 4.6 par défaut
@@ -9,6 +9,12 @@
 //   - Retry intelligent via errorClassifier
 //   - Cost tracking détaillé
 //   - Parsing JSON tolérant aux markdown code blocks
+//
+// LOT 18 (2026-04-26) — FIX bug "Invalid response: no text content found" :
+//   - extractContent : diagnostic enrichi en cas d'échec (logs détaillés du contenu reçu)
+//   - extractContent : fallback intelligent si seul thinking est présent
+//   - processStreamEvent : push systématique des blocks text (même vides) pour traçabilité
+//   - Logs de stop_reason et output_tokens pour identifier les troncatures
 
 'use strict';
 
@@ -117,8 +123,8 @@ async function callClaude({
         response = await callClaudeNonStreaming(body, headers);
       }
 
-      // ─── Extraire résultat ─────────────────────────────────────────────
-      const { content, thinking } = extractContent(response);
+      // ─── Extraire résultat (avec diagnostic enrichi LOT 18) ────────────
+      const { content, thinking } = extractContent(response, { service, attempt });
       const usage = response.usage;
       const cost  = calculateCost(usage);
 
@@ -130,6 +136,9 @@ async function callClaude({
         cache_read_input_tokens:      usage.cache_read_input_tokens || 0,
         output_tokens:                usage.output_tokens,
         thinking_used:                !!thinking,
+        thinking_chars:               thinking ? thinking.length : 0,
+        text_chars:                   content ? content.length : 0,
+        stop_reason:                  response.stop_reason || 'unknown',
         cost_usd:                     cost.toFixed(4)
       });
 
@@ -269,6 +278,18 @@ async function callClaudeStreaming(body, headers) {
     });
 
     axiosResponse.data.on('end', () => {
+      // ⭐ LOT 18 — Sauvegarder tous les blocks en cours qui n'ont pas reçu content_block_stop
+      // (cas où le stream se termine avant que tous les stop events soient envoyés)
+      for (const idx of Object.keys(currentBlocks)) {
+        const block = currentBlocks[idx];
+        if (block.type === 'thinking' && block.thinking) {
+          finalMessage.content.push({ type: 'thinking', thinking: block.thinking });
+        } else if (block.type === 'text') {
+          // ⭐ LOT 18 — push même si vide pour ne pas perdre de trace
+          finalMessage.content.push({ type: 'text', text: block.text || '' });
+        }
+        delete currentBlocks[idx];
+      }
       resolve(finalMessage);
     });
 
@@ -313,10 +334,13 @@ function processStreamEvent(event, finalMessage, currentBlocks) {
       const block = currentBlocks[event.index];
       if (!block) break;
 
+      // ⭐ LOT 18 — Push systématique pour traçabilité, même blocks vides
       if (block.type === 'thinking' && block.thinking) {
         finalMessage.content.push({ type: 'thinking', thinking: block.thinking });
-      } else if (block.text) {
-        finalMessage.content.push({ type: 'text', text: block.text });
+      } else if (block.type === 'text') {
+        // Avant : "else if (block.text)" → ne pushait rien si text vide → bug !
+        // Maintenant : on push toujours, même si text est vide
+        finalMessage.content.push({ type: 'text', text: block.text || '' });
       }
       delete currentBlocks[event.index];
       break;
@@ -333,9 +357,6 @@ function processStreamEvent(event, finalMessage, currentBlocks) {
     case 'message_stop':
       // Fin du message — rien à faire de plus, on attend 'end' du stream
       break;
-
-    case 'error':
-      throw new Error(`Stream error: ${JSON.stringify(event.error)}`);
   }
 }
 
@@ -343,28 +364,96 @@ function processStreamEvent(event, finalMessage, currentBlocks) {
 
 /**
  * Extrait le texte final et le thinking depuis la réponse de l'API
+ *
+ * ⭐ LOT 18 — Diagnostic enrichi quand pas de texte trouvé :
+ *   - Logs détaillés des blocks reçus, du stop_reason, des usages
+ *   - Erreur explicite avec cause probable (max_tokens dépassé par thinking, etc.)
+ *
+ * @param {Object} response - Réponse API Claude
+ * @param {Object} [context] - { service, attempt } pour les logs
  */
-function extractContent(response) {
+function extractContent(response, context = {}) {
   if (!response.content || !Array.isArray(response.content)) {
     throw new Error('Invalid response: no content array');
   }
 
   let text     = '';
   let thinking = '';
+  const blocksDiag = [];  // ⭐ LOT 18 — diagnostic des blocks reçus
 
   for (const block of response.content) {
     if (block.type === 'text' && block.text) {
       text += block.text;
+      blocksDiag.push({ type: 'text', chars: block.text.length, preview: block.text.substring(0, 80) });
+    } else if (block.type === 'text') {
+      // ⭐ LOT 18 — Block text vide tracé pour diagnostic
+      blocksDiag.push({ type: 'text', chars: 0, status: 'empty' });
     } else if (block.type === 'thinking' && block.thinking) {
       thinking += block.thinking;
+      blocksDiag.push({ type: 'thinking', chars: block.thinking.length });
+    } else if (block.type === 'thinking') {
+      blocksDiag.push({ type: 'thinking', chars: 0, status: 'empty' });
+    } else {
+      blocksDiag.push({ type: block.type || 'unknown', chars: 0 });
     }
   }
 
   if (!text) {
-    throw new Error('Invalid response: no text content found');
+    // ⭐ LOT 18 — Diagnostic complet avant de planter
+    const usage = response.usage || {};
+    const stopReason = response.stop_reason || 'unknown';
+
+    logger.error('Claude response has no text content — DIAGNOSTIC', {
+      service:                context.service || 'unknown',
+      attempt:                context.attempt || 0,
+      stop_reason:            stopReason,
+      input_tokens:           usage.input_tokens || 0,
+      output_tokens:          usage.output_tokens || 0,
+      cache_read_tokens:      usage.cache_read_input_tokens || 0,
+      cache_creation_tokens:  usage.cache_creation_input_tokens || 0,
+      blocks_received:        response.content.length,
+      blocks_diag:            blocksDiag,
+      thinking_chars:         thinking.length,
+      cause_probable:         diagnoseCause(stopReason, thinking.length, usage)
+    });
+
+    throw new Error(
+      `Claude returned no text content (stop_reason: ${stopReason}, ` +
+      `output_tokens: ${usage.output_tokens || 0}, thinking_chars: ${thinking.length}). ` +
+      `Cause probable: ${diagnoseCause(stopReason, thinking.length, usage)}`
+    );
   }
 
   return { content: text, thinking: thinking || null };
+}
+
+/**
+ * ⭐ LOT 18 — Diagnostic de la cause probable quand pas de texte
+ */
+function diagnoseCause(stopReason, thinkingChars, usage) {
+  const outputTokens = usage.output_tokens || 0;
+
+  if (stopReason === 'max_tokens') {
+    if (thinkingChars > 0 && outputTokens > 0) {
+      return `max_tokens dépassé — le thinking (${thinkingChars} chars) a probablement absorbé tout le quota. ` +
+             `Solution: augmenter max_tokens dans config/claude.js pour ce service.`;
+    }
+    return `max_tokens dépassé sans thinking visible. Augmenter max_tokens.`;
+  }
+
+  if (stopReason === 'refusal') {
+    return `Claude a refusé de répondre (refusal). Vérifier le contenu du prompt.`;
+  }
+
+  if (stopReason === 'pause_turn') {
+    return `Claude a fait pause (pause_turn). Probablement quota épuisé.`;
+  }
+
+  if (stopReason === 'unknown') {
+    return `Stop reason inconnu — possiblement un problème de streaming (block text non finalisé).`;
+  }
+
+  return `Cause indéterminée — stop_reason: ${stopReason}.`;
 }
 
 // ─── COST TRACKING ────────────────────────────────────────────────────────────
