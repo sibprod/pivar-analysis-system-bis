@@ -25,17 +25,17 @@ const PROMPT_PATH  = 'etape1_t4/AGENT_5_COUTS_CLOTURE.md';
  * Exécute l'Agent T4-5 Coûts/Clôture
  * @param {Object} params
  * @param {string} params.candidat_id
- * @param {string} params.prenom
+ * @param {string} params.civilite
  * @param {Array} params.t1Rows
  * @param {Array} params.t2Rows
  * @param {Array} params.t3Rows
  * @param {Object} params.synthese - Résultat de l'Agent Synthèse (filtre, finalité, signature)
  *                                    Format : { d1_filtre_cand, d3_finalite_cand, d4_signature, ... }
  */
-async function runAgentT4Couts({ candidat_id, prenom, t1Rows, t2Rows, t3Rows, synthese = null }) {
+async function runAgentT4Couts({ candidat_id, civilite, t1Rows, t2Rows, t3Rows, synthese = null }) {
   logger.info('Agent T4-Couts starting', { candidat_id });
 
-  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, prenom, t1Rows, t2Rows, t3Rows });
+  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, civilite, t1Rows, t2Rows, t3Rows });
 
   // Agent Coûts a besoin :
   //   - métadonnées
@@ -43,7 +43,7 @@ async function runAgentT4Couts({ candidat_id, prenom, t1Rows, t2Rows, t3Rows, sy
   //   - résultats Synthèse (pour cohérence narrative avec filtre/finalité/signature)
   const payload = {
     candidat_id,
-    prenom,
+    civilite,
     chiffres_t1: t4Inputs.chiffres_t1,
     piliers:     t4Inputs.piliers_pour_couts,
     pilier_socle: t4Inputs.pilier_socle
