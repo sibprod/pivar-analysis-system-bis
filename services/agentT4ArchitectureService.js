@@ -25,17 +25,17 @@ const PROMPT_PATH  = 'etape1_t4/AGENT_1_ARCHITECTURE.md';
  * Exécute l'Agent T4-1 Architecture
  * @param {Object} params
  * @param {string} params.candidat_id
- * @param {string} params.prenom
+ * @param {string} params.civilite
  * @param {Array} params.t1Rows
  * @param {Array} params.t2Rows
  * @param {Array} params.t3Rows
  * @returns {Promise<{result: Object, usage: Object, cost: number, elapsedMs: number}>}
  */
-async function runAgentT4Architecture({ candidat_id, prenom, t1Rows, t2Rows, t3Rows }) {
+async function runAgentT4Architecture({ candidat_id, civilite, t1Rows, t2Rows, t3Rows }) {
   logger.info('Agent T4-Architecture starting', { candidat_id });
 
   // 1. Préparer les inputs T4 communs
-  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, prenom, t1Rows, t2Rows, t3Rows });
+  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, civilite, t1Rows, t2Rows, t3Rows });
 
   // 2. Construire le payload spécifique Agent Architecture
   // Selon le prompt, l'Agent Architecture a besoin de :
@@ -44,7 +44,7 @@ async function runAgentT4Architecture({ candidat_id, prenom, t1Rows, t2Rows, t3R
   //   - attributions par pilier (T3 + T4) avec rôles
   const payload = {
     candidat_id,
-    prenom,
+    civilite,
     chiffres_t1: t4Inputs.chiffres_t1,
     piliers: buildPiliersForArchitecture(t4Inputs)
   };
@@ -78,7 +78,6 @@ async function runAgentT4Architecture({ candidat_id, prenom, t1Rows, t2Rows, t3R
   for (const key of expectedKeys) {
     fields[key] = result[key] || '';
   }
-  fields.prenom = prenom;
 
   await airtableService.upsertEtape1T4Bilan(candidat_id, fields);
 
