@@ -63,7 +63,11 @@ async function runAgentT1({ candidat_id, session_id }) {
       pilier:                r.pilier,
       scenario_nom:          r.scenario_nom,
       question_text:         r.question_text,
-      response_text:         r.response_text
+      response_text:         r.response_text,
+      // Lookups Airtable depuis QUESTIONS PIVAR SCENARIO via question_lien
+      // (ajout doctrine 26/04 : T1 a besoin du contexte narratif complet)
+      storytelling:          extractLookup(r['storytelling_general (from question _lien)']) || r.storytelling || '',
+      transition:            extractLookup(r['transition_narrative (from question _lien)']) || r.transition || ''
     }))
   };
 
@@ -175,5 +179,21 @@ module.exports = {
   runAgentT1,
   // exports techniques pour tests/debug
   extractRows,
-  normalizeRowForAirtable
+  normalizeRowForAirtable,
+  extractLookup
 };
+
+/**
+ * Extrait la valeur d'un champ lookup Airtable.
+ * Les lookups peuvent être retournés sous forme :
+ *   - String simple : "Vous dormez mal..."
+ *   - Array (si le lookup vient d'une liaison multi) : ["Vous dormez mal..."]
+ *   - undefined / null si pas de valeur
+ */
+function extractLookup(value) {
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) {
+    return value.length > 0 ? String(value[0]) : '';
+  }
+  return String(value);
+}
