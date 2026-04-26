@@ -61,7 +61,7 @@ async function processCandidate(session_id) {
   const usages = [];
   const costs = [];
   let visiteur = null;
-  let prenom = '';
+  let civilite = '';
 
   try {
     // ─── 1. Lecture VISITEUR & vérifications préalables ─────────────────────
@@ -70,7 +70,18 @@ async function processCandidate(session_id) {
       throw new Error(`Visiteur ${candidat_id} not found in Airtable`);
     }
 
-    prenom = visiteur.Prenom || visiteur.prenom || candidat_id;
+    // 🔒 ANONYMISATION (doctrine 26/04) — On lit UNIQUEMENT la civilité pour piloter
+    // les accords grammaticaux et les tournures (la candidate / le candidat).
+    // On NE lit JAMAIS Prenom, Nom, Email pour ne pas les transmettre aux agents Claude.
+    civilite = visiteur.civilite_candidat || '';
+    if (!civilite) {
+      logger.warn('No civilite_candidat in VISITEUR — accords may be incorrect', { candidat_id });
+    }
+    if (civilite && !['Madame', 'Monsieur'].includes(civilite)) {
+      logger.warn('Unexpected civilite value (expected "Madame" or "Monsieur")', {
+        candidat_id, civilite
+      });
+    }
 
     // Marquer en cours
     await airtableService.updateVisiteur(candidat_id, {
@@ -113,7 +124,7 @@ async function processCandidate(session_id) {
     const t1Rows = t1Result.rows;
     const t2Rows = t2Result.rows;
     const t3Rows = t3Result.rows;
-    const sharedT4Args = { candidat_id, prenom, t1Rows, t2Rows, t3Rows };
+    const sharedT4Args = { candidat_id, civilite, t1Rows, t2Rows, t3Rows };
 
     logger.info('🔀 T4 parallel agents starting (4 in parallel)', { candidat_id });
 
@@ -162,7 +173,7 @@ async function processCandidate(session_id) {
 
     // ─── 9. Pipeline : Certificateur ─────────────────────────────────────────
     await backupService.save(candidat_id, 'before_certif', { bilan_complet: true });
-    const certifResult = await agentCertificateurService.runAgentCertificateur({ candidat_id, prenom });
+    const certifResult = await agentCertificateurService.runAgentCertificateur({ candidat_id, civilite });
     trackUsage(usages, costs, certifResult);
     await backupService.save(candidat_id, 'after_certif', {
       statut_global:       certifResult.report.statut_global,
