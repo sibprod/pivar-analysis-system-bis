@@ -22,14 +22,14 @@ const logger          = require('../utils/logger');
 const SERVICE_NAME = 'agent_t4_transverses';
 const PROMPT_PATH  = 'etape1_t4/AGENT_6_TRANSVERSES.md';
 
-async function runAgentT4Transverses({ candidat_id, prenom, t1Rows, t2Rows, t3Rows }) {
+async function runAgentT4Transverses({ candidat_id, civilite, t1Rows, t2Rows, t3Rows }) {
   logger.info('Agent T4-Transverses starting', { candidat_id });
 
-  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, prenom, t1Rows, t2Rows, t3Rows });
+  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, civilite, t1Rows, t2Rows, t3Rows });
 
   const payload = {
     candidat_id,
-    prenom,
+    civilite,
     chiffres_t1:      t4Inputs.chiffres_t1,
     pilier_socle:     t4Inputs.pilier_socle,
     roles_par_pilier: t4Inputs.roles_par_pilier
