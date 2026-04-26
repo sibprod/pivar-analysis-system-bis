@@ -22,8 +22,8 @@ module.exports = {
   // Circuits, Modes, Synthèse, Coûts, Transverses) + Certificateur lexique
   MAX_TOKENS: {
     // ── Agents amont Étape 1 (production des tableaux T1, T2, T3) ─────────
-    agent_t1:                24000,  // T1 : analyse brute des 25 réponses (3 appels/candidat)
-    agent_t2:                16000,  // T2 : synthèse par question (3 appels/candidat)
+    agent_t1:                32000,  // T1 : analyse brute des 25 réponses (1 appel, 25 lignes JSON ~1000 tokens chacune)
+    agent_t2:                24000,  // T2 : synthèse par question (1 appel, 25 lignes ~600 tokens chacune)
     agent_t3:                48000,  // T3 v4 : 75 lignes × ~500 tokens = ~38k + marge. Le prompt T3 v4 recommande 48000.
 
     // ── Agents T4 (production du bilan ETAPE1_T4_BILAN) ───────────────────
