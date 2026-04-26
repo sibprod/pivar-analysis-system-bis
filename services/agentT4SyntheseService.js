@@ -22,10 +22,10 @@ const logger          = require('../utils/logger');
 const SERVICE_NAME = 'agent_t4_synthese';
 const PROMPT_PATH  = 'etape1_t4/AGENT_4_SYNTHESE_COEUR.md';
 
-async function runAgentT4Synthese({ candidat_id, prenom, t1Rows, t2Rows, t3Rows }) {
+async function runAgentT4Synthese({ candidat_id, civilite, t1Rows, t2Rows, t3Rows }) {
   logger.info('Agent T4-Synthese starting', { candidat_id });
 
-  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, prenom, t1Rows, t2Rows, t3Rows });
+  const t4Inputs = prepareT4.buildT4Inputs({ candidat_id, civilite, t1Rows, t2Rows, t3Rows });
 
   // L'Agent Synthèse a besoin de :
   //   - métadonnées
@@ -38,7 +38,7 @@ async function runAgentT4Synthese({ candidat_id, prenom, t1Rows, t2Rows, t3Rows 
 
   const payload = {
     candidat_id,
-    prenom,
+    civilite,
     chiffres_t1:        t4Inputs.chiffres_t1,
     pilier_socle:       t4Inputs.pilier_socle,
     clusters_socle:     t4Inputs.clusters_socle,
