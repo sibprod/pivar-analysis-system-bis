@@ -233,12 +233,17 @@ function parseAgentOutput(content) {
       try {
         return extractFirstJsonStructure(content);
       } catch (e3) {
-        logger.error('Failed to parse agent JSON output', {
-          contentPreview: content.substring(0, 500),
-          contentLength:  content.length,
-          errors: [e1.message, e2.message, e3.message]
-        });
-        throw new Error(`Cannot parse agent JSON output: ${e1.message}`);
+        // Tentative 4 : JSON tronqué — récupérer les objets complets dans un array
+        try {
+          return recoverTruncatedJsonArray(content);
+        } catch (e4) {
+          logger.error('Failed to parse agent JSON output', {
+            contentPreview: content.substring(0, 500),
+            contentLength:  content.length,
+            errors: [e1.message, e2.message, e3.message, e4.message]
+          });
+          throw new Error(`Cannot parse agent JSON output: ${e1.message}`);
+        }
       }
     }
   }
@@ -309,6 +314,87 @@ function extractFirstJsonStructure(content) {
   }
 
   throw new Error(`Unbalanced ${openChar}${closeChar} in JSON structure`);
+}
+
+/**
+ * Récupère ce qui peut l'être d'un JSON array tronqué.
+ * Si Claude a généré [{...}, {...}, {... (tronqué)] où le dernier objet est cassé,
+ * on parse les objets complets et on ignore le dernier.
+ *
+ * @param {string} content
+ * @returns {Array} array des objets complets parsés
+ */
+function recoverTruncatedJsonArray(content) {
+  // Trouver le début de l'array '['
+  const startIdx = content.indexOf('[');
+  if (startIdx === -1) {
+    throw new Error('No array start [ found for recovery');
+  }
+
+  const recovered = [];
+  let i = startIdx + 1;
+  let inString = false;
+  let escapeNext = false;
+  let depth = 0;
+  let objectStart = -1;
+
+  while (i < content.length) {
+    const c = content[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      i++;
+      continue;
+    }
+    if (c === '\\' && inString) {
+      escapeNext = true;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inString = !inString;
+      i++;
+      continue;
+    }
+    if (inString) {
+      i++;
+      continue;
+    }
+
+    if (c === '{') {
+      if (depth === 0) objectStart = i;
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0 && objectStart !== -1) {
+        // Un objet complet trouvé entre objectStart et i
+        const objStr = content.substring(objectStart, i + 1);
+        try {
+          recovered.push(JSON.parse(objStr));
+        } catch (parseErr) {
+          // Objet mal formé, on l'ignore
+          logger.warn('Skipping malformed object during recovery', {
+            preview: objStr.substring(0, 100)
+          });
+        }
+        objectStart = -1;
+      }
+    } else if (c === ']' && depth === 0) {
+      // Fin de l'array atteinte
+      break;
+    }
+    i++;
+  }
+
+  if (recovered.length === 0) {
+    throw new Error('Recovery yielded no objects');
+  }
+
+  logger.warn('Recovered partial JSON from truncated output', {
+    objectsRecovered: recovered.length
+  });
+
+  return recovered;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
