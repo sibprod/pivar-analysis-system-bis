@@ -120,17 +120,6 @@ async function runCertificateurT1({ candidat_id, rows_t1 }) {
     });
   }
 
-  // ─── Écrire le rapport synthétique dans CERTIFICATEUR_T1 (audit historique) ─
-  // Conservation Lot 17 : permet de tracer chaque exécution du certificateur.
-  await writeCertificateurReport({
-    candidat_id,
-    verdict,
-    violations,
-    nb_lignes_verifiees: rowsWithIds.length,
-    cost_usd:            cost,
-    elapsed_ms:          elapsedMs
-  });
-
   return { verdict, violations, corrections, usage, cost, elapsedMs };
 }
 
@@ -359,34 +348,6 @@ VERDICT GLOBAL :
 - CORRECTION REQUISE : violations DOCTRINALE détectées et corrigées
 - BLOQUANT — CORRECTION REQUISE : violations CRITIQUE détectées (corrigées si possible, sinon flagguées)
   `.trim();
-}
-
-// ─── ÉCRITURE DU RAPPORT (table CERTIFICATEUR_T1 — audit historique) ──────
-async function writeCertificateurReport({
-  candidat_id,
-  verdict,
-  violations,
-  nb_lignes_verifiees,
-  cost_usd,
-  elapsed_ms
-}) {
-  if (typeof airtableService.writeCertificateurT1 === 'function') {
-    await airtableService.writeCertificateurT1({
-      candidat_id,
-      verdict_global:        verdict,
-      nb_lignes_verifiees,
-      nb_violations_total:   violations.length,
-      nb_critique:           violations.filter(v => v.severite === 'CRITIQUE').length,
-      nb_doctrinale:         violations.filter(v => v.severite === 'DOCTRINALE').length,
-      nb_observation:        violations.filter(v => v.severite === 'OBSERVATION').length,
-      violations_json:       JSON.stringify(violations, null, 2),
-      cost_usd:              cost_usd.toFixed(4),
-      elapsed_ms,
-      timestamp:             new Date().toISOString()
-    });
-  } else {
-    logger.warn('airtableService.writeCertificateurT1 not implemented yet — report not persisted');
-  }
 }
 
 module.exports = {
