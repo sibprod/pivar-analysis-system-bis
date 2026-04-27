@@ -30,10 +30,11 @@ const PROMPT_PATH  = 'etape1_t1.txt';
 
 // ─── DÉFINITION DES SCÉNARIOS (unités narratives — Pilier 2 doctrine) ──────
 const SCENARIOS = [
-  { name: 'SOMMEIL', questionRange: [1, 5],   expectedQuestions: 5 },
-  { name: 'WEEKEND', questionRange: [6, 10],  expectedQuestions: 5 },
-  { name: 'ANIMAL',  questionRange: [11, 20], expectedQuestions: 10 },
-  { name: 'PANNE',   questionRange: [21, 25], expectedQuestions: 5 }
+  { name: 'SOMMEIL',  questionRange: [1, 5],   expectedQuestions: 5 },
+  { name: 'WEEKEND',  questionRange: [6, 10],  expectedQuestions: 5 },
+  { name: 'ANIMAL_1', questionRange: [11, 15], expectedQuestions: 5 },
+  { name: 'ANIMAL_2', questionRange: [16, 20], expectedQuestions: 5 },
+  { name: 'PANNE',    questionRange: [21, 25], expectedQuestions: 5 }
 ];
 
 /**
@@ -131,15 +132,13 @@ async function runAgentT1({ candidat_id, session_id }) {
 
 // ─── APPEL T1 POUR UN SCÉNARIO ────────────────────────────────────────────
 async function callT1ForScenario({ candidat_id, scenario, responses }) {
-  // Construire le payload pour ce scénario uniquement.
-  // ⭐ LOT 21-bis : suppression de instruction_doctrinale (redondante avec le prompt v2.3
-  // qui contient déjà la grille de cases à cocher). Le double mécanisme faisait
-  // exploser le thinking à 95k caractères et tronquait le texte.
+  // Construire le payload pour ce scénario uniquement
   const payload = {
     candidat_id,
     scenario_name:           scenario.name,
     nb_questions_in_scenario: responses.length,
     nb_questions_total:      25,  // pour info
+    instruction_doctrinale:  buildDoctrineInstruction(scenario),  // Pilier 3 + 5
     responses: responses.map(r => ({
       id_question:           r.id_question,
       numero_global:         r.numero_global,
@@ -167,20 +166,85 @@ async function callT1ForScenario({ candidat_id, scenario, responses }) {
   return { rows, usage, cost };
 }
 
+// ─── INSTRUCTION DOCTRINALE (Piliers 3 + 5) ───────────────────────────────
+function buildDoctrineInstruction(scenario) {
+  return `
+ATTENTION — INSTRUCTIONS DOCTRINALES POUR CET APPEL :
+
+Tu analyses UNIQUEMENT le scénario ${scenario.name} (questions ${scenario.questionRange[0]} à ${scenario.questionRange[1]}). Ne retourne PAS de lignes pour les autres scénarios.
+
+Pilier 3 — RAISONNEMENT VERBALISÉ OBLIGATOIRE :
+Pour CHAQUE question, tu dois inclure dans ta réponse JSON un champ "raisonnement" qui contient :
+{
+  "indices_verbatim": "ce que tu observes dans le verbatim",
+  "regles_applicables": ["règles du prompt T1 que tu appliques"],
+  "pieges_ecartes": "les confusions que tu évites (ex: Erreur 9 - ne pas confondre verbe avec angle d'attaque)",
+  "decision_pilier_coeur": "P? — pourquoi",
+  "decision_v1": "OUI/NON — pourquoi",
+  "decision_conforme_ecart": "CONFORME/ECART — cohérent avec V1"
+}
+
+Pilier 5 — SELF-CRITIQUE FINALE OBLIGATOIRE :
+Avant d'émettre ton JSON final, relis chaque ligne et vérifie :
+
+1. COHÉRENCE V1 ↔ conforme_ecart
+   - Si conforme_ecart = ECART, est-ce que V1 = NON ? (sinon corrige)
+   - Si conforme_ecart = CONFORME, est-ce que V1 = OUI ? (sinon corrige)
+   - V1=OUI → toujours CONFORME, sans exception
+   - V1=NON → toujours ECART, sans exception
+
+2. PILIER CŒUR
+   - Pour chaque pilier_coeur = P3 : le candidat produit-il vraiment une analyse causale autonome ?
+     Sinon (action conditionnelle, génération multiple, exécution), reformuler.
+   - Vérifier l'Erreur 9 : ne pas confondre le premier verbe avec l'angle d'attaque.
+   - Filtrer une source par crédibilité = P2 (pas P3 cœur).
+
+3. SIGNAL LIMBIQUE
+   - Pour chaque signal_limbique rempli, y a-t-il une vraie rupture émotionnelle vive ?
+     Une simple préférence stylistique ("pas trop vulgarisateur") n'est PAS un signal.
+     Une difficulté objective déclarée ("la pire partie") n'est PAS un signal.
+     Effacer si pas de rupture émotionnelle vive.
+
+4. COHÉRENCE INTERNE
+   - Le pilier_coeur attribué correspond-il bien aux types_verbatim cités ?
+
+Si tu détectes une incohérence, CORRIGE-LA avant d'émettre. N'émets jamais
+un JSON contenant une violation de ces règles.
+
+FORMAT DE SORTIE :
+{
+  "scenario_name": "${scenario.name}",
+  "rows": [
+    { ... ligne T1 complète avec raisonnement ... },
+    ...
+  ]
+}
+
+Retourne UNIQUEMENT le JSON, sans préambule, sans markdown.
+  `.trim();
+}
+
 // ─── GROUPAGE PAR SCÉNARIO ────────────────────────────────────────────────
 function groupResponsesByScenario(responses) {
-  const grouped = { SOMMEIL: [], WEEKEND: [], ANIMAL: [], PANNE: [] };
+  const grouped = { SOMMEIL: [], WEEKEND: [], ANIMAL_1: [], ANIMAL_2: [], PANNE: [] };
 
   for (const r of responses) {
     const scenarioName = (r.scenario_nom || '').toUpperCase().trim();
-    if (grouped[scenarioName]) {
-      grouped[scenarioName].push(r);
-    } else {
+    const nq = parseInt(r.numero_global, 10);
+    if (scenarioName === 'SOMMEIL')       grouped.SOMMEIL.push(r);
+    else if (scenarioName === 'WEEKEND')  grouped.WEEKEND.push(r);
+    else if (scenarioName === 'ANIMAL' || scenarioName === 'ANIMAL_1' || scenarioName === 'ANIMAL_2') {
+      // Découpage par numero_global : Q11-15 → ANIMAL_1, Q16-20 → ANIMAL_2
+      if (nq >= 11 && nq <= 15) grouped.ANIMAL_1.push(r);
+      else if (nq >= 16 && nq <= 20) grouped.ANIMAL_2.push(r);
+    }
+    else if (scenarioName === 'PANNE')    grouped.PANNE.push(r);
+    else {
       // Fallback : déduire du numero_global
-      const nq = parseInt(r.numero_global, 10);
       if (nq >= 1 && nq <= 5)        grouped.SOMMEIL.push(r);
       else if (nq >= 6 && nq <= 10)  grouped.WEEKEND.push(r);
-      else if (nq >= 11 && nq <= 20) grouped.ANIMAL.push(r);
+      else if (nq >= 11 && nq <= 15) grouped.ANIMAL_1.push(r);
+      else if (nq >= 16 && nq <= 20) grouped.ANIMAL_2.push(r);
       else if (nq >= 21 && nq <= 25) grouped.PANNE.push(r);
       else logger.warn('Cannot determine scenario for response', { id_question: r.id_question });
     }
@@ -280,5 +344,6 @@ module.exports = {
   normalizeRowForAirtable,
   extractLookup,
   groupResponsesByScenario,
+  buildDoctrineInstruction,
   SCENARIOS
 };
