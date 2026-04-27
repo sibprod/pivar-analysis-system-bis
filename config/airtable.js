@@ -7,6 +7,10 @@
 //   - BILAN (ancienne, conservée pour Étape 2/3 futures)
 //   - ETAPE1_T1, ETAPE1_T2, ETAPE1_T3, ETAPE1_T4_BILAN (nouvelles)
 //   - REFERENTIEL_LEXIQUE (15 termes doctrinaux, lue par tous les agents)
+//
+// LOT 21 (2026-04-27) — AJOUT MINIMAL :
+//   - ETAPE1_T1_FIELDS : ajout du champ `corrections_certificateur` (long text)
+//     rempli par le certificateur T1 quand il patche une ligne (trace de ses corrections)
 
 'use strict';
 
@@ -88,8 +92,9 @@ module.exports = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ETAPE1_T1 — Analyse brute des 25 réponses (22 colonnes)
+  // ETAPE1_T1 — Analyse brute des 25 réponses (23 colonnes — Lot 21)
   // Écrit par : Agent T1
+  // Patché par : Agent T1 Certificateur (corrections + pilier_sortie + corrections_certificateur)
   // Volume : 25 lignes par candidat
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T1_FIELDS: {
@@ -119,7 +124,13 @@ module.exports = {
     attribution_pilier_signal_brut: 'attribution_pilier_signal_brut',
     conforme_ecart:                 'conforme_ecart',
     ecart_detail:                   'ecart_detail',
-    signal_limbique:                'signal_limbique'
+    signal_limbique:                'signal_limbique',
+
+    // Raisonnement verbalisé (1) — LOT 17 (Pilier 3 doctrine)
+    raisonnement:                   'raisonnement',
+
+    // Trace certificateur (1) — LOT 21
+    corrections_certificateur:      'corrections_certificateur'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
