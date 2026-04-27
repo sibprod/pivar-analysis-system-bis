@@ -51,12 +51,14 @@ async function runCertificateurT1({ candidat_id, rows_t1 }) {
     rowsWithIds = await airtableService.getEtape1T1(candidat_id);
   }
 
-  // Construction du payload : on ne passe que ce qui est nécessaire à la vérification
-  // (allège le contexte, augmente la saillance des règles critiques)
+  // Construction du payload : on ne passe que les données nécessaires à la vérification.
+  // ⭐ LOT 21-bis : suppression de instruction_certificateur (redondante avec le prompt
+  // fichier certificateur_t1.txt qui contient déjà les règles V1.x, V2.x, V3.x et
+  // la doctrine de production de pilier_sortie). Le doublon faisait exploser le
+  // contexte et le thinking.
   const payload = {
     candidat_id,
     nb_lignes_a_verifier: rowsWithIds.length,
-    instruction_certificateur: buildCertificateurInstruction(),
     lignes_t1: rowsWithIds.map(row => ({
       id_question:                   row.id_question,
       question_id_protocole:         row.question_id_protocole,
@@ -205,153 +207,8 @@ function buildPatchPlan(rows_t1, corrections) {
   return plan;
 }
 
-// ─── INSTRUCTION CERTIFICATEUR (étendue Lot 21 avec production + corrections) ─
-function buildCertificateurInstruction() {
-  return `
-TU ES LE CERTIFICATEUR T1.
-
-Ta mission : pour chaque ligne T1 reçue, tu fais 3 choses :
-1. VÉRIFIER l'application stricte des règles doctrinales (Niveaux 1, 2, 3)
-2. PRODUIRE le pilier_sortie pour les 25 lignes (champ délibérément hors périmètre T1)
-3. ÉMETTRE une liste de corrections à appliquer dans ETAPE1_T1
-
-Tu ne refais pas l'analyse cognitive du verbatim. Tu vérifies que T1 a appliqué les règles,
-tu corriges quand T1 a manifestement dérivé, et tu produis le pilier_sortie.
-
-═══════════════════════════════════════════════════════════════════════════
-NIVEAU 1 — RÈGLES MÉCANIQUES (CRITIQUE — corrigées automatiquement)
-═══════════════════════════════════════════════════════════════════════════
-
-V1.1 — Cohérence v1_conforme ↔ conforme_ecart
-  - Si v1_conforme = 'OUI' alors conforme_ecart DOIT être 'CONFORME'
-  - Si v1_conforme = 'NON' alors conforme_ecart DOIT être 'ECART'
-  - Toute autre combinaison est une violation CRITIQUE corrigée automatiquement.
-
-V1.2 — ecart_detail rempli si ECART
-  - Si conforme_ecart = 'ECART', alors ecart_detail DOIT être non vide
-  - Si conforme_ecart = 'CONFORME', alors ecart_detail DOIT être vide
-  - Correction automatique : vider ecart_detail si CONFORME.
-    Si ECART et ecart_detail vide, flag CRITIQUE sans correction (l'agent doit fournir la justification).
-
-═══════════════════════════════════════════════════════════════════════════
-NIVEAU 2 — RÈGLES DOCTRINALES DE DIFFÉRENCIATION DES PILIERS (DOCTRINALE)
-═══════════════════════════════════════════════════════════════════════════
-
-V2.1 — Erreur 9 du prompt T1 : ne pas confondre verbe initial et angle d'attaque
-  - Si pilier_coeur_analyse commence par P3 :
-      Vérifie que le candidat produit bien une analyse causale autonome
-      (pas une action conditionnelle, pas de génération multiple, pas d'exécution déguisée)
-  - Indice : verbatim avec "j'analyse"/"j'évalue" en début, mais geste réel = filtrer/générer/agir.
-
-V2.2 — Filtre crédibilité ≠ P3 cœur
-  - « Évaluer la fiabilité d'une source = P3 au service de P1, le cœur reste P1. »
-  - Si verbatim contient "j'analyse qui a produit", "je vérifie la source", "pas trop de [type]"
-    et pilier_coeur = P3 : violation DOCTRINALE.
-
-V2.3 — Solutions conditionnelles = P4 (pas P3)
-  - « Si … alors X, sinon Y » avec actions différenciées et pilier_coeur = P3 : violation.
-
-V2.4 — Action concrète ≠ P3
-  - « Je consulte un spécialiste », « je m'adapte » = P5, pas P3.
-
-Pour Niveau 2 : si tu détectes une violation, tu produis une correction.
-La nouvelle valeur de pilier_coeur_analyse doit reformuler le pilier réellement déployé,
-en conservant la description du geste cognitif (préfixe "Px · " puis description).
-
-═══════════════════════════════════════════════════════════════════════════
-NIVEAU 3 — SIGNAL LIMBIQUE (OBSERVATION — corrigé automatiquement)
-═══════════════════════════════════════════════════════════════════════════
-
-V3.1 — Signal limbique = rupture émotionnelle vive
-  ✅ OUI : "ça me met hors de moi", "j'ai paniqué", "j'enrage", "ça m'agace" sur événement précis
-  ❌ NON : préférence stylistique ("pas trop vulgarisateur"), difficulté objective ("la pire partie"),
-          formulation conditionnelle-hedgée ("ça peut me contrarier si...")
-  Si pas de rupture vive → violation V3.1 (sur-détection).
-  Correction automatique : vider signal_limbique.
-
-═══════════════════════════════════════════════════════════════════════════
-PRODUCTION — CALCUL DE pilier_sortie (obligatoire pour les 25 lignes)
-═══════════════════════════════════════════════════════════════════════════
-
-Le champ pilier_sortie n'est PAS calculé par T1 (décision doctrinale).
-Tu le calcules ici, pour chaque ligne, depuis attribution_pilier_signal_brut et verbatim_candidat.
-
-Définition du pilier de sortie :
-> Le DERNIER pilier réellement développé dans la réponse. Pas le pilier auquel on s'attendrait,
-> pas celui qui clôt « logiquement » — celui que le verbatim développe en dernier dans la séquence cognitive.
-
-Méthode mécanique :
-1. Lire attribution_pilier_signal_brut (ex: "P1 · P3 + P5 Conforme" ou "P3 → P5 ÉCART")
-2. Identifier la séquence ordonnée des piliers présents
-3. pilier_sortie = dernier pilier de la séquence, sauf cas border :
-   - Bascule conditionnelle très courte (1-2 mots) → c'est l'avant-dernier
-   - Verbatim s'achève sur évaluation/compréhension/conception → sortie = pilier de cette zone finale
-
-Cas standards :
-- "P1 · P3 + P5" (CONFORME, P5 développé en fin) → pilier_sortie = P5
-- "P3 → P1 → P4" → pilier_sortie = P4
-- "P3 → P5" → pilier_sortie = P5
-- "P1" seul → pilier_sortie = P1
-
-Format : valeur P1 à P5 (jamais vide).
-Trace : marque toujours la production du pilier_sortie en [PRODUCTION].
-
-═══════════════════════════════════════════════════════════════════════════
-FORMAT DE SORTIE — JSON UNIQUEMENT (pas de markdown, pas de préambule)
-═══════════════════════════════════════════════════════════════════════════
-
-{
-  "candidat_id": "<id>",
-  "verdict_global": "CONFORME | FLAG_OBSERVATIONS | CORRECTION REQUISE | BLOQUANT — CORRECTION REQUISE",
-  "nb_violations_critique": 0,
-  "nb_violations_doctrinale": 0,
-  "nb_violations_observation": 0,
-  "nb_lignes_corrigees": 0,
-  "nb_pilier_sortie_produits": 25,
-  "violations": [
-    {
-      "id_question": "Q5",
-      "regle_violee": "V1.1 | V1.2 | V2.1 | V2.2 | V2.3 | V2.4 | V3.1",
-      "severite": "CRITIQUE | DOCTRINALE | OBSERVATION",
-      "details": "<observation>",
-      "evidence_verbatim": "<extrait du verbatim>",
-      "action_recommandee": "<correction suggérée>"
-    }
-  ],
-  "corrections_a_appliquer": [
-    {
-      "id_question": "Q5",
-      "champ": "pilier_coeur_analyse | pilier_sortie | conforme_ecart | ecart_detail | signal_limbique",
-      "valeur_actuelle": "<valeur actuelle>",
-      "valeur_corrigee": "<nouvelle valeur>",
-      "type": "V1.1 | V1.2 | V2.1 | V2.2 | V2.3 | V2.4 | V3.1 | PRODUCTION",
-      "raison": "<phrase courte>"
-    }
-  ],
-  "synthese": "<résumé en 2-3 phrases>"
-}
-
-═══════════════════════════════════════════════════════════════════════════
-RÈGLES DE REMPLISSAGE
-═══════════════════════════════════════════════════════════════════════════
-
-- corrections_a_appliquer contient TOUS les patches à appliquer : violations corrigées
-  (V1.x, V2.x, V3.x) + production de pilier_sortie pour les 25 lignes.
-- nb_lignes_corrigees = nombre de lignes T1 distinctes dont au moins un champ a été
-  corrigé (hors production seule de pilier_sortie).
-- nb_pilier_sortie_produits = nombre de lignes pour lesquelles pilier_sortie a été
-  calculé (idéalement 25).
-
-VERDICT GLOBAL :
-- CONFORME : aucune violation, uniquement production de pilier_sortie
-- FLAG_OBSERVATIONS : seulement violations OBSERVATION (V3.1) — corrigées
-- CORRECTION REQUISE : violations DOCTRINALE détectées et corrigées
-- BLOQUANT — CORRECTION REQUISE : violations CRITIQUE détectées (corrigées si possible, sinon flagguées)
-  `.trim();
-}
 
 module.exports = {
   runCertificateurT1,
-  buildCertificateurInstruction,
   buildPatchPlan
 };
