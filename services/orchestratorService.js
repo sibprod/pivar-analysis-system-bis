@@ -6,6 +6,11 @@
 //   - Si verdict BLOQUANT → arrêt du pipeline avec erreur explicite
 //   - Si verdict CORRECTION REQUISE → log warning mais continue (Phase 1)
 //
+// LOT 21 (2026-04-27) — CERTIFICATEUR T1 ACTIF :
+//   - Le certificateur T1 patche désormais ETAPE1_T1 directement (corrections + pilier_sortie)
+//   - Aucune modification de l'orchestrateur nécessaire : le certificateur écrit lui-même
+//     dans ETAPE1_T1 via airtableService.patchEtape1T1Rows
+//
 // Pipeline :
 //   T1 → T1_CERTIFICATEUR → T2 → T3 → [T4-Architecture, T4-Circuits, T4-Mode, T4-Transverses en parallèle]
 //      → T4-Synthèse → T4-Coûts → Certificateur lexique
@@ -104,6 +109,9 @@ async function processCandidate(session_id) {
     });
 
     // ─── 3.5 Pipeline : T1 CERTIFICATEUR (DOCTRINE Pilier 6) ⭐ LOT 17 ──────
+    // ⭐ LOT 21 : le certificateur T1 patche directement ETAPE1_T1 (corrections + pilier_sortie).
+    // On lui passe les rows fraîchement écrites par T1 ; il ira chercher leurs airtable_id
+    // depuis Airtable lui-même (re-lecture interne) pour le PATCH.
     await backupService.save(candidat_id, 'before_t1_certificateur', {
       lignes_a_verifier: t1Result.rows.length
     });
@@ -113,13 +121,15 @@ async function processCandidate(session_id) {
     });
     trackUsage(usages, costs, t1CertResult);
     await backupService.save(candidat_id, 'after_t1_certificateur', {
-      verdict:    t1CertResult.verdict,
-      violations: t1CertResult.violations
+      verdict:        t1CertResult.verdict,
+      violations:     t1CertResult.violations,
+      nb_corrections: (t1CertResult.corrections || []).length
     });
     logger.info('✅ T1 Certificateur done', {
       candidat_id,
       verdict:           t1CertResult.verdict,
       nb_violations:     t1CertResult.violations.length,
+      nb_corrections:    (t1CertResult.corrections || []).length,
       cost:              t1CertResult.cost.toFixed(4)
     });
 
@@ -137,8 +147,8 @@ async function processCandidate(session_id) {
         candidat_id,
         doctrinale_violations: t1CertResult.violations.filter(v => v.severite === 'DOCTRINALE').length
       });
-      // À ce stade, on continue mais on remonte le flag pour décision Isabelle
-      // En Lot 18, on ajoutera une boucle de reprise automatique sur lignes flaggées
+      // Les corrections ont été appliquées sur ETAPE1_T1 par le certificateur lui-même (Lot 21).
+      // En Lot 22, on pourra ajouter une boucle de reprise automatique sur lignes flaggées.
     }
 
     // ─── 4. Pipeline : T2 ─────────────────────────────────────────────────────
@@ -247,6 +257,7 @@ async function processCandidate(session_id) {
       totalCostUsd:       totalCostUsd.toFixed(4),
       t1_cert_verdict:    t1CertResult.verdict,
       t1_cert_violations: t1CertResult.violations.length,
+      t1_cert_corrections: (t1CertResult.corrections || []).length,
       certif_statut:      certifResult.report.statut_global,
       certif_violations:  certifResult.report.nb_violations_total
     });
