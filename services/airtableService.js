@@ -31,12 +31,6 @@ function getBase() {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ─── Nom de la table CERTIFICATEUR_T1 (⭐ LOT 17) ──────────────────────────
-// Si la config airtable.js ne définit pas cette table, on utilise le nom par défaut.
-const TABLE_CERTIFICATEUR_T1 = (airtableConfig.TABLES && airtableConfig.TABLES.CERTIFICATEUR_T1)
-  ? airtableConfig.TABLES.CERTIFICATEUR_T1
-  : 'CERTIFICATEUR_T1';
-
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS — nettoyage et normalisation
 // ═══════════════════════════════════════════════════════════════════════════
@@ -421,97 +415,6 @@ async function upsertEtape1T4Bilan(candidat_id, fields) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CERTIFICATEUR_T1 — Traçabilité des vérifications T1 ⭐ LOT 17
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Écrit un rapport du Certificateur T1 dans la table CERTIFICATEUR_T1.
- * Pattern : append-only — chaque exécution crée une nouvelle ligne (historique).
- *
- * @param {Object} params
- * @param {string} params.candidat_id
- * @param {string} params.verdict_global - "CONFORME" | "FLAG_OBSERVATIONS" | "CORRECTION REQUISE" | "BLOQUANT — CORRECTION REQUISE"
- * @param {number} params.nb_lignes_verifiees
- * @param {number} params.nb_violations_total
- * @param {number} params.nb_critique
- * @param {number} params.nb_doctrinale
- * @param {number} params.nb_observation
- * @param {string} params.violations_json - JSON sérialisé des violations
- * @param {string} params.cost_usd
- * @param {number} params.elapsed_ms
- * @param {string} params.timestamp - ISO 8601
- */
-async function writeCertificateurT1({
-  candidat_id,
-  verdict_global,
-  nb_lignes_verifiees,
-  nb_violations_total,
-  nb_critique,
-  nb_doctrinale,
-  nb_observation,
-  violations_json,
-  cost_usd,
-  elapsed_ms,
-  timestamp
-}) {
-  try {
-    await getBase()(TABLE_CERTIFICATEUR_T1).create([
-      {
-        fields: cleanFields({
-          candidat_id,
-          verdict_global,
-          nb_lignes_verifiees,
-          nb_violations_total,
-          nb_critique,
-          nb_doctrinale,
-          nb_observation,
-          violations_json,
-          cost_usd,
-          elapsed_ms,
-          timestamp
-        })
-      }
-    ], { typecast: true });
-
-    logger.info('CERTIFICATEUR_T1 written', {
-      candidat_id,
-      verdict_global,
-      nb_violations_total
-    });
-  } catch (error) {
-    logger.error('Failed to write CERTIFICATEUR_T1', {
-      candidat_id,
-      error: error.message,
-      table: TABLE_CERTIFICATEUR_T1
-    });
-    throw error;
-  }
-}
-
-/**
- * Récupère l'historique des certifications T1 d'un candidat
- * (utile pour debug ou affichage UI)
- */
-async function getCertificateurT1History(candidat_id) {
-  try {
-    const records = await getBase()(TABLE_CERTIFICATEUR_T1)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'timestamp', direction: 'desc' }]
-      })
-      .all();
-
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get CERTIFICATEUR_T1 history', {
-      candidat_id,
-      error: error.message
-    });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // REFERENTIEL_LEXIQUE — 15 termes doctrinaux
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -667,10 +570,6 @@ module.exports = {
   // ETAPE1_T4_BILAN
   getEtape1T4Bilan,
   upsertEtape1T4Bilan,
-
-  // CERTIFICATEUR_T1 ⭐ LOT 17
-  writeCertificateurT1,
-  getCertificateurT1History,
 
   // REFERENTIEL_LEXIQUE
   getReferentielLexique,
