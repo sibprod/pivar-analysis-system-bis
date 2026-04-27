@@ -29,6 +29,25 @@ function classifyError(error) {
     statusCode = parseInt(statusMatch[1]);
   }
 
+  // ⭐ LOT 21-bis — ERREUR PERMANENTE PRIORITAIRE :
+  // Quand max_tokens est dépassé, l'API Claude renvoie un message tronqué
+  // (stop_reason: max_tokens) sans bloc texte. claudeService lève alors
+  // "no text content found". Retry est INUTILE ET COÛTEUX : le même prompt
+  // produira la même troncature. → On stoppe immédiatement le pipeline.
+  if (
+    errorMessage.includes('no text content') ||
+    errorMessage.includes('stop_reason: max_tokens') ||
+    errorMessage.includes('max_tokens dépassé')
+  ) {
+    return {
+      isTemporary: false,
+      errorType: 'output_truncated',
+      shouldRetry: false,
+      reason: 'max_tokens dépassé — texte tronqué par l\'API. Retry inutile, le prompt doit être réduit.',
+      action: 'Diagnostic prompt requis — réduire la taille du prompt ou désactiver le thinking'
+    };
+  }
+
   // ERREURS PERMANENTES (4XX - Erreurs client)
 
   if (statusCode === 400) {
