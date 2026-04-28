@@ -1,0 +1,31 @@
+{
+  "name": "pivar-analysis-system-bis",
+  "version": "10.0.0",
+  "description": "Système d'analyse Profil-Cognitif v10.0 — Architecture multi-étapes (Étape 1 + futures Étapes 2/3) avec orchestrateur principal + sous-orchestrateurs par étape + vérificateurs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "airtable": "^0.12.2",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "resend": "^3.2.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "eslint": "^8.55.0"
+  },
+  "homepage": "https://pivar-analysis-system-bis.onrender.com"
+}
