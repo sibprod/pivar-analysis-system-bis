@@ -1,10 +1,21 @@
 // server.js
-// Profil-Cognitif v9.0 — Web Service Render
+// Profil-Cognitif v10.0 — Web Service Render
+//
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
 // Express qui :
 //   - expose les endpoints HTTP via routes/index.js
-//   - démarre le polling de queueService
+//   - démarre le polling de queueService (60s — Décision n°30)
+//   - démarre le polling de validationHumaineService (Décision n°16)
+//   - démarre le polling de notificationCandidatService (Décision n°33)
 //   - gère le graceful shutdown (SIGTERM/SIGINT)
+//
+// PHASE D (2026-04-28) — v10 :
+//   - Chemins require mis à jour vers nouvelle architecture (Décision n°27)
+//   - Polling default : 300000ms (5min) → 60000ms (1min) — Décision n°30
+//   - RESEND_API_KEY + SUPERVISOR_EMAIL ajoutés en warning si manquants
+//   - Démarrage validationHumaineService.startPolling()
+//   - Démarrage notificationCandidatService.startPolling() (cron horaire)
 
 'use strict';
 
@@ -14,16 +25,18 @@ const express      = require('express');
 const cors         = require('cors');
 const bodyParser   = require('body-parser');
 
-const logger        = require('./utils/logger');
-const routes        = require('./routes');
-const queueService  = require('./services/queueService');
+const logger                      = require('./utils/logger');
+const routes                      = require('./routes');
+const queueService                = require('./services/flux/queueService');                     // ⭐ v10
+const validationHumaineService    = require('./services/flux/validationHumaineService');         // ⭐ v10
+const notificationCandidatService = require('./services/flux/notificationCandidatService');      // ⭐ v10
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── VERSION ──────────────────────────────────────────────────────────────────
 const APP_NAME    = 'Profil-Cognitif Analysis System';
-const APP_VERSION = require('./package.json').version;  // 9.0.0
+const APP_VERSION = require('./package.json').version;  // 10.0.0
 
 // ─── MIDDLEWARES ──────────────────────────────────────────────────────────────
 app.use(cors({
@@ -91,23 +104,52 @@ const server = app.listen(PORT, () => {
     nodeVersion: process.version
   });
 
-  // Vérifier la config minimale
+  // ─── Vérifier la config minimale ───────────────────────────────────────
   const requiredEnv = ['CLAUDE_API_KEY', 'AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID'];
   const missing = requiredEnv.filter(k => !process.env[k]);
 
   if (missing.length > 0) {
-    logger.error('Missing environment variables', { missing });
+    logger.error('Missing required environment variables', { missing });
     logger.warn('Service started but cannot function without these vars');
   } else {
-    logger.info('Configuration OK');
+    logger.info('Required configuration OK');
   }
 
-  // Démarrer le polling si activé
+  // ─── ⭐ v10 : Vérifier les vars Resend (optionnelles mais recommandées) ─
+  const optionalEnv = ['RESEND_API_KEY', 'SUPERVISOR_EMAIL'];
+  const missingOptional = optionalEnv.filter(k => !process.env[k]);
+
+  if (missingOptional.length > 0) {
+    logger.warn('Missing optional environment variables (emails will be skipped)', {
+      missing: missingOptional
+    });
+  } else {
+    logger.info('Optional Resend configuration OK', {
+      supervisor_email: process.env.SUPERVISOR_EMAIL
+    });
+  }
+
+  // ─── Démarrer les pollings ────────────────────────────────────────────
   if (process.env.ENABLE_POLLING !== 'false') {
-    const intervalMs = parseInt(process.env.POLLING_INTERVAL) || 300000;
+    // ⭐ v10 : default polling = 60s (Décision n°30)
+    const intervalMs = parseInt(process.env.POLLING_INTERVAL) || 60000;
     queueService.startPolling(intervalMs);
-    logger.info('Starting polling service', {
-      intervalMinutes: (intervalMs / 60000).toFixed(1)
+    logger.info('Queue polling started', {
+      intervalSec: (intervalMs / 1000).toFixed(0)
+    });
+
+    // ⭐ v10 : Démarrage validation humaine polling (60s par défaut)
+    const validationIntervalMs = parseInt(process.env.VALIDATION_POLLING_INTERVAL) || 60000;
+    validationHumaineService.startPolling(validationIntervalMs);
+    logger.info('Validation humaine polling started', {
+      intervalSec: (validationIntervalMs / 1000).toFixed(0)
+    });
+
+    // ⭐ v10 : Démarrage notification candidat polling (60min par défaut)
+    const notifIntervalMs = parseInt(process.env.NOTIFICATION_POLLING_INTERVAL) || 3600000;
+    notificationCandidatService.startPolling(notifIntervalMs);
+    logger.info('Notification candidat polling started', {
+      intervalMin: (notifIntervalMs / 60000).toFixed(0)
     });
   }
 });
@@ -124,11 +166,23 @@ function gracefulShutdown(signal) {
 
   logger.info(`${signal} received — graceful shutdown starting`);
 
-  // Arrêter le polling
+  // Arrêter tous les pollings (v10 : 3 services au lieu de 1)
   try {
     queueService.stopPolling();
   } catch (e) {
-    logger.error('Error stopping polling', { error: e.message });
+    logger.error('Error stopping queue polling', { error: e.message });
+  }
+
+  try {
+    validationHumaineService.stopPolling();
+  } catch (e) {
+    logger.error('Error stopping validation humaine polling', { error: e.message });
+  }
+
+  try {
+    notificationCandidatService.stopPolling();
+  } catch (e) {
+    logger.error('Error stopping notification candidat polling', { error: e.message });
   }
 
   server.close(() => {
@@ -158,7 +212,6 @@ process.on('uncaughtException', (error) => {
     error: error.message,
     stack: error.stack?.substring(0, 500)
   });
-  // Force exit après uncaught exception (état potentiellement corrompu)
   setTimeout(() => process.exit(1), 1000);
 });
 

@@ -1,16 +1,24 @@
 // config/airtable.js
-// Configuration Airtable v9.0 — Pipeline Profil-Cognitif Étape 1
+// Configuration Airtable v10.0 — Pipeline Profil-Cognitif Étape 1
 //
-// Architecture :
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// Architecture multi-étapes (Décision n°26) :
 //   - VISITEUR, RESPONSES (existantes, intactes)
 //   - QUESTIONS PIVAR SCENARIO (référentiel, lecture seule)
-//   - BILAN (ancienne, conservée pour Étape 2/3 futures)
-//   - ETAPE1_T1, ETAPE1_T2, ETAPE1_T3, ETAPE1_T4_BILAN (nouvelles)
+//   - ETAPE1_T1, ETAPE1_T2, ETAPE1_T3, ETAPE1_T4_BILAN (Étape 1 active)
+//   - VERIFICATEUR_T1 (audit du vérificateur — Décision n°10)
 //   - REFERENTIEL_LEXIQUE (15 termes doctrinaux, lue par tous les agents)
+//   - BILAN (ancienne, conservée pour Étape 2/3 futures)
 //
-// LOT 21 (2026-04-27) — AJOUT MINIMAL :
-//   - ETAPE1_T1_FIELDS : ajout du champ `corrections_certificateur` (long text)
-//     rempli par le certificateur T1 quand il patche une ligne (trace de ses corrections)
+// PHASE D (2026-04-28) — v10 :
+//   - Décision n°5 : `pilier_sortie` ABANDONNÉ (retiré de ETAPE1_T1_FIELDS et ALLOWED_VALUES)
+//   - Décision n°10 : `corrections_certificateur` → `corrections_verificateur`
+//   - Décision n°10 : ajout table VERIFICATEUR_T1 + VERIFICATEUR_T1_FIELDS
+//   - Décision n°16 : ajout champs `validation_humaine_*` + `nombre_tentatives_etape1` dans VISITEUR
+//   - Décision n°33 : ajout 6 champs emails (`email_*_envoye`, `date_T0`)
+//   - Décision n°10 : ajout 2 champs backups vérificateur dans VISITEUR
+//   - Statuts élargis : EN_ATTENTE_VALIDATION_HUMAINE, REPRENDRE_AGENT1, REPRENDRE_VERIFICATEUR1
 
 'use strict';
 
@@ -18,66 +26,91 @@ module.exports = {
   BASE_ID: process.env.AIRTABLE_BASE_ID,
   TOKEN:   process.env.AIRTABLE_TOKEN,
 
-  // ─── TABLES ────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TABLES
+  // ═══════════════════════════════════════════════════════════════════════════
   TABLES: {
-    // Anciennes — conservées intactes
+    // ─── Anciennes — conservées intactes ───────────────────────────────────
     VISITEUR:           'VISITEUR',
-    QUESTIONS_SCENARIO: 'QUESTIONS PIVAR SCENARIO',  // référentiel 25 questions
-    RESPONSES:          'RESPONSES',                  // réponses brutes (frontend) — lecture seule pour pipeline v9
-    BILAN:              'BILAN',                      // ancien bilan, champs Étape 2/3 vides pour l'instant
+    QUESTIONS_SCENARIO: 'questions_pivar_scenario',
+    RESPONSES:          'RESPONSES',
+    BILAN:              'BILAN',
 
-    // Nouvelles — pipeline v9
-    ETAPE1_T1:          'ETAPE1_T1',                  // analyse pilier-cœur (25 lignes/candidat)
-    ETAPE1_T2:          'ETAPE1_T2',                  // synthèse par question (25 lignes/candidat)
-    ETAPE1_T3:          'ETAPE1_T3',                  // analyse pilier × circuit (75 lignes/candidat)
-    ETAPE1_T4_BILAN:    'ETAPE1_T4_BILAN',            // bilan final (1 ligne/candidat)
-    REFERENTIEL_LEXIQUE: 'REFERENTIEL_LEXIQUE'        // 15 termes doctrinaux
+    // ─── Étape 1 — Pipeline d'analyse ──────────────────────────────────────
+    ETAPE1_T1:           'ETAPE1_T1',
+    VERIFICATEUR_T1:     'VERIFICATEUR_T1',     // ⭐ v10 — audit du vérificateur (Décision n°10)
+    ETAPE1_T2:           'ETAPE1_T2',
+    ETAPE1_T3:           'ETAPE1_T3',
+    ETAPE1_T4_BILAN:     'ETAPE1_T4_BILAN',
+
+    // ─── Référentiels stables ──────────────────────────────────────────────
+    REFERENTIEL_LEXIQUE:   'REFERENTIEL_LEXIQUE',
+    REFERENTIEL_PILIERS:   'REFERENTIEL_PILIERS',
+    REFERENTIEL_PROFILS:   'REFERENTIEL_PROFILS',
+    REFERENTIEL_CIRCUITS:  'REFERENTIEL_CIRCUITS'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // VISITEUR — suivi candidat (inchangé v8 → v9)
+  // VISITEUR — suivi candidat
   // ═══════════════════════════════════════════════════════════════════════════
   VISITEUR_FIELDS: {
     candidate_ID:               'candidate_ID',
     Prenom:                     'Prenom',
     Nom:                        'Nom',
     Email:                      'Email',
+    civilite_candidat:          'civilite_candidat',  // anonymisation : seule la civilité est transmise aux agents
     statut_test:                'statut_test',
     derniere_question_repondue: 'derniere_question_repondue',
-    statut_analyse_pivar:       'statut_analyse_pivar',  // Conservé tel quel (D2 actée)
+    statut_analyse_pivar:       'statut_analyse_pivar',
     erreur_analyse:             'erreur_analyse',
     derniere_activite:          'derniere_activite',
 
-    // Backups par scénario (conservés)
+    // ─── Backups par scénario (conservés) ──────────────────────────────────
     backup_sommeil:             'backup_sommeil',
     backup_weekend:             'backup_weekend',
     backup_animal:              'backup_animal',
     backup_panne:               'backup_panne',
 
-    // Backups pipeline v9 (nouveaux noms — adaptés aux 9 agents)
-    backup_before_t1:           'backup_before_t1',
-    backup_after_t1:            'backup_after_t1',
-    backup_before_t2:           'backup_before_t2',
-    backup_after_t2:            'backup_after_t2',
-    backup_before_t3:           'backup_before_t3',
-    backup_after_t3:            'backup_after_t3',
-    backup_before_t4_parallel:  'backup_before_t4_parallel',
-    backup_after_t4_parallel:   'backup_after_t4_parallel',
-    backup_before_t4_synthese:  'backup_before_t4_synthese',
-    backup_after_t4_synthese:   'backup_after_t4_synthese',
-    backup_before_t4_couts:     'backup_before_t4_couts',
-    backup_after_t4_couts:      'backup_after_t4_couts',
-    backup_before_certif:       'backup_before_certif',
-    backup_after_certif:        'backup_after_certif',
-    backup_error:               'backup_error',
+    // ─── Backups pipeline Étape 1 ──────────────────────────────────────────
+    backup_before_t1:               'backup_before_t1',
+    backup_after_t1:                'backup_after_t1',
+    backup_before_t1_verificateur:  'backup_before_t1_verificateur',  // ⭐ v10 (Décision n°10)
+    backup_after_t1_verificateur:   'backup_after_t1_verificateur',   // ⭐ v10 (Décision n°10)
+    backup_before_t2:               'backup_before_t2',
+    backup_after_t2:                'backup_after_t2',
+    backup_before_t3:               'backup_before_t3',
+    backup_after_t3:                'backup_after_t3',
+    backup_before_t4_parallel:      'backup_before_t4_parallel',
+    backup_after_t4_parallel:       'backup_after_t4_parallel',
+    backup_before_t4_synthese:      'backup_before_t4_synthese',
+    backup_after_t4_synthese:       'backup_after_t4_synthese',
+    backup_before_t4_couts:         'backup_before_t4_couts',
+    backup_after_t4_couts:          'backup_after_t4_couts',
+    backup_before_certif:           'backup_before_certif',
+    backup_after_certif:            'backup_after_certif',
+    backup_error:                   'backup_error',
 
-    // Anonymisation — seule la civilité est transmise aux agents
-    civilite_candidat:          'civilite_candidat'
+    // ─── Tentatives Mode 4 (Décision n°24) ─────────────────────────────────
+    nombre_tentatives_etape1:       'nombre_tentatives_etape1',
+
+    // ─── Validation humaine Mode 3 (Décision n°16) ─────────────────────────
+    validation_humaine_action:      'validation_humaine_action',
+    validation_humaine_motif:       'validation_humaine_motif',
+    validation_humaine_date:        'validation_humaine_date',
+    validation_humaine_etape1:      'validation_humaine_etape1',  // formula concaténée pour polling
+
+    // ─── Communication candidat asynchrone (Décision n°33) ─────────────────
+    date_T0:                        'date_T0',
+    email_T0_envoye:                'email_T0_envoye',
+    email_24h_envoye:               'email_24h_envoye',
+    email_48h_envoye:               'email_48h_envoye',
+    email_72h_envoye:               'email_72h_envoye',
+    email_livraison_envoye:         'email_livraison_envoye'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RESPONSES — réponses brutes du candidat (frontend)
-  // ⚠ LECTURE SEULE pour le pipeline v9 (D7 actée)
+  // ⚠ LECTURE SEULE pour le pipeline (D7 actée)
   // ═══════════════════════════════════════════════════════════════════════════
   RESPONSES_FIELDS: {
     session_ID:     'session_ID',
@@ -92,13 +125,16 @@ module.exports = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ETAPE1_T1 — Analyse brute des 25 réponses (23 colonnes — Lot 21)
-  // Écrit par : Agent T1
-  // Patché par : Agent T1 Certificateur (corrections + pilier_sortie + corrections_certificateur)
+  // ETAPE1_T1 — Analyse brute des 25 réponses
+  // Écrit par : Agent T1 (5 appels par scénario)
+  // Patché par : Agent T1 Vérificateur (Mode 2 = corrections directes)
   // Volume : 25 lignes par candidat
+  //
+  // ⚠️ v10 : champ `pilier_sortie` ABANDONNÉ (Décision n°5 — D-A)
+  //         champ `corrections_certificateur` RENOMMÉ en `corrections_verificateur` (Décision n°10)
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T1_FIELDS: {
-    // Identité (8)
+    // ─── Identité (8) ──────────────────────────────────────────────────────
     candidat_id:             'candidat_id',
     id_question:             'id_question',
     question_id_protocole:   'question_id_protocole',
@@ -108,10 +144,10 @@ module.exports = {
     storytelling:            'storytelling',
     transition:              'transition',
 
-    // Réponse brute (1)
+    // ─── Réponse brute (1) ─────────────────────────────────────────────────
     verbatim_candidat:       'verbatim_candidat',
 
-    // Analyse cognitive (13)
+    // ─── Analyse cognitive (12 — pilier_sortie retiré en v10) ──────────────
     v1_conforme:                    'v1_conforme',
     v2_traite_problematique:        'v2_traite_problematique',
     verbes_observes:                'verbes_observes',
@@ -119,34 +155,47 @@ module.exports = {
     pilier_coeur_analyse:           'pilier_coeur_analyse',
     types_verbatim:                 'types_verbatim',
     piliers_secondaires:            'piliers_secondaires',
-    pilier_sortie:                  'pilier_sortie',
     finalite_reponse:               'finalite_reponse',
     attribution_pilier_signal_brut: 'attribution_pilier_signal_brut',
     conforme_ecart:                 'conforme_ecart',
     ecart_detail:                   'ecart_detail',
     signal_limbique:                'signal_limbique',
 
-    // Raisonnement verbalisé (1) — LOT 17 (Pilier 3 doctrine)
+    // ─── Raisonnement verbalisé (1) — Pilier 3 doctrine ────────────────────
     raisonnement:                   'raisonnement',
 
-    // Trace certificateur (1) — LOT 21
-    corrections_certificateur:      'corrections_certificateur'
+    // ─── Trace vérificateur (1) — Décision n°10 ───────────────────────────
+    corrections_verificateur:       'corrections_verificateur'
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VERIFICATEUR_T1 — Audit du vérificateur T1 (11 colonnes)
+  // ⭐ v10 — Nouvelle table (Décision n°10)
+  // Écrit par : Agent T1 Vérificateur (1 ligne par exécution)
+  // ═══════════════════════════════════════════════════════════════════════════
+  VERIFICATEUR_T1_FIELDS: {
+    candidat_id:             'candidat_id',
+    verdict_global:          'verdict_global',
+    nb_lignes_verifiees:     'nb_lignes_verifiees',
+    nb_violations_total:     'nb_violations_total',
+    nb_critique:             'nb_critique',
+    nb_doctrinale:           'nb_doctrinale',
+    nb_observation:          'nb_observation',
+    violations_json:         'violations_json',
+    cost_usd:                'cost_usd',
+    elapsed_ms:              'elapsed_ms',
+    timestamp:               'timestamp'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ETAPE1_T2 — Synthèse par question (15 colonnes)
-  // Écrit par : Agent T2
-  // Volume : 25 lignes par candidat
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T2_FIELDS: {
-    // Identité (5)
     candidat_id:           'candidat_id',
     id_question:           'id_question',
     question_id_protocole: 'question_id_protocole',
     scenario:              'scenario',
     pilier_demande:        'pilier_demande',
-
-    // Synthèse (10)
     pilier_coeur:                'pilier_coeur',
     conforme_ecart:              'conforme_ecart',
     sequence_piliers:            'sequence_piliers',
@@ -160,37 +209,28 @@ module.exports = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ETAPE1_T3 — Analyse pilier × circuit (15 colonnes, version v4)
-  // Écrit par : Agent T3
-  // Volume : 75 lignes par candidat (5 piliers × 15 circuits)
+  // ETAPE1_T3 — Analyse pilier × circuit (15 colonnes)
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_FIELDS: {
-    // Identité (4)
     candidat_id:               'candidat_id',
     pilier:                    'pilier',
     role_pilier:               'role_pilier',
     nb_circuits_actifs_pilier: 'nb_circuits_actifs_pilier',
-
-    // Circuit (5)
-    circuit_id:        'circuit_id',
-    circuit_nom:       'circuit_nom',
-    frequence:         'frequence',
-    niveau_activation: 'niveau_activation',
-    actif:             'actif',
-
-    // Analyse v4 (6)
-    types_verbatim_detail:    'types_verbatim_detail',
-    activations_franches:     'activations_franches',
-    activations_nuancees:     'activations_nuancees',
-    clusters_identifies:      'clusters_identifies',
-    commentaire_attribution:  'commentaire_attribution',
-    type_contenu:             'type_contenu'
+    circuit_id:                'circuit_id',
+    circuit_nom:               'circuit_nom',
+    frequence:                 'frequence',
+    niveau_activation:         'niveau_activation',
+    actif:                     'actif',
+    types_verbatim_detail:     'types_verbatim_detail',
+    activations_franches:      'activations_franches',
+    activations_nuancees:      'activations_nuancees',
+    clusters_identifies:       'clusters_identifies',
+    commentaire_attribution:   'commentaire_attribution',
+    type_contenu:              'type_contenu'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ETAPE1_T4_BILAN — Bilan final (66 colonnes)
-  // Écrit par : 6 agents T4 + certificateur
-  // Volume : 1 ligne par candidat
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T4_BILAN_FIELDS: {
     // Identité (3)
@@ -210,46 +250,21 @@ module.exports = {
     b_lexique_html: 'b_lexique_html',
 
     // Sections P1 à P5 — par pilier (Agents 1, 2, 3) — 7 colonnes × 5 piliers = 35
-    // Pilier 1
-    p1_entete:           'p1_entete',
-    p1_pourquoi_role:    'p1_pourquoi_role',
-    p1_circuits_lab:     'p1_circuits_lab',
-    p1_circuits_cand:    'p1_circuits_cand',
-    p1_mode_lab:         'p1_mode_lab',
-    p1_mode_cand:        'p1_mode_cand',
-    p1_commentaires_t3:  'p1_commentaires_t3',
-    // Pilier 2
-    p2_entete:           'p2_entete',
-    p2_pourquoi_role:    'p2_pourquoi_role',
-    p2_circuits_lab:     'p2_circuits_lab',
-    p2_circuits_cand:    'p2_circuits_cand',
-    p2_mode_lab:         'p2_mode_lab',
-    p2_mode_cand:        'p2_mode_cand',
-    p2_commentaires_t3:  'p2_commentaires_t3',
-    // Pilier 3
-    p3_entete:           'p3_entete',
-    p3_pourquoi_role:    'p3_pourquoi_role',
-    p3_circuits_lab:     'p3_circuits_lab',
-    p3_circuits_cand:    'p3_circuits_cand',
-    p3_mode_lab:         'p3_mode_lab',
-    p3_mode_cand:        'p3_mode_cand',
-    p3_commentaires_t3:  'p3_commentaires_t3',
-    // Pilier 4
-    p4_entete:           'p4_entete',
-    p4_pourquoi_role:    'p4_pourquoi_role',
-    p4_circuits_lab:     'p4_circuits_lab',
-    p4_circuits_cand:    'p4_circuits_cand',
-    p4_mode_lab:         'p4_mode_lab',
-    p4_mode_cand:        'p4_mode_cand',
-    p4_commentaires_t3:  'p4_commentaires_t3',
-    // Pilier 5
-    p5_entete:           'p5_entete',
-    p5_pourquoi_role:    'p5_pourquoi_role',
-    p5_circuits_lab:     'p5_circuits_lab',
-    p5_circuits_cand:    'p5_circuits_cand',
-    p5_mode_lab:         'p5_mode_lab',
-    p5_mode_cand:        'p5_mode_cand',
-    p5_commentaires_t3:  'p5_commentaires_t3',
+    p1_entete: 'p1_entete', p1_pourquoi_role: 'p1_pourquoi_role', p1_circuits_lab: 'p1_circuits_lab',
+    p1_circuits_cand: 'p1_circuits_cand', p1_mode_lab: 'p1_mode_lab', p1_mode_cand: 'p1_mode_cand',
+    p1_commentaires_t3: 'p1_commentaires_t3',
+    p2_entete: 'p2_entete', p2_pourquoi_role: 'p2_pourquoi_role', p2_circuits_lab: 'p2_circuits_lab',
+    p2_circuits_cand: 'p2_circuits_cand', p2_mode_lab: 'p2_mode_lab', p2_mode_cand: 'p2_mode_cand',
+    p2_commentaires_t3: 'p2_commentaires_t3',
+    p3_entete: 'p3_entete', p3_pourquoi_role: 'p3_pourquoi_role', p3_circuits_lab: 'p3_circuits_lab',
+    p3_circuits_cand: 'p3_circuits_cand', p3_mode_lab: 'p3_mode_lab', p3_mode_cand: 'p3_mode_cand',
+    p3_commentaires_t3: 'p3_commentaires_t3',
+    p4_entete: 'p4_entete', p4_pourquoi_role: 'p4_pourquoi_role', p4_circuits_lab: 'p4_circuits_lab',
+    p4_circuits_cand: 'p4_circuits_cand', p4_mode_lab: 'p4_mode_lab', p4_mode_cand: 'p4_mode_cand',
+    p4_commentaires_t3: 'p4_commentaires_t3',
+    p5_entete: 'p5_entete', p5_pourquoi_role: 'p5_pourquoi_role', p5_circuits_lab: 'p5_circuits_lab',
+    p5_circuits_cand: 'p5_circuits_cand', p5_mode_lab: 'p5_mode_lab', p5_mode_cand: 'p5_mode_cand',
+    p5_commentaires_t3: 'p5_commentaires_t3',
 
     // Section D — Synthèse cœur (Agent 4) + Coûts/clôture (Agent 5) — 10
     d1_filtre_lab:    'd1_filtre_lab',
@@ -283,32 +298,17 @@ module.exports = {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REFERENTIEL_LEXIQUE — 15 termes doctrinaux (9 colonnes)
-  // Lue par : tous les agents (injection dynamique) + certificateur
   // ═══════════════════════════════════════════════════════════════════════════
   REFERENTIEL_LEXIQUE_FIELDS: {
-    id:                         'id',                          // L01 à L15
-    terme:                      'terme',                       // « Pilier socle », « Filtre cognitif »...
-    definition:                 'definition',                  // Mot pour mot, non-négociable
-    ordre_affichage:            'ordre_affichage',             // 1 à 15
-    categorie:                  'categorie',                   // fondateur/hierarchie/description/signature/analyse
-    forme_grammaticale:         'forme_grammaticale',          // Optionnel
-    precision_semantique:       'precision_semantique',        // Optionnel
-    termes_interdits_associes:  'termes_interdits_associes',   // Optionnel
-    exemple_cecile:             'exemple_cecile'               // Optionnel
-  },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BILAN — ancienne table conservée (D3 actée)
-  // Champs Étape 2 et Étape 3 conservés vides pour l'instant
-  // ⚠ LECTURE SEULE pour le pipeline v9 (le bilan v9 va dans ETAPE1_T4_BILAN)
-  // ═══════════════════════════════════════════════════════════════════════════
-  BILAN_FIELDS: {
-    bilan_ID:   'bilan_ID',
-    session_ID: 'session_ID',
-    // Les 100+ champs anciens sont conservés tels quels mais pas listés ici
-    // car non utilisés par le pipeline v9.
-    // Ils seront documentés et utilisés quand l'Étape 2 et l'Étape 3
-    // seront implémentées.
+    id:                         'id',
+    terme:                      'terme',
+    definition:                 'definition',
+    ordre_affichage:            'ordre_affichage',
+    categorie:                  'categorie',
+    forme_grammaticale:         'forme_grammaticale',
+    precision_semantique:       'precision_semantique',
+    termes_interdits_associes:  'termes_interdits_associes',
+    exemple_cecile:             'exemple_cecile'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -317,16 +317,32 @@ module.exports = {
   ALLOWED_VALUES: {
     // VISITEUR
     statut_test:             ['en_cours', 'terminé'],
-    statut_analyse_pivar:    ['NOUVEAU', 'en_cours', 'terminé', 'ERREUR'],
+    statut_analyse_pivar:    [
+      'NOUVEAU',
+      'en_cours',
+      'EN_ATTENTE_VALIDATION_HUMAINE',  // ⭐ v10 (Décision n°16)
+      'REPRENDRE_AGENT1',                // ⭐ v10 (Décisions n°16, n°24)
+      'REPRENDRE_VERIFICATEUR1',         // ⭐ v10 (Décision n°16)
+      'terminé',
+      'ERREUR'
+    ],
+    validation_humaine_action: [          // ⭐ v10 (Décision n°16)
+      'RELANCER_AGENT_T1',
+      'RELANCER_VERIFICATEUR_T1',
+      'ACCEPTER_TEL_QUEL',
+      'ABANDONNER'
+    ],
 
-    // ETAPE1_T1 / RESPONSES
+    // ETAPE1_T1 / RESPONSES (pilier_sortie retiré — Décision n°5)
     pilier:                  ['P1', 'P2', 'P3', 'P4', 'P5'],
     scenario_nom:            ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'],
     scenario:                ['SOMMEIL', 'WEEKEND', 'ANIMAL', 'PANNE'],
     pilier_demande:          ['P1', 'P2', 'P3', 'P4', 'P5'],
     pilier_coeur_analyse:    ['P1', 'P2', 'P3', 'P4', 'P5'],
-    pilier_sortie:           ['P1', 'P2', 'P3', 'P4', 'P5'],
     conforme_ecart:          ['CONFORME', 'ECART'],
+
+    // VERIFICATEUR_T1
+    verdict_global:          ['CONFORME', 'CORRECTION_REQUISE', 'BLOQUANT', 'INDETERMINE'],
 
     // ETAPE1_T2
     pilier_coeur:            ['P1', 'P2', 'P3', 'P4', 'P5'],

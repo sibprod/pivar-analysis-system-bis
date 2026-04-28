@@ -1,35 +1,38 @@
 // routes/index.js
-// Routes HTTP — Profil-Cognitif v9.0
+// Routes HTTP — Profil-Cognitif v10.0
+//
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
 // Endpoints :
-//   GET  /health                                    — health check (défini dans server.js)
-//   POST /webhook                                   — trigger principal Airtable
-//   POST /analyze/:session_id                       — analyse synchrone
-//   GET  /status/:session_id                        — statut analyse en cours
-//   GET  /api/queue/status                          — état queue interne
-//   POST /api/recover-from-backup/:session_id       — reprise depuis backup
+//   GET  /health                                     — health check (défini dans server.js)
+//   POST /webhook                                    — trigger principal Airtable
+//   POST /analyze/:session_id                        — analyse synchrone
+//   GET  /status/:session_id                         — statut analyse en cours (enrichi v10)
+//   GET  /api/queue/status                           — état queue interne
+//   POST /api/recover-from-backup/:session_id        — reprise depuis backup
+//   POST /api/retry-missing/:session_id              — legacy v8 (renvoie 410, gardé Décision D-C)
+//   GET  /debug/airtable                             — diagnostic permissions
 //
-// Endpoint legacy retiré (v9) :
-//   POST /api/retry-missing/:session_id             — n'a plus de sens dans le pipeline 9 agents
+// PHASE D (2026-04-28) — v10 :
+//   - Chemins require mis à jour vers nouvelle architecture (Décision n°27)
+//   - /status enrichi : nombre_tentatives_etape1, validation_humaine, emails_candidat (Décisions n°16, n°24, n°33)
+//   - Alias statut_analyse_pivar gardé (Décision D-B — interne, pas exposé externe)
+//   - Endpoint legacy /api/retry-missing gardé en 410 (Décision D-C — pierre tombale propre)
 
 'use strict';
 
 const express              = require('express');
 const router               = express.Router();
-const orchestratorService  = require('../services/orchestratorService');
-const queueService         = require('../services/queueService');
-const airtableService      = require('../services/airtableService');
-const backupService        = require('../services/backupService');
+const orchestratorPrincipal = require('../services/orchestrators/orchestratorPrincipal');  // ⭐ v10
+const queueService         = require('../services/flux/queueService');                      // ⭐ v10
+const airtableService      = require('../services/infrastructure/airtableService');         // ⭐ v10
+const backupService        = require('../services/infrastructure/backupService');           // ⭐ v10
 const logger               = require('../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /webhook — TRIGGER ASYNC depuis Airtable
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Trigger principal depuis Airtable Automation.
- * Met le candidat en queue et retourne 202 immédiatement (Airtable a un timeout court).
- */
 router.post('/webhook', async (req, res) => {
   const { session_id, candidate_id, priority } = req.body || {};
   const id = session_id || candidate_id;
@@ -64,7 +67,7 @@ router.post('/analyze/:session_id', async (req, res) => {
   const { session_id } = req.params;
 
   try {
-    const result = await orchestratorService.processCandidate(session_id);
+    const result = await orchestratorPrincipal.processCandidate(session_id);
     return res.json({ success: true, ...result });
   } catch (error) {
     logger.error('Analyze error', { session_id, error: error.message });
@@ -77,7 +80,7 @@ router.post('/analyze/:session_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /status/:session_id — STATUT D'UN CANDIDAT
+// GET /status/:session_id — STATUT D'UN CANDIDAT (enrichi v10)
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/status/:session_id', async (req, res) => {
@@ -94,14 +97,35 @@ router.get('/status/:session_id', async (req, res) => {
     return res.json({
       session_id,
       statut_test:           visiteur.statut_test,
-      statut_analyse_pivar:  visiteur.statut_analyse_pivar,  // alias rétrocompat
-      statut_analyse:        visiteur.statut_analyse_pivar,  // nouveau nom
+      statut_analyse_pivar:  visiteur.statut_analyse_pivar,  // alias rétrocompat (Décision D-B)
+      statut_analyse:        visiteur.statut_analyse_pivar,
       derniere_activite:     visiteur.derniere_activite,
       erreur_analyse:        visiteur.erreur_analyse,
+
+      // ⭐ v10 — Tentatives Mode 4 (Décision n°24)
+      nombre_tentatives_etape1: visiteur.nombre_tentatives_etape1 || 0,
+
+      // ⭐ v10 — Validation humaine (Décision n°16)
+      validation_humaine: visiteur.validation_humaine_action ? {
+        action: visiteur.validation_humaine_action,
+        motif:  visiteur.validation_humaine_motif,
+        date:   visiteur.validation_humaine_date
+      } : null,
+
+      // ⭐ v10 — Communication candidat (Décision n°33)
+      emails_candidat: {
+        date_T0:           visiteur.date_T0 || null,
+        T0_envoye:         !!visiteur.email_T0_envoye,
+        H24_envoye:        !!visiteur.email_24h_envoye,
+        H48_envoye:        !!visiteur.email_48h_envoye,
+        H72_envoye:        !!visiteur.email_72h_envoye,
+        livraison_envoye:  !!visiteur.email_livraison_envoye
+      },
+
       bilan: t4Bilan ? {
-        statut_bilan:        t4Bilan.statut_bilan,
-        certifie:            t4Bilan.statut_bilan === 'certifie',
-        has_audit_certif:    !!t4Bilan.audit_certificateur
+        statut_bilan:      t4Bilan.statut_bilan,
+        certifie:          t4Bilan.statut_bilan === 'certifie',
+        has_audit_certif:  !!t4Bilan.audit_certificateur
       } : null
     });
   } catch (error) {
@@ -141,7 +165,6 @@ router.post('/api/recover-from-backup/:session_id', async (req, res) => {
       });
     }
 
-    // Mettre en queue pour reprise (asynchrone)
     queueService.addToQueue(session_id, 'HIGH');
 
     return res.status(202).json({
@@ -157,7 +180,7 @@ router.post('/api/recover-from-backup/:session_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// POST /api/retry-missing/:session_id — LEGACY v8, retiré en v9
+// POST /api/retry-missing/:session_id — LEGACY v8, retiré en v9 (Décision D-C : gardé en 410)
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.post('/api/retry-missing/:session_id', (req, res) => {
@@ -168,8 +191,7 @@ router.post('/api/retry-missing/:session_id', (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /debug/airtable — DIAGNOSTIC permissions Airtable (Lot 12)
-// Teste l'accès à chaque table v9 et retourne ce qui marche / ce qui plante.
+// GET /debug/airtable — DIAGNOSTIC permissions Airtable
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/debug/airtable', async (req, res) => {
@@ -180,8 +202,6 @@ router.get('/debug/airtable', async (req, res) => {
     .base(process.env.AIRTABLE_BASE_ID);
 
   const results = {};
-
-  // Liste des tables à tester (clé interne → nom Airtable)
   const tables = airtableConfig.TABLES;
 
   for (const [internalKey, tableName] of Object.entries(tables)) {
@@ -191,14 +211,14 @@ router.get('/debug/airtable', async (req, res) => {
         .firstPage();
 
       results[internalKey] = {
-        tableName: tableName,
+        tableName,
         ok: true,
         rowsRead: records.length,
         firstRecordId: records[0]?.id || null
       };
     } catch (error) {
       results[internalKey] = {
-        tableName: tableName,
+        tableName,
         ok: false,
         error: error.message,
         statusCode: error.statusCode || null
