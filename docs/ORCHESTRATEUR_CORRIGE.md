@@ -1,1749 +1,1027 @@
-# CONTRAT FONDATEUR — ÉTAPE 1 DU PROTOCOLE PROFIL-COGNITIF
+# ORCHESTRATEUR — PIPELINE DE PRODUCTION DES BILANS
+## Script opérationnel · Projet Profil-Cognitif · Version 1.1 · 24 avril 2026
 
-**Version 1.7 · 28 avril 2026 · Sib Prod / Profil-Cognitif**
-**Auteur : Isabelle Chenais (doctrine) + Claude (rédaction technique)**
+**L'orchestrateur coordonne les 6 agents et assemble le bilan HTML final.**
 
----
-
-## INTENTION DU DOCUMENT
-
-Ce document est le **contrat fondateur** de l'Étape 1 du protocole d'analyse cognitive.
-
-Il décrit ce que l'Étape 1 doit produire, dans quel format, avec quels guards, et comment elle se reprend en cas d'échec. Il est **autonome** : aucun humain ne supervise l'exécution en temps réel — mais le pipeline peut **solliciter une validation humaine asynchrone** dans des cas pathologiques précisément définis (voir Section 17).
-
-Il ne décrit ni la doctrine d'analyse (qui est dans la table `REFERENTIEL_PILIERS` d'Airtable et la v36), ni le détail des prompts (qui sont dans `etape1_t1.txt` et `verificateur_t1.txt`), ni le code (qui est dans `agentT1Service.js` et `agentT1VerificateurService.js`). Il décrit le **contrat** que ces éléments doivent honorer ensemble.
-
-Tout fichier produit pour l'Étape 1 doit être traçable à ce contrat. Toute correction technique doit être justifiée par une clause de ce contrat.
+Il est le **point d'entrée unique** pour produire un bilan candidat : reçoit un `candidat_id` en entrée, lance les 6 agents dans le bon ordre, récupère leurs productions, les assemble selon la structure globale (Template #15), et renseigne la ligne Airtable correspondante.
 
 ---
 
-## JOURNAL DE VERSION
+## ⛔ DOCTRINE DE PRODUCTION — INTERDICTION DE REFORMULATION LEXIQUE
 
-### v1.7 — 28 avril 2026 (architecture extensible multi-étapes + robustesse + communication candidat)
+**L'orchestrateur est le garant de la cohérence lexicale du pipeline.**
 
-Modifications par rapport à v1.6 :
+Il ne produit pas lui-même de contenu cognitif, mais il **garantit** que :
 
-- **9 nouvelles décisions actées** (n°26 à n°34) :
-  - n°26 : Architecture orchestrateur principal + sous-orchestrateurs par étape
-  - n°27 : Structure des dossiers GitHub par étape (`etape1/`, `etape2/`, `etape3/`)
-  - n°28 : Pattern de nommage `verificateur{niveau}_t{X}` lié à l'agent vérifié
-  - n°29 : Pas de promesse de délai garanti, robustesse garantie
-  - n°30 : Polling agressif (60 secondes au lieu de 5 minutes)
-  - n°31 : Capacité serveur connue et documentée (10-12 candidats/jour sur Render Starter)
-  - n°32 : Vérificateur existant ⇔ vérificateur exécuté (présence du fichier prompt = doctrine)
-  - n°33 : Communication candidat asynchrone (emails T0, +24h, +48h, +72h)
-  - n°34 : Délai d'engagement client : bilan livré sous 72h max
-- **Section 19 nouvelle** : Architecture cible (orchestrateur principal + sous-orchestrateurs par étape)
-- **Section 20 nouvelle** : Structure des dossiers GitHub (étape par étape)
-- **Section 21 nouvelle** : Tableau d'impact des modifications (carte des dépendances)
-- **Section 22 nouvelle** : Protocole de travail "fichier par fichier"
-- **Section 23 nouvelle** : Capacité, délais et engagements client
-- **Section 24 nouvelle** : Communication candidat asynchrone (templates emails)
+1. Les **15 termes du lexique** du protocole (`REFERENTIEL_LEXIQUE_BILAN.md`) s'appliquent **mot pour mot** dans toutes les sorties des agents
+2. Aucun agent n'a le droit de reformuler, paraphraser, ou adapter une définition
+3. Les **termes interdits** (cylindre 4/5, pilier nécessaire au moteur, ETAPE1_T4_MOTEUR) sont bannis
+4. Les **règles grammaticales** du lexique sont respectées (filtre = verbe à l'infinitif, finalité = résultat observable, nom complet des piliers)
 
-### v1.6 — 28 avril 2026 (format d'attribution chaîné avec pilier coeur en MAJUSCULE)
+**Rôle de l'orchestrateur dans cette doctrine** :
+- Il log les sorties de chaque agent dans les champs `audit_agentX` d'Airtable
+- Le certificateur (post-production) peut détecter les violations de lexique et remonter l'erreur
+- Si un agent viole le lexique, sa production est rejetée et relancée
 
-Modifications par rapport à v1.5 :
-
-- **Décision n°25 ajoutée** : Nouveau format du champ `attribution_pilier_signal_brut`. Le format reflète désormais la **séquence narrative effective** du verbatim (autant de piliers que parcourus, dans l'ordre littéral, avec retours possibles au même pilier). Le **pilier coeur est noté en MAJUSCULE** pour visibilité immédiate, les piliers secondaires en minuscule. Séparateur unique `+`. Verdict final après double espace : `Conforme`, `Conforme (incarne PX)` pour incarnation par un pilier non parcouru, ou `ÉCART`. Ce format remplace les anciennes formes `PX · PY + PZ Conforme` et `PX → PY Conforme`. [Section 3.4 enrichie + Section 14]
-- **Section 3.4 enrichie** : nouveau format détaillé avec exemples.
-- **Note sur le champ `verbes_angles_piliers`** : il garde son format narratif `verbe → reformulation (PX)` inchangé. La distinction MAJUSCULE/minuscule n'apparaît QUE dans `attribution_pilier_signal_brut`.
-
-### v1.5 — 28 avril 2026 (healthcheck global + logique de tentatives Mode 4)
-
-Modifications par rapport à v1.4 :
-
-- **Décision n°23 ajoutée** : Healthcheck global préalable de tous les services techniques (Airtable, Claude API, Resend) à chaque cycle de polling Render, AVANT toute tentative de démarrage de pipeline. Si un service est KO, le pipeline est en pause silencieuse, le candidat ne change pas de statut, et un email d'alerte technique est envoyé au superviseur (avec anti-spam : 1 email max par jour). Lorsque le service revient, le polling suivant détecte que tout est OK et démarre normalement. Pas de tokens API gaspillés. [Section 6.4 nouvelle]
-- **Décision n°24 ajoutée** : Logique de tentatives sur Mode 4 (erreur système). Tentative 1 = exécution normale. Si Mode 4 → email superviseur + reprise auto T1 (tentative 2). Si Mode 4 à nouveau → statut `ERREUR` définitif, intervention humaine obligatoire (tentative 3+). Compteur géré dans le champ `nombre_tentatives_etape1` de VISITEUR. Reset à 0 quand T1 réussit. Reprise complète T1 = supprimer les lignes ETAPE1_T1 existantes du candidat + relancer les 5 appels. [Section 4.4 enrichie + Section 6.4]
-- **Section 4.4 enrichie** : Mode 4 détaillé avec les 3 cas (A, B, C) selon le moment de l'erreur, et la logique de tentatives.
-- **Section 6.4 nouvelle** : Healthcheck global préalable et son comportement.
-- **Champ Airtable créé dans VISITEUR** : `nombre_tentatives_etape1` (number, précision 0).
-- **Section 18 mise à jour** : ajout de la note sur le service `healthcheckService.js` à créer en Phase E.
-
-### v1.4 — 28 avril 2026 (doctrine d'analyse des piliers — pilier coeur unique, piliers secondaires ≠ coeur)
-
-Modifications par rapport à v1.3 :
-
-- **Décision n°19 ajoutée** : Pilier coeur identifié par la **profondeur de compétence cognitive déployée** par le candidat (savoir-faire mobilisé), pas par le volume. Volume et précision sont des indicateurs indirects, pas des critères premiers. [Section 5.5 nouvelle]
-- **Décision n°20 ajoutée** : **Un seul pilier est activé à la fois** dans une réponse. Les piliers s'enchaînent dans une **séquence narrative** au fil du verbatim. Pas d'activation parallèle. [Section 5.5]
-- **Décision n°21 ajoutée** : **Pilier coeur unique** par réponse. **Piliers secondaires** = uniquement les piliers ≠ pilier coeur, avec leur **position narrative** (en amont du coeur OU en aval du coeur). Pas d'autre position narrative capturée en Étape 1. **Cas vide légitime** : si le verbatim reste dans le pilier coeur du début à la fin, le champ `piliers_secondaires` est vide. [Section 5.5 et Section 3.8 nouvelles]
-- **Décision n°22 ajoutée** : **Lecture des `pieges_avertissements` systématique** (avant ET après attribution), pas conditionnelle à la détection d'une "ambiguïté" subjective. Les pièges sont un passage obligé du raisonnement, pas un filet de secours optionnel. [Section 3.8]
-- **Section 3.8 nouvelle** : Doctrine d'identification du pilier coeur et des piliers secondaires (mode opératoire concret pour T1).
-- **Section 5.5 nouvelle** : Doctrine d'analyse des piliers dans une réponse (transverse au protocole : séquence, profondeur, position narrative).
-- **Note importante** : le terme "piliers secondaires" est conservé pour l'Étape 1. Le terme "piliers structurants" sera utilisé dans les étapes ultérieures (T3, T4) pour désigner la même chose dans un contexte d'attribution de signature cognitive.
-
-### v1.3 — 28 avril 2026 (workflow de validation humaine + tolérance pilier_coeur)
-
-Modifications par rapport à v1.2 :
-
-- **Décision n°13 ajoutée** : Traitement individuel exclusif (un candidat à la fois, jamais de comparaison ni traitement parallèle). [Section 14]
-- **Décision n°14 ajoutée** : Tolérance pilier_coeur dans résultat final = 0 idéal, 1 toléré. [Section 14]
-- **Décision n°15 ajoutée** : Architecture du vérificateur T1 en 4 modes (correction ponctuelle / relance d'agent / validation humaine / erreur système). [Section 4 réécrite]
-- **Décision n°16 ajoutée** : Workflow de validation humaine via Airtable + Resend → `sibprod@live.fr`. [Nouvelle Section 17]
-- **Décision n°17 ajoutée** : Forme courte de `pilier_coeur_analyse` confirmée (`P3 · description`, sans le nom officiel accolé). [Section 3.4 corrigée + Section 14]
-- **Décision n°18 ajoutée** : Tolérance globale 90% sur le résultat final (hors pilier_coeur qui est plus strict). [Section 14]
-- **Section 4 réécrite** : architecture en 4 modes du vérificateur T1.
-- **Section 12 mise à jour** : ajout du statut `EN_ATTENTE_VALIDATION_HUMAINE`.
-- **Nouvelle Section 17** : Workflow de validation humaine asynchrone.
-- **Nouvelle Section 18** : Chantiers futurs identifiés (génération HTML dynamique pour toutes les étapes).
-
-### v1.2 — 28 avril 2026 (précision doctrinale signal_limbique)
-
-- Doctrine `signal_limbique` corrigée : zone périphérique cognitive captée. [Section 4.3 Catégorie D et Section 5.4]
-- Décision doctrinale n°12 ajoutée : périmètre du profil cognitif et fonction métier du `signal_limbique`. [Section 14]
-
-### v1.1 — 28 avril 2026 (après audit Airtable)
-
-- Renommage `CERTIFICATEUR_T1` → `VERIFICATEUR_T1`. [Section 4]
-- Doctrine de nommage des piliers : codes internes vs noms officiels. [Section 5 et 14]
-- Architecture d'injection des référentiels : lecture Airtable au démarrage, injection dans le payload. [Section 6]
-- Garde-fou d'intégrité référentielle : avant tout appel agent. [Section 7]
-- Distinction backups vs points de reprise : clarification structurelle. [Section 8]
-
-### v1.0 — 28 avril 2026 (contrat initial)
-
-Première rédaction du contrat fondateur. 7 décisions doctrinales actées.
+**En cas de divergence entre un prompt agent et le `REFERENTIEL_LEXIQUE_BILAN.md`, c'est le référentiel qui prime.**
 
 ---
 
-## 1. DÉCLENCHEUR
+## 1. RÔLE ET MISSION
 
-L'Étape 1 démarre quand le polling Render trouve un candidat dans la table `VISITEUR` avec `statut_analyse_pivar` ∈ { `NOUVEAU`, `REPRENDRE_AGENT1`, `REPRENDRE_VERIFICATEUR1` }.
+L'orchestrateur est un **script Python** (pas un prompt LLM) qui :
 
-Le pipeline lit immédiatement, depuis la ligne `VISITEUR` du candidat :
-
-| Champ Airtable | Usage |
-|---|---|
-| `candidate_ID` | Identifiant technique unique du candidat |
-| `Prenom` | **Usage interne uniquement** — logs, fichiers de backup, email superviseur. Jamais transmis aux agents Claude |
-| `civilite_candidat` | Transmise aux agents pour les accords féminin/masculin (`Madame` / `Monsieur`) |
-| `statut_analyse_pivar` | Détermine l'étape de départ (voir Section 12) |
-
-Le pipeline passe alors `statut_analyse_pivar = en_cours`.
-
-**Règle d'isolation (Décision n°13)** : à tout moment, le pipeline ne traite **qu'un seul candidat**. Aucune lecture, transmission ou utilisation des données d'autres candidats. Pas de comparaison, pas de batch multi-candidats. Cette règle s'applique à toutes les étapes (T1, vérificateur T1, T2, T3, T4) et à tous les agents.
+1. **Lit** les données du candidat depuis Airtable (T1, T2, T3 v4, T4)
+2. **Prépare** les données d'entrée pour chaque agent (payloads JSON)
+3. **Appelle** les 6 agents dans l'ordre de dépendance
+4. **Récupère** leurs sorties JSON
+5. **Écrit** les 66 colonnes de la table `ETAPE1_T4_BILAN`
+6. **Assemble** le bilan HTML complet dans la colonne `bilan_html_complet`
+7. **Déclenche** le certificateur en fin de production
 
 ---
 
-## 2. MISSION DE L'ÉTAPE 1
+## 2. ARCHITECTURE D'EXÉCUTION
 
-L'Étape 1 produit **25 lignes d'analyse cognitive** dans la table `ETAPE1_T1`, une par question répondue par le candidat.
-
-Ces 25 lignes sont la **fondation** de toutes les étapes suivantes (T2, T3, T4). Elles doivent être **complètes**, **conformes au format de référence** (`ETAPE1_T1rempli` + références v3 fournies par Isabelle) et **doctrinalement justes**.
-
-L'Étape 1 se compose de **2 sous-étapes** :
-
-1. **T1 — Analyse cognitive** : un agent analyste lit les 25 réponses brutes et produit les 25 lignes d'analyse
-2. **Vérificateur T1 — Vérification correctrice** : un agent vérificateur relit les 25 lignes T1, identifie les erreurs doctrinales, **corrige directement dans Airtable** OU **demande la relance d'un agent défaillant** OU **sollicite une validation humaine asynchrone**
-
-**À la sortie de l'Étape 1, les 25 lignes ETAPE1_T1 sont prêtes à être lues par T2.** Pas avant.
-
----
-
-## 3. SOUS-ÉTAPE T1 — ANALYSE COGNITIVE
-
-### 3.1 Ce que T1 reçoit en entrée
-
-Depuis la table `RESPONSES` filtrée sur le `candidate_ID` du candidat : **25 lignes**.
-
-**Champs RESPONSES lus par T1 (et seulement ceux-là) :**
-
-| Champ RESPONSES | Description |
-|---|---|
-| `id_question` | Identifiant unique au format `PXQy` (ex : `P1Q2`, `P2Q15`, `P3Q5`) |
-| `numero_global` | Position dans le test (1 à 25) |
-| `pilier` | Pilier ciblé par la question (`P1` à `P5`) |
-| `scenario_nom` | `SOMMEIL`, `WEEKEND`, `ANIMAL` ou `PANNE` |
-| `question_text` | Le texte de la question posée au candidat |
-| `response_text` | Le verbatim brut de la réponse du candidat |
-| `storytelling_general (from question _lien)` | Contexte narratif (lookup) |
-| `transition_narrative (from question _lien)` | Phrase de transition (lookup) |
-
-**Note importante — RESPONSES legacy :**
-La table RESPONSES contient également 80+ champs d'analyse hérités d'anciennes architectures. **Ces champs ne sont PAS lus par le pipeline actuel.** Ils sont conservés en l'état et seront nettoyés ultérieurement. Le pipeline les ignore.
-
-**Ce que T1 reçoit ÉGALEMENT (injecté par l'orchestrateur) :**
-
-| Donnée injectée | Source | Usage |
-|---|---|---|
-| `civilite` | `VISITEUR.civilite_candidat` | Accords grammaticaux dans les sorties |
-| `referentiel_piliers` | Table `REFERENTIEL_PILIERS` (5 enregistrements) | Doctrine d'analyse complète (voir Section 6) |
-
-### 3.2 Ce que T1 produit en sortie
-
-**25 lignes** dans la table `ETAPE1_T1`, chacune avec **22 colonnes métier** au format strictement identique aux références v3 (Cécile, Rémi, Véronique), **plus 2 colonnes techniques de traçabilité**.
-
-#### Tableau des 22 colonnes métier obligatoires
-
-| Colonne | Format attendu | Type Airtable | Source |
-|---|---|---|---|
-| `candidat_id` | `pcc_xxxxxxxxx` | multilineText | RESPONSES.candidate_ID |
-| `id_question` | **`P1Q2`, `P2Q15`...** (recopié tel quel depuis RESPONSES) | singleSelect | RESPONSES.id_question |
-| `question_id_protocole` | Identique à `id_question` | singleSelect | RESPONSES.id_question |
-| `scenario` | `SOMMEIL` / `WEEKEND` / `ANIMAL` / `PANNE` | singleSelect | RESPONSES.scenario_nom |
-| `pilier_demande` | `P1` à `P5` | singleSelect | RESPONSES.pilier |
-| `question_texte` | Texte de la question | multilineText | RESPONSES.question_text |
-| `storytelling` | Contexte narratif | multilineText | RESPONSES.storytelling_general |
-| `transition` | Phrase de transition | multilineText | RESPONSES.transition_narrative |
-| `verbatim_candidat` | Verbatim brut | multilineText | RESPONSES.response_text |
-| `v1_conforme` | `OUI` ou `NON` | singleSelect | Analyse |
-| `v2_traite_problematique` | `OUI` ou `NON` | singleSelect | Analyse |
-| `verbes_observes` | Liste de verbes principaux du verbatim | multilineText | Analyse |
-| `verbes_angles_piliers` | **Format narratif** : `verbe → reformulation courte du geste cognitif (PX) verbe → reformulation (PY)...` | multilineText | Analyse |
-| `pilier_coeur_analyse` | **Format court (Décision n°17)** : `PX · description du geste cognitif central` | multilineText | Analyse |
-| `types_verbatim` | `PX · type de geste "citation verbatim" PY · autre type "autre citation"...` | multilineText | Analyse |
-| `piliers_secondaires` | `PX description courte. PY description courte.` | multilineText | Analyse |
-| `pilier_sortie` | **Toujours vide** (champ abandonné) | multilineText | — |
-| `finalite_reponse` | Phrase courte + citation explicite si présente | multilineText | Analyse |
-| `attribution_pilier_signal_brut` | Format chaîné MAJUSCULE/minuscule (voir Section 3.4) — exemples : `P3  Conforme` / `p1 + P3 + p5  Conforme` / `p3 + P5  ÉCART` / `p1 + P3 + p5  Conforme (incarne P2)` | multilineText | Analyse |
-| `conforme_ecart` | `CONFORME` ou `ÉCART` | singleSelect | Analyse |
-| `ecart_detail` | Vide si CONFORME, sinon nature de l'écart en 1 phrase | multilineText | Analyse |
-| `signal_limbique` | Vide si pas de signal détecté, sinon `émotion détectée · "citation verbatim"` | multilineText | Analyse — voir Section 4.3 Catégorie D pour la doctrine complète |
-
-#### Colonnes techniques additionnelles (traçabilité)
-
-| Colonne | Type Airtable | Usage |
-|---|---|---|
-| `raisonnement` | multilineText | Verbalized reasoning de l'agent T1 (objet JSON sérialisé) — pour audit et debug |
-| `corrections_certificateur` | multilineText | Trace des corrections appliquées par le vérificateur T1 — pour audit |
-
-#### Action structurelle requise sur Airtable (uniformisation)
-
-La table `ETAPE1_T1` doit être mise à jour pour aligner les types de champs sur la référence `ETAPE1_T1rempli` :
-
-| Champ | Type actuel | Type cible |
-|---|---|---|
-| `id_question` | multilineText | singleSelect (avec choix `P1Q1`...`P5Q15`) |
-| `scenario` | multilineText | singleSelect (`SOMMEIL`, `WEEKEND`, `ANIMAL`, `PANNE`) |
-| `pilier_demande` | multilineText | singleSelect (`P1`, `P2`, `P3`, `P4`, `P5`) |
-| `v1_conforme` | multilineText | singleSelect (`OUI`, `NON`) |
-| `v2_traite_problematique` | multilineText | singleSelect (`OUI`, `NON`) |
-| `conforme_ecart` | multilineText | singleSelect (`CONFORME`, `ÉCART`) |
-
-Cette uniformisation est **non négociable** : elle garantit que l'agent ne peut pas écrire de valeur invalide dans un champ contraint.
-
-### 3.3 Format `verbes_angles_piliers` — clarification doctrinale
-
-**Format narratif** lisible par un humain et par une IA. Pas de format à scores. Pas de cases cochées dans le champ de sortie.
-
-**Format attendu :**
-```
-regarder → consulter des sources internet (P1) s'orienter → sélectionner selon critère de fiabilité (P1) mettre en place → tester empiriquement (P5)
-```
-
-Les grilles à cases cochées peuvent rester un **outil de raisonnement interne** de l'agent (dans son thinking), mais **ne figurent jamais dans le champ `verbes_angles_piliers` de la sortie**.
-
-### 3.4 Format `pilier_coeur_analyse` — décision n°17 (forme courte)
-
-**Format obligatoire :**
-```
-PX · description du geste cognitif central
-```
-
-**Exemples (depuis références v3 Cécile/Rémi/Véronique) :**
-```
-P1 · collecte hiérarchisée par catégories de sources (scientifique → médical → psychologique → alternatif)
-P3 · théorisation analytique sur le rapport symptôme/cause enfouie
-P5 · cadrage exécutif et délégation décisionnelle
-```
-
-**Important** : la forme longue avec nom officiel (`P1 (Collecte d'information) · ...`) reste valable pour les **bilans publiés** (Étape 4) destinés au candidat ou au DRH. Mais dans `pilier_coeur_analyse` qui est un champ analytique technique, la **forme courte** est utilisée — c'est ce que les références v3 ont validé.
-
-Voir Section 5 pour la doctrine transverse de nommage des piliers.
-
-### 3.4bis Format `attribution_pilier_signal_brut` — décision n°25 (séquence narrative MAJUSCULE/minuscule)
-
-**Principe** : le champ reflète la **séquence narrative effective** du verbatim. Autant de piliers que de piliers parcourus dans l'ordre littéral, avec retours possibles au même pilier si la candidate y revient. Le pilier coeur est noté en **MAJUSCULE** pour visibilité immédiate, les piliers secondaires en **minuscule**.
-
-**Format obligatoire** :
-```
-piliers_séparés_par_des_+  Verdict
-```
-
-- **Piliers en minuscule** (`p1`, `p2`, `p3`, `p4`, `p5`) = piliers traversés en secondaires (≠ pilier coeur)
-- **Pilier coeur en MAJUSCULE** (`P1` à `P5`) = visible d'un coup d'œil dans la chaîne
-- Séparateur = ` + ` (espace, plus, espace)
-- Verdict final après **double espace** : `Conforme`, `ÉCART`, ou `Conforme (incarne PX)` quand le pilier demandé n'apparaît pas dans la séquence mais est incarné cognitivement
-
-**Tableau des cas et exemples** :
-
-| Cas | Format | Exemple concret |
-|---|---|---|
-| Verbatim monolithique sur le coeur (= pilier_demande) | `PX  Conforme` | `P3  Conforme` (verbatim entièrement P3 sur question P3) |
-| Coeur = demandé, séquence avec secondaires | `pilier(s) + COEUR + pilier(s)  Conforme` | `p1 + P3 + p5  Conforme` (passe par P1 collecte, déploie en P3, sort en P5) |
-| Coeur ≠ demandé mais incarne la problématique | `... PX ...  Conforme (incarne PY)` | `p1 + P3 + p5  Conforme (incarne P2)` (question P2, coeur P3 qui traite quand même P2) |
-| Coeur ≠ demandé, dérive sans incarnation | `... PX ...  ÉCART` | `p3 + P5 + p1  ÉCART` (question P3, dérive vers P5 sans analyse) |
-| Retour au même pilier en cours de séquence | `pX + pY + pX + COEUR  Verdict` | `p1 + p2 + p1 + P3  Conforme` (collecte → tri → retour collecte → analyse coeur) |
-
-**Règles de formatage absolues** :
-- Toujours **un seul** pilier en MAJUSCULE par chaîne (le coeur unique, Décision n°21)
-- Si verbatim monolithique : la chaîne ne contient que le pilier coeur en MAJUSCULE, sans `+`
-- Le verdict est précédé de **DEUX espaces** pour séparation visuelle
-- Le verdict est exactement `Conforme`, `ÉCART` ou `Conforme (incarne PX)` (pas d'autres formulations)
-
-**Note sur la cohérence avec `piliers_secondaires`** : les piliers minuscules dans `attribution_pilier_signal_brut` correspondent exactement aux piliers présents dans `piliers_secondaires` (Section 3.8.2 — uniquement piliers ≠ coeur, position en amont OU en aval du coeur). Si `piliers_secondaires` est vide (cas monolithique), `attribution_pilier_signal_brut` ne contient que le coeur en MAJUSCULE.
-
-### 3.5 Calibrage technique T1
-
-L'agent T1 traite les 25 questions en **5 appels distincts**, un par scénario, pour respecter le plafond de 64 000 tokens output de Claude Sonnet 4.6 :
-
-| Appel | Scénario | Questions | Volume |
-|---|---|---|---|
-| 1 | SOMMEIL | 5 | Marge confortable |
-| 2 | WEEKEND | 5 | Marge confortable |
-| 3 | ANIMAL_1 | 5 (numero_global 11-15) | Marge confortable |
-| 4 | ANIMAL_2 | 5 (numero_global 16-20) | Marge confortable |
-| 5 | PANNE | 5 | Marge confortable |
-
-**Thinking : ON** (analyse cognitive nécessite raisonnement structuré).
-
-**`max_tokens` : 64 000** par appel (plafond Sonnet 4.6 synchrone).
-
-**Format de sortie attendu : JSON strict dès la première ligne**, sans prose préalable, sans markdown, sans tableau de raisonnement avant le JSON.
-
-### 3.6 Garde-fous T1 (guards)
-
-| Guard | Condition d'échec | Action |
-|---|---|---|
-| Guard T1.0 | Référentiel piliers incomplet ou corrompu (Section 7) | Statut ERREUR + arrêt avant toute exécution |
-| Guard T1.1 | Une réponse RESPONSES manquante (count < 25) | Statut ERREUR + arrêt |
-| Guard T1.2 | Un scénario produit moins de lignes que prévu | Statut ERREUR + arrêt |
-| Guard T1.3 | Total final ≠ 25 lignes | Statut ERREUR + arrêt |
-| Guard T1.4 | Format JSON invalide | Retry une fois max, puis statut ERREUR |
-| Guard T1.5 | Une valeur écrite dans un champ singleSelect n'existe pas | Erreur Airtable, statut ERREUR |
-
-### 3.7 Écriture Airtable T1
-
-L'écriture des 25 lignes dans `ETAPE1_T1` se fait **après** que les 5 appels aient tous réussi. Pas pendant. En cas d'échec partiel, rien n'est écrit, et la table `ETAPE1_T1` reste vide pour ce candidat.
-
-Une ligne ETAPE1_T1 est **identifiée de manière unique** par la combinaison `candidat_id + id_question`. Aucune ligne ne doit être dupliquée.
-
-### 3.8 Doctrine d'identification du pilier coeur et des piliers secondaires
-
-Cette section formalise le mode opératoire que T1 doit suivre pour identifier correctement le pilier coeur et les piliers secondaires d'une réponse. Elle complète la Section 5.5 (doctrine transverse) avec les modalités concrètes pour l'Étape 1.
-
-#### 3.8.1 Pilier coeur — un seul pilier par réponse
-
-Le pilier coeur est **unique** dans une réponse. Il correspond au pilier où le candidat **déploie sa compétence cognitive la plus profonde** — son savoir-faire mobilisé.
-
-**Principe sous-jacent** : un candidat qui sait faire et à qui on demande d'expliquer livre spontanément son savoir-faire — sauf chez les candidats laconiques. Le pilier coeur est donc celui sur lequel le candidat **déploie sa compétence** : nuances, conditions, critères, seuils, hypothèses articulées, principes organisateurs, exemples concrets.
-
-**Marqueurs de profondeur de compétence déployée** :
-- Articulations conditionnelles ("si X alors Y, sinon Z")
-- Hiérarchies argumentées ("d'abord A, puis B parallèlement, ensuite éventuellement C")
-- Critères explicites de décision ou de filtrage
-- Principes organisateurs stables énoncés
-- Hypothèses testables avec seuils de révision
-- Exemples concrets qui illustrent le geste
-
-**Indicateurs indirects (pas critères premiers)** : le **volume** (nombre de mots/lignes) et la **précision** sont des indicateurs indirects de la profondeur — pas les critères eux-mêmes. Un candidat peut déployer en 3 phrases en P3 une profondeur supérieure à 5 phrases en P5 d'énumération basique. Le coeur est P3 dans ce cas.
-
-**Tie-break en cas d'égalité réelle de profondeur** :
-1. Le pilier qui structure le sens central de la réponse (l'intention dominante du candidat) gagne
-2. À sens central équivalent, le pilier développé en plus de mots/lignes gagne
-3. À volume égal, le pilier avec plus de précision gagne
-
-**Avertissement** : un verbe isolé en fin de réponse ne fait pas le pilier coeur. Si tout le corps de la réponse développe un pilier X et qu'une phrase de clôture utilise un verbe d'un pilier Y, le pilier coeur reste X.
-
-#### 3.8.2 Piliers secondaires — uniquement piliers ≠ pilier coeur
-
-Les piliers secondaires sont **uniquement les piliers ≠ pilier coeur** présents dans la séquence narrative du verbatim, avec leur **position narrative** par rapport au coeur.
-
-**Position narrative — 2 cas seulement** :
-- **En amont du coeur** : le pilier secondaire intervient AVANT le coeur dans la séquence du verbatim (préparation, déclenchement, contexte)
-- **En aval du coeur** : le pilier secondaire intervient APRÈS le coeur dans la séquence du verbatim (prolongement, clôture, recours)
-
-**Pas de "fin de réponse"** capturée — c'est source d'erreur pour les agents IA qui pourraient confondre une position de clôture avec un changement de pilier. **Pas de "en parallèle"** — un seul pilier est activé à la fois (Section 5.5).
-
-**Cas vide légitime** : si le verbatim reste dans le pilier coeur du début à la fin (déploiement cognitif monolithique sur ce pilier), le champ `piliers_secondaires` est **vide** (chaîne vide `""`). C'est une information cognitive valide qui sera lue plus tard (T3, T4).
-
-**Format obligatoire** :
-```
-PX en amont du coeur — <description courte du rôle>. PY en aval du coeur — <description courte>.
-```
-
-#### 3.8.3 Lecture systématique des `pieges_avertissements`
-
-La lecture des `pieges_avertissements` du `referentiel_piliers` injecté est **systématique**, pas conditionnelle :
-
-1. **Avant attribution** : T1 lit les `pieges_avertissements` du pilier qu'il envisage, pour cadrer son analyse depuis le départ
-2. **Après attribution** : T1 relit les `pieges_avertissements` une seconde fois, pour s'autocorriger si une exclusion s'applique
-
-Cette double lecture transforme les pièges d'un filet de secours optionnel en un **passage obligé du raisonnement**. La notion d'"ambiguïté" est subjective et un agent peu vigilant passerait à côté des pièges — la double lecture systématique élimine cette zone grise.
-
-#### 3.8.4 Exemples doctrinaux pour T1
-
-Le prompt `etape1_t1.txt` (v3.0 et ultérieures) inscrit 4 exemples doctrinaux issus des références v3 d'Isabelle Chenais (Cécile/Rémi/Véronique), couvrant les 4 cas critiques :
-
-| # | Exemple | Source | Ce qu'il enseigne |
-|---|---|---|---|
-| A | Véronique Q17 (P4 demandé / P3 cœur — ÉCART) | tableau1_veronique_v3.html | Diagnostic par exclusion = P3, pas P4 (règle EXCL-P4.B) |
-| B | Cécile Q13 (P2 demandé / P3 cœur — CONFORME par incarnation) | tableau1_cecile_v3.html | Mismatch coeur/demandé peut être CONFORME + cas légitime de `piliers_secondaires` vide |
-| C | Cécile Q8 (P3 demandé / P5 cœur — ÉCART + signal_limbique) | tableau1_cecile_v3.html | ÉCART par délégation + détection signal_limbique légitime |
-| D | Véronique Q15 (P3 demandé / P3 cœur — CONFORME par théorisation) | tableau1_veronique_v3.html | La forme du récit ne disqualifie pas le fond cognitif |
-
----
-
-## 4. SOUS-ÉTAPE VÉRIFICATEUR T1 — VÉRIFICATION CORRECTRICE EN 4 MODES
-
-### 4.1 Renommage de la table
-
-La table autrefois nommée `CERTIFICATEUR_T1` est **renommée en `VERIFICATEUR_T1`** (id technique `tbl3Slcbv2RdvhXlz` inchangé). Renommage effectif depuis le 28/04/2026.
-
-### 4.2 Mission
-
-Le vérificateur T1 est un **second analyste contradictoire**. Il relit les 25 lignes T1 produites par l'analyste et vérifie leur conformité à la doctrine.
-
-**Sa mission n'est PAS de refaire toute l'analyse.** Elle est de **détecter les dérives** et d'agir selon la nature de la défaillance détectée.
-
-**Le vérificateur dispose de 4 modes opérationnels** (Décision n°15) qu'il choisit selon le diagnostic qu'il pose sur les 25 lignes T1.
-
-### 4.3 Les 4 catégories de vérification doctrinale
-
-Quel que soit le mode appliqué, le vérificateur examine systématiquement les 4 catégories suivantes :
-
-**Catégorie A — Cohérence interne mécanique**
-- `v1_conforme = OUI` → `conforme_ecart` doit être `CONFORME`
-- `v1_conforme = NON` → `conforme_ecart` doit être `ÉCART`
-- Si `conforme_ecart = ÉCART` → `ecart_detail` doit être non vide
-- Si `conforme_ecart = CONFORME` → `ecart_detail` doit être vide
-
-**Catégorie B — Justesse doctrinale du `pilier_coeur_analyse`**
-
-Le vérificateur relit le verbatim et vérifie que le pilier_coeur attribué est cohérent avec le geste cognitif réellement déployé. Pièges principaux à attraper (issus du REFERENTIEL_PILIERS) :
-
-- **Filtre crédibilité ≠ P3 cœur** : "j'analyse qui a produit la vidéo" pour vérifier la fiabilité d'une source = P3 au service de P1, le cœur reste P1
-- **Solutions conditionnelles = P4** : "si X alors Y, sinon Z" avec actions différenciées générées par le candidat = P4
-- **Action concrète ≠ P3** : "je consulte un spécialiste", "je m'adapte" = P5
-- **Énumération catégorielle pour soi ≠ P1** : "chat? chien? lapin?" sans destinataire = P3 (auto-classification)
-- **Théorisation au mode normatif ≠ P5** : "il faut que le groupe", "doit être réactif" = P3 méta-théorisation
-- **Diagnostic par exclusion = P3, pas P4** : "si tous besoins assouvis → donc problème médical" = raisonnement diagnostique
-- **Plan pré-construit = P4, pas P1** : "cas de figure imaginé en amont"
-- **Mapping situationnel = P2, pas P5** : "Météo? Parking? Hébergement?" = structuration de rubriques
-
-**Catégorie C — Justesse doctrinale du `conforme_ecart`**
-
-Le vérificateur applique la règle de conformité nuancée :
-- `v1_conforme = OUI` si `pilier_coeur == pilier_demande` OU si la réponse traite la problématique du pilier demandé par incarnation cognitive
-- `v1_conforme = NON` si la candidate dérive, évite ou ne traite pas la problématique
-
-**Catégorie D — Signal limbique (zone périphérique cognitive)**
-
-Le profil cognitif évalue le **COMMENT cognitif** comme objet central. Il s'arrête à cette frontière : il ne se prononce ni sur le **pourquoi** (motivations, valeurs — domaine psychologique), ni sur les émotions en elles-mêmes (domaine affectif).
-
-**MAIS** le profil cognitif inclut la **zone périphérique cognitive** : l'émotionnel et le psychologique détectables dans le verbatim, qui peuvent **perturber l'action cognitive** du candidat. Cette zone périphérique est captée dans `signal_limbique` à l'Étape 1, et **exploitée dans les vigilances en Étape 4**.
-
-**`signal_limbique` capte donc :**
-- Les émotions exprimées (aversion, agacement, lassitude, frustration, fierté, stress, soulagement, irritation, etc.)
-- Les préférences fortes affichées ("je n'aime pas", "je déteste", "ça me coûte")
-- Les effets observables d'une émotion sur le comment cognitif (raccourcissement, blocage, précipitation)
-- Les jugements sur soi ou sur la situation qui colorent l'action
-
-**Format obligatoire :**
-```
-émotion détectée · "citation verbatim qui la révèle"
-```
-
-**`signal_limbique` ne capte PAS :**
-- Une émotion qu'il faut inférer ou interpréter (sans citation verbatim qui la prouve)
-- Une description purement factuelle sans coloration émotionnelle ou psychologique
-- Le comment cognitif lui-même (qui va dans `pilier_coeur_analyse`)
-
-**Reste vide** si le verbatim est purement factuel et ne contient aucune trace émotionnelle ou psychologique observable.
-
-**Fonction métier aval :** le `signal_limbique` alimente directement les **vigilances** produites en Étape 4. C'est un input doctrinal, pas un commentaire informatif.
-
-### 4.4 Les 4 modes opérationnels du vérificateur (Décision n°15)
-
-Après avoir examiné les 25 lignes T1, le vérificateur **diagnostique** la nature de la défaillance et choisit son mode.
-
-#### Étape de diagnostic — distribution des erreurs détectées
-
-Pour chaque scénario (SOMMEIL, WEEKEND, ANIMAL, PANNE), le vérificateur compte les erreurs de pilier_coeur détectées (catégorie B). Le seuil de défaillance d'un agent est : **≥ 3 erreurs sur 5 lignes d'un même scénario** (≥ 60%).
-
-Pour ANIMAL qui contient 10 questions, le seuil reste **≥ 3 erreurs sur les 10 lignes** (les erreurs étant cumulées sur les deux moitiés ANIMAL_1 + ANIMAL_2 puisque c'est le même geste cognitif).
-
-#### MODE 1 — Correction ponctuelle (cas normal)
-
-**Déclencheur :** Aucun scénario n'atteint le seuil de défaillance. Les erreurs sont dispersées (typiquement 0 à 3 sur l'ensemble des 25 lignes).
-
-**Action :**
-- Le vérificateur applique les corrections doctrinales directement dans Airtable (champs `pilier_coeur_analyse`, `conforme_ecart`, `ecart_detail`, `signal_limbique`, `attribution_pilier_signal_brut` selon les catégories A/B/C/D)
-- Trace de chaque correction inscrite dans `corrections_certificateur` de la ligne corrigée
-- Verdict global : `CONFORME` si 0 correction, `CORRECTION REQUISE` si corrections appliquées
-
-**Cible :** 0 erreur résiduelle de pilier_coeur. Si 1 erreur résiduelle subsiste après correction (cas marginal d'incertitude doctrinale réelle), elle est tolérée (Décision n°14).
-
-#### MODE 2 — Relance d'agent (scénario défaillant)
-
-**Déclencheur :** Un scénario unique atteint le seuil de défaillance (≥ 3 erreurs sur ses 5 ou 10 lignes), tandis que les autres scénarios sont propres ou avec erreurs dispersées.
-
-**Action :**
-- Le vérificateur **n'écrit pas de corrections de surface** sur le scénario défaillant
-- Il signale à l'orchestrateur qu'il faut relancer l'analyse T1 du scénario X
-- Statut : `REPRENDRE_AGENT1` (avec précision du scénario dans le journal d'audit)
-- L'orchestrateur supprime les lignes ETAPE1_T1 de ce scénario et relance T1 uniquement pour ce scénario
-- Pour les autres scénarios avec erreurs dispersées : appliquer simultanément MODE 1 (correction ponctuelle)
-- Une fois T1 du scénario relancé, le vérificateur **recommence sa vérification** (avec détection éventuelle d'un Mode 3 ou 4 si le problème persiste)
-
-**Limite de récursion :** au maximum **1 relance par scénario** par exécution. Si après relance, le scénario reste défaillant, bascule en MODE 3.
-
-#### MODE 3 — Validation humaine (cas pathologique persistant)
-
-**Déclencheur :** Après une tentative de Mode 1 ou Mode 2, il reste **plus de 1 erreur de pilier_coeur** dans le résultat final ETAPE1_T1.
-
-**Action :**
-- Statut : `EN_ATTENTE_VALIDATION_HUMAINE`
-- Le pipeline ne progresse pas vers l'Étape 2
-- Email automatique envoyé via Resend à `process.env.SUPERVISOR_EMAIL` (configurée à `sibprod@live.fr`)
-- Voir Section 17 pour le détail du workflow de validation humaine
-
-#### MODE 4 — Erreur système (problème en amont)
-
-**Déclencheur :** Plusieurs scénarios atteignent simultanément le seuil de défaillance (≥ 2 scénarios avec ≥ 3 erreurs chacun), OU le contrôle d'intégrité du référentiel échoue, OU le JSON retourné par Claude est tronqué malgré retry, OU une erreur HTTP non récupérable d'un service externe (Airtable, Claude API).
-
-**Diagnostic :** quelque chose ne va pas en amont — référentiel corrompu, prompt cassé, panne API, anomalie système.
-
-**Trois cas selon le moment où l'erreur survient :**
-
-- **Cas 4A — Erreur détectée AVANT écriture Airtable** : T1 a fait quelques appels, l'un échoue après retry. Aucune ligne n'est encore en Airtable (rappel : écriture après que les 5 appels aient tous réussi). Reprise complète depuis le début (statut `REPRENDRE_AGENT1`).
-- **Cas 4B — Erreur détectée AU MOMENT de l'écriture Airtable** : les 5 appels ont réussi, JSON valide, mais une valeur de singleSelect n'existe pas. Aucune ligne écrite (transaction qui échoue). Reprise complète depuis le début (le code corrige la valeur fautive ou alerte).
-- **Cas 4C — Erreur détectée par le VÉRIFICATEUR sur des lignes écrites** : T1 a écrit ses 25 lignes, le vérificateur lit, détecte que ≥ 2 scénarios ont chacun ≥ 3 erreurs (système cassé). Les 25 lignes T1 sont supprimées + reprise complète T1.
-
-**Logique de tentatives (Décision n°24) :**
-
-Le champ `nombre_tentatives_etape1` (number, précision 0) dans `VISITEUR` pilote la logique :
-
-| Tentative | `nombre_tentatives_etape1` | Action |
-|---|---|---|
-| Première exécution normale | 0 → 1 | Pipeline T1 → vérificateur |
-| Mode 4 détecté (1ère fois) | 1 → 2 | Email superviseur + reprise auto T1 (suppression lignes ETAPE1_T1 existantes + relance 5 appels) |
-| Mode 4 détecté (2ème fois) | 2 → 3 | Statut `ERREUR` définitif + email d'alerte au superviseur. Plus de reprise automatique — intervention humaine obligatoire |
-
-**Reset du compteur** : quand T1 réussit définitivement (passage à `terminé` ou progression vers Étape 2), le compteur est remis à 0. Comme ça, si plus tard le candidat repasse par T1 (par exemple via `REPRENDRE_AGENT1` manuel), le cycle de tentatives repart de zéro.
-
-**Action lors d'une détection Mode 4 :**
-- Statut : `ERREUR` (final si tentative 2 échoue) OU `REPRENDRE_AGENT1` (auto si tentative 1 échoue, pour relance auto)
-- Champ `erreur_analyse` enrichi avec le diagnostic technique (cas 4A/4B/4C, scénarios touchés, raison)
-- Champ `nombre_tentatives_etape1` incrémenté
-- Email automatique envoyé via Resend à `SUPERVISOR_EMAIL` (alerte technique distincte de Mode 3)
-- Si tentative 1 KO et tentative 2 enclenchée auto : pas d'attente humaine, le pipeline relance immédiatement
-
-**Mention dans l'email superviseur :** l'email indique clairement s'il s'agit d'une tentative 1 (reprise auto en cours) ou tentative 2 (blocage définitif, action humaine requise).
-
-### 4.5 Ce que le vérificateur T1 ne fait PAS
-
-- Il ne calcule **plus** le `pilier_sortie` (champ abandonné par doctrine du 27/04/2026)
-- Il ne refait pas l'analyse de zéro — il vérifie et corrige les dérives manifestes
-- Il n'invente pas de règle — il applique uniquement les 4 catégories A/B/C/D + le REFERENTIEL_PILIERS injecté
-- Il ne touche pas aux champs purement descriptifs (verbatim_candidat, question_texte, scenario, etc.)
-
-### 4.6 Calibrage technique Vérificateur T1
-
-Le vérificateur traite les 25 lignes en **2 appels distincts** :
-
-| Appel | Lignes | Volume estimé |
-|---|---|---|
-| 1 | numero_global 1 à 13 (13 lignes) | ~22 000 tokens / 64 000 |
-| 2 | numero_global 14 à 25 (12 lignes) | ~20 000 tokens / 64 000 |
-
-**Thinking : ON**. **`max_tokens` : 64 000** par appel. **JSON strict dès la première ligne.**
-
-### 4.7 Consolidation des verdicts
-
-Les verdicts des 2 batches sont consolidés selon la règle **"le plus sévère gagne"** :
-
-`CONFORME` (0) < `FLAG_OBSERVATIONS` (1) < `CORRECTION REQUISE` (2) < `BLOQUANT — CORRECTION REQUISE` (3)
-
-Pour les modes 2/3/4, le verdict global reflète le mode déclenché.
-
-### 4.8 Journal d'audit dans VERIFICATEUR_T1
-
-À chaque exécution complète du vérificateur, **une ligne est écrite dans la table VERIFICATEUR_T1** avec les champs suivants :
-
-| Champ | Contenu |
-|---|---|
-| `candidat_id` | identifiant du candidat |
-| `verdict_global` | verdict consolidé final ou nom du mode déclenché |
-| `nb_lignes_verifiees` | 25 (ou moins si erreur partielle) |
-| `nb_violations_total` | somme des violations détectées |
-| `nb_critique`, `nb_doctrinale`, `nb_observation` | comptage par sévérité |
-| `violations_json` | détail JSON des violations + mode déclenché + scénario en cause si Mode 2 |
-| `cost_usd` | coût total des appels Claude |
-| `elapsed_ms` | durée totale d'exécution |
-| `timestamp` | horodatage ISO |
-
-### 4.9 Garde-fous Vérificateur T1 (guards)
-
-| Guard | Condition d'échec | Action |
-|---|---|---|
-| Guard V1.0 | Référentiel piliers incomplet ou corrompu | Statut ERREUR + arrêt avant toute exécution |
-| Guard V1.1 | Verdict d'un batch hors valeurs autorisées | Statut ERREUR — relance via `REPRENDRE_VERIFICATEUR1` |
-| Guard V1.2 | JSON invalide (réponse non parsable, tronquée par max_tokens) | Statut ERREUR — relance via `REPRENDRE_VERIFICATEUR1` |
-| Guard V1.3 | Patch Airtable échoue | Statut ERREUR — relance via `REPRENDRE_VERIFICATEUR1` |
-| Guard V1.4 | Une correction porte sur une ligne `id_question` qui n'existe pas dans ETAPE1_T1 | Warning + skip de cette correction |
-| Guard V1.5 | Écriture du journal d'audit dans VERIFICATEUR_T1 échoue | Warning seul (corrections T1 valides) |
-
-### 4.10 Vérification post-patch
-
-Après application des corrections dans Airtable (Mode 1 ou retour de Mode 2), le pipeline **relit ETAPE1_T1** pour vérifier que les 25 lignes sont bien présentes et que les corrections demandées sont effectivement appliquées.
-
-Si la relecture détecte une incohérence (champ non patché, ligne manquante), statut ERREUR — relance via `REPRENDRE_VERIFICATEUR1`.
-
----
-
-## 5. DOCTRINE TRANSVERSE DE NOMMAGE DES PILIERS ET PÉRIMÈTRE COGNITIF
-
-### 5.1 Source unique de vérité — noms des piliers
-
-| Code interne | Nom officiel (champ `pilier_nom`) |
-|---|---|
-| `P1` | **Collecte d'information** |
-| `P2` | **Tri et organisation** |
-| `P3` | **Analyse et diagnostic** |
-| `P4` | **Création de solutions** |
-| `P5` | **Mise en œuvre et exécution** |
-
-Toute modification de ces noms se fait **uniquement** dans `REFERENTIEL_PILIERS` Airtable. Aucun nom de pilier ne doit être codé en dur dans un prompt ou un service.
-
-### 5.2 Règle d'usage des noms (Décision n°17 — précision)
-
-| Contexte | Format à utiliser |
-|---|---|
-| **Tables techniques** (clés, références internes, signatures compactes) | Code court : `P1`...`P5` |
-| **Champs descriptifs analytiques d'Étape 1** (`pilier_coeur_analyse`, `types_verbatim`, `piliers_secondaires`) | **Forme courte** : `PX · description` |
-| **Bilan publié au candidat ou aux acteurs** (Étape 4) | Nom officiel uniquement |
-| **Logs internes** (debug, traçabilité technique) | Code court accepté |
-
-### 5.3 Règle d'explicitation
-
-**Toute abréviation utilisée dans un contenu publié doit être explicitée à minima.** Si un bilan utilise `P3`, il doit y avoir au moins une mention en clair quelque part : "P3 — Analyse et diagnostic".
-
-### 5.4 Périmètre du profil cognitif (frontière doctrinale)
-
-| Domaine | Question posée | Place dans Profil-Cognitif |
-|---|---|---|
-| **Cognitif** | Le COMMENT — comment la personne fait | ✅ **Objet central du protocole** |
-| **Périphérie cognitive** | L'émotionnel et le psychologique détectables qui peuvent perturber l'action cognitive | ✅ **Inclus** — capté dans `signal_limbique` (Étape 1), exploité dans les vigilances (Étape 4) |
-| **Psychologique pur** | Le POURQUOI — motivations, valeurs, sens | ❌ **Hors périmètre** |
-| **Affectif pur** | Les émotions en elles-mêmes (sans interférence cognitive observable) | ❌ **Hors périmètre** |
-
-### 5.5 Doctrine d'analyse des piliers dans une réponse (transverse au protocole)
-
-Cette doctrine s'applique à toutes les analyses du protocole où des piliers cognitifs sont identifiés à partir d'un verbatim (T1, T3, T4).
-
-#### 5.5.1 Principe d'activation séquentielle
-
-**Un seul pilier cognitif est activé à la fois.** Les piliers s'enchaînent dans une **séquence narrative** au fil du verbatim — ils ne s'activent pas en parallèle. Chaque pilier activé a une **force** (intensité du déploiement, profondeur de compétence cognitive mobilisée).
-
-Cette séquence est lue depuis le verbatim brut. Selon où le candidat dépose le **sens central** de sa réponse (où il déploie sa compétence), l'attribution du pilier coeur change.
-
-#### 5.5.2 Pilier coeur unique vs piliers secondaires
-
-| Concept | Définition | Cardinalité |
-|---|---|---|
-| **Pilier coeur** | Pilier où le candidat déploie sa compétence cognitive la plus profonde dans la réponse | Toujours **un seul** par réponse |
-| **Piliers secondaires** | Piliers ≠ pilier coeur qui apparaissent dans la séquence narrative, avec leur position (en amont OU en aval du coeur) | **0, 1 ou plusieurs** selon la réponse |
-
-**Cas vide légitime des piliers secondaires** : si le verbatim entier reste dans le pilier coeur (déploiement cognitif monolithique), il n'y a aucun pilier secondaire. Le champ correspondant est vide, et c'est une information cognitive valide (signal d'un déploiement focalisé).
-
-#### 5.5.3 Lecture de la séquence et exemples doctrinaux
-
-La séquence cognitive observée dans le verbatim détermine l'attribution. Selon où le candidat dépose le sens central, le même enchaînement P1+P3 peut donner :
-
-| Séquence observée | Selon où le sens central est déposé | Coeur | Secondaire(s) |
-|---|---|---|---|
-| P1 → P3 | Sens central dans P3 (analyse approfondie après collecte) | P3 | P1 en amont du coeur |
-| P1 → P3 | Sens central dans P1 (collecte profonde, P3 contextuel) | P1 | P3 en aval du coeur |
-| P3 → P1 | Sens central dans P3 (analyse profonde, retour à la collecte signalé) | P3 | P1 en aval du coeur |
-| P3 → P1 | Sens central dans P1 (collecte étoffée, analyse préparatoire) | P1 | P3 en amont du coeur |
-
-**Le sens central tranche, pas l'ordre chronologique.** Le contenu de la réponse — où est déployée la compétence — détermine le coeur.
-
-#### 5.5.4 Application aux Étapes ultérieures
-
-- **Étape 1 (T1)** : identification du pilier coeur et des piliers secondaires de chaque réponse — terminologie utilisée : "pilier coeur" et "piliers secondaires"
-- **Étape 3 (T3)** : exploitation transverse des 25 lignes pour identifier les **circuits cognitifs activés**
-- **Étape 4 (T4)** : attribution de la **signature cognitive** du candidat — terminologie utilisée alors : "pilier socle" et "piliers structurants"
-
-Le terme "structurant" remplace "secondaire" en Étape 4 car à ce stade, ces piliers ne sont plus seulement des piliers présents dans la séquence d'une réponse — ils deviennent des éléments structurants de la signature cognitive globale du candidat.
-
----
-
-## 6. ARCHITECTURE D'INJECTION DES RÉFÉRENTIELS
-
-### 6.1 Principe
-
-Le pipeline lit les référentiels Airtable **au démarrage** et les injecte dans le payload de chaque appel Claude. Les agents reçoivent donc la doctrine **dans leur message d'entrée** — ils ne peuvent pas l'ignorer.
-
-### 6.2 Pour l'Étape 1
-
-L'orchestrateur lit, au démarrage du pipeline d'un candidat :
-
-| Référentiel | Table Airtable | Injecté dans |
-|---|---|---|
-| Doctrine des 5 piliers | `REFERENTIEL_PILIERS` (5 enregistrements) | Payload des agents T1 ET payload du vérificateur T1 |
-
-Le contenu injecté comprend pour chaque pilier : code, nom officiel, verbe d'identification, verbes-marqueurs, geste cognitif, 7 modes opérationnels, 4 dimensions d'analyse, pièges et avertissements, exemples Cécile/Rémi/Véronique, capacités observables.
-
-### 6.3 Bénéfices
-
-1. **Source unique de vérité** : la doctrine vit dans Airtable, pas dans le code
-2. **Modifications en temps réel** : Isabelle modifie un piège dans Airtable, le pipeline du run suivant l'utilise
-3. **Pas de duplication** : le prompt ne réécrit pas la doctrine, il dit comment l'appliquer
-4. **Cohérence garantie** : T1 et le vérificateur T1 reçoivent **exactement** la même doctrine
-
-### 6.4 Healthcheck global préalable au pipeline (Décision n°23)
-
-**Principe :** avant tout démarrage de pipeline, à **chaque cycle de polling Render**, l'orchestrateur vérifie que tous les services techniques nécessaires sont opérationnels. Si un service est KO, le pipeline est en pause silencieuse — aucun candidat ne change de statut, aucun token API n'est gaspillé, et le superviseur reçoit une alerte unique par jour.
-
-#### 6.4.1 Services vérifiés à chaque cycle de polling
-
-| Service | Test à effectuer | Critère de succès |
-|---|---|---|
-| **Airtable** | `GET` simple sur `REFERENTIEL_PILIERS` (table `tblf4OodQ2Qi5xSXs`) | HTTP 200, ≥ 5 enregistrements retournés |
-| **Claude API** | Ping minimal sur Sonnet 4.6 (1 token, prompt trivial) | HTTP 200 + réponse non vide |
-| **Resend** | `GET` sur `https://api.resend.com/emails` (vérification de statut, pas envoi) | HTTP 2xx |
-| **Render** | Trivial : si le polling tourne, Render est up | (auto-vérifié par exécution) |
-| **GitHub** | Non vérifié au runtime — seulement vérifié au déploiement par Render | (hors runtime) |
-
-**Pas de healthcheck pour Render et GitHub** au runtime : Render se vérifie lui-même par le simple fait d'exécuter le polling, et GitHub n'est sollicité qu'au moment du déploiement (vérifié par Render automatiquement à ce moment-là).
-
-#### 6.4.2 Comportement si tous les services sont OK
-
-Le pipeline démarre normalement. Le polling cherche un candidat avec `statut_analyse_pivar` ∈ { `NOUVEAU`, `REPRENDRE_AGENT1`, `REPRENDRE_VERIFICATEUR1`, `EN_ATTENTE_VALIDATION_HUMAINE + validation_humaine_etape1=TRUE` } et démarre l'Étape 1 selon le statut.
-
-#### 6.4.3 Comportement si un service est KO
-
-- Le polling **ne démarre aucun pipeline** sur ce cycle
-- **Aucun candidat ne change de statut** (les candidats `NOUVEAU` restent `NOUVEAU`, ils seront traités au prochain cycle quand tout sera OK)
-- Le service KO est **logué** dans la sortie console Render
-- Email automatique d'alerte technique envoyé à `process.env.SUPERVISOR_EMAIL` :
-  - Sujet : `[Profil-Cognitif] ALERTE — service <X> indisponible`
-  - Corps : nature de l'erreur, timestamp de la première détection
-- **Anti-spam : un email max par jour** par service KO (Décision n°23). Si Claude API tombe à 9h et reste KO toute la journée, vous recevez 1 email à 9h + 1 email "service rétabli" quand il revient. Pas 200 emails.
-- Quand le service revient (détecté par le polling suivant), un email `[Profil-Cognitif] Service <X> rétabli` est envoyé, et les pipelines reprennent automatiquement
-
-#### 6.4.4 Bénéfices
-
-1. **Aucun token API gaspillé** dans un pipeline qui ne peut pas aboutir
-2. **Aucun candidat dans un état incohérent** (statut `en_cours` figé indéfiniment)
-3. **Alerte immédiate** au superviseur dès la détection d'une panne
-4. **Reprise automatique** quand le service revient (pas d'intervention humaine nécessaire)
-5. **Robustesse en production** : le pipeline reste sain même quand l'écosystème externe est dégradé
-
-### 6.5 Conséquence sur les prompts T1 et vérificateur T1
-
-Les prompts deviennent des **modes d'emploi opérationnels** — pas de duplication de la doctrine.
-
----
-
-## 7. GARDE-FOU D'INTÉGRITÉ RÉFÉRENTIELLE
-
-### 7.1 Principe
-
-Avant tout appel à un agent Claude (T1 ou vérificateur T1), l'orchestrateur **vérifie l'intégrité du référentiel piliers**. Si une anomalie est détectée, le pipeline s'arrête immédiatement avec une erreur claire, **avant toute exécution coûteuse**.
-
-### 7.2 Contrôles effectués
-
-| Contrôle | Condition validée |
-|---|---|
-| Existence de la table | `REFERENTIEL_PILIERS` accessible et lisible |
-| Nombre d'enregistrements | Exactement 5 |
-| Codes piliers | Présence de P1, P2, P3, P4, P5 (un seul de chaque) |
-| Champ `pilier_nom` | Non vide pour les 5 enregistrements |
-| Champ `verbes_marqueurs` | Non vide pour les 5 enregistrements |
-| Champ `description_geste` | Non vide pour les 5 enregistrements |
-
-### 7.3 En cas de non-conformité
-
-- Le pipeline ne démarre pas
-- Statut → `ERREUR`
-- Champ `erreur_analyse` → message explicite
-- Aucun appel Claude n'est effectué
-
----
-
-## 8. BACKUPS vs POINTS DE REPRISE — CLARIFICATION STRUCTURELLE
-
-### 8.1 Distinction essentielle
-
-| Concept | Nature | Localisation | Usage |
-|---|---|---|---|
-| **Points de reprise techniques** | Données métier complètes | Tables `ETAPE1_T1`, `ETAPE1_T2`, `ETAPE1_T3`, `ETAPE1_T4_BILAN` | Le pipeline lit ces données pour reprendre à une étape |
-| **Backups** | Journaux d'audit (résumés textuels avec timestamps) | Champs `backup_*` de la table `VISITEUR` | Diagnostic après coup |
-
-### 8.2 Mécanisme de reprise réel
-
-Le mécanisme de reprise est **uniquement** basé sur le statut `statut_analyse_pivar` + les données présentes dans les tables `ETAPE1_T*`. Les `backup_*` ne participent pas à ce mécanisme.
-
-### 8.3 Décision
-
-Les `backup_*` sont **conservés tels quels** pour audit. Aucune logique de reprise basée dessus.
-
----
-
-## 9. ANONYMISATION ET CIVILITÉ — RÈGLES TRANSVERSES ÉTAPE 1
-
-### 9.1 Données envoyées aux agents
-
-L'agent T1 et le vérificateur T1 reçoivent dans leur payload :
-
-✅ `candidat_id` (identifiant technique `pcc_xxxxxxxxx`)
-✅ `civilite` (`Madame` ou `Monsieur`)
-✅ `referentiel_piliers` (doctrine complète)
-
-❌ **JAMAIS `Prenom`, `Nom`, `Email`, `Telephone`** — interdiction absolue
-
-Le `Prenom` reste utilisable pour les **logs internes**, **fichiers de backup**, et **emails superviseur** (Section 17), mais n'apparaît jamais dans le payload des agents Claude.
-
-### 9.2 Style d'écriture pour T1
-
-T1 produit des champs analytiques **descriptifs et techniques**. Aucune mention du prénom dans aucun champ produit.
-
----
-
-## 10. SCHÉMA DU FLUX DE L'ÉTAPE 1
+### 2.1 Ordre d'exécution des 6 agents
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  VISITEUR · statut_analyse_pivar = NOUVEAU                      │
-└─────────────────────────────────────────────────────────────────┘
-                          │ Polling Render détecte
+                  ┌─────────────────┐
+                  │ LECTURE AIRTABLE │
+                  │ Candidat X       │
+                  └────────┬─────────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+        ┌─────────┐  ┌─────────┐  ┌─────────┐
+        │ AGENT 6 │  │ AGENT 1 │  │ AGENT 2 │
+        │Transv.  │  │Architect│  │Circuits │
+        └────┬────┘  └────┬────┘  └────┬────┘
+             │            │            │
+             └────────────┼────────────┘
                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  ORCHESTRATEUR — DÉMARRAGE                                      │
-│  ─ Lit RESPONSES (25 lignes)                                    │
-│  ─ Lit REFERENTIEL_PILIERS (5 enregistrements)                  │
-│  ─ Lit civilite_candidat                                        │
-│  ─ ⚠ GUARD : intégrité référentiel (Section 7)                  │
-│  ─ statut_analyse_pivar = en_cours                              │
-└─────────────────────────────────────────────────────────────────┘
+                     ┌─────────┐
+                     │ AGENT 3 │
+                     │ Modes   │
+                     └────┬────┘
                           │
                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  AGENT T1 — 5 APPELS PAR SCÉNARIO                               │
-│  Payload : civilite + responses + referentiel_piliers           │
-│  ─ Appel 1 SOMMEIL  · Appel 2 WEEKEND                           │
-│  ─ Appel 3 ANIMAL_1 · Appel 4 ANIMAL_2 · Appel 5 PANNE          │
-│  ─ Vérification Guards T1.0 → T1.5                              │
-│  ─ Écriture des 25 lignes dans ETAPE1_T1                        │
-└─────────────────────────────────────────────────────────────────┘
-                          │ ETAPE1_T1 = 25 lignes brutes
-                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  VÉRIFICATEUR T1 — 2 APPELS + DIAGNOSTIC 4 MODES                │
-│  Payload : civilite + 25 lignes T1 + referentiel_piliers        │
-│  ─ Appel 1 : Q1-Q13   · Appel 2 : Q14-Q25                       │
-│  ─ Vérification 4 catégories : A, B, C, D                       │
-│  ─ DIAGNOSTIC du mode :                                         │
-│      MODE 1 → Correction ponctuelle directe (cas normal)        │
-│      MODE 2 → Relance agent T1 d'un scénario défaillant         │
-│      MODE 3 → EN_ATTENTE_VALIDATION_HUMAINE (Section 17)        │
-│      MODE 4 → ERREUR système                                    │
-│  ─ Journal d'audit dans VERIFICATEUR_T1                         │
-└─────────────────────────────────────────────────────────────────┘
+                     ┌─────────┐
+                     │ AGENT 4 │
+                     │ Synth.  │
+                     └────┬────┘
                           │
                           ▼
-       Selon le mode, soit : poursuite vers Étape 2
-       OU relance T1 du scénario en cause
-       OU attente validation humaine
-       OU statut ERREUR
+                     ┌─────────┐
+                     │ AGENT 5 │
+                     │Coûts+Cl.│
+                     └────┬────┘
+                          │
+                          ▼
+                  ┌─────────────────┐
+                  │  ASSEMBLAGE HTML │
+                  │  bilan_html_complet│
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌─────────────────┐
+                  │  CERTIFICATEUR   │
+                  └─────────────────┘
+```
+
+### 2.2 Agents parallélisables
+
+Les agents **1, 2, 6** peuvent s'exécuter **en parallèle** (ils ne dépendent pas les uns des autres). Ils reçoivent chacun leurs données d'entrée et produisent leurs sorties indépendamment.
+
+Les agents **3, 4, 5** doivent s'exécuter **séquentiellement** après les agents 1-2-6 :
+- Agent 3 a besoin des données T3/T4 (mêmes que Agent 2) mais ses sorties sont indépendantes
+- Agent 4 (synthèse cœur) peut lire les sorties des agents précédents pour cohérence narrative
+- Agent 5 (coûts/clôture) s'exécute en dernier car il fait la conclusion qui intègre tout
+
+**Proposition d'optimisation** : Agents 1, 2, 3, 6 en parallèle → puis Agent 4 → puis Agent 5.
+
+### 2.3 Gestion des erreurs
+
+Si un agent échoue :
+- Logger l'erreur (agent, candidat, payload d'entrée, réponse partielle)
+- Mettre `statut_bilan = "erreur_agent{N}"` dans Airtable
+- Ne pas assembler le bilan HTML tant qu'un agent a échoué
+- Permettre la relance d'un agent individuellement sans re-exécuter les autres
+
+---
+
+## 3. SCRIPT PYTHON DE L'ORCHESTRATEUR
+
+```python
+"""
+Orchestrateur — Pipeline de production des bilans Profil-Cognitif
+Coordonne les 6 agents, remplit la table ETAPE1_T4_BILAN, assemble le bilan HTML.
+"""
+
+import json
+import asyncio
+from datetime import datetime, timezone
+from anthropic import AsyncAnthropic
+from pyairtable import Api
+
+# ============================================
+# CONFIGURATION
+# ============================================
+
+ANTHROPIC_API_KEY = "..."  # Depuis variables d'environnement
+AIRTABLE_API_KEY = "..."
+AIRTABLE_BASE_ID = "..."
+
+TABLE_T1 = "ETAPE1_T1"
+TABLE_T2 = "ETAPE1_T2"
+TABLE_T3 = "ETAPE1_T3_v4"
+TABLE_T4 = "ETAPE1_T4"
+TABLE_T4_BILAN = "ETAPE1_T4_BILAN"
+
+# Prompts des agents (à charger depuis les fichiers .md en fin de ce document)
+AGENTS = {
+    1: {"nom": "Architecture", "prompt_file": "AGENT_1_ARCHITECTURE.md", "max_tokens": 24000, "thinking": True},
+    2: {"nom": "Circuits",     "prompt_file": "AGENT_2_CIRCUITS.md",     "max_tokens": 64000, "thinking": True},
+    3: {"nom": "Modes",        "prompt_file": "AGENT_3_MODES.md",        "max_tokens": 32000, "thinking": True},
+    4: {"nom": "Synthèse",     "prompt_file": "AGENT_4_SYNTHESE_COEUR.md","max_tokens": 32000, "thinking": True},
+    5: {"nom": "Coûts+Clôture","prompt_file": "AGENT_5_COUTS_CLOTURE.md","max_tokens": 20000, "thinking": True},
+    6: {"nom": "Transverses",  "prompt_file": "AGENT_6_TRANSVERSES.md",  "max_tokens": 16000, "thinking": False},
+}
+
+MODEL = "claude-sonnet-4-6"
+TEMPERATURE = 0
+
+# ============================================
+# CLASSE PRINCIPALE
+# ============================================
+
+class OrchestrateurBilan:
+    def __init__(self, candidat_id):
+        self.candidat_id = candidat_id
+        self.claude = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+        self.airtable = Api(AIRTABLE_API_KEY)
+        self.base = self.airtable.base(AIRTABLE_BASE_ID)
+        self.sorties_agents = {}  # {agent_num: {clé: valeur}}
+        self.donnees_candidat = {}  # données T1/T2/T3/T4 remplies par lire_donnees_candidat()
+    
+    async def executer_pipeline(self):
+        """Exécute le pipeline complet pour un candidat."""
+        print(f"🚀 Démarrage pipeline pour {self.candidat_id}")
+        
+        # Étape 1 : lecture des données
+        donnees = await self.lire_donnees_candidat()
+        self.donnees_candidat = donnees  # stocker pour assembler le HTML final
+        print(f"  ✓ Données candidat lues")
+        
+        # Étape 2 : marquer statut en production
+        await self.mettre_a_jour_statut("en_production")
+        
+        # Étape 3 : préparer les payloads pour chaque agent
+        payloads = self.preparer_payloads(donnees)
+        print(f"  ✓ Payloads préparés pour les 6 agents")
+        
+        # Étape 4 : exécuter Agents 1, 2, 3, 6 en parallèle
+        print(f"  → Lancement parallèle Agents 1, 2, 3, 6...")
+        resultats_parallele = await asyncio.gather(
+            self.appeler_agent(1, payloads[1]),
+            self.appeler_agent(2, payloads[2]),
+            self.appeler_agent(3, payloads[3]),
+            self.appeler_agent(6, payloads[6]),
+        )
+        self.sorties_agents[1] = resultats_parallele[0]
+        self.sorties_agents[2] = resultats_parallele[1]
+        self.sorties_agents[3] = resultats_parallele[2]
+        self.sorties_agents[6] = resultats_parallele[3]
+        print(f"  ✓ Agents 1, 2, 3, 6 terminés")
+        
+        # Étape 5 : Agent 4 (synthèse cœur) — après les précédents
+        print(f"  → Lancement Agent 4 Synthèse cœur...")
+        self.sorties_agents[4] = await self.appeler_agent(4, payloads[4])
+        print(f"  ✓ Agent 4 terminé")
+        
+        # Étape 6 : Agent 5 (coûts + conclusion)
+        print(f"  → Lancement Agent 5 Coûts et clôture...")
+        self.sorties_agents[5] = await self.appeler_agent(5, payloads[5])
+        print(f"  ✓ Agent 5 terminé")
+        
+        # Étape 7 : écrire toutes les colonnes dans Airtable
+        await self.ecrire_colonnes_airtable()
+        print(f"  ✓ 66 colonnes écrites dans ETAPE1_T4_BILAN")
+        
+        # Étape 8 : assembler le bilan HTML complet
+        bilan_html = self.assembler_bilan_html()
+        await self.ecrire_bilan_complet(bilan_html)
+        print(f"  ✓ Bilan HTML complet assemblé")
+        
+        # Étape 9 : marquer statut terminé et déclencher certificateur
+        await self.mettre_a_jour_statut("termine")
+        print(f"✅ Pipeline terminé pour {self.candidat_id}")
+        
+        return bilan_html
+    
+    async def lire_donnees_candidat(self):
+        """Lit toutes les données T1, T2, T3, T4 du candidat depuis Airtable."""
+        donnees = {
+            "candidat_id": self.candidat_id,
+            "prenom": "",
+            "t1": [],
+            "t2": [],
+            "t3": [],
+            "t4": {}
+        }
+        
+        # Lire T1
+        table_t1 = self.base.table(TABLE_T1)
+        donnees["t1"] = table_t1.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        
+        # Prénom depuis T1
+        if donnees["t1"]:
+            donnees["prenom"] = donnees["t1"][0]["fields"].get("prenom", "")
+        
+        # Lire T2
+        table_t2 = self.base.table(TABLE_T2)
+        donnees["t2"] = table_t2.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        
+        # Lire T3 v4 (75 lignes par candidat)
+        table_t3 = self.base.table(TABLE_T3)
+        donnees["t3"] = table_t3.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        
+        # Lire T4 (attributions)
+        table_t4 = self.base.table(TABLE_T4)
+        t4_records = table_t4.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        if t4_records:
+            donnees["t4"] = t4_records[0]["fields"]
+        
+        return donnees
+    
+    def preparer_payloads(self, donnees):
+        """Prépare les données d'entrée JSON pour chaque agent."""
+        # Agrégations communes
+        nb_conformes = self.compter_conformes(donnees["t1"])
+        nb_ecart = self.compter_ecart(donnees["t1"])
+        ecart_details = self.extraire_ecart_details(donnees["t1"])
+        
+        # Données par pilier (T3 + T4)
+        donnees_piliers = self.agreger_par_pilier(donnees["t3"], donnees["t4"])
+        
+        # Clusters du socle
+        pilier_socle_id = self.identifier_pilier_socle(donnees["t4"])
+        clusters_socle = self.extraire_clusters_pilier(donnees["t3"], pilier_socle_id)
+        
+        # Séquences de piliers (pour boucle)
+        sequences = self.analyser_sequences_piliers(donnees["t1"])
+        
+        # Payload commun
+        payload_base = {
+            "candidat_id": donnees["candidat_id"],
+            "prenom": donnees["prenom"],
+        }
+        
+        # Payloads par agent
+        payloads = {
+            1: {
+                **payload_base,
+                "nb_conformes": nb_conformes,
+                "nb_ecart": nb_ecart,
+                "ecart_details": ecart_details,
+                "piliers": donnees_piliers,
+            },
+            2: {
+                **payload_base,
+                "donnees_t3_par_pilier": self.organiser_t3_par_pilier(donnees["t3"]),
+                "roles_piliers": self.extraire_roles_piliers(donnees["t4"]),
+            },
+            3: {
+                **payload_base,
+                "piliers": donnees_piliers,
+                "filtre_formulation": donnees["t4"].get("filtre_formulation", ""),
+            },
+            4: {
+                **payload_base,
+                "nb_conformes": nb_conformes,
+                "nb_ecart": nb_ecart,
+                "ecart_details": ecart_details,
+                "pilier_socle": donnees_piliers.get(pilier_socle_id),
+                "clusters_socle": clusters_socle,
+                "sequences": sequences,
+                "filtre": {
+                    "formulation": donnees["t4"].get("filtre_formulation"),
+                    "precision_semantique": donnees["t4"].get("filtre_precision_semantique"),
+                },
+                "finalite_grandes_lignes": donnees["t4"].get("finalite_grandes_lignes", []),
+            },
+            5: {
+                **payload_base,
+                "piliers": donnees_piliers,
+                "filtre": donnees["t4"].get("filtre_formulation", ""),
+                "grande_ligne_finalite_principale": donnees["t4"].get("finalite_grandes_lignes", [{}])[0].get("formulation", ""),
+            },
+            6: {
+                **payload_base,
+                "nb_conformes": nb_conformes,
+                "nb_ecart": nb_ecart,
+                "nb_scenarios": 4,
+                "pilier_socle": donnees_piliers.get(pilier_socle_id),
+                "piliers_structurants": self.extraire_piliers_par_role(donnees_piliers, ["pilier_structurant_1", "pilier_structurant_2"]),
+                "piliers_fonctionnels": self.extraire_piliers_par_role(donnees_piliers, ["pilier_fonctionnel_1", "pilier_fonctionnel_2", "pilier_resistant"]),
+                "filtre_formulation": donnees["t4"].get("filtre_formulation", ""),
+                "grandes_lignes_finalite": donnees["t4"].get("finalite_grandes_lignes", []),
+            }
+        }
+        
+        return payloads
+    
+    async def appeler_agent(self, num_agent, payload):
+        """Appelle un agent Claude avec son prompt et son payload."""
+        config = AGENTS[num_agent]
+        
+        # Charger le prompt système
+        with open(f"prompts/{config['prompt_file']}", 'r', encoding='utf-8') as f:
+            system_prompt = f.read()
+        
+        # Message utilisateur = payload JSON
+        user_message = json.dumps(payload, ensure_ascii=False, indent=2)
+        
+        # Paramètres d'appel
+        params = {
+            "model": MODEL,
+            "max_tokens": config["max_tokens"],
+            "temperature": TEMPERATURE,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_message}]
+        }
+        
+        if config["thinking"]:
+            params["thinking"] = {"type": "enabled", "budget_tokens": 16000}
+        
+        # Appel API
+        response = await self.claude.messages.create(**params)
+        
+        # Extraire le contenu (ignorer les blocs thinking)
+        texte = ""
+        for block in response.content:
+            if block.type == "text":
+                texte += block.text
+        
+        # Parser le JSON de sortie (en extrayant le JSON du texte)
+        return self.parser_json_sortie(texte)
+    
+    def parser_json_sortie(self, texte):
+        """Extrait le JSON de la réponse de l'agent (qui peut contenir du markdown avant/après)."""
+        # Chercher le premier { et le dernier } pour isoler le JSON
+        debut = texte.find('{')
+        fin = texte.rfind('}')
+        if debut == -1 or fin == -1:
+            raise ValueError(f"Pas de JSON valide dans la sortie agent : {texte[:200]}")
+        return json.loads(texte[debut:fin+1])
+    
+    async def ecrire_colonnes_airtable(self):
+        """Écrit toutes les sorties des agents dans la ligne candidat de ETAPE1_T4_BILAN."""
+        table = self.base.table(TABLE_T4_BILAN)
+        
+        # Agréger toutes les sorties
+        fields_a_ecrire = {
+            "candidat_id": self.candidat_id,
+            "prenom": self.donnees_candidat.get("prenom", ""),
+            "statut_bilan": "en_production",
+        }
+        
+        # Fusionner les sorties de tous les agents
+        for num_agent, sortie in self.sorties_agents.items():
+            fields_a_ecrire.update(sortie)
+        
+        # Rechercher la ligne existante ou créer
+        records_existants = table.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        if records_existants:
+            table.update(records_existants[0]["id"], fields_a_ecrire)
+        else:
+            table.create(fields_a_ecrire)
+    
+    def assembler_bilan_html(self):
+        """Assemble le bilan HTML complet selon la structure du Template #15."""
+        # Récupérer les éléments de l'agent 6 (structure)
+        s6 = self.sorties_agents[6]
+        
+        # Récupérer les éléments par pilier (agents 1, 2, 3)
+        s1 = self.sorties_agents[1]
+        s2 = self.sorties_agents[2]
+        s3 = self.sorties_agents[3]
+        
+        # Récupérer la synthèse (agent 4)
+        s4 = self.sorties_agents[4]
+        
+        # Récupérer la clôture (agent 5)
+        s5 = self.sorties_agents[5]
+        
+        # Assemblage dans l'ordre du Template #15
+        html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profil Cognitif · Bilan {self.donnees_candidat.get("prenom", "")}</title>
+<style>
+  /* CSS complet du bilan — voir fichier externe pc_bilan_styles.css */
+  @import url('/static/pc_bilan_styles.css');
+</style>
+</head>
+<body>
+{s6['e_header']}
+
+{s6['e_navigation']}
+
+<main class="bilan-container">
+
+  <!-- SECTION A · VOTRE MOTEUR COGNITIF -->
+  <section id="moteur" class="section-a">
+    <h2>Votre moteur cognitif</h2>
+    {s6['a_definition_moteur']}
+    {s6['a_legende_couleurs']}
+    {s6['a_ordre_boucle']}
+    
+    <div class="schema-etat-wrap">
+      <h3>Le schéma générique d'un moteur cognitif</h3>
+      {s6['a_schema_generique']}
+    </div>
+    
+    <div class="schema-etat-wrap">
+      <h3>Le schéma de votre moteur cognitif</h3>
+      {s6['a_schema_revelation']}
+      {s6['a_cartouche_attribution']}
+    </div>
+  </section>
+
+  <!-- SECTION B · LEXIQUE -->
+  {s6['b_lexique_html']}
+
+  <!-- SECTION C · ANALYSE DES 5 PILIERS -->
+  <section class="section-c">
+    <h2>Analyse de vos 5 piliers</h2>
+    
+    <!-- P1 -->
+    <article class="bloc-pilier">
+      {s1['p1_entete']}
+      {s1['p1_pourquoi_role']}
+      <div class="circuits-section">
+        <h3>Circuits activés dans votre Collecte d'information</h3>
+        <div class="double-vue">
+          <div class="vue-labo">{s2['p1_circuits_lab']}</div>
+          <div class="vue-cand">{s2['p1_circuits_cand']}</div>
+        </div>
+      </div>
+      {s3['p1_mode_lab']}
+      {s3['p1_mode_cand']}
+    </article>
+    
+    <!-- P2 -->
+    <article class="bloc-pilier">
+      {s1['p2_entete']}
+      {s1['p2_pourquoi_role']}
+      <!-- circuits + mode P2 -->
+      <div class="circuits-section">
+        <h3>Circuits activés dans votre Tri</h3>
+        <div class="double-vue">
+          <div class="vue-labo">{s2['p2_circuits_lab']}</div>
+          <div class="vue-cand">{s2['p2_circuits_cand']}</div>
+        </div>
+      </div>
+      {s3['p2_mode_lab']}
+      {s3['p2_mode_cand']}
+    </article>
+    
+    <!-- P3 -->
+    <article class="bloc-pilier">
+      {s1['p3_entete']}
+      {s1['p3_pourquoi_role']}
+      <div class="circuits-section">
+        <h3>Circuits activés dans votre Analyse</h3>
+        <div class="double-vue">
+          <div class="vue-labo">{s2['p3_circuits_lab']}</div>
+          <div class="vue-cand">{s2['p3_circuits_cand']}</div>
+        </div>
+      </div>
+      {s3['p3_mode_lab']}
+      {s3['p3_mode_cand']}
+    </article>
+    
+    <!-- P4 -->
+    <article class="bloc-pilier">
+      {s1['p4_entete']}
+      {s1['p4_pourquoi_role']}
+      <div class="circuits-section">
+        <h3>Circuits activés dans votre Création de solutions</h3>
+        <div class="double-vue">
+          <div class="vue-labo">{s2['p4_circuits_lab']}</div>
+          <div class="vue-cand">{s2['p4_circuits_cand']}</div>
+        </div>
+      </div>
+      {s3['p4_mode_lab']}
+      {s3['p4_mode_cand']}
+    </article>
+    
+    <!-- P5 -->
+    <article class="bloc-pilier">
+      {s1['p5_entete']}
+      {s1['p5_pourquoi_role']}
+      <div class="circuits-section">
+        <h3>Circuits activés dans votre Mise en œuvre et exécution</h3>
+        <div class="double-vue">
+          <div class="vue-labo">{s2['p5_circuits_lab']}</div>
+          <div class="vue-cand">{s2['p5_circuits_cand']}</div>
+        </div>
+      </div>
+      {s3['p5_mode_lab']}
+      {s3['p5_mode_cand']}
+    </article>
+  </section>
+
+  <!-- TRANSITION VERS SYNTHÈSE -->
+  <div class="transition-synthese">
+    <p>Maintenant que nous avons détaillé chacun de vos 5 piliers, voici ce que leur assemblage révèle de votre architecture cognitive.</p>
+  </div>
+
+  <!-- SECTION D · SYNTHÈSE FINALE -->
+  <section id="synthese" class="section-d">
+    <h2>Synthèse finale</h2>
+    
+    <!-- D.1 Filtre -->
+    <div class="double-vue">
+      <div class="vue-labo">{s4['d1_filtre_lab']}</div>
+      <div class="vue-cand">{s4['d1_filtre_cand']}</div>
+    </div>
+    
+    <!-- D.2 Boucle -->
+    <div class="double-vue">
+      <div class="vue-labo">{s4['d2_boucle_lab']}</div>
+      <div class="vue-cand">{s4['d2_boucle_cand']}</div>
+    </div>
+    
+    <!-- D.3 Finalité -->
+    <div class="double-vue">
+      <div class="vue-labo">{s4['d3_finalite_lab']}</div>
+      <div class="vue-cand">{s4['d3_finalite_cand']}</div>
+    </div>
+    
+    <!-- D.4 Signature (intégrée) -->
+    {s4['d4_signature']}
+    
+    <!-- D.5 Zones de coût -->
+    <div class="double-vue">
+      <div class="vue-labo">{s5['d5_couts_lab']}</div>
+      <div class="vue-cand">{s5['d5_couts_cand']}</div>
+    </div>
+    
+    <!-- D.6 Conclusion -->
+    {s5['d6_conclusion']}
+  </section>
+
+</main>
+
+{s6['e_footer']}
+
+</body>
+</html>
+"""
+        return html
+    
+    async def ecrire_bilan_complet(self, bilan_html):
+        """Écrit le bilan HTML assemblé dans la colonne bilan_html_complet."""
+        table = self.base.table(TABLE_T4_BILAN)
+        records = table.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        if records:
+            table.update(records[0]["id"], {"bilan_html_complet": bilan_html})
+    
+    async def mettre_a_jour_statut(self, statut):
+        """Met à jour la colonne statut_bilan."""
+        table = self.base.table(TABLE_T4_BILAN)
+        records = table.all(formula=f"{{candidat_id}}='{self.candidat_id}'")
+        if records:
+            table.update(records[0]["id"], {"statut_bilan": statut})
+        else:
+            table.create({"candidat_id": self.candidat_id, "statut_bilan": statut})
+    
+    # ============================================
+    # FONCTIONS UTILITAIRES (à implémenter selon schéma Airtable)
+    # ============================================
+    
+    def compter_conformes(self, t1_records):
+        return sum(1 for r in t1_records if r["fields"].get("V1") == "OUI")
+    
+    def compter_ecart(self, t1_records):
+        return sum(1 for r in t1_records if r["fields"].get("V1") == "NON")
+    
+    def extraire_ecart_details(self, t1_records):
+        return [
+            {
+                "question_id": r["fields"].get("question_id"),
+                "pilier_attendu": r["fields"].get("pilier_attendu"),
+                "pilier_coeur_reponse": r["fields"].get("pilier_coeur_analyse")
+            }
+            for r in t1_records if r["fields"].get("V1") == "NON"
+        ]
+    
+    def agreger_par_pilier(self, t3_records, t4_fields):
+        """Agrège les données par pilier (rôle, mode, nb circuits actifs, total activations,
+        circuits dominants top 5, clusters).
+        
+        Utilise extraire_roles_piliers et extraire_clusters_pilier pour enrichir.
+        """
+        roles = self.extraire_roles_piliers(t4_fields)
+        piliers = {}
+        for pid in ["P1", "P2", "P3", "P4", "P5"]:
+            circuits_pilier = [r["fields"] for r in t3_records if r["fields"].get("pilier") == pid]
+            # Filtre robuste : "actif" peut être "OUI", True, ou "1"
+            actifs = [c for c in circuits_pilier if str(c.get("actif", "")).upper() in ("OUI", "TRUE", "1")]
+            piliers[pid] = {
+                "id": pid,
+                "nom": self.get_nom_pilier(pid),
+                "role": roles.get(pid, ""),
+                "mode_retenu": t4_fields.get(f"{pid.lower()}_mode_retenu", ""),
+                "nb_circuits_actifs": len(actifs),
+                "total_activations": sum(c.get("frequence", 0) for c in actifs),
+                "circuits_dominants_top5": sorted(
+                    [{"id": c["circuit_id"], "nom": c["circuit_nom"], "frequence": c["frequence"]} for c in actifs],
+                    key=lambda x: -x["frequence"]
+                )[:5],
+                "clusters": self.extraire_clusters_pilier(t3_records, pid)
+            }
+        return piliers
+    
+    def get_nom_pilier(self, pid):
+        return {
+            "P1": "Collecte d'information",
+            "P2": "Tri",
+            "P3": "Analyse",
+            "P4": "Création de solutions",
+            "P5": "Mise en œuvre et exécution"
+        }[pid]
+    
+    def identifier_pilier_socle(self, t4_fields):
+        """Identifie le pilier socle depuis T4 (champ pilier_socle).
+        
+        Format attendu : "P3" ou "P4" etc.
+        Fallback : si vide, chercher dans les rôles des piliers le rôle "Pilier socle".
+        """
+        socle = t4_fields.get("pilier_socle", "").strip()
+        if socle in ["P1", "P2", "P3", "P4", "P5"]:
+            return socle
+        
+        # Fallback : chercher dans p1_role...p5_role
+        for pid in ["P1", "P2", "P3", "P4", "P5"]:
+            role = t4_fields.get(f"{pid.lower()}_role", "").lower()
+            if "socle" in role:
+                return pid
+        
+        # Pas de socle identifié → erreur remontée
+        raise ValueError(f"Pilier socle non identifiable pour candidat {self.candidat_id} — T4 incomplet")
+    
+    def extraire_clusters_pilier(self, t3_records, pilier_id):
+        """Extrait les clusters d'un pilier depuis T3 v4 (champ clusters_identifies).
+        
+        T3 v4 a un champ 'clusters_identifies' qui contient les co-occurrences de circuits
+        du pilier, au format string structuré (ex: "C10×C15: 6 co-oc, C10×C12: 5 co-oc, ...").
+        
+        Ce champ est renseigné au niveau de chaque ligne T3 du pilier mais la valeur est
+        identique pour toutes les lignes du même pilier (c'est une agrégation au niveau pilier).
+        
+        Retourne une liste ordonnée par fréquence décroissante de tuples (circuit1, circuit2, nb_co_oc).
+        """
+        # Prendre la première ligne T3 du pilier qui contient clusters_identifies
+        clusters_str = ""
+        for r in t3_records:
+            fields = r["fields"]
+            if fields.get("pilier") == pilier_id and fields.get("clusters_identifies"):
+                clusters_str = fields["clusters_identifies"]
+                break
+        
+        if not clusters_str:
+            return []
+        
+        # Parsing format "C10×C15: 6 co-oc, C10×C12: 5 co-oc, ..."
+        clusters = []
+        for token in clusters_str.split(","):
+            token = token.strip()
+            if not token:
+                continue
+            # Format attendu : "C10×C15: 6 co-oc" ou "C10 × C15 : 6 co-oc"
+            import re
+            m = re.match(r"C(\d+)\s*[×x*]\s*C(\d+)\s*:\s*(\d+)", token)
+            if m:
+                c1, c2, nb = m.group(1), m.group(2), int(m.group(3))
+                clusters.append({
+                    "circuit_1": f"C{c1}",
+                    "circuit_2": f"C{c2}",
+                    "nb_co_occurrences": nb
+                })
+        
+        # Tri par fréquence décroissante
+        clusters.sort(key=lambda x: -x["nb_co_occurrences"])
+        return clusters
+    
+    def analyser_sequences_piliers(self, t1_records):
+        """Analyse les séquences de piliers à partir de T1 (champ verbes_angles_piliers).
+        
+        T1 contient pour chaque question un champ 'verbes_angles_piliers' qui liste
+        les piliers activés dans l'ordre d'apparition dans le discours
+        (format attendu : "P3 → P1 → P3 → P4 → P5").
+        
+        Retourne :
+        - patterns_dominants : les séquences les plus fréquentes avec leur nombre
+        - pilier_entree_systematique : le pilier qui ouvre le plus souvent
+        - exemples_par_pattern : 2-3 questions exemples pour chaque pattern
+        """
+        from collections import Counter
+        
+        sequences_brutes = []
+        premiers_piliers = []
+        
+        for r in t1_records:
+            fields = r["fields"]
+            seq_str = fields.get("verbes_angles_piliers", "")
+            q_id = fields.get("id_question", "")
+            if not seq_str:
+                continue
+            
+            # Parser la séquence (format "P3 → P1 → P3 → P4 → P5")
+            # Tolérant à différents séparateurs
+            import re
+            pids = re.findall(r"P\d", seq_str)
+            if not pids:
+                continue
+            
+            seq_tuple = tuple(pids)
+            sequences_brutes.append({"question_id": q_id, "sequence": seq_tuple})
+            premiers_piliers.append(pids[0])
+        
+        # Pilier d'entrée systématique
+        if premiers_piliers:
+            pilier_entree = Counter(premiers_piliers).most_common(1)[0][0]
+            pct_entree = Counter(premiers_piliers)[pilier_entree] / len(premiers_piliers) * 100
+        else:
+            pilier_entree = None
+            pct_entree = 0
+        
+        # Patterns dominants (séquences complètes les plus fréquentes)
+        compteur_seq = Counter([s["sequence"] for s in sequences_brutes])
+        patterns_dominants = []
+        for seq_tuple, nb in compteur_seq.most_common(5):
+            exemples = [s["question_id"] for s in sequences_brutes if s["sequence"] == seq_tuple][:3]
+            patterns_dominants.append({
+                "sequence": " → ".join(seq_tuple),
+                "nb_occurrences": nb,
+                "exemples_questions": exemples
+            })
+        
+        # Toutes les boucles sortent-elles par P5 ?
+        nb_sortie_p5 = sum(1 for s in sequences_brutes if s["sequence"] and s["sequence"][-1] == "P5")
+        pct_sortie_p5 = nb_sortie_p5 / len(sequences_brutes) * 100 if sequences_brutes else 0
+        
+        return {
+            "pilier_entree_systematique": pilier_entree,
+            "pct_entree_systematique": round(pct_entree, 1),
+            "patterns_dominants": patterns_dominants,
+            "nb_total_sequences": len(sequences_brutes),
+            "pct_sortie_p5": round(pct_sortie_p5, 1)
+        }
+    
+    def organiser_t3_par_pilier(self, t3_records):
+        """Group-by T3 par pilier, avec tous les champs d'analyse v4.
+        
+        Retourne {"P1": [circuits...], "P2": [...], ...} 
+        où chaque circuit est un dict complet avec ses champs T3 v4 (activations_franches,
+        activations_nuancees, clusters_identifies, commentaire_attribution, etc.).
+        """
+        result = {"P1": [], "P2": [], "P3": [], "P4": [], "P5": []}
+        for r in t3_records:
+            fields = r["fields"]
+            pid = fields.get("pilier", "")
+            if pid in result:
+                result[pid].append({
+                    "circuit_id": fields.get("circuit_id", ""),
+                    "circuit_nom": fields.get("circuit_nom", ""),
+                    "frequence": fields.get("frequence", 0),
+                    "niveau_activation": fields.get("niveau_activation", ""),
+                    "actif": fields.get("actif", ""),
+                    "activations_franches": fields.get("activations_franches", ""),
+                    "activations_nuancees": fields.get("activations_nuancees", ""),
+                    "clusters_identifies": fields.get("clusters_identifies", ""),
+                    "commentaire_attribution": fields.get("commentaire_attribution", ""),
+                    "types_verbatim_detail": fields.get("types_verbatim_detail", "")
+                })
+        # Tri des circuits de chaque pilier par fréquence décroissante
+        for pid in result:
+            result[pid].sort(key=lambda c: -c.get("frequence", 0))
+        return result
+    
+    def extraire_roles_piliers(self, t4_fields):
+        """Extrait le rôle de chaque pilier depuis T4.
+        
+        Retourne {"P1": "Pilier fonctionnel 1", "P2": "Pilier structurant 2", ...}
+        
+        T4 peut stocker les rôles sous plusieurs formes :
+        - Champs explicites pX_role (recommandé)
+        - Champs pilier_socle, pilier_struct1, pilier_struct2 (fallback ancien format)
+        """
+        roles = {"P1": "", "P2": "", "P3": "", "P4": "", "P5": ""}
+        
+        # Tentative format explicite pX_role
+        for pid in ["P1", "P2", "P3", "P4", "P5"]:
+            champ = t4_fields.get(f"{pid.lower()}_role", "").strip()
+            if champ:
+                roles[pid] = champ
+        
+        # Si au moins un rôle est renseigné explicitement, on retourne
+        if any(roles.values()):
+            return roles
+        
+        # Fallback : reconstituer à partir de pilier_socle / pilier_struct1 / pilier_struct2
+        socle = t4_fields.get("pilier_socle", "").strip()
+        struct1 = t4_fields.get("pilier_struct1", "").strip()
+        struct2 = t4_fields.get("pilier_struct2", "").strip()
+        
+        if socle in roles:
+            roles[socle] = "Pilier socle"
+        if struct1 in roles:
+            roles[struct1] = "Pilier structurant 1"
+        if struct2 in roles:
+            roles[struct2] = "Pilier structurant 2"
+        
+        # Les piliers restants sont fonctionnels (fonctionnel 1 pour le plus en amont du cycle, 2 pour l'aval)
+        ordre_cycle = ["P1", "P2", "P3", "P4", "P5"]
+        fonctionnels_restants = [p for p in ordre_cycle if not roles[p]]
+        for i, pid in enumerate(fonctionnels_restants, start=1):
+            if i == 1:
+                roles[pid] = "Pilier fonctionnel 1"
+            elif i == 2:
+                roles[pid] = "Pilier fonctionnel 2"
+            else:
+                roles[pid] = "Pilier fonctionnel"
+        
+        return roles
+    
+    def extraire_piliers_par_role(self, donnees_piliers, roles_cibles):
+        """Extrait les piliers qui ont un des rôles cibles.
+        
+        donnees_piliers = {"P1": {...}, "P2": {...}, ...} (sortie d'agreger_par_pilier)
+        roles_cibles = liste de rôles recherchés, ex: ["pilier_structurant_1", "pilier_structurant_2"]
+        
+        Normalise les variantes de libellés (ex: "Pilier structurant 1" vs "pilier_structurant_1").
+        
+        Retourne une liste de dicts piliers filtrés (préservant l'ordre P1→P5).
+        """
+        def normaliser(s):
+            return s.lower().replace(" ", "_").replace("·", "").replace("_de_cycle", "").replace("_cycle", "").strip()
+        
+        roles_cibles_norm = [normaliser(r) for r in roles_cibles]
+        
+        result = []
+        for pid in ["P1", "P2", "P3", "P4", "P5"]:
+            bloc = donnees_piliers.get(pid, {})
+            role = bloc.get("role", "")
+            role_norm = normaliser(role)
+            # Match exact ou partiel (ex: "pilier_fonctionnel_1" match "pilier_fonctionnel_1_entree")
+            if any(rn == role_norm or rn in role_norm or role_norm in rn for rn in roles_cibles_norm):
+                result.append(bloc)
+        return result
+
+
+# ============================================
+# POINT D'ENTRÉE
+# ============================================
+
+async def main(candidat_id):
+    orchestrateur = OrchestrateurBilan(candidat_id)
+    bilan_html = await orchestrateur.executer_pipeline()
+    print(f"Bilan produit pour {candidat_id}")
+    return bilan_html
+
+
+if __name__ == "__main__":
+    import sys
+    candidat_id = sys.argv[1] if len(sys.argv) > 1 else "cecile"
+    asyncio.run(main(candidat_id))
 ```
 
 ---
 
-## 11. CRITÈRE DE RÉUSSITE DE L'ÉTAPE 1
+## 4. POINT D'ENTRÉE — USAGE
 
-L'Étape 1 est réussie si, et seulement si, **les 5 conditions suivantes sont remplies** :
+### 4.1 Production d'un bilan unique
 
-1. Le référentiel piliers a passé le contrôle d'intégrité au démarrage
-2. `ETAPE1_T1` contient exactement 25 lignes pour le candidat
-3. Chaque ligne contient les 22 colonnes obligatoires au format des références v3
-4. Le verdict du vérificateur T1 est `CONFORME`, `FLAG_OBSERVATIONS`, ou `CORRECTION REQUISE` **avec corrections appliquées**
-5. **Tolérance pilier_coeur (Décision n°14) :** au maximum 1 erreur résiduelle de pilier_coeur dans le résultat final, et tolérance globale 90% (Décision n°18) sur les autres champs
+```bash
+python orchestrateur.py cecile
+```
 
-Si une seule de ces 5 conditions n'est pas remplie, l'Étape 1 a **échoué** et le pipeline ne passe pas à l'Étape 2.
+### 4.2 Production en batch (tous les candidats)
+
+```python
+import asyncio
+from orchestrateur import OrchestrateurBilan
+
+async def batch(candidats):
+    for candidat_id in candidats:
+        try:
+            o = OrchestrateurBilan(candidat_id)
+            await o.executer_pipeline()
+        except Exception as e:
+            print(f"❌ Erreur pour {candidat_id} : {e}")
+
+asyncio.run(batch(["cecile", "remi", "veronique"]))
+```
+
+### 4.3 Production sélective (relancer un agent)
+
+Si un agent a échoué ou produit une sortie insatisfaisante :
+
+```python
+o = OrchestrateurBilan("cecile")
+# Relancer uniquement Agent 4
+await o.relancer_agent(4)
+# Puis ré-assembler le bilan
+bilan = o.assembler_bilan_html()
+await o.ecrire_bilan_complet(bilan)
+```
 
 ---
 
-## 12. MACHINE À ÉTATS — STATUT_ANALYSE_PIVAR
+## 5. MONITORING ET LOGS
 
-| Statut | Signification | Action du polling |
-|---|---|---|
-| `NOUVEAU` | Candidat fraîchement complété | Démarre Étape 1 depuis T1 |
-| `REPRENDRE_AGENT1` | Reprise demandée à T1 (par superviseur ou par MODE 2) | Démarre Étape 1 depuis T1 |
-| `REPRENDRE_VERIFICATEUR1` | Reprise demandée au vérificateur T1 | Saute T1 (relit ETAPE1_T1), démarre vérificateur T1 |
-| `EN_ATTENTE_VALIDATION_HUMAINE` | Pipeline en pause, validation superviseur requise | Ignoré par le polling normal — voir Section 17 pour le polling de validation |
-| `REPRENDRE_AGENT2` | Reprise demandée à T2 | Saute Étape 1, démarre T2 |
-| `REPRENDRE_AGENT3` | Reprise demandée à T3 | Saute Étapes 1 et 2, démarre T3 |
-| `REPRENDRE_VERIFICATEUR4` | Reprise demandée à T4 | Saute toutes étapes amont, démarre T4 |
-| `en_cours` | Pipeline en train de tourner | Ignoré (déjà actif) |
-| `terminé` | Pipeline complet réussi | Ignoré |
-| `ERREUR` | Échec — diagnostic via `erreur_analyse` | Ignoré (reprise manuelle nécessaire) |
+### 5.1 Logs à implémenter
 
-**Règle d'or :** une reprise via `REPRENDRE_*` ne réécrit jamais les données déjà validées. Elle reprend strictement à l'étape demandée et relit les données amont depuis Airtable.
+Pour chaque agent, logger :
+- Timestamp de début et de fin
+- Nombre de tokens en entrée (system + user)
+- Nombre de tokens en sortie
+- Coût estimé (avec tarifs Anthropic)
+- Validité du JSON de sortie
+- Échecs éventuels (avec réponse brute)
 
----
+### 5.2 Coût estimé par bilan
 
-## 13. SIMULATION OBLIGATOIRE AVANT DÉPLOIEMENT
+| Agent | Max tokens input | Max tokens output | Coût estimé (USD) |
+|---|---|---|---|
+| Agent 6 Transverses | ~3 000 | ~16 000 | 0,30 |
+| Agent 1 Architecture | ~4 000 | ~24 000 | 0,40 |
+| Agent 2 Circuits | ~20 000 | ~64 000 | 1,50 |
+| Agent 3 Modes | ~6 000 | ~32 000 | 0,60 |
+| Agent 4 Synthèse | ~8 000 | ~32 000 | 0,70 |
+| Agent 5 Coûts+Cl. | ~6 000 | ~20 000 | 0,40 |
+| **Total par bilan** | | | **~3,90 USD** |
 
-Avant tout déploiement de fichiers sur GitHub, le pipeline est **simulé mentalement** sur Cécile :
+**Coût pour 1000 bilans** : ~3 900 USD (hors coût de certification).
 
-1. Calcul précis des tokens par appel
-2. Vérification que chaque appel reste sous le plafond 64 000
-3. Vérification que les 22 colonnes produites correspondent au format des références v3
-4. Vérification que les 4 catégories de correction du vérificateur couvrent bien les divergences observées
-5. Vérification que le contrôle d'intégrité référentielle bloque bien si donnée manquante
-6. Vérification que les 4 modes du vérificateur (Section 4.4) sont distinctement déclenchables
+### 5.3 Temps estimé par bilan
 
-Si la simulation détecte un risque, le contrat est ajusté **avant** la production des fichiers.
+- Agents en parallèle (1, 2, 3, 6) : ~60 secondes
+- Agent 4 : ~40 secondes
+- Agent 5 : ~25 secondes
+- Assemblage HTML + écriture Airtable : ~5 secondes
 
----
-
-## 14. DÉCISIONS DOCTRINALES ACTÉES
-
-Ces décisions ont été prises par Isabelle Chenais et sont **inscrites définitivement** dans ce contrat :
-
-1. **`id_question`** produit par T1 = recopié tel quel depuis RESPONSES (`P1Q2`, `P2Q15`...). (27/04/2026)
-
-2. **`pilier_sortie`** = champ abandonné. Reste vide. (27/04/2026)
-
-3. **Vérificateur T1 = vérificateur correcteur**. Corrige directement dans Airtable. Pas de validation humaine intermédiaire en cas normal. (27/04/2026)
-
-4. **Civilité** = lue depuis `VISITEUR.civilite_candidat`, transmise aux agents pour les accords grammaticaux. **Aucun prénom ni nom transmis aux agents.** (27/04/2026)
-
-5. **Format `verbes_angles_piliers`** = narratif. (27/04/2026)
-
-6. **Pas de comparaison entre candidats**, jamais. (27/04/2026)
-
-7. **Anonymisation absolue dans les agents Claude.** (27/04/2026)
-
-8. **Doctrine de nommage des piliers** = source unique de vérité = REFERENTIEL_PILIERS. (28/04/2026)
-
-9. **Architecture d'injection des référentiels** = lecture Airtable au démarrage, injection dans le payload des agents. (28/04/2026)
-
-10. **Renommage CERTIFICATEUR_T1 → VERIFICATEUR_T1** dans Airtable. (28/04/2026)
-
-11. **Uniformisation des types Airtable** : ETAPE1_T1 utilise `singleSelect` sur les champs à valeurs contraintes. (28/04/2026)
-
-12. **Périmètre du profil cognitif et zone périphérique cognitive** : COMMENT cognitif comme objet central + zone périphérique (émotionnel et psychologique détectables) captée dans `signal_limbique`. Le pourquoi (motivations, valeurs) et l'affectif pur restent hors périmètre. (28/04/2026)
-
-13. **Traitement individuel exclusif** : le pipeline traite UN candidat à la fois. Jamais plusieurs candidats simultanément, jamais de comparaison inter-candidats. Chaque profil cognitif est individuel et autonome. Les données des autres candidats ne sont jamais lues, transmises ou utilisées dans le traitement d'un candidat. Cette règle s'applique à toutes les étapes (T1, vérificateur T1, T2, T3, T4) et à tous les agents. (28/04/2026)
-
-14. **Tolérance pilier_coeur dans le résultat final ETAPE1_T1** : 0 erreur idéale, **1 erreur résiduelle tolérée** (le vérificateur n'est pas un agent supérieur infaillible). Si > 1 erreur résiduelle après tentative du vérificateur, bascule en MODE 3 (validation humaine). (28/04/2026)
-
-15. **Architecture du vérificateur T1 en 4 modes** : Mode 1 Correction ponctuelle / Mode 2 Relance d'agent T1 sur scénario défaillant / Mode 3 Validation humaine / Mode 4 Erreur système. Diagnostic basé sur la distribution des erreurs par scénario (seuil de défaillance d'un agent : ≥ 3 erreurs sur les lignes du scénario). (28/04/2026)
-
-16. **Workflow de validation humaine asynchrone** : déclenché par MODE 3 ou MODE 4 du vérificateur. Email automatique via Resend à `process.env.SUPERVISOR_EMAIL` (= `sibprod@live.fr`). Le superviseur arbitre via 4 champs Airtable dans VISITEUR (`validation_humaine_etape1`, `validation_humaine_action`, `validation_humaine_motif`, `validation_humaine_date`). Voir Section 17. (28/04/2026)
-
-17. **Forme courte de `pilier_coeur_analyse`** confirmée : `PX · description du geste cognitif central` (sans le nom officiel accolé), conforme aux références v3 Cécile/Rémi/Véronique. La forme longue avec nom officiel reste valable pour les bilans publiés (Étape 4) destinés au candidat et au DRH. (28/04/2026)
-
-18. **Tolérance globale 90%** sur le résultat final de l'Étape 1 (hors pilier_coeur qui est plus strict, voir Décision n°14). Cette tolérance reflète le fait que le profil cognitif est révélé à 90% de fidélité à la doctrine — les marges d'interprétation marginales ne détruisent pas le profil. (28/04/2026)
-
-19. **Pilier coeur identifié par la profondeur de compétence cognitive déployée** par le candidat (savoir-faire mobilisé), pas par le volume. Un candidat qui sait faire et à qui on demande d'expliquer livre spontanément son savoir-faire — sauf chez les candidats laconiques. Les marqueurs de profondeur sont : articulations conditionnelles, hiérarchies argumentées, critères explicites, principes organisateurs, hypothèses testables, exemples concrets. Le **volume** et la **précision** sont des indicateurs indirects, pas des critères premiers. (28/04/2026)
-
-20. **Un seul pilier est activé à la fois** dans une réponse. Les piliers s'enchaînent dans une **séquence narrative** au fil du verbatim — pas d'activation parallèle. Chaque pilier activé a une force (intensité du déploiement). Le sens central de la réponse (où la compétence est déployée) tranche l'attribution du pilier coeur, pas l'ordre chronologique. (28/04/2026)
-
-21. **Pilier coeur unique par réponse** + **piliers secondaires uniquement ≠ pilier coeur** avec leur **position narrative** (en amont du coeur OU en aval du coeur). Pas d'autre position capturée en Étape 1 (pas de "fin de réponse", pas de "en parallèle" — sources d'erreur pour les agents IA). **Cas vide légitime** : si le verbatim reste dans le pilier coeur du début à la fin, le champ `piliers_secondaires` est vide — c'est un signal cognitif valide. Le terme "piliers secondaires" est utilisé en Étape 1 ; il devient "piliers structurants" à partir de l'Étape 4 (signature cognitive). (28/04/2026)
-
-22. **Lecture des `pieges_avertissements` systématique** (avant ET après attribution du pilier), pas conditionnelle. La notion d'"ambiguïté" est subjective — un agent peu vigilant passerait à côté des pièges. La double lecture systématique des pièges du `referentiel_piliers` injecté est un **passage obligé du raisonnement** de l'agent T1, pas un filet de secours optionnel. (28/04/2026)
-
-23. **Healthcheck global préalable de tous les services techniques** à chaque cycle de polling Render, avant tout démarrage de pipeline. Services vérifiés : Airtable (lecture REFERENTIEL_PILIERS), Claude API (ping 1 token), Resend (statut HTTP). Si un service KO : pause silencieuse (aucun candidat ne change de statut), email d'alerte technique unique par jour à `SUPERVISOR_EMAIL` (anti-spam), reprise automatique quand le service revient. Render et GitHub ne sont pas vérifiés au runtime (Render s'auto-vérifie en exécutant le polling, GitHub n'est sollicité qu'au déploiement). (28/04/2026)
-
-24. **Logique de tentatives sur Mode 4 (erreur système)** : champ `nombre_tentatives_etape1` (number, précision 0) dans VISITEUR. Tentative 1 = exécution normale (compteur 0 → 1). Si Mode 4 → email superviseur + reprise auto T1 (compteur 1 → 2, suppression lignes ETAPE1_T1 existantes + relance 5 appels). Si Mode 4 à nouveau → statut `ERREUR` définitif, intervention humaine obligatoire (compteur 2 → 3+). Reset du compteur à 0 quand T1 réussit (passage à `terminé` ou progression vers Étape 2) — comme ça si plus tard le candidat repasse par T1 manuel, le cycle de tentatives repart de zéro. (28/04/2026)
-
-25. **Format `attribution_pilier_signal_brut` chaîné MAJUSCULE/minuscule** : le champ reflète la **séquence narrative effective** du verbatim avec autant de piliers que de piliers parcourus dans l'ordre littéral (retours possibles au même pilier autorisés). Pilier coeur en **MAJUSCULE** (visible d'un coup d'œil), piliers secondaires en **minuscule**. Séparateur ` + `. Verdict après double espace : `Conforme`, `ÉCART`, ou `Conforme (incarne PX)` pour incarnation par un pilier non parcouru. Cas verbatim monolithique : chaîne réduite au pilier coeur en MAJUSCULE seul, sans `+`. Ce format remplace les anciennes formes `PX · PY + PZ Conforme` et `PX → PY Conforme`. Voir Section 3.4bis pour la doctrine complète. (28/04/2026)
-
-26. **Architecture orchestrateur principal + sous-orchestrateurs par étape** : un seul `orchestratorPrincipal.js` lit le statut du candidat dans VISITEUR et décide quel sous-orchestrateur appeler (`orchestratorEtape1.js`, `orchestratorEtape2.js` futur, `orchestratorEtape3.js` futur). Chaque sous-orchestrateur gère le pipeline complet de SON étape (T1 → vérificateur → T2 → ... → bilan). Les services d'infrastructure (Claude, Airtable, healthcheck) sont mutualisés entre toutes les étapes. Bénéfice : isolation des étapes, pas de cascade d'erreurs, extensibilité multi-étapes sans toucher aux étapes existantes. (28/04/2026)
-
-27. **Structure des dossiers GitHub par étape** : sous-dossiers `etape1/`, `etape2/`, `etape3/` dans `new-prompts/`, `services/`, `templates/`. Chaque étape est un univers indépendant. Pour les agents T4 (qui sont en 6 sous-agents), un sous-dossier dédié `etape{N}_t4/` regroupe les 6 sous-agents. Les futures étapes s'ajoutent en créant un dossier, sans toucher aux étapes existantes. Voir Section 20 pour la structure complète. (28/04/2026)
-
-28. **Pattern de nommage `verificateur{niveau}_t{X}` lié à l'agent vérifié** : un vérificateur est toujours rattaché à un agent précis. Format : `verificateur{niveau}_t{X}.txt` pour le prompt, `agentT{X}VerificateurService.js` pour le service Node.js. Le numéro `{niveau}` indique le **niveau de vérification** (1 = vérification de premier niveau, 2 = vérification d'un vérificateur si jamais nécessaire). Le numéro `{X}` indique l'agent vérifié (T1, T2, T3, T4). Le terme **vérificateur** remplace **certificateur** dans tout le projet (Décision n°10). Le **certificateur** reste un objet distinct, réservé à la certification finale du bilan complet. (28/04/2026)
-
-29. **Pas de promesse de délai garanti, mais robustesse garantie** : la profondeur méthodologique de Profil-Cognitif (analyse cognitive complète, vérification doctrinale, bilan structuré) impose des temps de calcul incompressibles. Le système ne garantit pas un délai fixe (ce serait mensonger). Le système garantit en revanche **la robustesse de bout en bout** : chaque candidat aboutit, jamais bloqué silencieusement, avec backups + vérificateur + healthcheck + Mode 4 reprise auto + Mode 3 validation humaine. Communication client : "Bilan livré sous 72h en moyenne, garanti sous 72h max" (voir Décision n°34). Cette décision conditionne toute l'architecture : robustesse > vitesse. (28/04/2026)
-
-30. **Polling agressif (60 secondes au lieu de 5 minutes)** : variable d'environnement `POLLING_INTERVAL` passe de **300000 ms (5 min)** à **60000 ms (1 min)** par défaut. Gain immédiat : -4 minutes en moyenne par candidat sur le délai d'attente avant démarrage. Aucun risque technique (Airtable supporte largement ce volume de requêtes pour des bases de cette taille). Configurable via env Render. (28/04/2026)
-
-31. **Capacité serveur connue et documentée** : sur Render Starter (1 CPU, MAX_CONCURRENT=1) avec un bilan complet 3 étapes prenant 1h30 en moyenne, la capacité maximale théorique est de **16 candidats/jour**, capacité réaliste **10-12 candidats/jour** (avec marges). Au-delà : upgrade Render nécessaire (plan Standard ou Pro) ou augmentation de `MAX_CONCURRENT` si l'application est conçue pour gérer la concurrence. Surveillance automatique : si la queue dépasse 24 candidats en attente, alerte automatique au superviseur. Phase démarrage commercial (3-6 premiers mois) = capacité actuelle largement suffisante. (28/04/2026)
-
-32. **Vérificateur existant ⇔ vérificateur exécuté** (présence du fichier prompt = doctrine) : à la conception de chaque étape ou de chaque agent, Isabelle décide doctrinalement si un vérificateur est nécessaire. Si oui, elle fournit le prompt `verificateur{niveau}_t{X}.txt` correspondant. Si non, le fichier n'existe pas et l'orchestrateur passe directement à l'agent suivant. **L'orchestrateur détecte la présence du vérificateur par la présence du fichier prompt**, pas par une variable d'environnement. État actuel pour l'Étape 1 : `verificateur1_t1.txt` existe (vérificateur OBLIGATOIRE car T1 = fondement du profiling) ; `verificateur1_t2.txt`, `verificateur1_t3.txt`, `verificateur1_t4.txt` n'existent pas (à créer plus tard si nécessaire). Bénéfice : la doctrine est dans l'arborescence des fichiers, pas dans une configuration cachée. (28/04/2026)
-
-33. **Communication candidat asynchrone** : 4 emails automatiques au candidat selon le calendrier suivant : **Email T0** (à la réception des 25 réponses) confirmation + annonce du délai ; **Email T0+24h** si bilan prêt → livraison, sinon rien ; **Email T0+48h** si bilan prêt → livraison, sinon rappel "en cours d'élaboration approfondie" ; **Email T0+72h** si bilan toujours pas prêt → alerte interne au superviseur pour intervention. Service dédié : `notificationCandidatService.js` qui tourne 1 fois par heure. Tracking dans VISITEUR : champs `email_T0_envoye`, `email_24h_envoye`, `email_48h_envoye`, `email_72h_envoye` (4 booléens). Ton des emails : sobre, professionnel, valorisant le délai comme signal de qualité méthodologique (et non comme une faiblesse). Voir Section 24 pour les templates. (28/04/2026)
-
-34. **Délai d'engagement client : bilan livré sous 72h max** : engagement par défaut communiqué au candidat = "Bilan livré sous 72h". En pratique : 90% des bilans livrés sous 24h, 9% entre 24-48h, 1% nécessitant intervention humaine (Mode 3 du vérificateur ou Mode 4 erreur système). Buffer de 72h permet d'absorber : pic de queue, intervention humaine Mode 3, panne API ponctuelle, retry exponentiel. Si un candidat dépasse 72h, alerte automatique au superviseur (voir Décision n°33). Au-delà de la phase de démarrage, ce délai pourra être ramené à 48h ou 24h une fois la fiabilité statistique mesurée. (28/04/2026)
+**Total** : **~2 minutes par bilan**.
 
 ---
 
-## 15. PRINCIPES DE TRAVAIL POUR L'AGENT QUI EXÉCUTE CE CONTRAT
+## 6. CHECKLIST DE DÉPLOIEMENT
 
-1. **Aucune décision doctrinale n'est prise sans validation explicite d'Isabelle Chenais.**
+Avant de mettre l'orchestrateur en production :
 
-2. **Avant toute modification d'un fichier, vérifier que la modification est traçable à une clause du contrat.**
+### 6.1 Données Airtable
+- [ ] Table `ETAPE1_T1` peuplée pour le candidat
+- [ ] Table `ETAPE1_T2` peuplée
+- [ ] Table `ETAPE1_T3_v4` peuplée (75 lignes)
+- [ ] Table `ETAPE1_T4` peuplée (attributions + filtre + grandes lignes finalité)
+- [ ] Table `ETAPE1_T4_BILAN` créée avec les 66 colonnes
 
-3. **Avant tout déploiement, simuler sur Cécile.**
+### 6.2 Code
+- [ ] `ANTHROPIC_API_KEY` configurée en variable d'environnement
+- [ ] `AIRTABLE_API_KEY` et `AIRTABLE_BASE_ID` configurés
+- [ ] Les 6 prompts agents placés dans `prompts/`
+- [ ] Fichier CSS `pc_bilan_styles.css` accessible au frontend
 
-4. **Si une instruction du contrat semble contradictoire avec une demande en cours, signaler la contradiction.**
+### 6.3 Tests
+- [ ] Test sur Cécile : bilan produit cohérent avec le bilan manuel V2
+- [ ] Test sur Rémi : bilan produit sans erreur
+- [ ] Test sur Véronique : bilan produit sans erreur
+- [ ] Test de relance d'un agent après erreur
 
-5. **Ce contrat est une référence unique.** Quand une nouvelle conversation démarre, ce contrat doit être relu en premier. Il prime sur la mémoire conversationnelle de l'agent.
-
-6. **À chaque avancée, faire le point sur les incidences sur l'existant et sur les conséquences à venir.**
-
----
-
-## 16. GOUVERNANCE DU CONTRAT
-
-| Acteur | Pouvoirs |
-|---|---|
-| Isabelle Chenais | Seule autorité de modification doctrinale du contrat |
-| Agent technique (Claude) | Propose des ajustements, n'en valide aucun |
-| Pipeline (Render) | Exécute le contrat, ne le modifie jamais |
-
-Toute modification du contrat fait l'objet d'une **nouvelle version datée** et est tracée dans le journal de version.
-
----
-
-## 17. WORKFLOW DE VALIDATION HUMAINE ASYNCHRONE (DÉCISION N°16)
-
-### 17.1 Principe
-
-En cas de défaillance pathologique non rattrapable automatiquement (Mode 3 du vérificateur T1), le pipeline ne plante pas et ne progresse pas non plus. Il **suspend** son exécution et **sollicite une validation humaine asynchrone** du superviseur.
-
-C'est un **filet de sécurité** pour les cas pathologiques rares — pas un mode de fonctionnement normal.
-
-### 17.2 Infrastructure Airtable
-
-**Table `VISITEUR`** — 4 champs créés le 28/04/2026 pour ce workflow :
-
-| Champ | Type | Rôle |
-|---|---|---|
-| `validation_humaine_etape1` | checkbox | Cochée par le superviseur quand il a arbitré. Le polling Render détecte cette case et déclenche l'action choisie. |
-| `validation_humaine_action` | singleSelect (4 choix) | `RELANCER_AGENT_T1` / `RELANCER_VERIFICATEUR_T1` / `ACCEPTER_TEL_QUEL` / `ABANDONNER` |
-| `validation_humaine_motif` | multilineText | Texte libre du superviseur expliquant son choix (audit) |
-| `validation_humaine_date` | dateTime (Europe/Paris) | Horodatage de la validation |
-
-**Champ `statut_analyse_pivar`** : nouveau choix `EN_ATTENTE_VALIDATION_HUMAINE` ajouté.
-
-### 17.3 Infrastructure Render
-
-**Variables d'environnement déjà configurées :**
-- `RESEND_API_KEY` : clé API Resend pour envoi d'emails
-- `SUPERVISOR_EMAIL` = `sibprod@live.fr` : destinataire des alertes
-
-### 17.4 Déclenchement (côté pipeline)
-
-Quand le vérificateur T1 bascule en MODE 3 (Section 4.4) :
-
-1. Le pipeline passe `statut_analyse_pivar = EN_ATTENTE_VALIDATION_HUMAINE`
-2. Le pipeline **n'écrit rien** dans `validation_humaine_*` (ces champs sont remplis par le superviseur)
-3. Le service `validationHumaineService.js` envoie un email via Resend à `SUPERVISOR_EMAIL`
-4. Le pipeline s'arrête là pour ce candidat (les autres candidats continuent à être traités normalement)
-
-### 17.5 Format de l'email superviseur
-
-**Sujet** : `[Profil-Cognitif] Validation requise — candidat <Prenom>`
-
-**Corps** :
-- **Identification** : Prenom, candidate_ID
-- **Diagnostic du vérificateur** : nombre d'erreurs détectées, piliers concernés, scénarios concernés, mode déclenché
-- **Lien direct** vers la ligne `VISITEUR` Airtable du candidat (calculé à la volée par le code)
-- **Lien direct** vers les 25 lignes `ETAPE1_T1` Airtable filtrées par candidate_ID
-- **Lien HTML futur** vers la visualisation Étape 1 (Section 18 — chantier futur)
-- **Instructions** : 
-  - Cocher `validation_humaine_etape1`
-  - Choisir `validation_humaine_action` parmi les 4 options
-  - Renseigner `validation_humaine_motif` (recommandé pour audit)
-  - La date est remplie automatiquement par le code Render après traitement (le superviseur peut aussi la mettre à la main)
-
-### 17.6 Détection et traitement (côté polling)
-
-Le polling Render, en plus de surveiller les statuts normaux, surveille aussi :
-
-```
-filter: statut_analyse_pivar = "EN_ATTENTE_VALIDATION_HUMAINE" 
-        AND validation_humaine_etape1 = TRUE
-```
-
-Quand un candidat correspond à ce filtre, le service `validationHumaineService.js` :
-
-1. Lit la valeur de `validation_humaine_action`
-2. Exécute l'action correspondante :
-   - **`RELANCER_AGENT_T1`** : supprime les 25 lignes ETAPE1_T1 du candidat, statut → `REPRENDRE_AGENT1`
-   - **`RELANCER_VERIFICATEUR_T1`** : laisse les lignes T1 en place, statut → `REPRENDRE_VERIFICATEUR1`
-   - **`ACCEPTER_TEL_QUEL`** : pas de modification des données, statut → `en_cours` (passe à T2)
-   - **`ABANDONNER`** : statut → `ERREUR` avec motif "ABANDONNÉ par superviseur le <date> : <motif>"
-3. **Décoche `validation_humaine_etape1`** (pour éviter ré-déclenchement)
-4. Met à jour `validation_humaine_date` avec horodatage actuel si vide
-5. Le pipeline normal reprend à partir du nouveau statut
-
-### 17.7 Cas du MODE 4 (Erreur système)
-
-Pour MODE 4 (erreur système distincte de la validation doctrinale) :
-
-- Statut : `ERREUR` (pas `EN_ATTENTE_VALIDATION_HUMAINE`)
-- Email distinct envoyé à `SUPERVISOR_EMAIL` avec sujet `[Profil-Cognitif] ERREUR système — candidat <Prenom>`
-- Le corps contient : diagnostic technique (`erreur_analyse`), liens Airtable, indication qu'une intervention dev (et non doctrinale) est requise
-- Pas de workflow Airtable de validation — c'est un problème à diagnostiquer puis relancer manuellement
-
-### 17.8 Limites et garde-fous
-
-- **Pas de boucle infinie** : si après une validation humaine, le candidat re-déclenche un MODE 3 (par exemple le superviseur a choisi `RELANCER_AGENT_T1` mais le problème persiste), le compteur `nombre_tentatives_analyse` (champ existant dans VISITEUR) est incrémenté. Au-delà de 3 tentatives, statut → `ERREUR` automatique avec motif "Validation humaine répétée sans résolution".
-- **Sécurité Airtable** : aucun autre acteur que le superviseur ne doit cocher `validation_humaine_etape1`. Cette discipline est humaine, pas technique — Airtable n'a pas de permission par champ dans le plan utilisé.
-- **Audit complet** : chaque cycle (déclenchement, validation, action) génère une ligne dans `VERIFICATEUR_T1` avec `mode = MODE_3` et trace de l'action choisie.
+### 6.4 Monitoring
+- [ ] Logs configurés et centralisés
+- [ ] Alertes en cas d'échec d'agent
+- [ ] Tableau de bord des coûts et temps par bilan
 
 ---
 
-## 18. CHANTIERS FUTURS IDENTIFIÉS (HORS PÉRIMÈTRE ÉTAPE 1)
+## 7. AMÉLIORATIONS FUTURES
 
-Ces chantiers sont **identifiés mais ne font PAS partie de la livraison de l'Étape 1**. Ils sont notés ici pour ne pas être oubliés et pour clarifier les attentes.
+Une fois la v1 stable, pistes d'amélioration :
 
-### 18.1 Génération HTML dynamique pour toutes les étapes
-
-**Contexte :** Isabelle dispose actuellement de 3 fichiers HTML statiques de référence (`tableau1_cecile_v3.html`, `tableau1_remi_v3.html`, `tableau1_veronique_v3.html`) qui constituent la **mise en page cible** pour la visualisation de l'Étape 1.
-
-**Objectif futur :** générer dynamiquement, pour **chaque étape** (T1, T2, T3, T4) et pour **chaque candidat**, une page HTML qui reproduit cette mise en page, alimentée par les données Airtable du candidat.
-
-**Pourquoi c'est important :**
-- Permet au superviseur (workflow Section 17) de visualiser **immédiatement et lisiblement** ce qu'a produit le pipeline, sans devoir filtrer manuellement Airtable
-- Permet aux DRH/recruteurs/référents (Étape 4) d'accéder à un livrable propre
-- Pattern reproductible pour T2, T3, T4 avec leurs propres mises en page
-
-**Architecture cible (à définir précisément lors du chantier) :**
-- Route Render : `/etape<N>/<candidate_ID>` qui sert un HTML
-- Lecture des données Airtable correspondantes au candidat
-- Application du template HTML de référence
-- Retour HTML stylé prêt à être visualisé dans navigateur
-
-**Champ Airtable à créer plus tard dans VISITEUR :**
-- `lien_html_etape1`, `lien_html_etape2`, `lien_html_etape3`, `lien_html_etape4` (formules calculant l'URL)
-- Pattern unifié pour les 4 étapes
-
-**Pourquoi ce chantier est REPORTÉ :**
-1. La priorité actuelle est de **stabiliser fonctionnellement l'Étape 1** (T1 + vérificateur correctement orchestrés, validation humaine opérationnelle)
-2. La génération HTML est cosmétique tant que le moteur d'analyse n'est pas robuste
-3. En attendant, le superviseur peut accéder aux 25 lignes ETAPE1_T1 directement via Airtable (vue filtrée par `candidat_id`)
-
-**Quand ce chantier démarrera :**
-Après que :
-- Les prompts T1 et vérificateur T1 sont produits et validés
-- Les services Node.js correspondants sont produits et validés
-- Le déploiement de l'Étape 1 a eu lieu et fonctionne sur Cécile, Rémi, Véronique
-
-**Engagement :** ce chantier sera fait. Il est **noté ici dans le contrat** pour qu'il ne soit pas oublié quand l'Étape 1 sera stabilisée.
-
-### 18.2 Nettoyage des champs legacy de RESPONSES
-
-Les 80+ champs d'analyse legacy de RESPONSES (`analyse_json_agent1`, `pilier_reponse_coeur`, `circuits_actives`, etc.) ne sont pas utilisés par le pipeline actuel. À nettoyer ultérieurement par Isabelle pour clarifier la base.
-
-### 18.3 Pattern HTML pour validation humaine multi-étapes
-
-Quand la génération HTML sera en place, étendre le workflow de validation humaine (Section 17) à toutes les étapes T2, T3, T4. Les champs `validation_humaine_etape<N>` seront créés selon le pattern de l'Étape 1.
-
-### 18.4 Services Node.js à créer ou mettre à jour en Phase E
-
-Pour rappel des services à produire en Phase E (refonte du code) :
-
-| Service | État | Rôle |
-|---|---|---|
-| `healthcheckService.js` | **À créer** (lié à Décision n°23) | Vérifie Airtable, Claude API, Resend à chaque cycle de polling. Gère l'anti-spam (1 email par jour par service KO). |
-| `validationHumaineService.js` | **À créer** (lié à Décision n°16) | Envoi des emails Resend Mode 3/4. Polling de la case `validation_humaine_etape1`. Application des actions selon `validation_humaine_action`. |
-| `agentT1Service.js` | À refondre | 5 appels par scénario, injection référentiel piliers, écriture des 25 lignes après succès complet. |
-| `agentT1VerificateurService.js` | À refondre | 4 modes opérationnels, journal d'audit dans VERIFICATEUR_T1, gestion `nombre_tentatives_etape1`. |
-| `orchestratorService.js` | À refondre en deux fichiers (Décision n°26) | Devient `orchestratorPrincipal.js` (chef d'orchestre) + `orchestratorEtape1.js` (sous-chef Étape 1). |
-| `notificationCandidatService.js` | **À créer** (lié à Décision n°33) | Service d'envoi automatique des emails T0, +24h, +48h, +72h au candidat. |
+- **Cache intelligent** : si un candidat a déjà été traité, ne relancer que les agents dont les données d'entrée ont changé
+- **Production incrémentale** : permettre au certificateur de signaler des corrections ciblées à un agent sans relancer tout le pipeline
+- **Versioning des bilans** : conserver l'historique des versions successives
+- **Agent certificateur** : prompt dédié qui vérifie les 15 check-lists de chaque template sur le bilan produit
+- **Agent 7 Correcteur** : si le certificateur détecte des non-conformités, un agent dédié peut corriger localement sans relancer tout
 
 ---
 
-## 19. ARCHITECTURE CIBLE — ORCHESTRATEUR PRINCIPAL + SOUS-ORCHESTRATEURS PAR ÉTAPE
-
-(Décision n°26)
-
-### 19.1 Principe — métaphore de la cuisine
-
-Pour la robustesse et l'extensibilité multi-étapes (Étape 1, Étape 2, Étape 3), l'architecture suit le modèle d'une cuisine de restaurant :
-
-- 🍴 **Le chef de cuisine** = `orchestratorPrincipal.js`
-  - Lit le statut du candidat dans VISITEUR
-  - Décide à quel sous-chef envoyer le candidat selon où il en est dans le pipeline
-  - Surveille la santé globale (healthcheck préalable, Décision n°23)
-  - Sait quand arrêter pour ne pas surcharger Render ou Claude API
-
-- 👨‍🍳 **Les sous-chefs** = un orchestrateur par étape
-  - `orchestratorEtape1.js` : sait gérer T1 → vérificateur T1 → T2 → (vérif T2 si existe) → T3 → (vérif T3 si existe) → T4 → certificateur lexique
-  - `orchestratorEtape2.js` (futur) : sait gérer le pipeline complet de l'Étape 2
-  - `orchestratorEtape3.js` (futur) : idem pour l'Étape 3
-
-- 🔧 **Les outils communs** = services d'infrastructure mutualisés
-  - `claudeService.js` (les couteaux : appel API Claude)
-  - `airtableService.js` (le frigo : lecture/écriture Airtable)
-  - `backupService.js` (le carnet de bord : snapshots de progression)
-  - `agentBase.js` (la table de travail : chargement des prompts mutualisé pour tous les agents)
-  - `healthcheckService.js` (le poste de garde : vérifie Airtable + Claude API + Resend avant chaque cycle)
-  - `validationHumaineService.js` (le téléphone vers Isabelle : Mode 3 du vérificateur)
-  - `notificationCandidatService.js` (les emails au candidat : Décision n°33)
-  - `errorClassifier.js` + `logger.js` (les utilitaires)
-
-### 19.2 Flux d'exécution complet
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Frontend candidat ──webhook──> Airtable                             │
-│                    statut_analyse = NOUVEAU                          │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Render polling (toutes les 60 secondes — Décision n°30)             │
-│ ──> queueService.runPollingCycle()                                  │
-│      └── lit Airtable, ajoute candidats à la queue                  │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ healthcheckService (Décision n°23)                                  │
-│ ──> Airtable OK ? Claude API OK ? Resend OK ?                       │
-│ ──> Si KO : pause silencieuse + alerte technique                    │
-│ ──> Si OK : poursuite                                               │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ orchestratorPrincipal.processCandidate(session_id)                  │
-│ ──> Lit statut VISITEUR.statut_analyse_pivar                        │
-│ ──> Aiguille vers le bon sous-orchestrateur                         │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-        ┌─────────────────────────┼─────────────────────────┐
-        ▼                         ▼                         ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ orchestrator    │    │ orchestrator    │    │ orchestrator    │
-│ Etape1.run()    │    │ Etape2.run()    │    │ Etape3.run()    │
-│                 │    │ (futur)         │    │ (futur)         │
-│ T1              │    │ T1              │    │ ...             │
-│ ↓               │    │ ↓               │    │                 │
-│ verif T1*       │    │ verif T1*       │    │                 │
-│ ↓               │    │ ↓               │    │                 │
-│ T2              │    │ T2              │    │                 │
-│ ↓               │    │                 │    │                 │
-│ (verif T2 si    │    │                 │    │                 │
-│  fichier existe)│    │                 │    │                 │
-│ ↓               │    │                 │    │                 │
-│ T3              │    │                 │    │                 │
-│ ↓               │    │                 │    │                 │
-│ T4 (6 sous-     │    │                 │    │                 │
-│  agents)        │    │                 │    │                 │
-│ ↓               │    │                 │    │                 │
-│ certif lexique  │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-        │                         │                         │
-        └─────────────────────────┼─────────────────────────┘
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ statut_analyse_pivar = 'terminé' ou 'ERREUR'                        │
-│ Email candidat livraison (notificationCandidatService)              │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-*\* Le vérificateur n'est exécuté que si son fichier prompt existe (Décision n°32).*
-
-### 19.3 Bénéfices
-
-1. **Isolation des étapes** : si l'Étape 1 plante, l'Étape 2 ne tente rien (pas de cascade d'erreurs)
-2. **Extensibilité** : ajout de l'Étape 2 = créer un fichier `orchestratorEtape2.js`, ne pas toucher à l'Étape 1
-3. **Lisibilité** : chaque sous-orchestrateur a une responsabilité unique et claire
-4. **Robustesse** : `MAX_CONCURRENT=1` garanti, healthcheck préalable, backups par étape
-5. **Pas de microservices** : un seul process Node.js sur Render, pas de complexité externe
-
-### 19.4 Détection automatique des vérificateurs (Décision n°32)
-
-Le sous-orchestrateur d'étape applique cette logique pour chaque agent :
-
-```
-Pour chaque agent à exécuter dans le pipeline de l'étape :
-  1. Exécuter l'agent (ex. T1, T2, T3, T4, ...)
-  
-  2. Vérifier si le fichier prompt vérificateur existe dans le système de fichiers :
-     "new-prompts/etape{N}/verificateur1_t{X}.txt"
-  
-  3a. Si OUI → exécuter agentT{X}VerificateurService (modes 1/2/3/4 du contrat v1.6)
-  3b. Si NON → passer directement à l'agent suivant
-```
-
-C'est une **convention par fichier**, pas par configuration. Quand Isabelle décide d'ajouter un vérificateur sur T2, elle conçoit le prompt `verificateur1_t2.txt`, le pousse dans GitHub, et l'orchestrateur le détecte automatiquement au prochain run. Aucun changement de code requis.
-
----
-
-## 20. STRUCTURE DES DOSSIERS GitHub (DÉCISION n°27)
-
-### 20.1 Structure cible globale
-
-```
-profil-cognitif/                       (racine du repo GitHub)
-│
-├── server.js                           ← point d'entrée Render (HTTP + démarrage polling)
-├── package.json                        ← métadonnées Node.js + dépendances npm
-├── env.example                         ← modèle des variables d'environnement
-├── README.md                           ← documentation projet (à créer)
-├── .gitignore                          ← exclusions Git
-│
-├── docs/                               ← Documentation et contrats
-│   ├── CONTRAT_ETAPE1.md                ← contrat doctrinal Étape 1 (v1.7+)
-│   ├── CONTRAT_ETAPE2.md                ← futur (à concevoir)
-│   ├── CONTRAT_ETAPE3.md                ← futur
-│   ├── REFERENTIEL_LEXIQUE_BILAN.md     ← doctrine du lexique
-│   └── ORCHESTRATEUR_CORRIGE.md         ← documentation technique de l'orchestrateur
-│
-├── config/                             ← Configuration (constantes)
-│   ├── claude.js                        ← config API Claude (modèle, max_tokens, thinking)
-│   └── airtable.js                      ← config Airtable (BASE_ID, TABLES, FIELDS)
-│
-├── routes/                             ← Couche HTTP Express
-│   └── index.js                         ← endpoints /webhook /analyze /status /api/...
-│
-├── services/                           ← Logique métier
-│   │
-│   ├── orchestrators/                   ← Orchestrateurs (chef + sous-chefs)
-│   │   ├── orchestratorPrincipal.js    ← chef de cuisine
-│   │   ├── orchestratorEtape1.js       ← sous-chef Étape 1
-│   │   ├── orchestratorEtape2.js       ← futur
-│   │   └── orchestratorEtape3.js       ← futur
-│   │
-│   ├── flux/                            ← Gestion débit + sécurité
-│   │   ├── queueService.js             ← FIFO + polling Airtable
-│   │   ├── healthcheckService.js       ← (à créer) vérifie services externes
-│   │   ├── validationHumaineService.js ← (à créer) Mode 3 vérificateur
-│   │   └── notificationCandidatService.js ← (à créer) emails candidat
-│   │
-│   ├── infrastructure/                  ← Outils communs partagés entre étapes
-│   │   ├── claudeService.js            ← wrapper API Claude
-│   │   ├── airtableService.js          ← wrapper Airtable
-│   │   ├── backupService.js            ← snapshots de progression
-│   │   └── agentBase.js                ← chargement prompts mutualisé
-│   │
-│   ├── etape1/                          ← Agents et vérificateurs Étape 1
-│   │   ├── agentT1Service.js
-│   │   ├── agentT1VerificateurService.js
-│   │   ├── agentT2Service.js
-│   │   ├── agentT2VerificateurService.js   ← (futur, si nécessaire)
-│   │   ├── agentT3Service.js
-│   │   ├── agentT3VerificateurService.js   ← (futur, si nécessaire)
-│   │   └── etape1_t4/                       ← T4 = 6 sous-agents
-│   │       ├── agentT4ArchitectureService.js
-│   │       ├── agentT4CircuitsService.js
-│   │       ├── agentT4ModeService.js
-│   │       ├── agentT4SyntheseService.js
-│   │       ├── agentT4CoutsService.js
-│   │       ├── agentT4TransversesService.js
-│   │       ├── agentT4VerificateurService.js   ← (futur, si nécessaire)
-│   │       └── prepareT4Inputs.js
-│   │
-│   ├── etape2/                          ← futur
-│   │   └── ...
-│   │
-│   ├── etape3/                          ← futur
-│   │   └── ...
-│   │
-│   └── certificateurs/                  ← Certificateurs de bilan global
-│       └── certificateurLexiqueService.js  ← certifie le bilan complet
-│
-├── new-prompts/                        ← Texte des prompts Claude
-│   │
-│   ├── etape1/                          ← Prompts Étape 1
-│   │   ├── etape1_t1.txt
-│   │   ├── verificateur1_t1.txt
-│   │   ├── etape1_t2.txt
-│   │   ├── verificateur1_t2.txt        ← (futur, si nécessaire)
-│   │   ├── etape1_t3.txt
-│   │   ├── verificateur1_t3.txt        ← (futur, si nécessaire)
-│   │   └── etape1_t4/
-│   │       ├── AGENT_1_ARCHITECTURE.md
-│   │       ├── AGENT_2_CIRCUITS.md
-│   │       ├── AGENT_3_MODE.md
-│   │       ├── AGENT_4_SYNTHESE_COEUR.md
-│   │       ├── AGENT_5_COUTS_CLOTURE.md
-│   │       ├── AGENT_6_TRANSVERSES.md
-│   │       └── verificateur1_t4.md      ← (futur, si nécessaire)
-│   │
-│   ├── etape2/                          ← futur
-│   │   └── ...
-│   │
-│   ├── etape3/                          ← futur
-│   │   └── ...
-│   │
-│   └── partages/                        ← Prompts partagés entre étapes
-│       ├── PROMPT_BLOCS_LEXIQUE.md     ← doctrine partagée du lexique
-│       └── PROMPT_CERTIFICATEUR.md     ← certificateur lexique global
-│
-├── templates/                          ← Templates de bilan (HTML/markdown)
-│   │
-│   ├── etape1/
-│   │   └── etape1_t4/
-│   │       ├── LOT_A_TEMPLATES_SYNTHESE.md
-│   │       ├── LOT_B_TEMPLATES_COUTS.md
-│   │       ├── LOT_C_TEMPLATES_ARCHITECTURE.md
-│   │       ├── LOT_D_TEMPLATE_MODES.md
-│   │       ├── LOT_E_TEMPLATES_TRANSVERSES.md
-│   │       └── TEMPLATE_01_DESCRIPTION.md
-│   │
-│   ├── etape2/                          ← futur
-│   └── etape3/                          ← futur
-│
-└── utils/                              ← Utilitaires bas niveau
-    ├── logger.js                        ← logger structuré
-    └── errorClassifier.js               ← classification erreurs Claude/Airtable
-```
-
-### 20.2 Conventions de nommage
-
-| Élément | Convention | Exemples |
-|---|---|---|
-| Prompt agent | `etape{N}_t{X}.txt` | `etape1_t1.txt`, `etape2_t1.txt` |
-| Prompt vérificateur | `verificateur{niveau}_t{X}.txt` | `verificateur1_t1.txt`, `verificateur2_t1.txt` (futur) |
-| Service agent Node.js | `agentT{X}Service.js` | `agentT1Service.js`, `agentT2Service.js` |
-| Service vérificateur Node.js | `agentT{X}VerificateurService.js` | `agentT1VerificateurService.js` |
-| Sous-orchestrateur | `orchestratorEtape{N}.js` | `orchestratorEtape1.js` |
-| Dossier d'étape | `etape{N}/` | `etape1/`, `etape2/`, `etape3/` |
-| Dossier T4 (cas spécial) | `etape{N}_t4/` | `etape1_t4/` (regroupe 6 sous-agents) |
-
-### 20.3 Règle d'or de l'extensibilité
-
-**Une nouvelle étape ne touche jamais aux étapes existantes.** Quand on ajoutera l'Étape 2 :
-
-1. Créer `services/etape2/` avec les agents
-2. Créer `services/orchestrators/orchestratorEtape2.js`
-3. Créer `new-prompts/etape2/` avec les prompts
-4. Créer `templates/etape2/` si bilan
-5. Créer `docs/CONTRAT_ETAPE2.md`
-6. Modifier UN seul fichier existant : `orchestratorPrincipal.js` (pour aiguiller vers le nouveau sous-orchestrateur)
-
-**Aucune autre modification dans les fichiers d'Étape 1.**
-
----
-
-## 21. TABLEAU D'IMPACT — CARTE DES DÉPENDANCES
-
-(Outil de contrôle pour Isabelle : si on modifie X, vérifier Y, Z, W)
-
-### 21.1 Modifications de prompts
-
-| Fichier modifié | Vérifier également |
-|---|---|
-| `new-prompts/etape{N}/etape{N}_t{X}.txt` | `services/etape{N}/agentT{X}Service.js` (parsing JSON cohérent ?), `services/infrastructure/airtableService.js` (champs cohérents ?), `config/airtable.js` (FIELDS à jour ?), `config/claude.js` (config `agent_t{X}`) |
-| `new-prompts/etape{N}/verificateur1_t{X}.txt` | `services/etape{N}/agentT{X}VerificateurService.js`, `airtableService.js` (méthodes patch), `config/claude.js` (config `agent_t{X}_verificateur`) |
-| `new-prompts/etape{N}/etape{N}_t4/AGENT_*.md` | `services/etape{N}/etape{N}_t4/agentT4*Service.js` correspondant, `prepareT4Inputs.js`, `airtableService.js`, `config/claude.js` |
-| `new-prompts/partages/PROMPT_BLOCS_LEXIQUE.md` | `services/infrastructure/agentBase.js` (chargement lexique), tous les agents qui injectent le lexique |
-
-### 21.2 Modifications de services agents
-
-| Fichier modifié | Vérifier également |
-|---|---|
-| `services/etape{N}/agentT{X}Service.js` | `services/orchestrators/orchestratorEtape{N}.js` (signature cohérente ?), `services/infrastructure/agentBase.js`, `airtableService.js` (méthodes d'écriture), prompt correspondant, `config/claude.js` |
-| `services/etape{N}/agentT{X}VerificateurService.js` | `services/orchestrators/orchestratorEtape{N}.js` (require + appel), `airtableService.js` (méthodes patch), prompt vérificateur, `config/claude.js` |
-
-### 21.3 Modifications de services infrastructure
-
-| Fichier modifié | Vérifier également |
-|---|---|
-| `services/orchestrators/orchestratorPrincipal.js` | `routes/index.js` (signature `processCandidate` cohérente ?), tous les sous-orchestrateurs (require + signature), `services/flux/queueService.js`, `airtableService.js` (statuts) |
-| `services/orchestrators/orchestratorEtape1.js` | `orchestratorPrincipal.js` (require), TOUS les agents Étape 1 (signatures cohérentes), `airtableService.js` (machine à états), `backupService.js` (étapes backup) |
-| `services/infrastructure/agentBase.js` | **TOUS les agents** (impact massif !), `claudeService.js`, `airtableService.js` (lecture lexique). Modification très critique. |
-| `services/infrastructure/claudeService.js` | TOUS les agents indirectement (via `agentBase`), `config/claude.js`, `errorClassifier.js` |
-| `services/infrastructure/airtableService.js` | **TOUS les agents** (écriture/lecture), tous les orchestrateurs, `backupService.js`, `queueService.js`, `routes/index.js`, `config/airtable.js` |
-| `services/flux/queueService.js` | `server.js` (démarrage polling cohérent ?), `orchestratorPrincipal.js`, `routes/index.js`, `errorClassifier.js`, `airtableService.js` |
-| `services/flux/healthcheckService.js` | `orchestratorPrincipal.js` (appel à chaque cycle), `claudeService.js`, `airtableService.js`, ENV (`SUPERVISOR_EMAIL`, `RESEND_API_KEY`) |
-| `services/flux/validationHumaineService.js` | `orchestratorEtape1.js` (déclenchement Mode 3), `airtableService.js` (champs `validation_humaine_*`), ENV |
-| `services/flux/notificationCandidatService.js` | `orchestratorPrincipal.js` (déclenchement T0), `airtableService.js` (champs `email_*_envoye`), ENV |
-
-### 21.4 Modifications de configuration
-
-| Fichier modifié | Vérifier également |
-|---|---|
-| `config/claude.js` | `claudeService.js`, TOUS les agents (configs par agent : `agent_t1`, `agent_t1_verificateur`, etc.) |
-| `config/airtable.js` | `airtableService.js`, `routes/index.js` (endpoint /debug/airtable) |
-| `package.json` | Si dépendance ajoutée → vérifier que tous les fichiers qui en ont besoin la requirent. Si version Node bumpée → vérifier compatibilité Render. |
-| `env.example` | Documenter tout nouveau env var dans Render (settings) ET dans `.env` local |
-| `server.js` | Si nouveaux env vars vérifiés au démarrage : ajouter au tableau `requiredEnv`. Si polling activé/désactivé : `ENABLE_POLLING`. |
-
-### 21.5 Modifications Airtable (schéma de base)
-
-| Modification Airtable | Vérifier également dans le code |
-|---|---|
-| Ajout d'un champ dans VISITEUR | `config/airtable.js` (`VISITEUR_FIELDS`), `airtableService.js` (méthodes), peut-être `orchestratorPrincipal.js` si statut, peut-être `routes/index.js` si exposé via `/status` |
-| Ajout d'un champ dans ETAPE1_T1 | `config/airtable.js` (`ETAPE1_T1_FIELDS`), `airtableService.js` (méthodes T1), `agentT1Service.js` (le prompt produit-il ce champ ?), `agentT1VerificateurService.js`, prompts correspondants |
-| Ajout d'un statut dans `statut_analyse_pivar` | `config/airtable.js` (si liste énumérée), `orchestratorPrincipal.js` (machine à états), `queueService.js` (polling reconnaît ?), `routes/index.js` |
-| Renommage d'une table | `config/airtable.js` (table renommée), `airtableService.js` (toutes les références), tous les services qui utilisent cette table |
-
-### 21.6 Groupes de fichiers critiques à traiter ensemble
-
-| Groupe | Fichiers à modifier ensemble |
-|---|---|
-| **A — Agent T1 + écosystème** | prompt T1 + service T1 + config Claude + config Airtable + service Airtable |
-| **B — Vérificateur T1 + écosystème** | prompt vérificateur + service vérificateur + config Claude + service Airtable + sous-orchestrateur Étape 1 |
-| **C — Orchestration globale** | orchestrator principal + sous-orchestrateurs + queue + routes + server |
-| **D — Infrastructure Airtable** | config Airtable + service Airtable + tous les agents (transversal) |
-| **E — Infrastructure Claude** | config Claude + service Claude + agentBase (transversal) |
-| **F — Communication candidat** | notificationCandidatService + airtableService (champs `email_*`) + templates emails + ENV |
-| **G — Validation humaine** | validationHumaineService + airtableService (champs `validation_humaine_*`) + orchestrateur Étape 1 + ENV |
-| **H — Healthcheck** | healthcheckService + orchestratorPrincipal + claudeService + airtableService + ENV |
-
----
-
-## 22. PROTOCOLE DE TRAVAIL "FICHIER PAR FICHIER"
-
-### 22.1 Méthode validée par Isabelle (28/04/2026)
-
-Pour reprendre le contrôle de l'architecture après plusieurs cycles de refonte par des agents IA précédents (qui ont laissé des incohérences et des fichiers obsolètes), la méthode de travail suivante s'applique pour la Phase D et au-delà :
-
-1. **Le projet de travail Claude est vidé** au démarrage de chaque session (Isabelle a déjà vidé le sien le 28/04/2026 — seuls restent les 2 prompts et le contrat v1.6).
-2. **Les fichiers GitHub sont remis dans le projet UN PAR UN**, à la demande de Claude, en fonction du fichier à modifier dans le tableau d'impact.
-3. **Pour chaque fichier transmis** :
-   - Claude **lit le fichier complet** avant toute proposition
-   - Claude **identifie les fichiers liés** via le tableau d'impact (Section 21)
-   - Claude **demande les fichiers liés** avant de proposer une refonte
-   - Claude **propose la modification** avec un diagnostic précis
-   - Isabelle **valide ou amende**
-   - Claude **produit le fichier modifié** et l'expose en sortie
-4. **Au passage**, Isabelle **nettoie GitHub** :
-   - Supprime les fichiers `Old`, doublons, fichiers obsolètes
-   - Renomme selon les conventions de Section 20.2
-   - Restructure dans les dossiers selon Section 20.1
-
-### 22.2 Règles strictes pour Claude
-
-**Règle 1 — Toujours afficher le tableau d'impact AVANT de modifier**
-
-Avant de proposer une modification, Claude affiche :
-> "Je m'apprête à modifier `X`. Selon la cartographie (Section 21), voici les fichiers que je vais aussi vérifier ou potentiellement modifier : [...]. J'ai besoin que vous me transmettiez : [...]."
-
-**Règle 2 — Lecture avant modification**
-
-Toujours lire le fichier complet AVANT de proposer une refonte. Pas de réécriture en aveugle. Si le fichier n'est pas dans le projet, le demander à Isabelle.
-
-**Règle 3 — Pas de modification d'un agent sans relire son orchestrateur**
-
-L'orchestrateur (principal ou sous-orchestrateur) est le point central. Toute modification d'un agent doit être validée contre les attentes de l'orchestrateur (signature, retour, statut Airtable, gestion d'erreur).
-
-**Règle 4 — Pas de modification de `agentBase.js` sans avis explicite d'Isabelle**
-
-C'est le fichier mutualisé qui touche TOUS les agents. Très haute criticité. Toute proposition de modification doit être présentée à Isabelle avec un audit d'impact détaillé.
-
-**Règle 5 — Pas de modification de `config/*.js` sans tester tous les agents impactés**
-
-Une simple ligne modifiée dans `config/claude.js` peut casser un ou plusieurs agents. Lister tous les agents impactés avant modification.
-
-**Règle 6 — Toujours simuler avant de déclarer "prêt à déployer"**
-
-Avant de proposer un déploiement Render, Claude effectue toujours une simulation locale (sur Cécile, Rémi, ou Véronique) et présente le résultat à Isabelle. Pas de "c'est prêt, teste sur le serveur".
-
-### 22.3 Posture d'Isabelle pendant la Phase D
-
-Isabelle **n'a pas besoin d'être technique**. Elle a :
-- Le contrat v1.7 (avec le tableau d'impact Section 21)
-- L'autorité doctrinale absolue
-- Le réflexe de demander : *"Tu modifies X, mais selon ma cartographie tu dois aussi vérifier Y et Z. Tu les as regardés ?"*
-
-C'est suffisant pour contrôler la qualité du travail de tout agent IA, sans avoir à comprendre le code Node.js.
-
----
-
-## 23. CAPACITÉ, DÉLAIS ET ENGAGEMENTS CLIENT
-
-(Décisions n°29, n°31, n°34)
-
-### 23.1 Temps de calcul incompressible
-
-La profondeur méthodologique de Profil-Cognitif impose des temps de calcul Claude API qu'on ne peut pas réduire sans dégrader la qualité. Détail typique pour un bilan complet 3 étapes :
-
-| Phase | Appels Claude | Temps cible |
-|---|---|---|
-| Étape 1 — T1 (5 appels par scénario) | 5 | 15-25 min |
-| Étape 1 — Vérificateur T1 (2 batches) | 2 | 4-8 min |
-| Étape 1 — T2 | 1 | 3-5 min |
-| Étape 1 — Vérificateur T2 (si fichier existe) | 1-2 | 0-5 min |
-| Étape 1 — T3 | 1 | 3-5 min |
-| Étape 1 — Vérificateur T3 (si fichier existe) | 1-2 | 0-5 min |
-| Étape 1 — T4 (6 sous-agents, 4 en parallèle) | 6 | 10-15 min |
-| Étape 1 — Certificateur lexique | 1 | 2-3 min |
-| **TOTAL Étape 1** | 17-20 | **40-70 min** |
-| Étape 2 (T1 + T2 + vérificateurs si existants) | ~5-8 | 20-40 min |
-| Étape 3 (à concevoir) | ~3-5 | 15-30 min |
-| **TOTAL bilan complet 3 étapes** | **25-33 appels** | **75 min — 2h20** |
-
-### 23.2 Capacité serveur (Décision n°31)
-
-| Configuration | Capacité théorique | Capacité réaliste |
-|---|---|---|
-| Render Starter (1 CPU, MAX_CONCURRENT=1), bilan moyen 1h30 | 16 candidats/jour | **10-12 candidats/jour** |
-| Render Standard (upgrade futur) | À évaluer | À évaluer |
-
-**Surveillance automatique** : si la queue dépasse 24 candidats en attente, alerte automatique au superviseur (Isabelle).
-
-**Phase démarrage commercial** (3-6 premiers mois) : capacité actuelle largement suffisante (typiquement 1-5 candidats/jour).
-
-### 23.3 Engagements client (Décision n°34)
-
-**Engagement par défaut communiqué au candidat : "Bilan livré sous 72h"**
-
-Distribution réelle attendue :
-- 90% des bilans livrés sous 24h
-- 9% entre 24-48h
-- 1% nécessitant intervention humaine (Mode 3 du vérificateur ou Mode 4 erreur système)
-
-Le buffer de 72h permet d'absorber : pic de queue, intervention humaine Mode 3, panne API ponctuelle, retry exponentiel.
-
-**Évolution future** : une fois la fiabilité statistique mesurée sur les 100 premiers candidats, ce délai pourra être ramené à 48h ou 24h dans la communication client.
-
-### 23.4 Robustesse > vitesse (Décision n°29)
-
-L'arbitrage est clair : **un bilan livré en 1h30 mais qui aboutit toujours** vaut mieux qu'**un bilan livré en 30 min mais qui plante 1 fois sur 3**. La crédibilité méthodologique de Profil-Cognitif repose sur la robustesse, pas sur la vitesse.
-
-Mécanismes de robustesse en place :
-- Healthcheck préalable à chaque cycle (Décision n°23)
-- Backups par étape (résilience après crash)
-- Tentatives Mode 4 (Décision n°24)
-- Validation humaine Mode 3 (Décision n°16)
-- Retry intelligent avec backoff (errorClassifier)
-- Streaming Claude (pas de mémoire saturée)
-- MAX_CONCURRENT=1 (pas de surcharge serveur)
-
----
-
-## 24. COMMUNICATION CANDIDAT ASYNCHRONE
-
-(Décision n°33)
-
-### 24.1 Calendrier des emails
-
-| Moment | Trigger | Action |
-|---|---|---|
-| **T0** | Candidat termine ses 25 réponses (`statut_test = terminé`) | **Envoi Email 1** : confirmation réception + annonce délai |
-| **T0+24h** | Cron horaire vérifie | Si bilan prêt → Email "Votre bilan est prêt" + lien. Sinon → rien. |
-| **T0+48h** | Cron horaire vérifie | Si bilan prêt → Email "Votre bilan est prêt" + lien. Sinon → **Envoi Email 2** : rappel "en cours d'élaboration approfondie" |
-| **T0+72h** | Cron horaire vérifie | Si bilan prêt → Email "Votre bilan est prêt" + lien. Sinon → **Email superviseur** alerte interne pour intervention manuelle |
-
-### 24.2 Service technique (`notificationCandidatService.js`)
-
-Service à créer en Phase D :
-- Tourne **1 fois par heure** (cron interne ou polling)
-- Lit VISITEUR pour identifier les candidats à notifier
-- Tracking dans VISITEUR :
-  - `email_T0_envoye` (booléen)
-  - `email_24h_envoye` (booléen)
-  - `email_48h_envoye` (booléen)
-  - `email_72h_envoye` (booléen)
-  - `email_livraison_envoye` (booléen — quand bilan prêt)
-- Anti-doublons : ne renvoie jamais un email déjà envoyé
-
-### 24.3 Templates des emails
-
-#### Email 1 — T0 — Confirmation réception
-
-**Sujet** : `Vos réponses ont été reçues — Profil-Cognitif`
-
-```
-Madame [civilité],
-
-Nous avons bien reçu vos 25 réponses au protocole d'évaluation Profil-Cognitif.
-
-Votre profil cognitif personnalisé est désormais en cours d'élaboration.
-
-Notre méthode, contrairement aux tests de personnalité standards, repose sur une 
-analyse approfondie de chacune de vos réponses par notre équipe et nos systèmes 
-d'analyse cognitive. Cette qualité d'analyse demande du temps — c'est ce qui fait 
-la valeur de votre bilan.
-
-Votre bilan complet vous parviendra par email **sous 72h maximum**, généralement 
-sous 24h.
-
-Nous vous remercions de votre patience.
-
-Cordialement,
-L'équipe Profil-Cognitif
-```
-
-#### Email 2 — T0+48h — Rappel si bilan pas encore prêt
-
-**Sujet** : `Votre bilan Profil-Cognitif est en cours d'élaboration approfondie`
-
-```
-Madame [civilité],
-
-Nous tenons à vous tenir informée de l'avancement de votre bilan Profil-Cognitif.
-
-Votre profil cognitif est actuellement en cours d'élaboration approfondie. Notre 
-méthode demande du temps pour poser une analyse personnelle de qualité — c'est ce 
-qui distingue notre approche des tests de personnalité standards.
-
-Votre bilan vous parviendra **sous 24h maximum**.
-
-Nous vous remercions de votre patience.
-
-Cordialement,
-L'équipe Profil-Cognitif
-```
-
-#### Email superviseur — T0+72h — Alerte interne
-
-**Sujet** : `[ALERTE] Candidat dépassant 72h — intervention requise`
-
-```
-Bonjour Isabelle,
-
-Le candidat [candidat_id] a dépassé le délai de 72h sans que son bilan soit livré.
-
-État actuel :
-- Statut analyse : [statut_analyse_pivar]
-- Date réception réponses : [date_T0]
-- Étape en cours : [étape]
-- Erreur éventuelle : [erreur_analyse]
-
-Action requise : intervention manuelle pour débloquer ou contacter le candidat.
-
-Lien Airtable : [lien direct vers fiche candidat]
-```
-
-#### Email livraison — Quand bilan prêt
-
-**Sujet** : `Votre bilan Profil-Cognitif est prêt`
-
-```
-Madame [civilité],
-
-Votre bilan Profil-Cognitif personnalisé est désormais disponible.
-
-Il est le fruit d'une analyse approfondie qui a permis de dégager votre profil 
-cognitif unique, vos modes de fonctionnement et vos zones d'excellence.
-
-[Lien d'accès au bilan]
-
-Nous vous souhaitons une lecture éclairante.
-
-Cordialement,
-L'équipe Profil-Cognitif
-```
-
-### 24.4 Doctrine du ton
-
-Tous les emails respectent les principes :
-- **Sobre et professionnel** (jamais familier)
-- **Valorise le délai** comme signal de qualité méthodologique
-- **Ne s'excuse jamais du temps de calcul** — le présenter comme une force
-- **Anonymisation absolue** : aucune mention du prénom dans les emails (utilise uniquement la civilité, conformément à la Décision n°4)
-- **Accords grammaticaux** selon la civilité (Décision n°4 : `Madame` → féminin, `Monsieur` → masculin)
-
-### 24.5 Nouveaux champs Airtable VISITEUR à créer (Phase D)
-
-| Champ | Type | Description |
-|---|---|---|
-| `email_T0_envoye` | Checkbox | Email de confirmation envoyé à T0 |
-| `email_24h_envoye` | Checkbox | Email envoyé à T0+24h (livraison ou rien) |
-| `email_48h_envoye` | Checkbox | Email envoyé à T0+48h (livraison ou rappel) |
-| `email_72h_envoye` | Checkbox | Email envoyé à T0+72h (livraison ou alerte superviseur) |
-| `email_livraison_envoye` | Checkbox | Email de livraison du bilan envoyé |
-| `date_T0` | dateTime (Europe/Paris) | Date à laquelle le candidat a terminé ses 25 réponses |
-
----
-
-**FIN DU CONTRAT v1.7**
-
-*Document à conserver dans le projet GitHub Profil-Cognitif comme référence fondatrice de l'Étape 1 et de l'architecture multi-étapes.*
+## FIN DU SCRIPT ORCHESTRATEUR
