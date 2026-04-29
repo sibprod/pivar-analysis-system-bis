@@ -1,6 +1,6 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1.1)
+// Profil-Cognitif v10.2 (Phase HTML-1.2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
@@ -9,25 +9,43 @@
 //   - Génère un HTML autonome (CSS intégré) pour visualiser le tableau T1
 //   - Affiche les 24 colonnes ETAPE1_T1 + corrections du vérificateur (CSS différencié)
 //   - Visualisation interne uniquement (pas pour le candidat)
+//   - OUTIL D'AUDIT du prompt T1 : permet à Isabelle de vérifier que l'agent
+//     a fait ce qu'on attend de lui pour ajuster le prompt si besoin.
+//
+// PHASE HTML-1.2 (2026-04-29 fin de journée) — Rendu adaptatif par colonne :
+//   ⭐ Décomposition des cellules composites en mini-blocs séparés visuellement.
+//   Inspiré du template historique tableau1_<candidat>_v3.html.
+//
+//   Stratégie défensive : tente le parsing du format attendu, fallback en cas
+//   de format inattendu. Aucune cassure visuelle même si l'agent T1 produit
+//   un format imprévu.
+//
+//   Fonctions de rendu spécialisées par colonne :
+//   - renderVerbesObserves()    : 1 verbe par ligne
+//   - renderVerbesAngles()      : 2 colonnes (verbe / action+pilier)
+//   - renderPilierCoeur()       : badge pilier + description
+//   - renderPiliersSecondaires(): blocs séparés par pilier
+//   - renderTypesVerbatim()     : blocs .tl avec label coloré + citation
+//   - renderAttribution()       : badges majuscule (cœur) / minuscule (sec)
+//   - renderCorrections()       : déjà fait — bloc verif distinct
+//
+//   Constat doctrinal : la qualité de l'affichage dépend du format de sortie
+//   de l'agent T1. Si l'agent produit un format structuré, le HTML montre
+//   des blocs séparés. Sinon, fallback en paragraphe simple.
+//   → Le HTML devient un outil d'audit du prompt T1 (Phase v10.2g future :
+//     durcir le prompt T1 v3.1 → v3.2 selon les résultats observés).
+//
+// PHASE HTML-1.1 (29/04 fin de journée) — corrections après 1er test :
+//   - Ajout d'une ligne d'en-têtes <thead> (sticky)
+//   - Élargissement colonne pilier_coeur_analyse : 55px → 200px
+//   - Protection anti-débordement globale
+//   - Ajustement largeurs des autres colonnes
 //
 // PHASE HTML-1 (2026-04-29) — v10.2 :
 //   - Création initiale du service
-//   - Adapté à la doctrine v10.2 (5 agents T1 distincts : SOMMEIL, WEEKEND, ANIMAL_1, ANIMAL_2, PANNE)
+//   - Adapté à la doctrine v10.2 (5 agents T1 distincts)
 //   - Affiche corrections_verificateur + nb_corrections_verificateur (Décision n°38)
 //   - CSS différencié pour le bloc vérificateur (info technique secondaire)
-//
-// PHASE HTML-1.1 (2026-04-29 fin de journée) — corrections après 1er test :
-//   - ⭐ Ajout d'une ligne d'en-têtes <thead> avec nom des colonnes (sticky en haut)
-//     → "il manque les noms des colonnes, on ne sait pas ce que l'on lit" (Isabelle)
-//   - ⭐ Élargissement colonne pilier_coeur_analyse : 55px → 200px
-//     → contient une analyse riche (~300 caractères), pas juste un code "P1"
-//     → bug d'affichage avec débordement sur les colonnes voisines détecté
-//   - ⭐ Protection anti-débordement globale : word-wrap/overflow-wrap/word-break
-//     sur toutes les cellules <td> et <th>
-//   - Ajustement largeurs des autres colonnes pour rééquilibrer le tableau
-//
-// Inspiré du template historique tableau1_<candidat>_v3.html
-// Adapté aux colonnes ETAPE1_T1 réelles v10.2 (24 champs).
 
 'use strict';
 
@@ -138,12 +156,126 @@ thead.col-headers th .col-sub {
   margin-top:2px; letter-spacing:.02em; text-transform:none;
 }
 
-/* ⭐ v1.1 — Protection anti-débordement sur TOUTES les cellules */
+/* ⭐ v1.2 — Protection anti-débordement sur TOUTES les cellules */
 table td, table th {
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
   hyphens: auto;
+}
+
+/* ⭐ v1.2 — Couleurs piliers pour texte */
+.p1c { color:var(--p1); font-weight:600; }
+.p2c { color:var(--p2); font-weight:600; }
+.p3c { color:var(--p3); font-weight:600; }
+.p4c { color:var(--p4); font-weight:600; }
+.p5c { color:var(--p5); font-weight:600; }
+
+/* ⭐ v1.2 — Blocs Type Verbatim (.tl) — 1 bloc par type avec label + citation */
+.tl {
+  margin-bottom:7px;
+  padding-bottom:7px;
+  border-bottom:1px solid var(--border);
+}
+.tl:last-child {
+  margin-bottom:0;
+  padding-bottom:0;
+  border-bottom:none;
+}
+.tl-label {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  font-weight:600;
+  display:block;
+  margin-bottom:3px;
+}
+.tl-demo {
+  font-style:italic;
+  font-size:10px;
+  color:var(--dim);
+  line-height:1.5;
+  display:block;
+}
+
+/* ⭐ v1.2 — Action verbale (verbe → geste) — 2 colonnes alignées */
+.av-line {
+  font-size:10px;
+  margin-bottom:5px;
+  display:flex;
+  gap:6px;
+  align-items:flex-start;
+}
+.av-line:last-child { margin-bottom:0; }
+.av-verb {
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:600;
+  color:var(--text);
+  min-width:80px;
+  flex-shrink:0;
+}
+.av-geste {
+  color:var(--mid);
+  flex:1;
+}
+
+/* ⭐ v1.2 — Liste verbes simples (1 par ligne) */
+.verbes-list {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  line-height:1.8;
+  color:var(--mid);
+}
+
+/* ⭐ v1.2 — Bloc pilier (badge en haut + description en dessous) */
+.pilier-block {
+  margin-bottom:6px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--border);
+}
+.pilier-block:last-child {
+  margin-bottom:0;
+  padding-bottom:0;
+  border-bottom:none;
+}
+.pilier-block-label {
+  display:block;
+  margin-bottom:4px;
+}
+.pilier-block-desc {
+  font-size:10px;
+  color:var(--mid);
+  line-height:1.5;
+  display:block;
+}
+
+/* ⭐ v1.2 — Verbatim (citation candidat) */
+.verbatim {
+  font-family:'IBM Plex Sans',sans-serif;
+  font-size:11px;
+  line-height:1.5;
+  color:var(--text);
+  font-style:italic;
+  padding:4px 6px;
+  background:#fbf9f4;
+  border-left:2px solid var(--border2);
+}
+
+/* ⭐ v1.2 — Attribution piliers (badges + statut) */
+.attribution-line {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:3px;
+  align-items:center;
+  margin-bottom:4px;
+}
+.attribution-status {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  font-weight:700;
+  margin-top:4px;
+  display:block;
 }
 
 /* Question header (1 par question, 14 colonnes mergées) */
@@ -225,19 +357,6 @@ table td, table th {
 /* ID question */
 .id-main { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; color:var(--text); }
 .id-sub  { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--dim); margin-top:2px; }
-
-/* Verbatim */
-.verbatim {
-  font-family:'IBM Plex Sans',sans-serif; font-size:11px; line-height:1.5;
-  color:var(--text); font-style:italic;
-  max-height:120px; overflow-y:auto;
-  padding:4px 6px; background:#fbf9f4; border-left:2px solid var(--border2);
-}
-
-/* Verbes */
-.verbes {
-  font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.7;
-}
 
 /* Footer */
 .page-footer {
@@ -332,6 +451,318 @@ function hasGraveCorrection(corrections) {
 
 // ─── RENDU D'UNE LIGNE T1 (1 question) ───────────────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FONCTIONS DE RENDU SPÉCIALISÉES PAR COLONNE (v1.2)
+// ═══════════════════════════════════════════════════════════════════════════
+// Stratégie défensive : tente le parsing du format attendu, fallback en cas
+// de format inattendu. Aucune cassure visuelle même si l'agent T1 produit
+// un format imprévu.
+
+/**
+ * Extrait le numéro de pilier depuis une chaîne ("P1", "p2", "P3 · ...", etc.)
+ * Retourne 1-5 ou null
+ */
+function extractPilierNum(text) {
+  if (!text) return null;
+  const m = String(text).trim().match(/^[Pp]([1-5])\b/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/**
+ * Rendu : verbes_observes
+ * Format attendu : verbes séparés par virgule, retour ligne, point-virgule
+ * Fallback : texte brut avec retours à la ligne
+ */
+function renderVerbesObserves(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  // Détection multi-formats : virgule, retour ligne, point-virgule
+  const verbes = String(text)
+    .split(/[\n,;]+/)
+    .map(v => v.trim())
+    .filter(v => v.length > 0);
+  if (verbes.length === 0) return '<span style="color:var(--dim);">—</span>';
+  return `<div class="verbes-list">${verbes.map(v => escapeHtml(v)).join('<br>')}</div>`;
+}
+
+/**
+ * Rendu : verbes_angles_piliers
+ * Format attendu : "verbe → action (Pilier)" sur chaque ligne
+ * Fallback : texte brut avec retours à la ligne
+ */
+function renderVerbesAngles(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  const lines = String(text).split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) return '<span style="color:var(--dim);">—</span>';
+
+  // Tente de parser chaque ligne au format "verbe → action (P{N})"
+  const blocks = [];
+  let parseSuccess = 0;
+  for (const line of lines) {
+    // Pattern : "verbe → action (P1)" ou "verbe -> action (P1)"
+    const m = line.match(/^(.+?)\s*(?:→|->)\s*(.+?)(?:\s*\((P[1-5])\))?\s*$/i);
+    if (m) {
+      parseSuccess++;
+      const verbe = m[1].trim();
+      const action = m[2].trim();
+      const pilier = m[3] ? m[3].toUpperCase() : null;
+      const pilierTag = pilier ? ` <strong>(${pilier})</strong>` : '';
+      blocks.push(
+        `<div class="av-line">` +
+        `<span class="av-verb">${escapeHtml(verbe)}</span>` +
+        `<span class="av-geste">→ ${escapeHtml(action)}${pilierTag}</span>` +
+        `</div>`
+      );
+    } else {
+      // Ligne ne matche pas → fallback ligne simple
+      blocks.push(`<div class="av-line"><span class="av-geste">${escapeHtml(line)}</span></div>`);
+    }
+  }
+  // Si parsing a réussi sur >50% des lignes, on garde le rendu structuré
+  // Sinon on bascule en fallback complet
+  if (parseSuccess === 0) {
+    return `<div style="font-size:10px;line-height:1.6;">${nl2br(text)}</div>`;
+  }
+  return blocks.join('');
+}
+
+/**
+ * Rendu : pilier_coeur_analyse
+ * Format attendu : "P{N} · description longue..."
+ * Fallback : texte brut
+ */
+function renderPilierCoeur(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  const trimmed = String(text).trim();
+  // Tente d'extraire "P{N} · " du début
+  const m = trimmed.match(/^[Pp]([1-5])\s*[·•:.\-]\s*(.+)$/s);
+  if (m) {
+    const pNum = m[1];
+    const desc = m[2].trim();
+    return `<div class="pilier-block-label">${pilierBadge('P' + pNum)}</div>` +
+           `<div class="pilier-block-desc">${escapeHtml(desc)}</div>`;
+  }
+  // Fallback : tente juste un badge si commence par P{N}
+  const pNum = extractPilierNum(trimmed);
+  if (pNum) {
+    const rest = trimmed.replace(/^[Pp][1-5]\s*[·•:.\-]?\s*/, '');
+    return `<div class="pilier-block-label">${pilierBadge('P' + pNum)}</div>` +
+           `<div class="pilier-block-desc">${escapeHtml(rest)}</div>`;
+  }
+  // Aucun format reconnu → texte brut
+  return `<div class="pilier-block-desc">${nl2br(text)}</div>`;
+}
+
+/**
+ * Rendu : piliers_secondaires
+ * Format attendu : descriptions par pilier mentionné (P2 ..., P5 ...)
+ * Stratégie : split sur "P{N}" en début de phrase pour faire des blocs
+ * Fallback : texte brut
+ */
+function renderPiliersSecondaires(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  const trimmed = String(text).trim();
+
+  // Tente de splitter sur les mentions "P{N}" en début (phrase ou paragraphe)
+  // Pattern : un P{N} qui commence une nouvelle "section"
+  const blocks = [];
+  // Split sur retour ligne d'abord, puis sur les "P{N}" en début si pas de retour ligne
+  let parts = trimmed.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
+
+  // Si une seule ligne avec plusieurs P{N}, on tente de splitter intelligemment
+  if (parts.length === 1) {
+    const single = parts[0];
+    // Cherche "P{N}" précédé d'un espace ou point (séparateur de section)
+    const splitted = single.split(/(?=\s[Pp][1-5]\s)/);
+    if (splitted.length > 1) {
+      parts = splitted.map(p => p.trim()).filter(p => p.length > 0);
+    }
+  }
+
+  let parseSuccess = 0;
+  for (const part of parts) {
+    const m = part.match(/^[Pp]([1-5])\s+(.+)$/s);
+    if (m) {
+      parseSuccess++;
+      const pNum = m[1];
+      const rest = m[2].trim();
+      blocks.push(
+        `<div class="pilier-block">` +
+        `<div class="pilier-block-label">${pilierBadge('P' + pNum)}</div>` +
+        `<div class="pilier-block-desc">${escapeHtml(rest)}</div>` +
+        `</div>`
+      );
+    } else {
+      blocks.push(`<div class="pilier-block"><div class="pilier-block-desc">${escapeHtml(part)}</div></div>`);
+    }
+  }
+
+  if (parseSuccess === 0 && blocks.length === 0) {
+    return `<div style="font-size:10px;">${nl2br(text)}</div>`;
+  }
+  return blocks.join('');
+}
+
+/**
+ * Rendu : types_verbatim
+ * Format attendu : multiples blocs "P{N} · titre — citation"
+ * Stratégie : split sur les "P{N} ·" même quand tout est sur une seule ligne
+ * Fallback : texte brut
+ */
+function renderTypesVerbatim(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  const trimmed = String(text).trim();
+
+  // Stratégie de split robuste :
+  // - Cherche tous les "P{N} ·" (ou "P{N} -", "P{N}:", "P{N} ·") qu'ils soient
+  //   en début de ligne OU précédés d'un guillemet fermant + espace
+  //   (transition d'un bloc citation au suivant)
+  // - Découpe sur ces marqueurs pour faire des blocs
+
+  // Regex : capture la position de chaque "P{N} [·•:.\-]" qui suit soit :
+  //   - un retour ligne / début de chaîne
+  //   - un guillemet fermant »"
+  //   - un point / fin de citation suivi d'espace(s)
+  const splitRegex = /(?:^|\n|(?<=[»"”])\s+|(?<=\.)\s+)(?=[Pp][1-5]\s*[·•:.\-])/g;
+  let chunks = trimmed.split(splitRegex).map(c => c.trim()).filter(c => c.length > 0);
+
+  // Si on a trouvé un seul chunk, on tente une stratégie plus permissive :
+  // splitter directement sur "P{N} ·" partout dans le texte
+  if (chunks.length <= 1) {
+    chunks = trimmed.split(/(?=\s[Pp][1-5]\s*[·•:.\-])/g)
+                    .map(c => c.trim())
+                    .filter(c => c.length > 0);
+  }
+
+  // Si toujours rien, fallback
+  if (chunks.length === 0) {
+    return `<div style="font-size:10px;">${nl2br(text)}</div>`;
+  }
+
+  const blocks = [];
+  let parseSuccess = 0;
+
+  for (const chunk of chunks) {
+    // Pattern attendu :
+    //   P{N} · titre court
+    //   "citation entre guillemets"
+    // (peut être collé ou avec retours à la ligne)
+    // Le titre s'arrête au tiret long ENTOURÉ d'espaces, retour ligne, ou guillemet ouvrant
+    // (ne pas couper sur les tirets de mots composés type "sous-thèmes")
+    const m = chunk.match(/^[Pp]([1-5])\s*[·•:.\-]\s*([^\n«"”]+?)(?:\s+[—–]\s+|\s+\-\s+|\n|\s+(?=[«"“]))(.+)$/s);
+    if (m) {
+      parseSuccess++;
+      const pNum = m[1];
+      const titre = m[2].trim();
+      const citation = m[3].trim();
+      blocks.push(
+        `<div class="tl">` +
+        `<span class="tl-label p${pNum}c">P${pNum} · ${escapeHtml(titre)}</span>` +
+        `<span class="tl-demo">${escapeHtml(citation)}</span>` +
+        `</div>`
+      );
+    } else {
+      // Tente extraction P{N} seul + reste
+      const m2 = chunk.match(/^[Pp]([1-5])\s*[·•:.\-]?\s*(.+)$/s);
+      if (m2) {
+        parseSuccess++;
+        const pNum = m2[1];
+        const rest = m2[2].trim();
+        blocks.push(
+          `<div class="tl">` +
+          `<span class="tl-label p${pNum}c">P${pNum}</span>` +
+          `<span class="tl-demo">${escapeHtml(rest)}</span>` +
+          `</div>`
+        );
+      } else {
+        // Aucun pattern reconnu → bloc fallback
+        blocks.push(`<div class="tl"><span class="tl-demo">${escapeHtml(chunk)}</span></div>`);
+      }
+    }
+  }
+
+  if (parseSuccess === 0) {
+    return `<div style="font-size:10px;">${nl2br(text)}</div>`;
+  }
+  return blocks.join('');
+}
+
+/**
+ * Rendu : attribution_pilier_signal_brut
+ * Format attendu : "p3 + P1 + p5  Conforme" ou "P1 · P3+P5  Conforme"
+ * Convention : majuscule = pilier cœur (badge plein), minuscule = pilier secondaire
+ * Fallback : texte brut
+ */
+function renderAttribution(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  const trimmed = String(text).trim();
+
+  // Tente de séparer la partie piliers et le statut Conforme/Écart
+  const statusMatch = trimmed.match(/(.+?)\s+(Conforme|Ecart|Écart|ECART|CONFORME|ÉCART)\s*$/i);
+  let pilierPart = trimmed;
+  let statut = '';
+  if (statusMatch) {
+    pilierPart = statusMatch[1].trim();
+    statut = statusMatch[2];
+  }
+
+  // Extraction des piliers (P1, p2, P3+P5, etc.)
+  const tokens = pilierPart.match(/[Pp][1-5]|\+|·|•|\s+/g) || [];
+  if (tokens.length === 0) {
+    return `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;">${nl2br(text)}</div>`;
+  }
+
+  const badges = [];
+  for (const tok of tokens) {
+    const trimmedTok = tok.trim();
+    if (trimmedTok === '+' || trimmedTok === '·' || trimmedTok === '•') {
+      badges.push(`<span style="color:var(--dim);">${trimmedTok}</span>`);
+    } else if (/^[Pp][1-5]$/.test(trimmedTok)) {
+      const pNum = trimmedTok[1];
+      const isCoeur = trimmedTok[0] === 'P'; // majuscule = cœur
+      if (isCoeur) {
+        badges.push(`<span class="pb pb${pNum}">P${pNum}</span>`);
+      } else {
+        // minuscule = secondaire (rendu plus discret)
+        badges.push(`<span class="pb pb${pNum}" style="opacity:0.65;font-style:italic;">p${pNum}</span>`);
+      }
+    }
+  }
+
+  let statutHtml = '';
+  if (statut) {
+    const statutUpper = statut.toUpperCase();
+    if (statutUpper === 'CONFORME') {
+      statutHtml = `<span class="attribution-status conforme">${statut}</span>`;
+    } else {
+      statutHtml = `<span class="attribution-status ecart">${statut}</span>`;
+    }
+  }
+
+  return `<div class="attribution-line">${badges.join(' ')}</div>${statutHtml}`;
+}
+
+/**
+ * Rendu : finalite_reponse
+ * Format souvent : description + parfois citation entre guillemets
+ * Stratégie : sépare description et citation si guillemets détectés
+ */
+function renderFinalite(text) {
+  if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  const trimmed = String(text).trim();
+
+  // Tente d'extraire une citation entre guillemets à la fin
+  const m = trimmed.match(/^(.+?)[\s—–\-]+([«"][^»"]+[»"].*)$/s);
+  if (m) {
+    return `<div>${escapeHtml(m[1].trim())}</div>` +
+           `<div style="font-style:italic;font-size:10px;color:var(--dim);margin-top:4px;">${escapeHtml(m[2].trim())}</div>`;
+  }
+  return `<div>${nl2br(text)}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDU D'UNE LIGNE T1 (1 question) — v1.2 avec fonctions spécialisées
+// ═══════════════════════════════════════════════════════════════════════════
+
 function renderRowT1(row, index) {
   const corrections = row.corrections_verificateur || '';
   const nbCorr = parseInt(row.nb_corrections_verificateur, 10) || 0;
@@ -356,7 +787,7 @@ function renderRowT1(row, index) {
   </td>
 </tr>`);
 
-  // Ligne données T1 (14 cellules)
+  // Ligne données T1 (14 cellules) — v1.2 : rendu adaptatif par colonne
   html.push(`
 <tr class="${rowClasses.join(' ')}">
   <td>
@@ -369,13 +800,13 @@ function renderRowT1(row, index) {
   <td>${ouiNonBadge(row.v1_conforme)}</td>
   <td>${ouiNonBadge(row.v2_traite_problematique)}</td>
   <td><div class="verbatim">${nl2br(row.verbatim_candidat)}</div></td>
-  <td><div class="verbes">${nl2br(row.verbes_observes)}</div></td>
-  <td>${nl2br(row.verbes_angles_piliers)}</td>
-  <td>${pilierBadge(row.pilier_coeur_analyse)}</td>
-  <td>${nl2br(row.piliers_secondaires)}</td>
-  <td>${nl2br(row.types_verbatim)}</td>
-  <td>${nl2br(row.finalite_reponse)}</td>
-  <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;">${nl2br(row.attribution_pilier_signal_brut)}</td>
+  <td>${renderVerbesObserves(row.verbes_observes)}</td>
+  <td>${renderVerbesAngles(row.verbes_angles_piliers)}</td>
+  <td>${renderPilierCoeur(row.pilier_coeur_analyse)}</td>
+  <td>${renderPiliersSecondaires(row.piliers_secondaires)}</td>
+  <td>${renderTypesVerbatim(row.types_verbatim)}</td>
+  <td>${renderFinalite(row.finalite_reponse)}</td>
+  <td>${renderAttribution(row.attribution_pilier_signal_brut)}</td>
   <td>
     ${conformeBadge(row.conforme_ecart)}
     ${row.ecart_detail ? `<div style="font-size:10px;color:var(--dim);margin-top:4px;font-style:italic;">${nl2br(row.ecart_detail)}</div>` : ''}
