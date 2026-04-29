@@ -264,6 +264,19 @@ async function writeVerificateurT1(candidat_id, auditData) {
       timestamp:             new Date().toISOString()
     };
 
+    // ⭐ v10.2a (29/04/2026) — 3 nouveaux champs ajoutés (Décisions n°38, n°41, n°42)
+    // Écriture conditionnelle : on ne pose les champs que si fournis pour éviter
+    // d'écraser à null des valeurs déjà présentes lors de mises à jour partielles.
+    if (typeof auditData.tour_verificateur === 'number') {
+      fields.tour_verificateur = auditData.tour_verificateur;
+    }
+    if (auditData.scenario_relance_demande) {
+      fields.scenario_relance_demande = auditData.scenario_relance_demande;
+    }
+    if (typeof auditData.compteur_relance_scenario === 'number') {
+      fields.compteur_relance_scenario = auditData.compteur_relance_scenario;
+    }
+
     await getBase()(airtableConfig.TABLES.VERIFICATEUR_T1).create([{
       fields: cleanFields(fields)
     }], { typecast: true });
@@ -271,7 +284,9 @@ async function writeVerificateurT1(candidat_id, auditData) {
     logger.info('VERIFICATEUR_T1 audit written', {
       candidat_id,
       verdict: fields.verdict_global,
-      nb_violations: fields.nb_violations_total
+      nb_violations: fields.nb_violations_total,
+      tour_verificateur: fields.tour_verificateur,
+      scenario_relance_demande: fields.scenario_relance_demande || 'aucun'
     });
   } catch (error) {
     logger.error('Failed to write VERIFICATEUR_T1', { candidat_id, error: error.message });
