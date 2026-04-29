@@ -1,6 +1,6 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1)
+// Profil-Cognitif v10.2 (Phase HTML-1.1)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
@@ -15,6 +15,16 @@
 //   - Adapté à la doctrine v10.2 (5 agents T1 distincts : SOMMEIL, WEEKEND, ANIMAL_1, ANIMAL_2, PANNE)
 //   - Affiche corrections_verificateur + nb_corrections_verificateur (Décision n°38)
 //   - CSS différencié pour le bloc vérificateur (info technique secondaire)
+//
+// PHASE HTML-1.1 (2026-04-29 fin de journée) — corrections après 1er test :
+//   - ⭐ Ajout d'une ligne d'en-têtes <thead> avec nom des colonnes (sticky en haut)
+//     → "il manque les noms des colonnes, on ne sait pas ce que l'on lit" (Isabelle)
+//   - ⭐ Élargissement colonne pilier_coeur_analyse : 55px → 200px
+//     → contient une analyse riche (~300 caractères), pas juste un code "P1"
+//     → bug d'affichage avec débordement sur les colonnes voisines détecté
+//   - ⭐ Protection anti-débordement globale : word-wrap/overflow-wrap/word-break
+//     sur toutes les cellules <td> et <th>
+//   - Ajustement largeurs des autres colonnes pour rééquilibrer le tableau
 //
 // Inspiré du template historique tableau1_<candidat>_v3.html
 // Adapté aux colonnes ETAPE1_T1 réelles v10.2 (24 champs).
@@ -97,21 +107,44 @@ body {
 }
 table { width:100%; border-collapse:collapse; table-layout:fixed; }
 
-/* Largeurs des colonnes */
+/* Largeurs des colonnes — v1.1 (29/04 17h) : pilier_coeur élargi 55→200px car contient analyse riche */
 col.c-id      { width:72px; }
-col.c-scen    { width:75px; }
+col.c-scen    { width:80px; }
 col.c-pilq    { width:50px; }
 col.c-v1      { width:42px; }
 col.c-v2      { width:42px; }
-col.c-verbatim{ width:240px; }
-col.c-verbes  { width:120px; }
-col.c-angles  { width:160px; }
-col.c-coeur   { width:55px; }
-col.c-sec     { width:90px; }
-col.c-types   { width:240px; }
-col.c-fin     { width:140px; }
-col.c-attrib  { width:130px; }
-col.c-conf    { width:75px; }
+col.c-verbatim{ width:220px; }
+col.c-verbes  { width:110px; }
+col.c-angles  { width:150px; }
+col.c-coeur   { width:200px; }
+col.c-sec     { width:140px; }
+col.c-types   { width:220px; }
+col.c-fin     { width:130px; }
+col.c-attrib  { width:120px; }
+col.c-conf    { width:90px; }
+
+/* ⭐ v1.1 — Ligne d'en-têtes (thead, sticky) */
+thead.col-headers th {
+  background:#1a3a6b; color:#fff;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase;
+  padding:8px 6px; vertical-align:middle;
+  border:1px solid #0a1a4b;
+  position:sticky; top:0; z-index:10;
+  text-align:left;
+}
+thead.col-headers th .col-sub {
+  display:block; font-size:8px; font-weight:400; color:#a0c0e0;
+  margin-top:2px; letter-spacing:.02em; text-transform:none;
+}
+
+/* ⭐ v1.1 — Protection anti-débordement sur TOUTES les cellules */
+table td, table th {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
 
 /* Question header (1 par question, 14 colonnes mergées) */
 .row-qheader td {
@@ -446,6 +479,24 @@ async function generateTableauT1Html(candidat_id) {
   <col class="c-types"><col class="c-fin"><col class="c-attrib">
   <col class="c-conf">
 </colgroup>
+<thead class="col-headers">
+<tr>
+  <th>ID<span class="col-sub">id_question</span></th>
+  <th>Scénario<span class="col-sub">scenario</span></th>
+  <th>P⊕<span class="col-sub">pilier_demande</span></th>
+  <th>V1<span class="col-sub">v1_conforme</span></th>
+  <th>V2<span class="col-sub">v2_traite_problematique</span></th>
+  <th>Verbatim<span class="col-sub">verbatim_candidat</span></th>
+  <th>Verbes<span class="col-sub">verbes_observes</span></th>
+  <th>Angles piliers<span class="col-sub">verbes_angles_piliers</span></th>
+  <th>Pilier cœur<span class="col-sub">pilier_coeur_analyse</span></th>
+  <th>Piliers sec.<span class="col-sub">piliers_secondaires</span></th>
+  <th>Types verbatim<span class="col-sub">types_verbatim</span></th>
+  <th>Finalité<span class="col-sub">finalite_reponse</span></th>
+  <th>Attribution<span class="col-sub">attribution_pilier_signal_brut</span></th>
+  <th>Conforme/Écart<span class="col-sub">conforme_ecart · ecart_detail · signal_limbique</span></th>
+</tr>
+</thead>
 ${rowsHtml}
 </table>
 </div>
