@@ -1,6 +1,24 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1.2.2)
+// Profil-Cognitif v10.2 (Phase HTML-1.2.3)
+//
+// PHASE HTML-1.2.3 (29/04 fin de soirée — 3e itération) — 2 fixes :
+//
+//   FIX 1 — En-têtes répétés par question :
+//     "je vais pas remonter à chaque fois pour avoir les noms des colonnes" (Isabelle)
+//     - Avant : 1 seul thead sticky en haut (qui ne tenait pas au scroll)
+//     - Après : COL_HEADERS_HTML inséré AVANT CHAQUE qheader
+//     - Donc 25 questions → 25 répétitions des en-têtes (1 par question)
+//     - Plus besoin de scroller pour voir les noms des colonnes
+//
+//   FIX 2 — Séparation des couples verbe→action piliers :
+//     "encore trop mélangé pour colonnes angles piliers" (Isabelle)
+//     - Constat : les données Airtable sont COLLÉES sur 1 ligne (pas de \n)
+//       Format réel : "verbe1 → action1 (P1) verbe2 → action2 (P1) verbe3 → action3 (P5)"
+//     - Avant : split sur \n → 1 seule "ligne" → fallback texte brut
+//     - Après : split sur les "(P{N})" qui marquent la fin de chaque couple
+//     - Pour chaque couple : extraction verbe (avant →) + action (après →) + pilier
+//     - Rendu en blocs séparés par bordure pleine (comme types_verbatim)
 //
 // PHASE HTML-1.2.2 (29/04 fin de soirée) — Fix séparation verbes_angles_piliers :
 //   - "encore trop mélangé pour colonnes angles piliers / essaie de séparer
@@ -157,17 +175,16 @@ col.c-fin     { width:130px; }
 col.c-attrib  { width:120px; }
 col.c-conf    { width:90px; }
 
-/* ⭐ v1.1 — Ligne d'en-têtes (thead, sticky) */
-thead.col-headers th {
+/* ⭐ v1.2.3 — En-têtes de colonnes RÉPÉTÉS avant chaque question */
+tr.col-headers-row th {
   background:#1a3a6b; color:#fff;
   font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600;
   letter-spacing:.04em; text-transform:uppercase;
   padding:8px 6px; vertical-align:middle;
   border:1px solid #0a1a4b;
-  position:sticky; top:0; z-index:10;
   text-align:left;
 }
-thead.col-headers th .col-sub {
+tr.col-headers-row th .col-sub {
   display:block; font-size:8px; font-weight:400; color:#a0c0e0;
   margin-top:2px; letter-spacing:.02em; text-transform:none;
 }
@@ -473,6 +490,27 @@ function hasGraveCorrection(corrections) {
 
 // ─── RENDU D'UNE LIGNE T1 (1 question) ───────────────────────────────────────
 
+// ─── EN-TÊTES DE COLONNES — répétés AVANT CHAQUE QUESTION (v1.2.3) ──────────
+// "je vais pas remonter à chaque fois" (Isabelle)
+// Solution : répétition des en-têtes avant chaque qheader, pas seulement sticky
+
+const COL_HEADERS_HTML = `<tr class="col-headers-row">
+  <th>ID<span class="col-sub">id_question</span></th>
+  <th>Scénario<span class="col-sub">scenario</span></th>
+  <th>P⊕<span class="col-sub">pilier_demande</span></th>
+  <th>V1<span class="col-sub">v1_conforme</span></th>
+  <th>V2<span class="col-sub">v2_traite_problematique</span></th>
+  <th>Verbatim<span class="col-sub">verbatim_candidat</span></th>
+  <th>Verbes<span class="col-sub">verbes_observes</span></th>
+  <th>Angles piliers<span class="col-sub">verbes_angles_piliers</span></th>
+  <th>Pilier cœur<span class="col-sub">pilier_coeur_analyse</span></th>
+  <th>Piliers sec.<span class="col-sub">piliers_secondaires</span></th>
+  <th>Types verbatim<span class="col-sub">types_verbatim</span></th>
+  <th>Finalité<span class="col-sub">finalite_reponse</span></th>
+  <th>Attribution<span class="col-sub">attribution_pilier_signal_brut</span></th>
+  <th>Conforme/Écart<span class="col-sub">conforme_ecart · ecart_detail · signal_limbique</span></th>
+</tr>`;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FONCTIONS DE RENDU SPÉCIALISÉES PAR COLONNE (v1.2)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -508,42 +546,93 @@ function renderVerbesObserves(text) {
 
 /**
  * Rendu : verbes_angles_piliers
- * Format attendu : "verbe → action (Pilier)" sur chaque ligne
- * Fallback : texte brut avec retours à la ligne
+ * Format attendu : "verbe → action (Pilier)" — collés sur 1 ligne ou séparés par retour ligne
+ * Stratégie v1.2.3 : split sur les "(P{N})" qui marquent la fin de chaque couple,
+ * puis split intelligent sur "→" pour séparer verbe et action
+ * Fallback : texte brut
  */
 function renderVerbesAngles(text) {
   if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
-  const lines = String(text).split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  if (lines.length === 0) return '<span style="color:var(--dim);">—</span>';
+  const trimmed = String(text).trim();
 
-  // Tente de parser chaque ligne au format "verbe → action (P{N})"
+  // Stratégie : on cherche tous les couples "verbe → action (P{N})"
+  // Les "(P{N})" marquent la fin de chaque couple.
+  // On split AU PILIER puis on récupère ce qui précède.
+  //
+  // Exemple : "verbe1 → action1 (P1) verbe2 → action2 (P2) verbe3 → action3 (P5)"
+  // Match groupé : ["verbe1 → action1 (P1)", "verbe2 → action2 (P2)", "verbe3 → action3 (P5)"]
+
+  const couples = [];
+  // Regex : tout caractère qui n'est PAS un guillemet/parenthèse jusqu'à un (P{N})
+  // Note : on capture ce qui précède (P{N}) et le pilier
+  const regex = /([^()]+?)\(([Pp][1-5])\)/g;
+  let match;
+  while ((match = regex.exec(trimmed)) !== null) {
+    const beforePilier = match[1].trim();
+    const pilier = match[2].toUpperCase();
+    if (beforePilier.length > 0) {
+      couples.push({ content: beforePilier, pilier });
+    }
+  }
+
+  // Si aucun pilier trouvé OU peu de matches : fallback sur split par retour ligne
+  if (couples.length === 0) {
+    const lines = trimmed.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) return '<span style="color:var(--dim);">—</span>';
+
+    const blocks = [];
+    let parseSuccess = 0;
+    for (const line of lines) {
+      const m = line.match(/^(.+?)\s*(?:→|->)\s*(.+?)(?:\s*\(([Pp][1-5])\))?\s*$/);
+      if (m) {
+        parseSuccess++;
+        const verbe = m[1].trim();
+        const action = m[2].trim();
+        const pilier = m[3] ? m[3].toUpperCase() : null;
+        const pilierTag = pilier ? ` <strong>(${pilier})</strong>` : '';
+        blocks.push(
+          `<div class="av-line">` +
+          `<span class="av-verb">${escapeHtml(verbe)}</span>` +
+          `<span class="av-geste">→ ${escapeHtml(action)}${pilierTag}</span>` +
+          `</div>`
+        );
+      } else {
+        blocks.push(`<div class="av-line"><span class="av-geste">${escapeHtml(line)}</span></div>`);
+      }
+    }
+    if (parseSuccess === 0) {
+      return `<div style="font-size:10px;line-height:1.6;">${nl2br(text)}</div>`;
+    }
+    return blocks.join('');
+  }
+
+  // Pour chaque couple, on tente de séparer "verbe → action"
   const blocks = [];
-  let parseSuccess = 0;
-  for (const line of lines) {
-    // Pattern : "verbe → action (P1)" ou "verbe -> action (P1)"
-    const m = line.match(/^(.+?)\s*(?:→|->)\s*(.+?)(?:\s*\((P[1-5])\))?\s*$/i);
-    if (m) {
-      parseSuccess++;
-      const verbe = m[1].trim();
-      const action = m[2].trim();
-      const pilier = m[3] ? m[3].toUpperCase() : null;
-      const pilierTag = pilier ? ` <strong>(${pilier})</strong>` : '';
+  for (const couple of couples) {
+    const content = couple.content;
+    const pilier = couple.pilier;
+
+    // Split sur la flèche
+    const arrowMatch = content.match(/^(.+?)\s*(?:→|->)\s*(.+)$/);
+    if (arrowMatch) {
+      const verbe = arrowMatch[1].trim();
+      const action = arrowMatch[2].trim();
       blocks.push(
         `<div class="av-line">` +
         `<span class="av-verb">${escapeHtml(verbe)}</span>` +
-        `<span class="av-geste">→ ${escapeHtml(action)}${pilierTag}</span>` +
+        `<span class="av-geste">→ ${escapeHtml(action)} <strong>(${pilier})</strong></span>` +
         `</div>`
       );
     } else {
-      // Ligne ne matche pas → fallback ligne simple
-      blocks.push(`<div class="av-line"><span class="av-geste">${escapeHtml(line)}</span></div>`);
+      // Pas de flèche détectée — on met tout en geste avec pilier
+      blocks.push(
+        `<div class="av-line">` +
+        `<span class="av-geste">${escapeHtml(content)} <strong>(${pilier})</strong></span>` +
+        `</div>`
+      );
     }
   }
-  // Si parsing a réussi sur >50% des lignes, on garde le rendu structuré
-  // Sinon on bascule en fallback complet
-  if (parseSuccess === 0) {
-    return `<div style="font-size:10px;line-height:1.6;">${nl2br(text)}</div>`;
-  }
+
   return blocks.join('');
 }
 
@@ -796,6 +885,10 @@ function renderRowT1(row, index) {
 
   const html = [];
 
+  // ⭐ v1.2.3 — Répétition des en-têtes AVANT CHAQUE qheader
+  // "je vais pas remonter à chaque fois" (Isabelle)
+  html.push(COL_HEADERS_HTML);
+
   // Question header (1 ligne mergée)
   html.push(`
 <tr class="row-qheader">
@@ -932,24 +1025,6 @@ async function generateTableauT1Html(candidat_id) {
   <col class="c-types"><col class="c-fin"><col class="c-attrib">
   <col class="c-conf">
 </colgroup>
-<thead class="col-headers">
-<tr>
-  <th>ID<span class="col-sub">id_question</span></th>
-  <th>Scénario<span class="col-sub">scenario</span></th>
-  <th>P⊕<span class="col-sub">pilier_demande</span></th>
-  <th>V1<span class="col-sub">v1_conforme</span></th>
-  <th>V2<span class="col-sub">v2_traite_problematique</span></th>
-  <th>Verbatim<span class="col-sub">verbatim_candidat</span></th>
-  <th>Verbes<span class="col-sub">verbes_observes</span></th>
-  <th>Angles piliers<span class="col-sub">verbes_angles_piliers</span></th>
-  <th>Pilier cœur<span class="col-sub">pilier_coeur_analyse</span></th>
-  <th>Piliers sec.<span class="col-sub">piliers_secondaires</span></th>
-  <th>Types verbatim<span class="col-sub">types_verbatim</span></th>
-  <th>Finalité<span class="col-sub">finalite_reponse</span></th>
-  <th>Attribution<span class="col-sub">attribution_pilier_signal_brut</span></th>
-  <th>Conforme/Écart<span class="col-sub">conforme_ecart · ecart_detail · signal_limbique</span></th>
-</tr>
-</thead>
 ${rowsHtml}
 </table>
 </div>
