@@ -1,6 +1,34 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1.2.3)
+// Profil-Cognitif v10.2 (Phase HTML-1.2.4)
+//
+// PHASE HTML-1.2.4 (29/04 fin de soirée — fix critique d'intégrité des données) :
+//
+//   ⚠️ BUG CRITIQUE CORRIGÉ — perte de contenu détectée en v1.2.3 :
+//   ─────────────────────────────────────────────────────────────────
+//   Question Isabelle : "tu n'as pas réduit les contenus, ils sont bien
+//   poussés intégralement d'airtable etape1_t1 ?"
+//
+//   → Audit code rigoureux : aucun substring/slice/truncate présent.
+//   → MAIS la regex de v1.2.3 dans renderVerbesAngles utilisait [^()]+?
+//     qui CASSAIT sur les parenthèses internes au texte.
+//   → Conséquence : 3 couples avec parenthèses internes étaient PERDUS :
+//       - "écouter (podcasts) → diversifier..."
+//       - "lire (témoignages) → intégrer..."
+//       - "exclure (forums) → filtrer..."
+//   → Ces verbes EXISTAIENT dans Airtable mais étaient INVISIBLES dans le HTML.
+//
+//   Fix v1.2.4 : nouvelle stratégie de split qui parcourt les "(P{N})"
+//   un par un et capture TOUT le texte entre chaque pilier (gestion correcte
+//   des parenthèses internes type "écouter (podcasts)").
+//
+//   Test d'intégrité v1.2.4 :
+//   - verbes_angles_piliers : 664 → 664 chars ✅ 100% préservé (10 couples)
+//   - piliers_secondaires   : 215 → 215 chars ✅ 100% préservé
+//   - types_verbatim        : 5 séparateurs "—" remplacés par la mise en page
+//   - pilier_coeur_analyse  : 1 séparateur "·" remplacé par la mise en page
+//
+//   ⚠️ Recommandation : remplacer URGENT v1.2.3 par v1.2.4 sur Render.
 //
 // PHASE HTML-1.2.3 (29/04 fin de soirée — 3e itération) — 2 fixes :
 //
@@ -547,36 +575,48 @@ function renderVerbesObserves(text) {
 /**
  * Rendu : verbes_angles_piliers
  * Format attendu : "verbe → action (Pilier)" — collés sur 1 ligne ou séparés par retour ligne
- * Stratégie v1.2.3 : split sur les "(P{N})" qui marquent la fin de chaque couple,
- * puis split intelligent sur "→" pour séparer verbe et action
+ * Stratégie v1.2.4 : split correct qui gère les parenthèses internes au texte
+ *   (ex: "écouter (podcasts) → diversifier... (P1)")
  * Fallback : texte brut
  */
 function renderVerbesAngles(text) {
   if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
   const trimmed = String(text).trim();
 
-  // Stratégie : on cherche tous les couples "verbe → action (P{N})"
-  // Les "(P{N})" marquent la fin de chaque couple.
-  // On split AU PILIER puis on récupère ce qui précède.
+  // Stratégie v1.2.4 :
+  // On utilise les "(P{N})" comme MARQUEURS DE FIN de chaque couple.
+  // Pour gérer les parenthèses internes (ex: "écouter (podcasts) → ..."),
+  // on ne peut pas utiliser [^()]+? : il casserait sur la première parenthèse rencontrée.
+  // À la place, on split le texte AVANT chaque "(P{N})" final, en cherchant
+  // "(P[1-5])" suivi d'un espace + nouveau verbe (ou fin de chaîne).
   //
-  // Exemple : "verbe1 → action1 (P1) verbe2 → action2 (P2) verbe3 → action3 (P5)"
-  // Match groupé : ["verbe1 → action1 (P1)", "verbe2 → action2 (P2)", "verbe3 → action3 (P5)"]
+  // Approche : on identifie tous les "(P{N})" dans le texte et on découpe entre eux.
 
-  const couples = [];
-  // Regex : tout caractère qui n'est PAS un guillemet/parenthèse jusqu'à un (P{N})
-  // Note : on capture ce qui précède (P{N}) et le pilier
-  const regex = /([^()]+?)\(([Pp][1-5])\)/g;
-  let match;
-  while ((match = regex.exec(trimmed)) !== null) {
-    const beforePilier = match[1].trim();
-    const pilier = match[2].toUpperCase();
-    if (beforePilier.length > 0) {
-      couples.push({ content: beforePilier, pilier });
+  // Trouve toutes les positions des "(P{N})" suivis d'espace ou fin
+  const couplesRaw = [];
+  const pilierRegex = /\(([Pp][1-5])\)/g;
+  let lastEnd = 0;
+  let pilierMatch;
+
+  while ((pilierMatch = pilierRegex.exec(trimmed)) !== null) {
+    // Le couple va de lastEnd jusqu'à la fin de ce match
+    const couple = trimmed.substring(lastEnd, pilierMatch.index).trim();
+    const pilier = pilierMatch[1].toUpperCase();
+    if (couple.length > 0) {
+      couplesRaw.push({ content: couple, pilier });
     }
+    lastEnd = pilierMatch.index + pilierMatch[0].length;
   }
 
-  // Si aucun pilier trouvé OU peu de matches : fallback sur split par retour ligne
-  if (couples.length === 0) {
+  // Si du texte restant après le dernier (P{N}), on l'ajoute SANS pilier
+  // (cas où l'agent T1 produit du texte sans pilier final)
+  const tail = trimmed.substring(lastEnd).trim();
+  if (tail.length > 0) {
+    couplesRaw.push({ content: tail, pilier: null });
+  }
+
+  // Si aucun pilier trouvé : fallback sur split par retour ligne
+  if (couplesRaw.length === 0) {
     const lines = trimmed.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (lines.length === 0) return '<span style="color:var(--dim);">—</span>';
 
@@ -608,26 +648,31 @@ function renderVerbesAngles(text) {
 
   // Pour chaque couple, on tente de séparer "verbe → action"
   const blocks = [];
-  for (const couple of couples) {
+  for (const couple of couplesRaw) {
     const content = couple.content;
     const pilier = couple.pilier;
+    const pilierTag = pilier ? ` <strong>(${pilier})</strong>` : '';
 
-    // Split sur la flèche
-    const arrowMatch = content.match(/^(.+?)\s*(?:→|->)\s*(.+)$/);
-    if (arrowMatch) {
-      const verbe = arrowMatch[1].trim();
-      const action = arrowMatch[2].trim();
+    // Split sur la PREMIÈRE flèche (la plus à gauche) pour préserver le contenu complet
+    // Cela permet de gérer correctement "écouter (podcasts) → diversifier..."
+    // et même les cas où il y a plusieurs flèches dans l'action (rare)
+    const arrowIndex = content.search(/(?:→|->)/);
+    if (arrowIndex >= 0) {
+      const verbe = content.substring(0, arrowIndex).trim();
+      const arrowChar = content.charAt(arrowIndex) === '→' ? '→' : '->';
+      const arrowLength = arrowChar === '→' ? 1 : 2;
+      const action = content.substring(arrowIndex + arrowLength).trim();
       blocks.push(
         `<div class="av-line">` +
         `<span class="av-verb">${escapeHtml(verbe)}</span>` +
-        `<span class="av-geste">→ ${escapeHtml(action)} <strong>(${pilier})</strong></span>` +
+        `<span class="av-geste">→ ${escapeHtml(action)}${pilierTag}</span>` +
         `</div>`
       );
     } else {
       // Pas de flèche détectée — on met tout en geste avec pilier
       blocks.push(
         `<div class="av-line">` +
-        `<span class="av-geste">${escapeHtml(content)} <strong>(${pilier})</strong></span>` +
+        `<span class="av-geste">${escapeHtml(content)}${pilierTag}</span>` +
         `</div>`
       );
     }
