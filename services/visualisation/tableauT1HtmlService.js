@@ -1,6 +1,21 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1.2.1)
+// Profil-Cognitif v10.2 (Phase HTML-1.2.2)
+//
+// PHASE HTML-1.2.2 (29/04 fin de soirée) — Fix séparation verbes_angles_piliers :
+//   - "encore trop mélangé pour colonnes angles piliers / essaie de séparer
+//     comme dans types_verbatim" (Isabelle)
+//   - Réutilise le pattern .tl de types_verbatim : chaque couple verbe→action
+//     devient un BLOC SÉPARÉ avec bordure pleine (au lieu de bordure pointillée
+//     fine quasi invisible)
+//   - Le rendu devient visuellement aligné avec types_verbatim :
+//       ┌─────────────────────────────┐
+//       │ regarder                    │
+//       │ → consulter des sources (P1)│
+//       ├─────────────────────────────┤  ← bordure pleine, pas pointillée
+//       │ s'orienter                  │
+//       │ → sélectionner... (P1)      │
+//       └─────────────────────────────┘
 //
 // PHASE HTML-1.2.1 (29/04 fin de soirée) — Fix affichage verbes_angles_piliers :
 //   - "la flèche touche quasi la bordure donc tout le texte restant est sur 2 lettres" (Isabelle)
@@ -198,12 +213,11 @@ table td, table th {
   display:block;
 }
 
-/* ⭐ v1.2 — Action verbale (verbe / geste) — empilage vertical pour cellules étroites */
+/* ⭐ v1.2.2 — Action verbale = pattern bloc séparé (comme .tl pour types_verbatim) */
 .av-line {
-  font-size:10px;
-  margin-bottom:7px;
-  padding-bottom:6px;
-  border-bottom:1px dotted var(--border);
+  margin-bottom:8px;
+  padding-bottom:8px;
+  border-bottom:1px solid var(--border);
   line-height:1.5;
 }
 .av-line:last-child {
@@ -213,15 +227,17 @@ table td, table th {
 }
 .av-verb {
   font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
   font-weight:600;
   color:var(--text);
   display:block;
-  margin-bottom:2px;
+  margin-bottom:4px;
 }
 .av-geste {
+  font-size:10px;
   color:var(--mid);
   display:block;
-  padding-left:8px;
+  font-style:italic;
 }
 
 /* ⭐ v1.2 — Liste verbes simples (1 par ligne) */
