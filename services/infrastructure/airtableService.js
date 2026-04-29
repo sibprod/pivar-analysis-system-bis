@@ -721,6 +721,56 @@ async function getCiviliteCandidat(candidat_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// VISITEUR — getVisiteurInfoForVisualisation (Phase HTML-1, v10.2)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ v10.2 (2026-04-29) — ajouté pour le service de visualisation HTML T1.
+// Lit prénom + civilité + candidate_ID en une seule requête pour le header
+// du tableau HTML interne (route /visualiser/t1/:candidat_id).
+//
+// Important : c'est UNIQUEMENT pour la visualisation interne, jamais transmis
+// aux agents Claude (Décision n°4 — anonymisation préservée pour les agents).
+
+async function getVisiteurInfoForVisualisation(candidat_id) {
+  try {
+    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
+      .select({
+        filterByFormula: `{${airtableConfig.VISITEUR_FIELDS.candidate_ID}} = "${candidat_id}"`,
+        fields: [
+          airtableConfig.VISITEUR_FIELDS.candidate_ID,
+          airtableConfig.VISITEUR_FIELDS.civilite_candidat,
+          airtableConfig.VISITEUR_FIELDS.Prenom
+        ],
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records || records.length === 0) {
+      logger.warn('Candidat introuvable pour visualisation HTML', { candidat_id });
+      return {
+        candidate_ID: candidat_id,
+        prenom: '?',
+        civilite: null
+      };
+    }
+
+    const f = records[0].fields;
+    return {
+      candidate_ID: f[airtableConfig.VISITEUR_FIELDS.candidate_ID] || candidat_id,
+      prenom:       f[airtableConfig.VISITEUR_FIELDS.Prenom] || '?',
+      civilite:     f[airtableConfig.VISITEUR_FIELDS.civilite_candidat] || null
+    };
+  } catch (error) {
+    logger.error('Failed to read VISITEUR for visualisation', { candidat_id, error: error.message });
+    return {
+      candidate_ID: candidat_id,
+      prenom: '?',
+      civilite: null
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HELPERS INTERNES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -826,6 +876,7 @@ module.exports = {
 
   // VISITEUR — civilité (anonymisation Décision n°4)
   getCiviliteCandidat,
+  getVisiteurInfoForVisualisation,
 
   // Helpers exportés
   cleanFields,
