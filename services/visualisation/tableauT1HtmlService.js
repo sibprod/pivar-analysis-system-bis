@@ -1,16 +1,17 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1.2)
+// Profil-Cognitif v10.2 (Phase HTML-1.2.1)
 //
-// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
-//
-// Rôle :
-//   - Lit les 25 lignes ETAPE1_T1 + infos VISITEUR depuis Airtable
-//   - Génère un HTML autonome (CSS intégré) pour visualiser le tableau T1
-//   - Affiche les 24 colonnes ETAPE1_T1 + corrections du vérificateur (CSS différencié)
-//   - Visualisation interne uniquement (pas pour le candidat)
-//   - OUTIL D'AUDIT du prompt T1 : permet à Isabelle de vérifier que l'agent
-//     a fait ce qu'on attend de lui pour ajuster le prompt si besoin.
+// PHASE HTML-1.2.1 (29/04 fin de soirée) — Fix affichage verbes_angles_piliers :
+//   - "la flèche touche quasi la bordure donc tout le texte restant est sur 2 lettres" (Isabelle)
+//   - Cause : flexbox horizontal trop serré pour la colonne 150px
+//   - Fix 1 : élargir colonne c-angles 150 → 180px
+//   - Fix 2 : empiler verbe (en haut) / action (en dessous indentée) au lieu de côte-à-côte
+//   - Le rendu devient :
+//       regarder
+//         → consulter des sources internet (P1)
+//   - Au lieu de :
+//       regarder | → consulter des sources internet (P1)  [tronqué]
 //
 // PHASE HTML-1.2 (2026-04-29 fin de journée) — Rendu adaptatif par colonne :
 //   ⭐ Décomposition des cellules composites en mini-blocs séparés visuellement.
@@ -133,7 +134,7 @@ col.c-v1      { width:42px; }
 col.c-v2      { width:42px; }
 col.c-verbatim{ width:220px; }
 col.c-verbes  { width:110px; }
-col.c-angles  { width:150px; }
+col.c-angles  { width:180px; }
 col.c-coeur   { width:200px; }
 col.c-sec     { width:140px; }
 col.c-types   { width:220px; }
@@ -197,25 +198,30 @@ table td, table th {
   display:block;
 }
 
-/* ⭐ v1.2 — Action verbale (verbe → geste) — 2 colonnes alignées */
+/* ⭐ v1.2 — Action verbale (verbe / geste) — empilage vertical pour cellules étroites */
 .av-line {
   font-size:10px;
-  margin-bottom:5px;
-  display:flex;
-  gap:6px;
-  align-items:flex-start;
+  margin-bottom:7px;
+  padding-bottom:6px;
+  border-bottom:1px dotted var(--border);
+  line-height:1.5;
 }
-.av-line:last-child { margin-bottom:0; }
+.av-line:last-child {
+  margin-bottom:0;
+  padding-bottom:0;
+  border-bottom:none;
+}
 .av-verb {
   font-family:'IBM Plex Mono',monospace;
   font-weight:600;
   color:var(--text);
-  min-width:80px;
-  flex-shrink:0;
+  display:block;
+  margin-bottom:2px;
 }
 .av-geste {
   color:var(--mid);
-  flex:1;
+  display:block;
+  padding-left:8px;
 }
 
 /* ⭐ v1.2 — Liste verbes simples (1 par ligne) */
