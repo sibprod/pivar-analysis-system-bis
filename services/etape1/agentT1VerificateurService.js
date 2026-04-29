@@ -1,6 +1,6 @@
 // services/etape1/agentT1VerificateurService.js
 // Vérificateur T1 — Vérification doctrinale + Production + Corrections actives
-// Profil-Cognitif v10.1
+// Profil-Cognitif v10.2a
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
@@ -8,14 +8,15 @@
 //   - Lit les 25 lignes T1 produites par l'agent T1
 //   - Vérifie l'application stricte des règles critiques (Niveaux 1, 2, 3)
 //   - Calcule le mode_recommande (1/2/3/4) selon les comptes par gravité
-//   - Applique les corrections directement dans ETAPE1_T1 (PATCH ciblé) — Mode 2
+//   - Applique les corrections directement dans ETAPE1_T1 (PATCH ciblé) — Mode 1 ET Mode 2
 //   - Écrit le rapport synthétique dans la table VERIFICATEUR_T1 (audit)
 //
-// 4 MODES OPÉRATIONNELS (Décisions n°15, n°16, n°24) :
-//   Mode 1 — Conforme : pas de violation critique ni doctrinale → pipeline continue
-//   Mode 2 — Corrections directes : violations doctrinales corrigeables → patch ETAPE1_T1
-//   Mode 3 — Validation humaine : cas ambigu non résolvable → EN_ATTENTE_VALIDATION_HUMAINE
-//   Mode 4 — Erreur système : verdict bloquant + tentatives < 2 → REPRENDRE_AGENT1
+// 4 MODES OPÉRATIONNELS — v10.2a doctrine simplifiée Isabelle 29/04/2026 (Décisions n°35-42) :
+//   Mode 1 — ≤2 erreurs par agent → patches appliqués dans ETAPE1_T1 (Décision n°38)
+//   Mode 2 — ≥3 graves sur 1 scénario → patches sur scénarios fiables uniquement
+//            (Phase 2c future déclenchera la relance T1 ciblée du scénario défaillant)
+//   Mode 3 — Phase 2c future : vérificateur impose après échec Mode 2
+//   Mode 4 — Erreur technique → relance T1 complet par orchestrateur (inchangé v10.1)
 //
 // DOCTRINE APPLIQUÉE :
 //   - Pilier 1 : thinking activé pour ce vérificateur
@@ -57,6 +58,37 @@
 //   determinerMode v10.1 — combine la recommandation Claude (Option D doctrinale)
 //     avec les comptages mécaniques par scénario (seuil ≥3 erreurs GRAVES sur un
 //     scénario = Mode 2). Aligne sur Section 4.4 du Contrat ETAPE1 v1.7.
+//
+// PHASE v10.2a (2026-04-29 fin de journée) — Mode 1 corrige réellement :
+//   Doctrine simplifiée des 4 modes (Isabelle 29/04/2026, Décisions n°35-42).
+//   Décision n°38 (vérificateur producteur de vérité) : les corrections du vérificateur
+//   doivent atterrir dans ETAPE1_T1 dès Mode 1, pas seulement Mode 2.
+//
+//   Modifications apportées :
+//   1. Application des patches étendue : (mode_recommande === 1 || mode_recommande === 2)
+//      → Mode 1 patche TOUT, Mode 2 patche tout SAUF le scénario défaillant.
+//   2. Identification automatique du scenarioDefaillant en Mode 2 (1er scénario à ≥3 graves).
+//   3. Filtrage des corrections du scenarioDefaillant avant patch (Phase 2c future relancera).
+//   4. Écriture de 3 nouveaux champs dans VERIFICATEUR_T1 :
+//        - tour_verificateur (toujours 1 en Phase 2a)
+//        - scenario_relance_demande (nom du scénario défaillant si Mode 2 détecté)
+//        - compteur_relance_scenario (toujours 0 en Phase 2a)
+//   5. Écriture de nb_corrections_verificateur dans chaque ligne ETAPE1_T1 patchée.
+//   6. Logs warnings explicites pour Mode 3/4 (Phase 2c future à venir).
+//
+//   NON modifié dans cette phase :
+//   - L'algorithme determinerMode (refonte en Phase 2c)
+//   - Le retour de runVerificateurT1 (signatures préservées pour rétrocompatibilité)
+//   - Le prompt v1.1 (intact — règle "fond > technique")
+//   - Mode 4 (relance auto T1 par orchestrateur, inchangé)
+//
+//   Comportement attendu après déploiement v10.2a :
+//   - Cécile en REPRENDRE_VERIFICATEUR1 → vérificateur trouve 3 corrections MINEURES
+//     dispersées → Mode 1 → patches appliqués sur P1Q2, P1Q9, P2Q11 dans ETAPE1_T1
+//     avec nb_corrections_verificateur=1 sur chaque ligne, et corrections_verificateur
+//     contenant la trace doctrinale (gravité + raison).
+//   - Si à l'avenir un candidat a un scénario à ≥3 graves, le vérificateur exclut ce
+//     scénario du patch et logge un warning explicite (Phase 2c future relancera).
 
 'use strict';
 
@@ -209,9 +241,31 @@ async function runVerificateurT1({ candidat_id, rows_t1, tentatives_actuelles = 
     elapsedMs
   });
 
+  // ⭐ v10.2a (29/04/2026) — Identification du scénario défaillant en Mode 2
+  // Décision n°41 : un agent T1 est non fiable si ≥3 erreurs de pilier_coeur sur ses 5 analyses.
+  // En Mode 2, on identifie le 1er scénario à ≥3 graves pour exclure ses corrections des patches
+  // (Phase 2c future déclenchera la relance T1 ciblée sur ce scénario).
+  let scenarioDefaillant = null;
+  if (mode_recommande === 2) {
+    for (const sc of Object.keys(comptage_erreurs)) {
+      const c = comptage_erreurs[sc] || {};
+      if ((c.graves || 0) >= 3) {
+        scenarioDefaillant = sc;
+        logger.warn('Vérificateur T1 — Mode 2 détecté : scénario défaillant identifié', {
+          candidat_id,
+          scenarioDefaillant,
+          nb_graves_scenario: c.graves,
+          note: 'Phase 2c (relance auto Mode 2) pas encore déployée — relance manuelle via REPRENDRE_T1_' + scenarioDefaillant + '_SEUL si nécessaire'
+        });
+        break;
+      }
+    }
+  }
+
   // ⭐ v10.1 — Trace VERIFICATEUR_T1 enrichie : on stocke les violations détaillées
   // dans violations_json (qui devient le détail des corrections + diagnostic),
   // pour conserver une traçabilité complète et permettre le debug ultérieur.
+  // ⭐ v10.2a — Ajout des 3 nouveaux champs : tour_verificateur, scenario_relance_demande, compteur_relance_scenario
   await airtableService.writeVerificateurT1(candidat_id, {
     verdict_global:        verdict,
     nb_lignes_verifiees:   rowsWithIds.length,
@@ -228,24 +282,63 @@ async function runVerificateurT1({ candidat_id, rows_t1, tentatives_actuelles = 
       corrections
     },
     cost_usd:              cost,
-    elapsed_ms:            elapsedMs
+    elapsed_ms:            elapsedMs,
+    // ⭐ v10.2a — nouveaux champs
+    tour_verificateur:        1,                            // toujours 1 en Phase 2a (Mode 3 = tour 2 = Phase 2c)
+    scenario_relance_demande: scenarioDefaillant || null,    // si Mode 2 détecté (info pour Phase 2c)
+    compteur_relance_scenario: 0                             // toujours 0 en Phase 2a (relance auto = Phase 2c)
   });
 
-  // ─── Mode 2 : Appliquer les corrections sur ETAPE1_T1 ────────────────────
-  if (mode_recommande === 2 && corrections.length > 0) {
-    const patchPlan = buildVerificateurPatchPlan(rowsWithIds, corrections);
+  // ─── ⭐ v10.2a (Décision n°38) — Mode 1 et Mode 2 appliquent les corrections ──
+  // Le vérificateur est producteur de vérité : ses corrections doivent atterrir
+  // dans ETAPE1_T1 pour que les agents aval (T2, T3, T4) lisent la vérité corrigée.
+  //
+  // Mode 1 : ≤ 2 erreurs par agent → toutes les corrections appliquées
+  // Mode 2 : ≥ 3 graves sur 1 scénario → corrections appliquées SAUF sur le scénario défaillant
+  //          (Phase 2c future relancera ce scénario via REPRENDRE_T1_<X>_SEUL)
+  // Mode 3 : Phase 2c future (vérificateur impose après échec Mode 2)
+  // Mode 4 : pas de patches (erreur technique → relance T1 complet par orchestrateur)
+  let correctionsAAppliquer = corrections;
+  if (mode_recommande === 2 && scenarioDefaillant) {
+    // Filtrer : retirer les corrections du scénario défaillant
+    correctionsAAppliquer = corrections.filter(corr => {
+      const idQ = corr.id_question || '';
+      const row = rowsWithIds.find(r => r.id_question === idQ);
+      const sc = row?.scenario || '';
+      return sc !== scenarioDefaillant;
+    });
+    logger.info('Vérificateur T1 — Mode 2 : corrections du scénario défaillant exclues des patches', {
+      candidat_id,
+      scenarioDefaillant,
+      corrections_totales: corrections.length,
+      corrections_appliquees: correctionsAAppliquer.length,
+      corrections_exclues: corrections.length - correctionsAAppliquer.length
+    });
+  }
+
+  if ((mode_recommande === 1 || mode_recommande === 2) && correctionsAAppliquer.length > 0) {
+    const patchPlan = buildVerificateurPatchPlan(rowsWithIds, correctionsAAppliquer);
     if (patchPlan.length > 0) {
       await airtableService.patchEtape1T1Rows(candidat_id, patchPlan);
-      logger.info('Vérificateur T1 — patches applied (Mode 2)', {
+      logger.info('Vérificateur T1 — patches appliqués dans ETAPE1_T1', {
         candidat_id,
-        lignes_patchees: patchPlan.length
+        mode_recommande,
+        lignes_patchees: patchPlan.length,
+        scenarioDefaillant_exclu: scenarioDefaillant || 'aucun'
       });
     }
-  } else if (corrections.length > 0 && mode_recommande !== 2) {
-    logger.info('Vérificateur T1 — corrections produced but mode is not 2, patches skipped', {
+  } else if (corrections.length > 0 && mode_recommande >= 3) {
+    logger.warn('Vérificateur T1 — Mode 3/4 détecté, patches non appliqués (Phase 2c future)', {
       candidat_id,
       mode_recommande,
-      nb_corrections: corrections.length
+      nb_corrections: corrections.length,
+      note: 'Mode 3 = vérificateur impose (Phase 2c) ; Mode 4 = erreur technique (relance T1 par orchestrateur)'
+    });
+  } else if (corrections.length === 0 && (mode_recommande === 1 || mode_recommande === 2)) {
+    logger.info('Vérificateur T1 — aucune correction à appliquer', {
+      candidat_id,
+      mode_recommande,
+      verdict
     });
   }
 
@@ -443,6 +536,10 @@ function buildVerificateurPatchPlan(rows_t1, corrections) {
     if (Object.keys(fields_to_patch).length > 0 || traces.length > 0) {
       // Ajouter le champ corrections_verificateur à patcher (renommage v10)
       fields_to_patch.corrections_verificateur = traces.join('\n');
+      // ⭐ v10.2a (29/04/2026) — Compteur de corrections par ligne (Décision n°38)
+      // 1 = corrigée au tour 1 (Mode 1 ou Mode 2 sur scénario fiable)
+      // 2 = corrigée au tour 2 (Mode 3, Phase 2c future)
+      fields_to_patch.nb_corrections_verificateur = corrs.length;
 
       plan.push({
         airtable_id:      row.airtable_id,
