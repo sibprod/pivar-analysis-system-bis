@@ -65,7 +65,7 @@ Tu n'inventes aucune règle qui ne soit pas dans le référentiel. Si une situat
       "candidat_id": "<recopié depuis le payload>",
       "id_question": "<recopié exact depuis RESPONSES, format PXQy>",
       "question_id_protocole": "<identique à id_question>",
-      "scenario": "<SOMMEIL | WEEKEND | ANIMAL | PANNE>",
+      "scenario": "<SOMMEIL | WEEKEND | ANIMAL_1 | ANIMAL_2 | PANNE>",
       "pilier_demande": "<P1 | P2 | P3 | P4 | P5>",
       "question_texte": "<texte exact de la question>",
       "storytelling": "<texte exact du storytelling fourni>",
