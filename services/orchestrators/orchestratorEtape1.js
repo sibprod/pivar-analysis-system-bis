@@ -47,6 +47,16 @@
 //   - Mode SCENARIO_CASCADE : boucle SCENARIO_ISOLÉ depuis le pivot jusqu'à PANNE
 //   - Retour { success: false, stopReason } pour ces modes — empêche orchestratorPrincipal
 //     d'écraser le statut REPRENDRE_VERIFICATEUR1 par 'terminé'
+//
+// PHASE v10.2b — révision 03/05/2026 (test cascade pivar_*_DES_WEEKEND) :
+//   - DÉCISION DOCTRINALE ÉMERGENTE : retrait du garde-fou strict dans runScenarioIsole.
+//     L'orchestrateur ne refuse plus les reprises sur scénario sans lignes préexistantes.
+//     La cohérence amont (lignes manquantes) est portée par le VÉRIFICATEUR T1 qui
+//     détectera ces cas lors de son audit (extension prévue Phase v10.2c).
+//   - Justification doctrinale : Section 12.2 du contrat dit "Suppression + relance"
+//     sans pré-condition. Le manuel et l'auto (Mode 2 vérificateur) partagent les
+//     mêmes briques techniques. L'orchestrateur exécute, le vérificateur détecte.
+//   - À tracer dans contrat v1.9 comme nouvelle décision après validation tests.
 
 'use strict';
 
@@ -511,9 +521,9 @@ async function run({ candidat_id, visiteur }) {
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Encapsule la séquence atomique pour 1 scénario :
-//   1. Garde-fou : vérifier que le candidat a au moins 1 ligne ETAPE1_T1 du scénario
+//   1. Inventaire des lignes existantes du scénario (info, pas de blocage)
 //   2. backupService.save before_scenario_isole
-//   3. airtableService.deleteEtape1T1Scenario (suppression ciblée des 5 lignes)
+//   3. airtableService.deleteEtape1T1Scenario (suppression ciblée des lignes existantes, 0 si rien)
 //   4. agentT1Service.runAgentT1ForScenario (production des 5 nouvelles rows)
 //   5. airtableService.writeEtape1T1Scenario (écriture additive — pas d'écrasement)
 //   6. backupService.save after_scenario_isole
@@ -523,23 +533,35 @@ async function run({ candidat_id, visiteur }) {
 //   - mode SCENARIO_CASCADE (boucle sur scenarios_a_relancer)
 //   - futur Mode 2 auto du vérificateur (Phase v10.2c)
 //
+// DOCTRINE (révision 03/05/2026 — décision émergente après test cascade) :
+// La sous-routine NE refuse PAS si le scénario n'a pas de lignes préexistantes.
+// La cohérence amont (vérifier que les fondations existent) est doctrinalement
+// la responsabilité du VÉRIFICATEUR T1 (qui détecte les lignes manquantes lors
+// de son audit ultérieur), pas de l'orchestrateur.
+// L'orchestrateur exécute la reprise demandée — manuelle ou automatique (Mode 2
+// du vérificateur, à venir Phase v10.2c) — sans garde-fou.
+//
+// Référence : Section 12.2 du contrat v1.8 — "Suppression lignes <X>→PANNE +
+// relance T1 ciblée" : pas de pré-condition de lignes existantes.
+//
 // IMPORTANT : cette sous-routine NE met PAS à jour le statut visiteur ni ne
 // lance le vérificateur. C'est run() qui s'en charge en sortie de mode.
 async function runScenarioIsole({ candidat_id, session_id, scenario, usages, costs }) {
   logger.info('runScenarioIsole — début', { candidat_id, scenario });
 
-  // 1. Garde-fou : vérifier qu'il y a quelque chose à supprimer
+  // 1. Inventaire des lignes existantes (informatif, pas de blocage)
+  //    La cohérence amont est portée par le vérificateur T1 (Phase v10.2c).
   const existingRows = await airtableService.getEtape1T1(candidat_id);
   const rowsScenario = existingRows.filter(r => r.scenario === scenario);
+
   if (rowsScenario.length === 0) {
-    throw new Error(
-      `runScenarioIsole — scénario ${scenario} demandé mais aucune ligne ETAPE1_T1 trouvée. ` +
-      `Le candidat ${candidat_id} doit d'abord avoir un T1 complet ` +
-      `(statut NOUVEAU, REPRENDRE_AGENT1, ou REPRENDRE_T1_DES_SOMMEIL).`
-    );
-  }
-  if (rowsScenario.length !== 5) {
-    logger.warn('runScenarioIsole — nombre de lignes scénario inattendu (attendu: 5)', {
+    logger.info('runScenarioIsole — scénario sans lignes préexistantes (production ex-nihilo)', {
+      candidat_id, scenario,
+      total_lignes_candidat: existingRows.length,
+      note: 'Cohérence amont sera vérifiée par le vérificateur T1 ultérieurement'
+    });
+  } else if (rowsScenario.length !== 5) {
+    logger.warn('runScenarioIsole — nombre de lignes scénario préexistantes inattendu (attendu: 5)', {
       candidat_id, scenario, count: rowsScenario.length
     });
   }
@@ -550,7 +572,7 @@ async function runScenarioIsole({ candidat_id, session_id, scenario, usages, cos
     count_avant: rowsScenario.length
   });
 
-  // 3. Suppression ciblée
+  // 3. Suppression ciblée (deleteEtape1T1Scenario gère le cas 0 ligne sans throw)
   const deleteResult = await airtableService.deleteEtape1T1Scenario(candidat_id, scenario);
   logger.info('runScenarioIsole — lignes supprimées', { candidat_id, scenario, ...deleteResult });
 
