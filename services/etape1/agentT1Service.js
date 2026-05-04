@@ -1,8 +1,9 @@
 // services/etape1/agentT1Service.js
 // Agent T1 — Analyse brute des 25 réponses du candidat
-// Profil-Cognitif v10.2b
+// Profil-Cognitif v10.4
 //
-// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
+//                       et docs/CONTRAT_ETAPE1.md (v1.9)
 //
 // Rôle :
 //   - Lit les 25 réponses brutes du candidat depuis RESPONSES (frontend)
@@ -10,17 +11,19 @@
 //     • SOMMEIL  (Q1-Q5)   → 5 questions
 //     • WEEKEND  (Q6-Q10)  → 5 questions
 //     • ANIMAL_1 (Q11-Q15) → 5 questions
-//     • ANIMAL_2 (Q16-Q20) → 5 questions  (découpé pour éviter max_tokens dépassé)
+//     • ANIMAL_2 (Q16-Q20) → 5 questions
 //     • PANNE    (Q21-Q25) → 5 questions
-//   - Écrit les 25 lignes analysées dans ETAPE1_T1
+//   - ⭐ v10.4 : Écrit les 5 lignes de chaque scénario en Airtable APRÈS chaque
+//     scénario (Décision n°47), pour permettre la reprise via REPRENDRE_T1_<X>_SEUL
+//     en cas de crash.
 //
-// DOCTRINE APPLIQUÉE (cf. docs/CONTRAT_ETAPE1.md) :
+// DOCTRINE APPLIQUÉE (cf. docs/CONTRAT_ETAPE1.md v1.9) :
 //   - Pilier 1 : thinking activé (claude.js THINKING.agent_t1 = true)
-//   - Pilier 2 : découpage par unité narrative (5 scénarios)
-//   - Pilier 3 : raisonnement verbalisé exigé (champ raisonnement dans output)
-//   - Pilier 5 : self-critique finale par scénario (instruction dans payload)
-//   - Pilier 6 : vérificateur T1 appelé après (agentT1VerificateurService)
+//   - Pilier 2 : découpage par unité narrative (5 scénarios — Décision n°40)
+//   - Pilier 6 : vérificateur T1 v1.2 appelé après (agentT1VerificateurService)
 //   - Pilier 7 : log complet
+//   - Décision n°47 : écriture incrémentale par scénario (point de reprise)
+//   - Toute la doctrine d'analyse vit dans le prompt etape1_t1.txt v3.2 — PAS dans ce code.
 //
 // PHASE D (2026-04-28) — v10 :
 //   - Déplacé dans services/etape1/ (Décision n°27)
@@ -32,7 +35,55 @@
 //   - Ajout runAgentT1ForScenario : exécution T1 sur 1 seul scénario
 //     Réutilise callT1ForScenario interne. Strictement additif.
 //     Utilisé par orchestratorEtape1 dans modes SCENARIO_ISOLÉ et SCENARIO_CASCADE.
-//     Préparé pour Mode 2 auto du vérificateur (Phase v10.2c).
+//
+// PHASE v10.3 — annulée (jamais en prod, fusionnée dans v10.4).
+//
+// PHASE v10.4 (2026-05-04) — alignement T1 v3.2 + écriture incrémentale (Décisions n°43-47) :
+//   ⚠️ DEUX CHANGEMENTS CRITIQUES — applique tout ce qui était prévu en v10.3
+//      plus la Décision n°47 (écriture par scénario).
+//
+//   1. Mapping Airtable enrichi des 5 nouveaux champs grille à 3 niveaux v1.9
+//      (Décisions n°43, n°46) dans normalizeRowForAirtable :
+//        - pilier_finalite          (recopie de pilier_demande)
+//        - pilier_finalite_libelle  (nom officiel court)
+//        - pilier_coeur             (code court isolé du pilier coeur)
+//        - outil_cognitif_libelle   (libellé court du filtre cognitif)
+//        - piliers_traverses        (codes courts des piliers traversés)
+//      Bug corrigé : avant v10.4, ces 5 champs étaient produits par le prompt
+//      T1 v3.2 mais perdus dans le mapping. Résultat : 25 lignes Airtable
+//      avec 5 cellules vides systématiquement (cf. analyse Véronique 04/05).
+//
+//   2. ÉCRITURE INCRÉMENTALE PAR SCÉNARIO (Décision n°47) :
+//      Avant v10.4 : T1 faisait les 5 appels Claude en série puis écrivait les
+//      25 lignes en bloc à la fin (writeEtape1T1 unique). Si crash sur le 4ème
+//      ou 5ème scénario, TOUT était perdu — pas de reprise ciblée possible.
+//
+//      v10.4 : nettoyage préalable scénario par scénario, puis dans la boucle,
+//      à chaque fin de scénario réussie :
+//        1. write les 5 nouvelles lignes IMMÉDIATEMENT en Airtable
+//        2. log "✅ Scenario X écrit, point de reprise possible"
+//
+//      Bénéfices :
+//      - Crash sur scénario N → les scénarios 1..N-1 sont en base
+//      - Reprise possible via statut REPRENDRE_T1_<X>_SEUL (Famille A, Décision n°42)
+//      - Visibilité immédiate dans Airtable du progrès du run (debug live)
+//
+//   3. Conservation accent É dans 'ÉCART' (Décision n°45) :
+//      Suppression de la conversion forcée 'ÉCART' → 'ECART'. Le champ Airtable
+//      conforme_ecart est multilineText, accepte les 2. La doctrine v1.9 prescrit
+//      l'accent É.
+//
+//   4. Suppression de buildDoctrineInstruction obsolète :
+//      Cette fonction injectait des instructions doctrinales héritées du contrat
+//      v1.7, devenues contradictoires avec v1.9 (notamment règle "incarne PY"
+//      abandonnée par Décision n°45 ; et règle "filtrage par crédibilité = P2"
+//      contredite par Décision n°43 — Cécile P1Q2 = P3 directeur).
+//      Désormais, toute la doctrine vit UNIQUEMENT dans le prompt etape1_t1.txt v3.2.
+//      Cf. règle de gouvernance v10.4 : aucune doctrine dans le code service.
+//
+//   Briques techniques utilisées (existantes depuis v10.2b) :
+//   - airtableService.deleteEtape1T1Scenario(candidat_id, scenario_name)
+//   - airtableService.writeEtape1T1Scenario(candidat_id, rows)
 
 'use strict';
 
@@ -77,7 +128,29 @@ async function runAgentT1({ candidat_id, session_id }) {
   // 2. Grouper les réponses par scénario
   const responsesByScenario = groupResponsesByScenario(responses);
 
-  // 3. Appeler l'agent 5 fois (1 par scénario)
+  // 2bis. ⭐ v10.4 — Nettoyage préalable scénario par scénario (Décision n°47).
+  // Avant la boucle, on supprime les éventuelles lignes pré-existantes du candidat
+  // pour chaque scénario. Comme l'écriture est désormais incrémentale (write
+  // immédiatement après chaque scénario), on ne peut plus s'appuyer sur le
+  // delete-then-create global de writeEtape1T1. On nettoie donc en amont pour
+  // éviter doublons et résidus si le candidat avait déjà tourné précédemment
+  // (ex: ré-exécution complète après ERREUR ou changement de statut manuel).
+  logger.info('Agent T1 — nettoyage préalable ETAPE1_T1 par scénario (v10.4)', { candidat_id });
+  for (const scenario of SCENARIOS) {
+    try {
+      await airtableService.deleteEtape1T1Scenario(candidat_id, scenario.name);
+    } catch (err) {
+      // Si delete échoue sur un scénario, on continue. Le scénario sera quand
+      // même écrit après l'analyse Claude. Risque résiduel : doublons si delete
+      // KO mais write OK. Préférable à bloquer tout le run pour une erreur
+      // transitoire Airtable. Le vérificateur détectera tout résidu anormal.
+      logger.warn(`Agent T1 — delete préalable ${scenario.name} échoué (non bloquant)`, {
+        candidat_id, error: err.message
+      });
+    }
+  }
+
+  // 3. Appeler l'agent 5 fois (1 par scénario), avec ÉCRITURE INCRÉMENTALE
   const allRows = [];
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let totalCost  = 0;
@@ -122,6 +195,32 @@ async function runAgentT1({ candidat_id, session_id }) {
       cost_usd:     cost.toFixed(4),
       ecarts:       rows.filter(r => r.conforme_ecart === 'ÉCART' || r.conforme_ecart === 'ECART').length
     });
+
+    // ⭐ v10.4 — ÉCRITURE INCRÉMENTALE EN AIRTABLE (Décision n°47)
+    // On écrit les 5 lignes du scénario IMMÉDIATEMENT après réception du
+    // résultat Claude. Si un scénario ultérieur plante (timeout, output_truncated),
+    // les scénarios déjà traités sont préservés en base et accessibles via
+    // REPRENDRE_T1_<X>_SEUL (Famille A — Décision n°42).
+    try {
+      const normalizedRows = rows.map(normalizeRowForAirtable);
+      const written = await airtableService.writeEtape1T1Scenario(candidat_id, normalizedRows);
+      logger.info(`✅ Scenario ${scenario.name} écrit en Airtable — point de reprise possible`, {
+        candidat_id,
+        scenario: scenario.name,
+        rows_written: written
+      });
+    } catch (err) {
+      // Si l'écriture Airtable échoue, on remonte l'erreur : ça veut dire
+      // qu'Airtable est down ou que le mapping est cassé. Inutile de continuer
+      // les scénarios suivants — l'orchestrateur verra l'erreur et passera le
+      // candidat en ERREUR.
+      logger.error(`Agent T1 — échec écriture scénario ${scenario.name}`, {
+        candidat_id,
+        scenario: scenario.name,
+        error: err.message
+      });
+      throw err;
+    }
   }
 
   const elapsedMs = Date.now() - startTime;
@@ -138,8 +237,9 @@ async function runAgentT1({ candidat_id, session_id }) {
     elapsedMs
   });
 
-  // 4. Écrire dans ETAPE1_T1 (pattern d'écrasement)
-  await airtableService.writeEtape1T1(candidat_id, allRows.map(normalizeRowForAirtable));
+  // ⭐ v10.4 — Le writeEtape1T1 global de fin de boucle est SUPPRIMÉ.
+  // Les 25 lignes ont déjà été écrites scénario par scénario dans la boucle
+  // ci-dessus (Décision n°47). Un write final ferait des doublons.
 
   return { rows: allRows, usage: totalUsage, cost: totalCost, elapsedMs };
 }
@@ -148,12 +248,15 @@ async function runAgentT1({ candidat_id, session_id }) {
 async function callT1ForScenario({ candidat_id, scenario, responses }) {
   // Construire le payload pour ce scénario uniquement
   // ⚠️ ANONYMISATION : aucun prénom, uniquement candidat_id (Décision n°4)
+  // ⚠️ v10.4 : plus d'instruction doctrinale injectée. Toute la doctrine vit
+  //           dans le prompt T1 v3.2 (etape1_t1.txt). Cf. Décision n°35
+  //           (primat du fond sur la technique) et règle de gouvernance v10.4 :
+  //           aucune instruction doctrinale ne doit vivre dans le code service.
   const payload = {
     candidat_id,
     scenario_name:           scenario.name,
     nb_questions_in_scenario: responses.length,
     nb_questions_total:      25,
-    instruction_doctrinale:  buildDoctrineInstruction(scenario),  // Pilier 3 + 5
     responses: responses.map(r => ({
       id_question:           r.id_question,
       numero_global:         r.numero_global,
@@ -179,63 +282,20 @@ async function callT1ForScenario({ candidat_id, scenario, responses }) {
   return { rows, usage, cost };
 }
 
-// ─── INSTRUCTION DOCTRINALE (Piliers 3 + 5) ───────────────────────────────
-function buildDoctrineInstruction(scenario) {
-  return `
-ATTENTION — INSTRUCTIONS DOCTRINALES POUR CET APPEL :
-
-Tu analyses UNIQUEMENT le scénario ${scenario.name} (questions ${scenario.questionRange[0]} à ${scenario.questionRange[1]}). Ne retourne PAS de lignes pour les autres scénarios.
-
-Pilier 3 — RAISONNEMENT VERBALISÉ OBLIGATOIRE :
-Pour CHAQUE question, tu dois inclure dans ta réponse JSON un champ "raisonnement" qui contient :
-{
-  "indices_verbatim": "ce que tu observes dans le verbatim",
-  "regles_applicables": ["règles du prompt T1 que tu appliques"],
-  "pieges_ecartes": "les confusions que tu évites (ex: Erreur 9 - ne pas confondre verbe avec angle d'attaque)",
-  "decision_pilier_coeur": "P? — pourquoi",
-  "decision_v1": "OUI/NON — pourquoi",
-  "decision_conforme_ecart": "CONFORME/ECART — cohérent avec V1"
-}
-
-Pilier 5 — SELF-CRITIQUE FINALE OBLIGATOIRE :
-Avant d'émettre ton JSON final, relis chaque ligne et vérifie :
-
-1. COHÉRENCE V1 ↔ conforme_ecart
-   - Si conforme_ecart = ECART, est-ce que V1 = NON ? (sinon corrige)
-   - Si conforme_ecart = CONFORME, est-ce que V1 = OUI ? (sinon corrige)
-   - V1=OUI → toujours CONFORME, sans exception
-   - V1=NON → toujours ECART, sans exception
-
-2. PILIER CŒUR
-   - Pour chaque pilier_coeur = P3 : le candidat produit-il vraiment une analyse causale autonome ?
-     Sinon (action conditionnelle, génération multiple, exécution), reformuler.
-   - Vérifier l'Erreur 9 : ne pas confondre le premier verbe avec l'angle d'attaque.
-   - Filtrer une source par crédibilité = P2 (pas P3 cœur).
-
-3. SIGNAL LIMBIQUE
-   - Pour chaque signal_limbique rempli, y a-t-il une vraie rupture émotionnelle vive ?
-     Une simple préférence stylistique ("pas trop vulgarisateur") n'est PAS un signal.
-     Une difficulté objective déclarée ("la pire partie") n'est PAS un signal.
-     Effacer si pas de rupture émotionnelle vive.
-
-4. COHÉRENCE INTERNE
-   - Le pilier_coeur attribué correspond-il bien aux types_verbatim cités ?
-
-Si tu détectes une incohérence, CORRIGE-LA avant d'émettre. N'émets jamais
-un JSON contenant une violation de ces règles.
-
-FORMAT DE SORTIE :
-{
-  "scenario_name": "${scenario.name}",
-  "rows": [
-    { ... ligne T1 complète avec raisonnement ... },
-    ...
-  ]
-}
-
-Retourne UNIQUEMENT le JSON, sans préambule, sans markdown.
-  `.trim();
-}
+// ─── INSTRUCTION DOCTRINALE — SUPPRIMÉE EN v10.4 ──────────────────────────
+// La fonction buildDoctrineInstruction a été supprimée en v10.4.
+// Raison : son contenu était hérité du contrat v1.7 et devenu contradictoire
+// avec la doctrine v1.9 (Décisions n°43-46). Notamment :
+//   - "V1=OUI → toujours CONFORME, sans exception" contredit la règle simplifiée
+//     de Décision n°45 (un coeur ≠ finalité avec finalité présente comme pilier
+//     traversé pleinement effectué = aussi CONFORME).
+//   - "Filtrer une source par crédibilité = P2 (pas P3 cœur)" contredit la
+//     Décision n°43 et l'exemple F du prompt T1 v3.2 (Cécile P1Q2 : filtrer
+//     par jugement de crédibilité = P3 directeur).
+// Désormais, toute la doctrine vit dans le prompt etape1_t1.txt v3.2 (707 lignes,
+// 8 exemples, test discriminant, règle geste effectué vs mention de surface).
+// Le code service ne porte plus aucune doctrine — seulement la tuyauterie.
+// Cf. règle de gouvernance v10.4.
 
 // ─── GROUPAGE PAR SCÉNARIO ────────────────────────────────────────────────
 function groupResponsesByScenario(responses) {
@@ -293,8 +353,10 @@ function extractRows(result, candidat_id) {
 // ⚠️ v10 : pilier_sortie RETIRÉ (Décision n°5)
 function normalizeRowForAirtable(row) {
   let conformeEcart = row.conforme_ecart || '';
-  if (conformeEcart === 'ÉCART') conformeEcart = 'ECART';
-  if (conformeEcart && conformeEcart !== 'CONFORME' && conformeEcart !== 'ECART') {
+  // ⭐ v10.4 : suppression de la conversion forcée 'ÉCART' → 'ECART'.
+  //           Le champ Airtable conforme_ecart est multilineText (accepte les 2)
+  //           et la doctrine v1.9 prescrit l'accent É (Décision n°45).
+  if (conformeEcart && conformeEcart !== 'CONFORME' && conformeEcart !== 'ÉCART' && conformeEcart !== 'ECART') {
     logger.warn('Unexpected conforme_ecart value', { value: conformeEcart });
   }
 
@@ -319,9 +381,15 @@ function normalizeRowForAirtable(row) {
     v2_traite_problematique:       row.v2_traite_problematique || '',
     verbes_observes:               row.verbes_observes || '',
     verbes_angles_piliers:         row.verbes_angles_piliers || '',
+    // ⭐ v10.4 — 5 nouveaux champs grille à 3 niveaux (Décisions n°43, n°46) :
+    pilier_finalite:               row.pilier_finalite || '',
+    pilier_finalite_libelle:       row.pilier_finalite_libelle || '',
+    pilier_coeur:                  row.pilier_coeur || '',
+    outil_cognitif_libelle:        row.outil_cognitif_libelle || '',
     pilier_coeur_analyse:          row.pilier_coeur_analyse || '',
-    types_verbatim:                row.types_verbatim || '',
+    piliers_traverses:             row.piliers_traverses || '',
     piliers_secondaires:           row.piliers_secondaires || '',
+    types_verbatim:                row.types_verbatim || '',
     // ⛔ pilier_sortie : champ ABANDONNÉ en v10 (Décision n°5)
     finalite_reponse:              row.finalite_reponse || '',
     attribution_pilier_signal_brut: row.attribution_pilier_signal_brut || '',
@@ -426,6 +494,6 @@ module.exports = {
   normalizeRowForAirtable,
   extractLookup,
   groupResponsesByScenario,
-  buildDoctrineInstruction,
+  // buildDoctrineInstruction supprimée en v10.4 (cf. § 4 du journal en-tête)
   SCENARIOS
 };
