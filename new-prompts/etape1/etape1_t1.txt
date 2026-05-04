@@ -1,6 +1,6 @@
 # PROMPT AGENT T1 — ANALYSE COGNITIVE D'UN SCÉNARIO
 # Version 3.2 · 04 mai 2026 · Sib Prod / Profil-Cognitif
-# Conforme au Contrat ETAPE1 v1.6
+# Conforme au Contrat ETAPE1 v1.9
 # Modifications v3.2 vs v3.1 :
 #   - Nouvelle grille à 3 niveaux : pilier_finalite / pilier_coeur (outil cognitif) / piliers_traverses
 #   - Métaphore du filtre/outil cognitif et test discriminant (cœur vs instrumentation)
