@@ -1,5 +1,5 @@
 // services/infrastructure/airtableService.js
-// Service Airtable v10.2b — Profil-Cognitif
+// Service Airtable v10.5 — Profil-Cognitif
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
@@ -24,6 +24,12 @@
 //   - Ajout writeEtape1T1Scenario : création ciblée sans écraser les autres lignes
 //   - Constante SCENARIOS_VALIDES_T1 : liste canonique des 5 scénarios (Décision n°40)
 //   - Décision n°42 : 2 familles de statuts T1 (_SEUL et _DES_<SCENARIO>)
+//
+// PHASE v10.5 (2026-05-05) — affichage HTML interne :
+//   - Ajout getVisiteurInfoForVisualisation : récupère prénom + nom + civilité
+//     pour affichage HTML interne UNIQUEMENT (superviseur). Frontière de
+//     gouvernance préservée : les agents IA continuent de ne recevoir que la
+//     civilité (Décision n°4 — anonymisation absolue côté agents).
 //
 // Historique :
 //   - LOT 21 (2026-04-27) : patchEtape1T1Rows pour patch ciblé sans destruction
@@ -845,6 +851,60 @@ async function getCiviliteCandidat(candidat_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// VISITEUR — getVisiteurInfoForVisualisation (v10.5 — affichage HTML interne)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ v10.5 (2026-05-05) — ajouté pour la visualisation HTML interne.
+//
+// Cette fonction récupère prénom + nom + civilité depuis la table VISITEUR
+// pour AFFICHAGE INTERNE UNIQUEMENT (page HTML de visualisation des analyses
+// par le superviseur). Elle ne doit PAS être utilisée dans les payloads
+// envoyés aux agents IA — la Décision n°4 d'anonymisation absolue reste
+// pleinement applicable côté agents (qui ne reçoivent que la civilité).
+//
+// Frontière de gouvernance :
+//   - Côté agents (T1, Vérificateur, T2, T3...) : civilité seulement
+//   - Côté visualisation interne (superviseur)   : prénom + nom + civilité
+//
+// Si le visiteur est introuvable ou le champ vide, retourne un objet avec
+// fallback ('?') pour que le HTML reste fonctionnel sans crasher.
+
+async function getVisiteurInfoForVisualisation(candidat_id) {
+  try {
+    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
+      .select({
+        filterByFormula: `{${airtableConfig.VISITEUR_FIELDS.candidate_ID}} = "${candidat_id}"`,
+        fields: [
+          airtableConfig.VISITEUR_FIELDS.candidate_ID,
+          airtableConfig.VISITEUR_FIELDS.Prenom,
+          airtableConfig.VISITEUR_FIELDS.Nom,
+          airtableConfig.VISITEUR_FIELDS.civilite_candidat
+        ],
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (!records || records.length === 0) {
+      logger.warn('Visiteur introuvable pour visualisation', { candidat_id });
+      return { prenom: '?', nom: '?', civilite: '?', candidate_ID: candidat_id };
+    }
+
+    const f = records[0].fields;
+    const info = {
+      candidate_ID: f[airtableConfig.VISITEUR_FIELDS.candidate_ID] || candidat_id,
+      prenom:       f[airtableConfig.VISITEUR_FIELDS.Prenom]            || '?',
+      nom:          f[airtableConfig.VISITEUR_FIELDS.Nom]               || '?',
+      civilite:     f[airtableConfig.VISITEUR_FIELDS.civilite_candidat] || '?'
+    };
+    logger.debug('Visiteur info lu pour visualisation', { candidat_id, prenom: info.prenom });
+    return info;
+  } catch (error) {
+    logger.error('Failed to read visiteur info for visualisation', { candidat_id, error: error.message });
+    return { prenom: '?', nom: '?', civilite: '?', candidate_ID: candidat_id };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HELPERS INTERNES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -952,6 +1012,7 @@ module.exports = {
 
   // VISITEUR — civilité (anonymisation Décision n°4)
   getCiviliteCandidat,
+  getVisiteurInfoForVisualisation,
 
   // Helpers exportés
   cleanFields,
