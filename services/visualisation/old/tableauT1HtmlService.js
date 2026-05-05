@@ -1,6 +1,39 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.2 (Phase HTML-1.2.4)
+// Profil-Cognitif v10.4 (Phase HTML-1.3.0)
+//
+// PHASE HTML-1.3.0 (04/05/2026 — intégration grille à 3 niveaux v1.9) :
+//
+//   Décisions doctrinales intégrées : n°43, n°44, n°45, n°46 (Contrat v1.9)
+//
+//   La doctrine v1.9 introduit la GRILLE À 3 NIVEAUX pour caractériser chaque
+//   réponse cognitive — le tableau HTML est restructuré en conséquence (Option B
+//   choisie le 04/05 par Isabelle : enrichissement des cellules existantes,
+//   conservation du nombre total de colonnes pour ne pas alourdir la lecture).
+//
+//   Niveau 1 — FINALITÉ : ce que la question demandait au candidat
+//     - Champs : pilier_finalite, pilier_finalite_libelle
+//     - Colonne : "Finalité" (ex "P⊕")
+//     - Rendu : badge pilier + libellé court ("Analyse et diagnostic")
+//
+//   Niveau 2 — CŒUR COGNITIF : ce que le candidat a vraiment fait
+//     - Champs : pilier_coeur, outil_cognitif_libelle, pilier_coeur_analyse
+//     - Colonne : "Cœur cognitif" (ex "Pilier cœur")
+//     - Rendu : badge pilier_coeur + outil cognitif (italique) + analyse détaillée
+//
+//   Niveau 3 — PILIERS TRAVERSÉS : les piliers en instrumentation
+//     - Champs : piliers_traverses, piliers_secondaires
+//     - Colonne : "Traversés" (ex "Piliers sec.")
+//     - Rendu : codes courts en avant + descriptions détaillées en dessous
+//
+//   Réordonnancement de la ligne pour suivre la lecture doctrinale :
+//   ID → Scénario → Finalité (N1) → V1 → V2 → Verbatim → Verbes → Angles
+//   → Cœur (N2) → Traversés (N3) → Types verbatim → Finalité (résumé)
+//   → Attribution → Conforme/Écart
+//
+//   Note : les anciens noms de colonnes (P⊕, Pilier cœur, Piliers sec.) sont
+//   conservés en col-sub pour traçabilité, mais les champs Airtable affichés
+//   en sous-titre sont mis à jour.
 //
 // PHASE HTML-1.2.4 (29/04 fin de soirée — fix critique d'intégrité des données) :
 //
@@ -315,6 +348,85 @@ table td, table th {
   display:block;
 }
 
+/* ⭐ v1.3 — Grille à 3 niveaux (Décisions n°43, n°46) */
+/* Niveau 1 — FINALITÉ (ce que la question demandait) */
+.niv1-finalite {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.niv1-libelle {
+  font-size:10px;
+  color:var(--mid);
+  font-style:italic;
+  line-height:1.4;
+}
+
+/* Niveau 2 — CŒUR COGNITIF (ce que le candidat a vraiment fait) */
+.niv2-coeur {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.niv2-outil {
+  font-size:10px;
+  color:var(--acc);
+  font-weight:500;
+  font-style:italic;
+  line-height:1.4;
+  padding:2px 6px;
+  background:var(--def-bg);
+  border-left:2px solid var(--def-border);
+  border-radius:2px;
+}
+.niv2-analyse {
+  font-size:10px;
+  color:var(--mid);
+  line-height:1.5;
+  margin-top:2px;
+}
+
+/* Niveau 3 — TRAVERSÉS (piliers en instrumentation) */
+.niv3-traverses {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.niv3-codes {
+  display:flex;
+  flex-wrap:wrap;
+  gap:3px;
+  padding-bottom:4px;
+  border-bottom:1px dotted var(--border);
+}
+.niv3-code-mini {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  font-weight:600;
+  padding:1px 5px;
+  border-radius:2px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.niv3-code-mini.p1 { background:var(--p1); color:#fff; }
+.niv3-code-mini.p2 { background:var(--p2); color:#fff; }
+.niv3-code-mini.p3 { background:var(--p3); color:#fff; }
+.niv3-code-mini.p4 { background:var(--p4); color:#fff; }
+.niv3-code-mini.p5 { background:var(--p5); color:#fff; }
+.niv3-code-mini.empty {
+  background:transparent;
+  color:var(--dim);
+  font-style:italic;
+  font-weight:400;
+  text-transform:none;
+  padding:1px 0;
+}
+.niv3-detail {
+  font-size:10px;
+  color:var(--mid);
+  line-height:1.5;
+}
+
 /* ⭐ v1.2 — Verbatim (citation candidat) */
 .verbatim {
   font-family:'IBM Plex Sans',sans-serif;
@@ -521,20 +633,21 @@ function hasGraveCorrection(corrections) {
 // ─── EN-TÊTES DE COLONNES — répétés AVANT CHAQUE QUESTION (v1.2.3) ──────────
 // "je vais pas remonter à chaque fois" (Isabelle)
 // Solution : répétition des en-têtes avant chaque qheader, pas seulement sticky
+// ⭐ v1.3 — Grille à 3 niveaux : "Finalité" (N1), "Cœur cognitif" (N2), "Traversés" (N3)
 
 const COL_HEADERS_HTML = `<tr class="col-headers-row">
   <th>ID<span class="col-sub">id_question</span></th>
   <th>Scénario<span class="col-sub">scenario</span></th>
-  <th>P⊕<span class="col-sub">pilier_demande</span></th>
+  <th>Finalité<span class="col-sub">pilier_demande · pilier_finalite · pilier_finalite_libelle</span></th>
   <th>V1<span class="col-sub">v1_conforme</span></th>
   <th>V2<span class="col-sub">v2_traite_problematique</span></th>
   <th>Verbatim<span class="col-sub">verbatim_candidat</span></th>
   <th>Verbes<span class="col-sub">verbes_observes</span></th>
   <th>Angles piliers<span class="col-sub">verbes_angles_piliers</span></th>
-  <th>Pilier cœur<span class="col-sub">pilier_coeur_analyse</span></th>
-  <th>Piliers sec.<span class="col-sub">piliers_secondaires</span></th>
+  <th>Cœur cognitif<span class="col-sub">pilier_coeur · outil_cognitif_libelle · pilier_coeur_analyse</span></th>
+  <th>Traversés<span class="col-sub">piliers_traverses · piliers_secondaires</span></th>
   <th>Types verbatim<span class="col-sub">types_verbatim</span></th>
-  <th>Finalité<span class="col-sub">finalite_reponse</span></th>
+  <th>Finalité réponse<span class="col-sub">finalite_reponse</span></th>
   <th>Attribution<span class="col-sub">attribution_pilier_signal_brut</span></th>
   <th>Conforme/Écart<span class="col-sub">conforme_ecart · ecart_detail · signal_limbique</span></th>
 </tr>`;
@@ -686,6 +799,125 @@ function renderVerbesAngles(text) {
  * Format attendu : "P{N} · description longue..."
  * Fallback : texte brut
  */
+// ─── ⭐ v1.3 — RENDU GRILLE À 3 NIVEAUX (Décisions n°43, n°46) ─────────────
+
+/**
+ * Niveau 1 — FINALITÉ : ce que la question demandait
+ * Combine pilier_finalite (badge) + pilier_finalite_libelle (sous-titre)
+ * Fallback sur pilier_demande si pilier_finalite vide.
+ */
+function renderNiveau1Finalite(row) {
+  const pilierFinalite = row.pilier_finalite || row.pilier_demande || '';
+  const libelle = row.pilier_finalite_libelle || '';
+
+  if (!pilierFinalite && !libelle) {
+    return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  }
+
+  const html = ['<div class="niv1-finalite">'];
+  if (pilierFinalite) {
+    html.push(pilierBadge(pilierFinalite));
+  }
+  if (libelle) {
+    html.push(`<div class="niv1-libelle">${escapeHtml(libelle)}</div>`);
+  }
+  html.push('</div>');
+  return html.join('');
+}
+
+/**
+ * Niveau 2 — CŒUR COGNITIF : ce que le candidat a vraiment fait
+ * Combine pilier_coeur (badge) + outil_cognitif_libelle (encadré italique) + pilier_coeur_analyse
+ * Fallback : si pilier_coeur vide mais pilier_coeur_analyse présent, on utilise l'ancien renderPilierCoeur
+ */
+function renderNiveau2Coeur(row) {
+  const pilierCoeur = row.pilier_coeur || '';
+  const outilLibelle = row.outil_cognitif_libelle || '';
+  const analyse = row.pilier_coeur_analyse || '';
+
+  // Si aucun des 3 nouveaux champs N2 n'est rempli, fallback sur l'ancien rendu
+  // (compatibilité avec lignes T1 antérieures à v10.4)
+  if (!pilierCoeur && !outilLibelle) {
+    return renderPilierCoeur(analyse);
+  }
+
+  const html = ['<div class="niv2-coeur">'];
+  if (pilierCoeur) {
+    html.push(`<div class="pilier-block-label">${pilierBadge(pilierCoeur)}</div>`);
+  }
+  if (outilLibelle) {
+    html.push(`<div class="niv2-outil">${escapeHtml(outilLibelle)}</div>`);
+  }
+  if (analyse) {
+    // L'analyse peut commencer par "P{N} · ..." → on retire le préfixe redondant
+    // si pilier_coeur est déjà affiché en badge
+    let analyseClean = analyse;
+    if (pilierCoeur) {
+      const m = analyse.match(/^[Pp]([1-5])\s*[·•:.\-]\s*(.+)$/s);
+      if (m && ('P' + m[1]) === pilierCoeur.toUpperCase()) {
+        analyseClean = m[2].trim();
+      }
+    }
+    html.push(`<div class="niv2-analyse">${nl2br(analyseClean)}</div>`);
+  }
+  html.push('</div>');
+  return html.join('');
+}
+
+/**
+ * Niveau 3 — PILIERS TRAVERSÉS : piliers en instrumentation
+ * Combine piliers_traverses (codes courts en avant) + piliers_secondaires (description)
+ * piliers_traverses contient typiquement "p1 + p2", "p3", ou vide (cas monolithique)
+ */
+function renderNiveau3Traverses(row) {
+  const traverses = row.piliers_traverses || '';
+  const secondaires = row.piliers_secondaires || '';
+
+  if (!traverses && !secondaires) {
+    return '<span style="color:var(--dim);font-style:italic;">—</span>';
+  }
+
+  const html = ['<div class="niv3-traverses">'];
+
+  // Ligne du haut : codes courts (p1, p2, etc.) extraits de piliers_traverses
+  if (traverses && traverses.trim()) {
+    const codes = [];
+    const matches = traverses.match(/[Pp][1-5]/g);
+    if (matches && matches.length > 0) {
+      const seen = new Set();
+      for (const m of matches) {
+        const norm = m.toLowerCase();
+        if (!seen.has(norm)) {
+          seen.add(norm);
+          const num = norm.charAt(1);
+          codes.push(`<span class="niv3-code-mini p${num}">${escapeHtml(norm)}</span>`);
+        }
+      }
+    }
+    if (codes.length > 0) {
+      html.push(`<div class="niv3-codes">${codes.join('')}</div>`);
+    } else {
+      // piliers_traverses présent mais aucun code reconnu → afficher tel quel
+      html.push(`<div class="niv3-codes"><span class="niv3-code-mini empty">${escapeHtml(traverses)}</span></div>`);
+    }
+  } else {
+    // Cas monolithique : pas de pilier traversé
+    html.push(`<div class="niv3-codes"><span class="niv3-code-mini empty">monolithique</span></div>`);
+  }
+
+  // Description détaillée (piliers_secondaires) — réutilise le rendu existant
+  if (secondaires && secondaires.trim()) {
+    const renderedSec = renderPiliersSecondaires(secondaires);
+    // Le rendu retourne soit "—" soit une suite de pilier-block. On l'enveloppe.
+    html.push(`<div class="niv3-detail">${renderedSec}</div>`);
+  }
+
+  html.push('</div>');
+  return html.join('');
+}
+
+// ─── Fonctions historiques (conservées pour fallback) ─────────────────────
+
 function renderPilierCoeur(text) {
   if (!text) return '<span style="color:var(--dim);font-style:italic;">—</span>';
   const trimmed = String(text).trim();
@@ -947,7 +1179,7 @@ function renderRowT1(row, index) {
   </td>
 </tr>`);
 
-  // Ligne données T1 (14 cellules) — v1.2 : rendu adaptatif par colonne
+  // Ligne données T1 (14 cellules) — v1.3 : grille à 3 niveaux v1.9 (Décisions n°43, n°46)
   html.push(`
 <tr class="${rowClasses.join(' ')}">
   <td>
@@ -956,14 +1188,14 @@ function renderRowT1(row, index) {
     <div class="id-sub">${escapeHtml(row.question_id_protocole || '')}</div>
   </td>
   <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;">${escapeHtml(row.scenario || '')}</td>
-  <td>${pilierBadge(row.pilier_demande)}</td>
+  <td>${renderNiveau1Finalite(row)}</td>
   <td>${ouiNonBadge(row.v1_conforme)}</td>
   <td>${ouiNonBadge(row.v2_traite_problematique)}</td>
   <td><div class="verbatim">${nl2br(row.verbatim_candidat)}</div></td>
   <td>${renderVerbesObserves(row.verbes_observes)}</td>
   <td>${renderVerbesAngles(row.verbes_angles_piliers)}</td>
-  <td>${renderPilierCoeur(row.pilier_coeur_analyse)}</td>
-  <td>${renderPiliersSecondaires(row.piliers_secondaires)}</td>
+  <td>${renderNiveau2Coeur(row)}</td>
+  <td>${renderNiveau3Traverses(row)}</td>
   <td>${renderTypesVerbatim(row.types_verbatim)}</td>
   <td>${renderFinalite(row.finalite_reponse)}</td>
   <td>${renderAttribution(row.attribution_pilier_signal_brut)}</td>
