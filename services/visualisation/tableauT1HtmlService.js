@@ -1,6 +1,37 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.4 (Phase HTML-1.3.0)
+// Profil-Cognitif v10.5 (Phase HTML-1.4.0)
+//
+// PHASE HTML-1.4.0 (05/05/2026 — intégration doctrine v2 v3.3) :
+//
+//   Décisions doctrinales intégrées : n°49 (Contrat v1.10 prévue)
+//
+//   La doctrine v2_traite_problematique a été reformulée en v3.3 (prompt T1).
+//   La règle vague "généralement OUI sauf dérive totale" est remplacée par 2
+//   questions binaires séparées (A : répond à la question / B : répond à la
+//   situation, et si oui à quel niveau). 3 nouveaux champs Airtable :
+//
+//   - v2_repond_question (singleSelect OUI/NON)
+//     Question A : le candidat répond-il à la question stricte (réécrite
+//     dans le champ réponse côté frontend) ?
+//
+//   - v2_repond_situation (singleSelect 4 valeurs)
+//     Question B : si le candidat ne répond pas à la question, à quoi
+//     répond-il ? OUI_TRANSITION / OUI_STORYTELLING / OUI_SITUATION_CONSTRUITE
+//     / NON
+//
+//   - v2_analyse (multilineText, 1-3 phrases justification)
+//
+//   Mise en page de la colonne V2 : transformée d'un simple badge OUI/NON en
+//   un bloc à 4 lignes affichant le verdict synthétique + les 2 réponses
+//   binaires A/B avec codes couleur + l'analyse verbalisée. Le tableau garde
+//   ses 14 colonnes — seule la cellule V2 devient plus dense.
+//
+//   Codes couleur pour v2_repond_situation :
+//     OUI_TRANSITION         → vert       (cadre conversationnel respecté)
+//     OUI_STORYTELLING       → jaune      (s'éloigne du fil)
+//     OUI_SITUATION_CONSTRUITE → orange   (signal cognitif fort)
+//     NON                    → rouge      (dérive complète)
 //
 // PHASE HTML-1.3.0 (04/05/2026 — intégration grille à 3 niveaux v1.9) :
 //
@@ -427,6 +458,64 @@ table td, table th {
   line-height:1.5;
 }
 
+/* ⭐ v1.4 — Cellule V2 enrichie (Décision n°49 — doctrine v2 v3.3) */
+.v2-cell {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-start;
+}
+.v2-row {
+  display:flex;
+  align-items:center;
+  gap:4px;
+  width:100%;
+}
+.v2-label {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;
+  font-weight:600;
+  color:var(--dim);
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  min-width:38px;
+}
+.v2-badge {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  font-weight:600;
+  padding:1px 5px;
+  border-radius:2px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.v2-badge.oui  { background:var(--oui); color:#fff; }
+.v2-badge.non  { background:var(--non); color:#fff; }
+/* Badges pour v2_repond_situation (4 valeurs) */
+.v2-situation {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;
+  font-weight:600;
+  padding:1px 4px;
+  border-radius:2px;
+  letter-spacing:.03em;
+  white-space:nowrap;
+}
+.v2-situation.transition       { background:#1a6a38; color:#fff; }   /* vert */
+.v2-situation.storytelling     { background:#8a7a10; color:#fff; }   /* jaune-or */
+.v2-situation.construite       { background:#8a5a10; color:#fff; }   /* orange */
+.v2-situation.non              { background:#8a2a10; color:#fff; }   /* rouge */
+.v2-analyse {
+  font-size:9px;
+  color:var(--mid);
+  line-height:1.4;
+  font-style:italic;
+  padding-top:4px;
+  margin-top:2px;
+  border-top:1px dotted var(--border);
+}
+
 /* ⭐ v1.2 — Verbatim (citation candidat) */
 .verbatim {
   font-family:'IBM Plex Sans',sans-serif;
@@ -607,6 +696,65 @@ function conformeBadge(value) {
 }
 
 /**
+ * ⭐ v1.4 — Rendu de la cellule V2 enrichie (Décision n°49 — doctrine v2 v3.3)
+ *
+ * Combine 4 champs en un mini-bloc à 4 lignes :
+ *   - Verdict synthétique (v2_traite_problematique) : badge OUI/NON
+ *   - Question A (v2_repond_question)               : "Question : OUI/NON"
+ *   - Question B (v2_repond_situation)              : "Situation : OUI_TRANSITION/.../NON" coloré
+ *   - Analyse verbalisée (v2_analyse)               : 1-3 phrases en italique
+ *
+ * Compatibilité descendante : si les 3 nouveaux champs sont vides (lignes T1
+ * antérieures à v10.5), le rendu se réduit au badge V2 OUI/NON simple — pas
+ * de cassure visuelle sur les anciennes données.
+ */
+function renderV2Cell(row) {
+  const v2Synth      = row.v2_traite_problematique || '';
+  const v2Question   = row.v2_repond_question || '';
+  const v2Situation  = row.v2_repond_situation || '';
+  const v2Analyse    = row.v2_analyse || '';
+
+  // Cas legacy : les 3 nouveaux champs sont absents → fallback simple
+  if (!v2Question && !v2Situation && !v2Analyse) {
+    return ouiNonBadge(v2Synth);
+  }
+
+  const html = ['<div class="v2-cell">'];
+
+  // Ligne 1 — verdict synthétique
+  if (v2Synth) {
+    const synthClass = String(v2Synth).toUpperCase().trim() === 'OUI' ? 'oui' : 'non';
+    html.push(`<div class="v2-row"><span class="v2-label">V2</span><span class="v2-badge ${synthClass}">${escapeHtml(v2Synth)}</span></div>`);
+  }
+
+  // Ligne 2 — Question A : répond à la question stricte ?
+  if (v2Question) {
+    const qClass = String(v2Question).toUpperCase().trim() === 'OUI' ? 'oui' : 'non';
+    html.push(`<div class="v2-row"><span class="v2-label">QUEST</span><span class="v2-badge ${qClass}">${escapeHtml(v2Question)}</span></div>`);
+  }
+
+  // Ligne 3 — Question B : répond à la situation, et à quel niveau ?
+  if (v2Situation) {
+    const norm = String(v2Situation).toUpperCase().trim();
+    let sitClass = 'non';
+    let sitLabel = norm;
+    if (norm === 'OUI_TRANSITION')               { sitClass = 'transition';   sitLabel = 'TRANSIT'; }
+    else if (norm === 'OUI_STORYTELLING')        { sitClass = 'storytelling'; sitLabel = 'STORYTL'; }
+    else if (norm === 'OUI_SITUATION_CONSTRUITE'){ sitClass = 'construite';   sitLabel = 'CONSTR'; }
+    else if (norm === 'NON')                     { sitClass = 'non';          sitLabel = 'NON'; }
+    html.push(`<div class="v2-row"><span class="v2-label">SITU</span><span class="v2-situation ${sitClass}" title="${escapeHtml(v2Situation)}">${escapeHtml(sitLabel)}</span></div>`);
+  }
+
+  // Ligne 4 — Analyse verbalisée (1-3 phrases)
+  if (v2Analyse) {
+    html.push(`<div class="v2-analyse">${nl2br(v2Analyse)}</div>`);
+  }
+
+  html.push('</div>');
+  return html.join('');
+}
+
+/**
  * Formate les corrections du vérificateur (extrait gravité [GRAVE/TYPE] champ:...)
  */
 function renderCorrectionsVerificateur(text) {
@@ -638,9 +786,9 @@ function hasGraveCorrection(corrections) {
 const COL_HEADERS_HTML = `<tr class="col-headers-row">
   <th>ID<span class="col-sub">id_question</span></th>
   <th>Scénario<span class="col-sub">scenario</span></th>
-  <th>Finalité<span class="col-sub">pilier_finalite · pilier_finalite_libelle</span></th>
+  <th>Finalité<span class="col-sub">pilier_demande · pilier_finalite · pilier_finalite_libelle</span></th>
   <th>V1<span class="col-sub">v1_conforme</span></th>
-  <th>V2<span class="col-sub">v2_traite_problematique</span></th>
+  <th>V2<span class="col-sub">v2_traite_problematique · v2_repond_question · v2_repond_situation · v2_analyse</span></th>
   <th>Verbatim<span class="col-sub">verbatim_candidat</span></th>
   <th>Verbes<span class="col-sub">verbes_observes</span></th>
   <th>Angles piliers<span class="col-sub">verbes_angles_piliers</span></th>
@@ -1190,7 +1338,7 @@ function renderRowT1(row, index) {
   <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;">${escapeHtml(row.scenario || '')}</td>
   <td>${renderNiveau1Finalite(row)}</td>
   <td>${ouiNonBadge(row.v1_conforme)}</td>
-  <td>${ouiNonBadge(row.v2_traite_problematique)}</td>
+  <td>${renderV2Cell(row)}</td>
   <td><div class="verbatim">${nl2br(row.verbatim_candidat)}</div></td>
   <td>${renderVerbesObserves(row.verbes_observes)}</td>
   <td>${renderVerbesAngles(row.verbes_angles_piliers)}</td>
