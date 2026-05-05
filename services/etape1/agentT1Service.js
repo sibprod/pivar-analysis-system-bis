@@ -1,9 +1,9 @@
 // services/etape1/agentT1Service.js
 // Agent T1 — Analyse brute des 25 réponses du candidat
-// Profil-Cognitif v10.4
+// Profil-Cognitif v10.4.1
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
-//                       et docs/CONTRAT_ETAPE1.md (v1.9)
+//                       et docs/CONTRAT_ETAPE1.md (v1.10 prévue avec Décisions n°47-48)
 //
 // Rôle :
 //   - Lit les 25 réponses brutes du candidat depuis RESPONSES (frontend)
@@ -84,6 +84,18 @@
 //   Briques techniques utilisées (existantes depuis v10.2b) :
 //   - airtableService.deleteEtape1T1Scenario(candidat_id, scenario_name)
 //   - airtableService.writeEtape1T1Scenario(candidat_id, rows)
+//
+// PHASE v10.4.1 (2026-05-04 soir) — Décision n°48 : suppression du champ orphelin `raisonnement` :
+//   Audit du 04/05 sur les 3 candidats référents (Cécile, Rémi, Véronique = 75 lignes
+//   ETAPE1_T1) a révélé que le champ `raisonnement` reste systématiquement vide :
+//   - Le prompt T1 v3.2 (707 lignes) ne demande pas ce champ en sortie JSON
+//   - Le prompt Vérificateur v1.2 (645 lignes) ne le mentionne jamais
+//   - Le service écrivait `raisonnement: row.raisonnement || ''` → toujours vide
+//   Le raisonnement nécessaire est déjà tracé par pilier_coeur_analyse (T1),
+//   corrections_verificateur (Vérif), violations_json (VERIFICATEUR_T1).
+//   Le champ est supprimé côté code ET côté Airtable (ETAPE1_T1).
+//   ⚠️ ORDRE D'EXÉCUTION CRITIQUE : ce patch service doit être déployé AVANT
+//   la suppression du champ Airtable, sinon écriture 422 « field not found ».
 
 'use strict';
 
@@ -360,13 +372,15 @@ function normalizeRowForAirtable(row) {
     logger.warn('Unexpected conforme_ecart value', { value: conformeEcart });
   }
 
-  // Le champ raisonnement (Pilier 3) est un objet → on le sérialise pour Airtable
-  let raisonnementStr = '';
-  if (row.raisonnement) {
-    raisonnementStr = typeof row.raisonnement === 'string'
-      ? row.raisonnement
-      : JSON.stringify(row.raisonnement, null, 2);
-  }
+  // ⭐ v10.4.1 — Décision n°48 (04/05/2026) : champ `raisonnement` SUPPRIMÉ.
+  //           Audit du 04/05 a montré que ce champ restait systématiquement vide
+  //           sur les 75 lignes des 3 candidats référents : ni le prompt T1 v3.2
+  //           ni le prompt Vérificateur v1.2 ne le demandent. Le raisonnement
+  //           nécessaire est déjà tracé par pilier_coeur_analyse (T1),
+  //           corrections_verificateur (Vérif) et violations_json (VERIFICATEUR_T1).
+  //           Le champ a également été supprimé côté Airtable (ETAPE1_T1).
+  //           ⚠️ ORDRE : ce patch service doit être déployé AVANT la suppression
+  //           Airtable, sinon écriture 422 « field not found ».
 
   return {
     id_question:                   row.id_question || '',
@@ -395,8 +409,8 @@ function normalizeRowForAirtable(row) {
     attribution_pilier_signal_brut: row.attribution_pilier_signal_brut || '',
     conforme_ecart:                conformeEcart,
     ecart_detail:                  row.ecart_detail || '',
-    signal_limbique:               row.signal_limbique || '',
-    raisonnement:                  raisonnementStr
+    signal_limbique:               row.signal_limbique || ''
+    // ⛔ raisonnement : champ SUPPRIMÉ en v10.4.1 (Décision n°48 — 04/05/2026)
   };
 }
 
