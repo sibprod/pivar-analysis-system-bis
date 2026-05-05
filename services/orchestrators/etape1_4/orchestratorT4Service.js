@@ -1,6 +1,11 @@
-// services/etape1/etape1_t4/orchestratorT4Service.js
+// services/orchestrators/orchestratorT4.js
 // Orchestrateur T4 — Coordination des 6 sous-agents + certificateur lexique
 // Profil-Cognitif v10.7
+//
+// EMPLACEMENT : services/orchestrators/ (à côté de orchestratorEtape1.js
+//               et orchestratorPrincipal.js). C'est un orchestrateur, pas
+//               un sous-service. Les 6 sous-services T4 vivent dans
+//               services/etape1/etape1_t4/.
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.10 prévue)
@@ -66,20 +71,20 @@
 
 'use strict';
 
-const agentBase       = require('../../infrastructure/agentBase');
-const airtableService = require('../../infrastructure/airtableService');
-const logger          = require('../../../utils/logger');
+const agentBase       = require('../infrastructure/agentBase');
+const airtableService = require('../infrastructure/airtableService');
+const logger          = require('../../utils/logger');
 
-// ─── Sous-services T4 (à créer après cet orchestrateur) ───────────────────
+// ─── Sous-services T4 (dans services/etape1/etape1_t4/) ────────────────────
 // Les 6 prompts existent déjà dans new-prompts/etape1/etape1_t4/.
 // Les 6 services Node.js seront produits dans un second temps (chacun ~150
 // lignes, suivant le même pattern que agentT2Service).
-const agentT4_1_architectureService = require('./agentT4_1_architectureService');
-const agentT4_2_circuitsService     = require('./agentT4_2_circuitsService');
-const agentT4_3_modeService         = require('./agentT4_3_modeService');
-const agentT4_4_syntheseCoeurService = require('./agentT4_4_syntheseCoeurService');
-const agentT4_5_coutsClotureService = require('./agentT4_5_coutsClotureService');
-const agentT4_6_transversesService  = require('./agentT4_6_transversesService');
+const agentT4_1_architectureService  = require('../etape1/etape1_t4/agentT4_1_architectureService');
+const agentT4_2_circuitsService      = require('../etape1/etape1_t4/agentT4_2_circuitsService');
+const agentT4_3_modeService          = require('../etape1/etape1_t4/agentT4_3_modeService');
+const agentT4_4_syntheseCoeurService = require('../etape1/etape1_t4/agentT4_4_syntheseCoeurService');
+const agentT4_5_coutsClotureService  = require('../etape1/etape1_t4/agentT4_5_coutsClotureService');
+const agentT4_6_transversesService   = require('../etape1/etape1_t4/agentT4_6_transversesService');
 
 // ─── Constantes ───────────────────────────────────────────────────────────
 const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
