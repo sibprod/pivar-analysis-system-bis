@@ -1,6 +1,35 @@
 // services/visualisation/tableauT1HtmlService.js
 // Service de génération HTML — Tableau T1 candidat — Visualisation interne
-// Profil-Cognitif v10.5 (Phase HTML-1.4.0)
+// Profil-Cognitif v10.6 (Phase HTML-1.4.1)
+//
+// PHASE HTML-1.4.1 (05/05/2026 — élargissement colonnes + nom candidat) :
+//
+//   Constat : l'ajout de 4 informations dans la cellule V2 (verdict + question A
+//   + situation B + analyse 1-3 phrases) sans élargissement de la colonne (42px)
+//   produisait un affichage illisible : les analyses v2 s'écrivaient en colonne
+//   verticale d'un caractère de large, et la hauteur de la cellule V2 forçait
+//   toute la ligne du tableau à se déformer.
+//
+//   Modifications v10.6 :
+//
+//   1. Élargissement des colonnes :
+//      - V2          : 42px → 240px (4 lignes empilées + analyse en italique)
+//      - Verbatim    : 220px → 280px
+//      - Cœur cognitif : 200px → 240px
+//      - Types verbatim : 220px → 260px
+//      - Conforme/Écart : 90px → 130px
+//      - Pilier demandé : 50px → 70px
+//      - Angles piliers : 180px → 200px
+//      - Traversés     : 140px → 160px
+//      - Finalité réponse : 130px → 150px
+//      - Attribution   : 120px → 130px
+//      Largeur totale : ~1700px → ~2160px (scroll horizontal nécessaire)
+//
+//   2. Affichage interne — nom complet du candidat :
+//      L'en-tête de page et la meta-bar affichent désormais Prénom + Nom du
+//      candidat (lecture via airtableService.getVisiteurInfoForVisualisation v10.5).
+//      La frontière de gouvernance (Décision n°4) est préservée : les agents IA
+//      continuent de ne recevoir que la civilité dans leur payload.
 //
 // PHASE HTML-1.4.0 (05/05/2026 — intégration doctrine v2 v3.3) :
 //
@@ -249,23 +278,26 @@ body {
   border:1px solid var(--border); border-radius:4px;
   box-shadow:0 1px 4px rgba(0,0,0,.08);
 }
-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+table { width:auto; min-width:2160px; border-collapse:collapse; table-layout:fixed; }
 
-/* Largeurs des colonnes — v1.1 (29/04 17h) : pilier_coeur élargi 55→200px car contient analyse riche */
+/* Largeurs des colonnes — v10.6 (05/05) : élargissement colonnes V2 (42→240px),
+   verbatim (220→280), coeur (200→240), types verbatim (220→260), conforme/écart
+   (90→130) pour rendre lisibles les 4 lignes de la doctrine v2. Scroll horizontal
+   nécessaire (largeur totale ≈2160px). */
 col.c-id      { width:72px; }
 col.c-scen    { width:80px; }
-col.c-pilq    { width:50px; }
+col.c-pilq    { width:70px; }
 col.c-v1      { width:42px; }
-col.c-v2      { width:42px; }
-col.c-verbatim{ width:220px; }
+col.c-v2      { width:240px; }
+col.c-verbatim{ width:280px; }
 col.c-verbes  { width:110px; }
-col.c-angles  { width:180px; }
-col.c-coeur   { width:200px; }
-col.c-sec     { width:140px; }
-col.c-types   { width:220px; }
-col.c-fin     { width:130px; }
-col.c-attrib  { width:120px; }
-col.c-conf    { width:90px; }
+col.c-angles  { width:200px; }
+col.c-coeur   { width:240px; }
+col.c-sec     { width:160px; }
+col.c-types   { width:260px; }
+col.c-fin     { width:150px; }
+col.c-attrib  { width:130px; }
+col.c-conf    { width:130px; }
 
 /* ⭐ v1.2.3 — En-têtes de colonnes RÉPÉTÉS avant chaque question */
 tr.col-headers-row th {
@@ -1381,8 +1413,8 @@ function renderRowT1(row, index) {
 async function generateTableauT1Html(candidat_id) {
   logger.info('Génération HTML Tableau T1', { candidat_id });
 
-  // 1. Lire les infos VISITEUR (prénom + civilité)
-  let visiteurInfo = { prenom: '?', civilite: '?', candidate_ID: candidat_id };
+  // 1. Lire les infos VISITEUR (prénom + nom + civilité) — affichage interne v10.6
+  let visiteurInfo = { prenom: '?', nom: '?', civilite: '?', candidate_ID: candidat_id };
   try {
     visiteurInfo = await airtableService.getVisiteurInfoForVisualisation(candidat_id);
   } catch (e) {
@@ -1416,7 +1448,7 @@ async function generateTableauT1Html(candidat_id) {
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Tableau T1 — ${escapeHtml(visiteurInfo.prenom)} — Profil-Cognitif</title>
+<title>Tableau T1 — ${escapeHtml(visiteurInfo.prenom)} ${escapeHtml(visiteurInfo.nom || '')} — Profil-Cognitif</title>
 <style>${CSS}</style>
 </head>
 <body>
@@ -1426,14 +1458,14 @@ async function generateTableauT1Html(candidat_id) {
     <h1><span class="pc-blue">PROFIL</span> <span class="pc-pink">COGNITIF</span></h1>
   </div>
   <div class="candidat-block">
-    <div class="candidat-prenom">${escapeHtml(visiteurInfo.prenom)}</div>
+    <div class="candidat-prenom">${escapeHtml(visiteurInfo.prenom)} ${escapeHtml(visiteurInfo.nom || '')}</div>
     <div class="candidat-id">${escapeHtml(visiteurInfo.candidate_ID)}</div>
   </div>
 </div>
 
 <div class="meta-bar">
   <div class="item"><span class="label">Tableau</span><span class="value">T1 — Analyse cognitive (25 questions)</span></div>
-  <div class="item"><span class="label">Civilité</span><span class="value">${escapeHtml(visiteurInfo.civilite || '—')}</span></div>
+  <div class="item"><span class="label">Candidat</span><span class="value">${escapeHtml(visiteurInfo.civilite || '—')} ${escapeHtml(visiteurInfo.prenom || '?')} ${escapeHtml(visiteurInfo.nom || '')}</span></div>
   <div class="item"><span class="label">Scénarios</span><span class="value">${stats.scenarios.join(' · ')}</span></div>
   <div class="item"><span class="label">Lignes</span><span class="value">${rows.length}</span></div>
   <div class="item"><span class="label">Corrections vérificateur</span><span class="value">${stats.totalCorrections} sur ${stats.lignesAvecCorrections} lignes</span></div>
@@ -1455,7 +1487,7 @@ ${rowsHtml}
 </div>
 
 <div class="page-footer">
-  Profil-Cognitif · Visualisation interne · Tableau T1 v10.2 · Généré dynamiquement depuis Airtable
+  Profil-Cognitif · Visualisation interne · Tableau T1 v10.6 · Généré dynamiquement depuis Airtable
 </div>
 
 </body>
@@ -1469,7 +1501,7 @@ function generateEmptyHtml(candidat_id, visiteurInfo, message) {
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Tableau T1 — ${escapeHtml(visiteurInfo.prenom || candidat_id)} — Profil-Cognitif</title>
+<title>Tableau T1 — ${escapeHtml(visiteurInfo.prenom || candidat_id)} ${escapeHtml(visiteurInfo.nom || '')} — Profil-Cognitif</title>
 <style>${CSS}</style>
 </head>
 <body>
@@ -1478,7 +1510,7 @@ function generateEmptyHtml(candidat_id, visiteurInfo, message) {
     <h1><span class="pc-blue">PROFIL</span> <span class="pc-pink">COGNITIF</span></h1>
   </div>
   <div class="candidat-block">
-    <div class="candidat-prenom">${escapeHtml(visiteurInfo.prenom || '?')}</div>
+    <div class="candidat-prenom">${escapeHtml(visiteurInfo.prenom || '?')} ${escapeHtml(visiteurInfo.nom || '')}</div>
     <div class="candidat-id">${escapeHtml(candidat_id)}</div>
   </div>
 </div>
