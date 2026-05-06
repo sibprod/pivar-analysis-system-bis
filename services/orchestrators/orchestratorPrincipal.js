@@ -189,16 +189,19 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     // ⭐ v10.5 — T2 v3.4 migré : reprise à T2 (Contrat v1.9 §12 ligne 1095)
     // T2 fait partie de l'Étape 1 (architecture v1.2 — services/etape1/agentT2Service.js)
     // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT2_SEUL
-    'REPRENDRE_AGENT2'
+    'REPRENDRE_AGENT2',
+    // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
+    // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT3_SEUL
+    'REPRENDRE_AGENT3',
+    // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
+    // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT4_SEUL
+    'REPRENDRE_AGENT4'
   ];
 
   if (STATUTS_ETAPE_1.includes(statut_actuel)) {
     logger.info('Aiguillage → Étape 1', { candidat_id, statut: statut_actuel });
     return await orchestratorEtape1.run({ candidat_id, visiteur });
   }
-
-  // Statut "REPRENDRE_AGENT3" → Étape 1 mode AGENT3_SEUL (à coder en Phase ultérieure)
-  // Quand T3 sera migré, ajouter 'REPRENDRE_AGENT3' à STATUTS_ETAPE_1 ci-dessus.
 
   // Statut "REPRENDRE_VERIFICATEUR4" → Étape 4 (à coder en Phase ultérieure)
   // if (statut_actuel === 'REPRENDRE_VERIFICATEUR4') {
