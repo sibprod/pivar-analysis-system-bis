@@ -12,12 +12,21 @@
 //   POST /api/recover-from-backup/:session_id        — reprise depuis backup
 //   POST /api/retry-missing/:session_id              — legacy v8 (renvoie 410, gardé Décision D-C)
 //   GET  /debug/airtable                             — diagnostic permissions
+//   GET  /visualiser/t1/:candidat_id                 — visualisation HTML T1 interne
+//   GET  /visualiser/t2/:candidat_id                 — visualisation HTML T2 interne ⭐ v10.5
+//   GET  /visualiser/t3/:candidat_id                 — visualisation HTML T3 (préparé, désactivé)
+//   GET  /visualiser/t4/:candidat_id                 — visualisation HTML T4 (préparé, désactivé)
 //
 // PHASE D (2026-04-28) — v10 :
 //   - Chemins require mis à jour vers nouvelle architecture (Décision n°27)
 //   - /status enrichi : nombre_tentatives_etape1, validation_humaine, emails_candidat (Décisions n°16, n°24, n°33)
 //   - Alias statut_analyse_pivar gardé (Décision D-B — interne, pas exposé externe)
 //   - Endpoint legacy /api/retry-missing gardé en 410 (Décision D-C — pierre tombale propre)
+//
+// PHASE HTML-T2 (2026-05-06) — v10.5 :
+//   - Ajout route /visualiser/t2/:candidat_id (Phase HTML-T2-1.0.0)
+//   - Routes T3 et T4 préparées en commentaires — décommenter quand les services
+//     tableauT3HtmlService et tableauT4HtmlService seront créés.
 
 'use strict';
 
@@ -28,6 +37,10 @@ const queueService         = require('../services/flux/queueService');          
 const airtableService      = require('../services/infrastructure/airtableService');         // ⭐ v10
 const backupService        = require('../services/infrastructure/backupService');           // ⭐ v10
 const tableauT1HtmlService = require('../services/visualisation/tableauT1HtmlService');     // ⭐ v10.2 (Phase HTML-1)
+const tableauT2HtmlService = require('../services/visualisation/tableauT2HtmlService');     // ⭐ v10.5 (Phase HTML-T2-1.0.0)
+// ⭐ Décommenter quand les services T3/T4 seront créés :
+// const tableauT3HtmlService = require('../services/visualisation/tableauT3HtmlService');
+// const tableauT4HtmlService = require('../services/visualisation/tableauT4HtmlService');
 const logger               = require('../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -285,5 +298,162 @@ router.get('/visualiser/t1/:candidat_id', async (req, res) => {
     `);
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GET /visualiser/t2/:candidat_id — VISUALISATION HTML T2 INTERNE ⭐ v10.5
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ Phase HTML-T2-1.0.0 (v10.5 — 2026-05-06)
+// Génère dynamiquement le tableau T2 (lecture transversale) d'un candidat à
+// partir d'Airtable ETAPE1_T2.
+// Visualisation interne uniquement — NON destinée au candidat ni au DRH.
+//
+// Usage : https://pivar-analysis-system-bis.onrender.com/visualiser/t2/<candidat_id>
+// Le lien est disponible directement dans Airtable VISITEUR (champ formule
+// `lien_visualiser_t2`).
+//
+// Le tableau affiche :
+//   - Bloc synthèse héros : 8 champs identiques sur les 25 lignes (par doctrine
+//     v3.4) — hypothese_pilier_dominant_ecart, confiance_socle_par_ecart,
+//     pourcentage_concentration_ecart, flag_profil_quasi_conforme,
+//     directive_t3, pattern_finalite_pressenti, nb_conformes_total, nb_ecart_total
+//   - Signal transversal candidat (texte invariant)
+//   - Stat pattern pilier (statistiques mécaniques invariantes)
+//   - 25 lignes T2 : ID · Scénario · Demande · Cœur · Conforme/Écart ·
+//     Séquence piliers · Analyse (note OU ecart_action) · Signal limbique · Type
+
+router.get('/visualiser/t2/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  const startTime = Date.now();
+
+  logger.info('Visualisation T2 demandée', { candidat_id, ip: req.ip });
+
+  // Validation basique du format candidat_id
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send(`
+      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h1>⚠ Identifiant candidat invalide</h1>
+        <p>Le format attendu est par exemple : <code>pcc_1771077635499_gg1cj7z1q</code></p>
+      </body></html>
+    `);
+  }
+
+  try {
+    const html = await tableauT2HtmlService.generateTableauT2Html(candidat_id);
+    const elapsed = Date.now() - startTime;
+    logger.info('Visualisation T2 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
+
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate'); // toujours frais
+    res.send(html);
+  } catch (error) {
+    logger.error('Erreur génération visualisation T2', { candidat_id, error: error.message, stack: error.stack });
+    return res.status(500).type('html').send(`
+      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h1>⚠ Erreur lors de la génération du tableau T2</h1>
+        <p><strong>Candidat :</strong> ${candidat_id}</p>
+        <p><strong>Erreur :</strong> ${error.message}</p>
+        <p style="color:#888;font-size:11px;">Vérifiez que le candidat existe dans Airtable et qu'il a bien une analyse T2 dans ETAPE1_T2 (T2 doit avoir été exécuté avec succès).</p>
+      </body></html>
+    `);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GET /visualiser/t3/:candidat_id — VISUALISATION HTML T3 (PRÉPARÉE — DÉSACTIVÉE)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⏳ Préparée pour Phase HTML-T3 — décommenter quand tableauT3HtmlService
+//    sera créé dans services/visualisation/.
+//
+// Pour activer :
+//   1. Créer services/visualisation/tableauT3HtmlService.js
+//   2. Décommenter le require en haut de ce fichier
+//   3. Décommenter le bloc router.get ci-dessous
+//   4. Créer dans Airtable VISITEUR un champ formule `lien_visualiser_t3` :
+//      IF({candidate_ID}, CONCATENATE("https://pivar-analysis-system-bis.onrender.com/visualiser/t3/", {candidate_ID}), "")
+
+/*
+router.get('/visualiser/t3/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  const startTime = Date.now();
+
+  logger.info('Visualisation T3 demandée', { candidat_id, ip: req.ip });
+
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send(`
+      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h1>⚠ Identifiant candidat invalide</h1>
+      </body></html>
+    `);
+  }
+
+  try {
+    const html = await tableauT3HtmlService.generateTableauT3Html(candidat_id);
+    const elapsed = Date.now() - startTime;
+    logger.info('Visualisation T3 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
+
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.send(html);
+  } catch (error) {
+    logger.error('Erreur génération visualisation T3', { candidat_id, error: error.message, stack: error.stack });
+    return res.status(500).type('html').send(`
+      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h1>⚠ Erreur lors de la génération du tableau T3</h1>
+        <p><strong>Candidat :</strong> ${candidat_id}</p>
+        <p><strong>Erreur :</strong> ${error.message}</p>
+      </body></html>
+    `);
+  }
+});
+*/
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GET /visualiser/t4/:candidat_id — VISUALISATION HTML T4 (PRÉPARÉE — DÉSACTIVÉE)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⏳ Préparée pour Phase HTML-T4 — décommenter quand tableauT4HtmlService
+//    sera créé. T4 est en 6 sous-agents (cf. Décision n°39 — Contrat v1.9
+//    section 16) : la page T4 affichera le bilan synthétique des 6 sorties
+//    + le résultat du certificateur lexique.
+//
+// Pour activer : voir procédure T3 ci-dessus.
+
+/*
+router.get('/visualiser/t4/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  const startTime = Date.now();
+
+  logger.info('Visualisation T4 demandée', { candidat_id, ip: req.ip });
+
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send(`
+      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h1>⚠ Identifiant candidat invalide</h1>
+      </body></html>
+    `);
+  }
+
+  try {
+    const html = await tableauT4HtmlService.generateTableauT4Html(candidat_id);
+    const elapsed = Date.now() - startTime;
+    logger.info('Visualisation T4 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
+
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.send(html);
+  } catch (error) {
+    logger.error('Erreur génération visualisation T4', { candidat_id, error: error.message, stack: error.stack });
+    return res.status(500).type('html').send(`
+      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h1>⚠ Erreur lors de la génération du tableau T4</h1>
+        <p><strong>Candidat :</strong> ${candidat_id}</p>
+        <p><strong>Erreur :</strong> ${error.message}</p>
+      </body></html>
+    `);
+  }
+});
+*/
 
 module.exports = router;
