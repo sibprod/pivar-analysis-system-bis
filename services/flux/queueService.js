@@ -1,5 +1,5 @@
 // services/flux/queueService.js
-// File d'attente d'analyse — Profil-Cognitif v10.2b
+// File d'attente d'analyse — Profil-Cognitif v10.5
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
@@ -61,9 +61,11 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'REPRENDRE_T1_DES_WEEKEND',
   'REPRENDRE_T1_DES_ANIMAL1',
   'REPRENDRE_T1_DES_ANIMAL2',
-  'REPRENDRE_T1_DES_PANNE'
-  // Statuts futurs (étapes ultérieures) à ajouter ici quand T2/T3/T4 seront migrés :
-  // 'REPRENDRE_AGENT2', 'REPRENDRE_AGENT3', 'REPRENDRE_VERIFICATEUR4'
+  'REPRENDRE_T1_DES_PANNE',
+  // ⭐ v10.5 — T2 v3.4 migré : reprise à T2 (Contrat v1.9 §12 ligne 1095)
+  'REPRENDRE_AGENT2'
+  // Statuts futurs à ajouter ici quand T3/T4 seront migrés :
+  // 'REPRENDRE_AGENT3', 'REPRENDRE_VERIFICATEUR4'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
