@@ -63,9 +63,13 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'REPRENDRE_T1_DES_ANIMAL2',
   'REPRENDRE_T1_DES_PANNE',
   // ⭐ v10.5 — T2 v3.4 migré : reprise à T2 (Contrat v1.9 §12 ligne 1095)
-  'REPRENDRE_AGENT2'
-  // Statuts futurs à ajouter ici quand T3/T4 seront migrés :
-  // 'REPRENDRE_AGENT3', 'REPRENDRE_VERIFICATEUR4'
+  'REPRENDRE_AGENT2',
+  // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
+  'REPRENDRE_AGENT3',
+  // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
+  'REPRENDRE_AGENT4'
+  // Statuts futurs à ajouter ici quand le vérificateur T4 sera migré :
+  // 'REPRENDRE_VERIFICATEUR4'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
