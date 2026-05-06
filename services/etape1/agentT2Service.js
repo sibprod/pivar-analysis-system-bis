@@ -1,5 +1,6 @@
 // services/etape1/agentT2Service.js
 // Agent T2 — Lecture transversale des 25 lignes ETAPE1_T1
+// v10.8 (2026-05-06) — extractT2Output adapté au format ARRAY direct du prompt T2 v3.4
 // Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
@@ -229,11 +230,77 @@ function buildPayload(candidat_id, civilite, lignesT1) {
 
 /**
  * Extrait { rows, synthese } depuis la sortie Claude (déjà parsée par agentBase).
- * Tolérant aux 3 formats possibles : {lignes_t2, synthese}, {rows, synthese}, {t2, synthese}.
+ *
+ * ⭐ v10.8 (2026-05-06) — Adaptation au prompt T2 v3.4
+ *
+ * Le prompt T2 v3.4 demande à Claude de produire un ARRAY JSON direct de 25 lignes,
+ * où les 8 champs de synthèse (hypothese_pilier_dominant_ecart, confiance_socle_par_ecart,
+ * pourcentage_concentration_ecart, flag_profil_quasi_conforme, directive_t3,
+ * pattern_finalite_pressenti, nb_conformes_total, nb_ecart_total) sont RÉPÉTÉS
+ * IDENTIQUEMENT sur les 25 lignes (cf. prompt v3.4 ligne 766 : "tous les champs de
+ * synthèse candidat sont identiques sur les 25 lignes").
+ *
+ * Formats acceptés :
+ *   1. ARRAY direct [ {ligne1}, {ligne2}, ... ] — format v3.4 — ✅ format actuel
+ *   2. OBJET { lignes_t2: [...], synthese: {...} } — format historique pré-v3.4
+ *   3. OBJET { rows: [...], synthese: {...} } — format historique
+ *   4. OBJET { t2: [...], synthese: {...} } — format historique
+ *
+ * Pour le format 1, la synthese est extraite depuis la première ligne (les 25 sont
+ * identiques sur ces 8 champs par doctrine).
  */
+const SYNTHESE_FIELDS = [
+  'hypothese_pilier_dominant_ecart',
+  'confiance_socle_par_ecart',
+  'pourcentage_concentration_ecart',
+  'flag_profil_quasi_conforme',
+  'directive_t3',
+  'pattern_finalite_pressenti',
+  'nb_conformes_total',
+  'nb_ecart_total'
+];
+
 function extractT2Output(result, candidat_id) {
-  if (!result || typeof result !== 'object') {
-    throw new Error('Agent T2 — output Claude vide ou non-objet');
+  if (!result) {
+    throw new Error('Agent T2 — output Claude vide');
+  }
+
+  // ─── Format 1 (v3.4) : ARRAY direct ───────────────────────────────────────
+  if (Array.isArray(result)) {
+    if (result.length === 0) {
+      throw new Error('Agent T2 — array vide retourné par Claude');
+    }
+    const firstRow = result[0];
+    if (!firstRow || typeof firstRow !== 'object') {
+      throw new Error('Agent T2 — première ligne invalide (non-objet)');
+    }
+
+    // Extraction de la synthèse depuis la première ligne (les 25 sont identiques par doctrine)
+    const synthese = {};
+    for (const field of SYNTHESE_FIELDS) {
+      if (!(field in firstRow)) {
+        logger.warn('Agent T2 — champ synthese absent de la première ligne', {
+          candidat_id,
+          champ: field,
+          keys: Object.keys(firstRow)
+        });
+      }
+      synthese[field] = firstRow[field];
+    }
+
+    // Validation minimale de la synthèse extraite
+    if (synthese.hypothese_pilier_dominant_ecart === undefined ||
+        synthese.confiance_socle_par_ecart === undefined ||
+        synthese.flag_profil_quasi_conforme === undefined) {
+      throw new Error('Agent T2 — synthèse incomplète extraite de la première ligne (champs critiques absents)');
+    }
+
+    return { rows: result, synthese };
+  }
+
+  // ─── Format 2-4 (historiques) : OBJET avec champ synthese séparé ─────────
+  if (typeof result !== 'object') {
+    throw new Error('Agent T2 — output Claude non-objet et non-array');
   }
 
   // Synthèse — attendue à la racine
