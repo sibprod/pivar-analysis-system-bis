@@ -68,18 +68,13 @@ const agentT1VerificateurService   = require('../etape1/agentT1VerificateurServi
 // ⭐ v10.5 (2026-05-06) — T2 v3.4 migré : require activé pour mode AGENT2_SEUL et pipeline complet
 const agentT2Service               = require('../etape1/agentT2Service');
 
-// ⚠️ Les agents T3, T4 et certificateur lexique ne sont PAS encore migrés en v10.
-// Les requires sont commentés pour Phase D test Cécile T1+Vérificateur.
-// À décommenter au fur et à mesure qu'on génère leurs versions v10.
-//
-// const agentT3Service             = require('../etape1/agentT3Service');
-// const agentT4ArchitectureService = require('../etape1/etape1_t4/agentT4ArchitectureService');
-// const agentT4CircuitsService     = require('../etape1/etape1_t4/agentT4CircuitsService');
-// const agentT4ModeService         = require('../etape1/etape1_t4/agentT4ModeService');
-// const agentT4SyntheseService     = require('../etape1/etape1_t4/agentT4SyntheseService');
-// const agentT4CoutsService        = require('../etape1/etape1_t4/agentT4CoutsService');
-// const agentT4TransversesService  = require('../etape1/etape1_t4/agentT4TransversesService');
-// const certificateurLexiqueService = require('../certificateurs/certificateurLexiqueService');
+// ⭐ v10.6 (2026-05-06) — T3 v4.3 migré : require activé pour mode AGENT3_SEUL et pipeline complet
+const agentT3Service               = require('../etape1/agentT3Service');
+
+// ⭐ v10.7 (2026-05-06) — T4 v1.1 migré : orchestrateur T4 + 6 sous-agents + certificateur lexique
+// orchestratorT4 importe déjà les 6 sous-services + certificateurLexiqueService.
+// Pas besoin d'importer les sous-services ici — orchestratorT4 fait tout.
+const orchestratorT4              = require('./orchestratorT4');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐ v10.2b — Helper parseStatutScenario (Décision n°42)
@@ -149,9 +144,17 @@ async function run({ candidat_id, visiteur }) {
   const sauterT1 = (statut_entrant === 'REPRENDRE_VERIFICATEUR1');
   // ⭐ v10.5 — Détection du mode AGENT2_SEUL (T2 v3.4 — Contrat v1.9 §12 ligne 1095)
   const reprendreAgentT2 = (statut_entrant === 'REPRENDRE_AGENT2');
+  // ⭐ v10.6 — Détection du mode AGENT3_SEUL (T3 v4.3 — saute T1+Vérif+T2, démarre T3)
+  const reprendreAgentT3 = (statut_entrant === 'REPRENDRE_AGENT3');
+  // ⭐ v10.7 — Détection du mode AGENT4_SEUL (T4 v1.1 — saute T1+Vérif+T2+T3, démarre T4)
+  const reprendreAgentT4 = (statut_entrant === 'REPRENDRE_AGENT4');
 
   let mode;
-  if (reprendreAgentT2) {
+  if (reprendreAgentT4) {
+    mode = 'AGENT4_SEUL';
+  } else if (reprendreAgentT3) {
+    mode = 'AGENT3_SEUL';
+  } else if (reprendreAgentT2) {
     mode = 'AGENT2_SEUL';
   } else if (sauterT1) {
     mode = 'VÉRIFICATEUR_SEUL';
@@ -299,6 +302,156 @@ async function run({ candidat_id, visiteur }) {
         totalCostUsd,
         totalElapsedMs,
         t2Result,
+        usages
+      };
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⭐ v10.6 — Mode AGENT3_SEUL (REPRENDRE_AGENT3)
+    // Doctrine : saute T1+Vérif+T2, démarre T3.
+    // T1, Vérif et T2 sont supposés déjà avoir tourné avec succès.
+    // T3 lit ETAPE1_T1 et ETAPE1_T2 directement.
+    // ═════════════════════════════════════════════════════════════════════════
+    if (mode === 'AGENT3_SEUL') {
+      logger.info('Mode AGENT3_SEUL — saute T1+Vérif+T2, exécute T3 seul', { candidat_id });
+
+      // Précondition : T3 prompt doit exister
+      const t3Exists = agentBase.promptExists('etape1/etape1_t3.txt');
+      if (!t3Exists) {
+        throw new Error(
+          'Mode AGENT3_SEUL : le prompt etape1/etape1_t3.txt est introuvable. ' +
+          'Impossible d\'exécuter T3 sans son prompt.'
+        );
+      }
+
+      // Précondition : T1 et T2 doivent avoir produit des lignes
+      const lignesT1 = await airtableService.getEtape1T1(candidat_id);
+      if (!lignesT1 || lignesT1.length === 0) {
+        throw new Error(
+          `Mode AGENT3_SEUL : aucune ligne ETAPE1_T1 trouvée pour ${candidat_id}. ` +
+          `T1 doit avoir tourné avant AGENT3_SEUL.`
+        );
+      }
+      const lignesT2 = await airtableService.getEtape1T2(candidat_id);
+      if (!lignesT2 || lignesT2.length === 0) {
+        throw new Error(
+          `Mode AGENT3_SEUL : aucune ligne ETAPE1_T2 trouvée pour ${candidat_id}. ` +
+          `T2 doit avoir tourné avant AGENT3_SEUL.`
+        );
+      }
+
+      await backupService.save(candidat_id, 'before_t3_seul', {
+        statut_entrant,
+        lignes_t1_disponibles: lignesT1.length,
+        lignes_t2_disponibles: lignesT2.length
+      });
+
+      const t3Result = await agentT3Service.runAgentT3({ candidat_id });
+      trackUsage(usages, costs, t3Result);
+
+      // Compter les piliers candidats au socle (pour debug)
+      const piliersSocleFortes = Object.entries(t3Result.syntheseParPilier || {})
+        .filter(([_p, s]) => s.candidature_socle_score === 'FORTE')
+        .map(([p]) => p);
+      const piliersResistantFortes = Object.entries(t3Result.syntheseParPilier || {})
+        .filter(([_p, s]) => s.candidature_resistant_score === 'FORTE')
+        .map(([p]) => p);
+
+      await backupService.save(candidat_id, 'after_t3_seul', {
+        lignes_t3_produites:        t3Result.rows.length,
+        piliers_socle_fortes:       piliersSocleFortes,
+        piliers_resistant_fortes:   piliersResistantFortes
+      });
+
+      const totalElapsedMs = Date.now() - startTime;
+      const totalCostUsd = costs.reduce((s, c) => s + c, 0);
+
+      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
+      logger.info('🎉 AGENT3_SEUL terminé', {
+        candidat_id,
+        rows:                     t3Result.rows.length,
+        piliers_socle_FORTE:      piliersSocleFortes.join(',') || 'aucun',
+        piliers_resistant_FORTE:  piliersResistantFortes.join(',') || 'aucun',
+        totalCostUsd:             totalCostUsd.toFixed(4),
+        totalElapsedMs
+      });
+      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
+
+      // Reset compteur tentatives après succès (Décision n°24)
+      await airtableService.resetTentativesEtape1(candidat_id);
+
+      return {
+        success:        true,
+        candidat_id,
+        mode:           'AGENT3_SEUL',
+        totalCostUsd,
+        totalElapsedMs,
+        t3Result,
+        usages
+      };
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⭐ v10.7 — Mode AGENT4_SEUL (REPRENDRE_AGENT4)
+    // Doctrine : saute T1+Vérif+T2+T3, démarre T4.
+    // T1, Vérif, T2 et T3 sont supposés déjà avoir tourné avec succès.
+    // L'orchestrateur T4 lit ETAPE1_T1, T2 et T3 directement, et appelle
+    // les 6 sous-agents + le certificateur lexique.
+    // ═════════════════════════════════════════════════════════════════════════
+    if (mode === 'AGENT4_SEUL') {
+      logger.info('Mode AGENT4_SEUL — saute T1+Vérif+T2+T3, exécute T4 seul', { candidat_id });
+
+      // Précondition : au moins un prompt T4 doit exister
+      const t4Exists = agentBase.promptExists('etape1/etape1_t4/etape1_t4_1_architecture.txt');
+      if (!t4Exists) {
+        throw new Error(
+          'Mode AGENT4_SEUL : le prompt etape1/etape1_t4/etape1_t4_1_architecture.txt est ' +
+          'introuvable. Impossible d\'exécuter T4 sans ses prompts.'
+        );
+      }
+
+      await backupService.save(candidat_id, 'before_t4_seul', {
+        statut_entrant
+      });
+
+      const t4Result = await orchestratorT4.runOrchestratorT4({ candidat_id });
+      trackUsage(usages, costs, t4Result);
+
+      await backupService.save(candidat_id, 'after_t4_seul', {
+        nb_champs_bilan:        Object.keys(t4Result.bilan_t4 || {}).length,
+        pilier_socle:           t4Result.pilier_socle,
+        pilier_resistant:       t4Result.pilier_resistant,
+        socle_par_defaut:       t4Result.socle_par_defaut,
+        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
+        certificateur_score:    t4Result.certificateur?.score_conformite || 0
+      });
+
+      const totalElapsedMs = Date.now() - startTime;
+      const totalCostUsd = costs.reduce((s, c) => s + c, 0);
+
+      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
+      logger.info('🎉 AGENT4_SEUL terminé', {
+        candidat_id,
+        pilier_socle:           t4Result.pilier_socle,
+        pilier_resistant:       t4Result.pilier_resistant || 'aucun',
+        socle_par_defaut:       t4Result.socle_par_defaut,
+        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
+        certificateur_score:    t4Result.certificateur?.score_conformite || 0,
+        nb_champs_bilan:        Object.keys(t4Result.bilan_t4 || {}).length,
+        totalCostUsd:           totalCostUsd.toFixed(4),
+        totalElapsedMs
+      });
+      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
+
+      await airtableService.resetTentativesEtape1(candidat_id);
+
+      return {
+        success:        true,
+        candidat_id,
+        mode:           'AGENT4_SEUL',
+        totalCostUsd,
+        totalElapsedMs,
+        t4Result,
         usages
       };
     }
@@ -572,19 +725,100 @@ async function run({ candidat_id, visiteur }) {
       logger.info('T2 prompt NOT detected — skipping T2', { candidat_id });
     }
 
-    // ⚠️ T3, T4, certificateur lexique pas encore migrés en v10
-    //   Quand on migrera T3 :
-    //     await backupService.save(candidat_id, 'before_t3', {...});
-    //     const t3Result = await agentT3Service.runAgentT3({ candidat_id });
-    //     trackUsage(usages, costs, t3Result);
-    //     await backupService.save(candidat_id, 'after_t3', {...});
-    //   Idem pour T4 (4 parallèles + synthèse + coûts), certificateur lexique.
+    // ─── 4. Pipeline : T3 (cartographie circuits par pilier) ─────────────────
+    // ⭐ v10.6 (2026-05-06) — T3 v4.3 branché.
+    //   Lit T1 (25 lignes) + T2 (synthèse v3.4) + référentiel des 75 circuits embarqué dans le prompt.
+    //   Produit jusqu'à 75 lignes ETAPE1_T3 avec 12 champs synthétiques par pilier.
+    //   T3 ne tranche PAS le pilier socle — il pose des candidatures FORTE/MOYENNE/FAIBLE/NULLE.
+    //   La désignation finale du pilier socle est faite par T4 (algorithme A1).
+    let t3Result = null;
+    const t3Exists = agentBase.promptExists('etape1/etape1_t3.txt');
 
-    logger.info('⚠️ Étape 1 partielle — T1 + Vérif T1 + T2 exécutés', {
-      candidat_id,
-      message: 'T3/T4/certificateur lexique non encore migrés en v10',
-      t2_executed: t2Exists
-    });
+    if (t3Exists && t2Result) {  // T3 nécessite T2 réussi en amont
+      logger.info('Pipeline étape 1 — démarrage T3', { candidat_id });
+
+      await backupService.save(candidat_id, 'before_t3', {
+        lignes_t1_disponibles: t1Result.rows.length,
+        lignes_t2_disponibles: t2Result.rows.length,
+        directive_t3:          t2Result.synthese?.directive_t3 || 'unknown'
+      });
+
+      t3Result = await agentT3Service.runAgentT3({ candidat_id });
+      trackUsage(usages, costs, t3Result);
+
+      const piliersSocleFortes = Object.entries(t3Result.syntheseParPilier || {})
+        .filter(([_p, s]) => s.candidature_socle_score === 'FORTE')
+        .map(([p]) => p);
+      const piliersResistantFortes = Object.entries(t3Result.syntheseParPilier || {})
+        .filter(([_p, s]) => s.candidature_resistant_score === 'FORTE')
+        .map(([p]) => p);
+
+      await backupService.save(candidat_id, 'after_t3', {
+        lignes_t3_produites:        t3Result.rows.length,
+        piliers_socle_fortes:       piliersSocleFortes,
+        piliers_resistant_fortes:   piliersResistantFortes
+      });
+
+      logger.info('✅ T3 done', {
+        candidat_id,
+        rows:                     t3Result.rows.length,
+        piliers_socle_FORTE:      piliersSocleFortes.join(',') || 'aucun',
+        piliers_resistant_FORTE:  piliersResistantFortes.join(',') || 'aucun',
+        cost:                     t3Result.cost.toFixed(4)
+      });
+    } else if (!t2Result) {
+      logger.warn('T3 skipped — T2 n\'a pas tourné en amont', { candidat_id });
+    } else {
+      logger.info('T3 prompt NOT detected — skipping T3', { candidat_id });
+    }
+
+    // ─── 5. Pipeline : T4 (bilan complet 6 sous-agents + certificateur) ──────
+    // ⭐ v10.7 (2026-05-06) — T4 v1.1 branché.
+    //   Lit T1 + T2 + T3, calcule 4 algorithmes JS doctrinaux (rôles, filtre,
+    //   finalité, mode), lance Phase 1 parallèle (Agents 1, 2, 3, 6) puis
+    //   Phase 2 séquentielle (Agent 4 → Agent 5), agrège les 56 colonnes,
+    //   appelle le certificateur lexique, upsert ETAPE1_T4_BILAN.
+    //   Coût ~0.85 USD, durée ~3 min.
+    let t4Result = null;
+    const t4Exists = agentBase.promptExists('etape1/etape1_t4/etape1_t4_1_architecture.txt');
+
+    if (t4Exists && t3Result) {  // T4 nécessite T3 réussi en amont
+      logger.info('Pipeline étape 1 — démarrage T4 (orchestrateur + 6 sous-agents)', {
+        candidat_id
+      });
+
+      await backupService.save(candidat_id, 'before_t4', {
+        lignes_t1_disponibles: t1Result.rows.length,
+        lignes_t2_disponibles: t2Result.rows.length,
+        lignes_t3_disponibles: t3Result.rows.length
+      });
+
+      t4Result = await orchestratorT4.runOrchestratorT4({ candidat_id });
+      trackUsage(usages, costs, t4Result);
+
+      await backupService.save(candidat_id, 'after_t4', {
+        nb_champs_bilan:        Object.keys(t4Result.bilan_t4 || {}).length,
+        pilier_socle:           t4Result.pilier_socle,
+        pilier_resistant:       t4Result.pilier_resistant,
+        socle_par_defaut:       t4Result.socle_par_defaut,
+        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
+        certificateur_score:    t4Result.certificateur?.score_conformite || 0
+      });
+
+      logger.info('✅ T4 done', {
+        candidat_id,
+        pilier_socle:           t4Result.pilier_socle,
+        pilier_resistant:       t4Result.pilier_resistant || 'aucun',
+        socle_par_defaut:       t4Result.socle_par_defaut,
+        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
+        certificateur_score:    t4Result.certificateur?.score_conformite || 0,
+        cost:                   t4Result.cost.toFixed(4)
+      });
+    } else if (!t3Result) {
+      logger.warn('T4 skipped — T3 n\'a pas tourné en amont', { candidat_id });
+    } else {
+      logger.info('T4 prompts NOT detected — skipping T4', { candidat_id });
+    }
 
     // ─── Statut final ────────────────────────────────────────────────────────
     const totalElapsedMs = Date.now() - startTime;
@@ -594,7 +828,7 @@ async function run({ candidat_id, visiteur }) {
     await airtableService.resetTentativesEtape1(candidat_id);
 
     logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-    logger.info('🎉 Étape 1 (T1+Vérif+T2) completed', {
+    logger.info('🎉 Étape 1 (T1+Vérif+T2+T3+T4) completed', {
       candidat_id,
       mode,
       totalElapsedMs,
@@ -607,7 +841,12 @@ async function run({ candidat_id, visiteur }) {
       t2_rows:            t2Result?.rows.length || 0,
       hypothese_socle:    t2Result?.synthese?.hypothese_pilier_dominant_ecart || 'N/A',
       confiance:          t2Result?.synthese?.confiance_socle_par_ecart || 'N/A',
-      directive_t3:       t2Result?.synthese?.directive_t3 || 'N/A'
+      directive_t3:       t2Result?.synthese?.directive_t3 || 'N/A',
+      t3_executed:        !!t3Result,
+      t3_rows:            t3Result?.rows.length || 0,
+      t4_executed:        !!t4Result,
+      t4_pilier_socle:    t4Result?.pilier_socle || 'N/A',
+      t4_certificateur:   t4Result?.certificateur?.verdict || 'N/A'
     });
     logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
 
