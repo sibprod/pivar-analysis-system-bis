@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorEtape1.js
-// Sous-orchestrateur Étape 1 — Profil-Cognitif v10.3
+// Sous-orchestrateur Étape 1 — Profil-Cognitif v10.5
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9)
@@ -12,12 +12,13 @@
 //   - Gère les 4 modes opérationnels du vérificateur T1 (Décisions n°15, n°16, n°24, n°38, n°39, n°41)
 //
 // AIGUILLAGE PAR STATUT (Section 12 du Contrat ETAPE1 v1.9) :
-//   - NOUVEAU                       → mode PIPELINE_COMPLET (T1 + vérificateur)
+//   - NOUVEAU                       → mode PIPELINE_COMPLET (T1 + vérificateur + T2)
 //   - REPRENDRE_AGENT1              → mode PIPELINE_COMPLET (synonyme historique de REPRENDRE_T1_DES_SOMMEIL)
 //   - REPRENDRE_VERIFICATEUR1       → mode VÉRIFICATEUR_SEUL (saute T1, lit ETAPE1_T1, lance vérificateur)
 //   - en_cours                      → mode PIPELINE_COMPLET par défaut (cas marginal)
 //   - REPRENDRE_T1_<X>_SEUL         → mode SCENARIO_ISOLÉ (Famille A — Décision n°42)  ⭐ v10.2b
 //   - REPRENDRE_T1_DES_<X>          → mode SCENARIO_CASCADE (Famille B — Décision n°42) ⭐ v10.2b
+//   - REPRENDRE_AGENT2              → mode AGENT2_SEUL (saute T1+Vérif, exécute T2 seul) ⭐ v10.5
 //
 // PHASE D (2026-04-28) — v10 :
 //   - Fichier NOUVEAU : extrait de orchestratorService.js (Décision n°26)
@@ -64,11 +65,13 @@ const logger                       = require('../../utils/logger');
 const agentT1Service               = require('../etape1/agentT1Service');
 const agentT1VerificateurService   = require('../etape1/agentT1VerificateurService');
 
-// ⚠️ Les agents T2, T3, T4 et certificateur lexique ne sont PAS encore migrés en v10.
+// ⭐ v10.5 (2026-05-06) — T2 v3.4 migré : require activé pour mode AGENT2_SEUL et pipeline complet
+const agentT2Service               = require('../etape1/agentT2Service');
+
+// ⚠️ Les agents T3, T4 et certificateur lexique ne sont PAS encore migrés en v10.
 // Les requires sont commentés pour Phase D test Cécile T1+Vérificateur.
 // À décommenter au fur et à mesure qu'on génère leurs versions v10.
 //
-// const agentT2Service             = require('../etape1/agentT2Service');
 // const agentT3Service             = require('../etape1/agentT3Service');
 // const agentT4ArchitectureService = require('../etape1/etape1_t4/agentT4ArchitectureService');
 // const agentT4CircuitsService     = require('../etape1/etape1_t4/agentT4CircuitsService');
@@ -144,9 +147,13 @@ async function run({ candidat_id, visiteur }) {
   // ⭐ v10.2b — Détection des modes scénario
   const aiguillageScenario = parseStatutScenario(statut_entrant);
   const sauterT1 = (statut_entrant === 'REPRENDRE_VERIFICATEUR1');
+  // ⭐ v10.5 — Détection du mode AGENT2_SEUL (T2 v3.4 — Contrat v1.9 §12 ligne 1095)
+  const reprendreAgentT2 = (statut_entrant === 'REPRENDRE_AGENT2');
 
   let mode;
-  if (sauterT1) {
+  if (reprendreAgentT2) {
+    mode = 'AGENT2_SEUL';
+  } else if (sauterT1) {
     mode = 'VÉRIFICATEUR_SEUL';
   } else if (aiguillageScenario?.type === 'SEUL') {
     mode = 'SCENARIO_ISOLÉ';
@@ -213,6 +220,85 @@ async function run({ candidat_id, visiteur }) {
         totalCostUsd,
         totalElapsedMs,
         scenarioResult: result.scenarioResult,
+        usages
+      };
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⭐ v10.5 — Mode AGENT2_SEUL (REPRENDRE_AGENT2)
+    // Doctrine Contrat v1.9 §12 ligne 1095 : « Saute Étape 1 [T1+Vérif],
+    // démarre T2 ». T1 et le vérificateur sont supposés déjà avoir tourné avec
+    // succès. T2 lit ETAPE1_T1 directement.
+    //
+    // T2 fait partie de l'Étape 1 (architecture v1.2 — services/etape1/agentT2Service.js).
+    // L'Étape 2 dans le projet désigne le futur module d'analyse Profils, pas T2.
+    // ═════════════════════════════════════════════════════════════════════════
+    if (mode === 'AGENT2_SEUL') {
+      logger.info('Mode AGENT2_SEUL — saute T1+Vérif, exécute T2 seul', { candidat_id });
+
+      // Précondition : le prompt T2 doit exister
+      const t2Exists = agentBase.promptExists('etape1/etape1_t2.txt');
+      if (!t2Exists) {
+        throw new Error(
+          'Mode AGENT2_SEUL : le prompt etape1/etape1_t2.txt est introuvable. ' +
+          'Impossible d\'exécuter T2 sans son prompt.'
+        );
+      }
+
+      // Précondition : ETAPE1_T1 doit exister pour ce candidat (T2 lit T1)
+      const existingT1 = await airtableService.getEtape1T1(candidat_id);
+      if (!existingT1 || existingT1.length === 0) {
+        throw new Error(
+          `Mode AGENT2_SEUL : aucune ligne ETAPE1_T1 trouvée pour ${candidat_id}. ` +
+          `T1 doit avoir tourné avec succès avant de pouvoir relancer T2 seul.`
+        );
+      }
+
+      await backupService.save(candidat_id, 'before_t2_seul', {
+        statut_entrant,
+        nb_lignes_t1_lues: existingT1.length
+      });
+
+      const t2Result = await agentT2Service.runAgentT2({ candidat_id });
+      trackUsage(usages, costs, t2Result);
+
+      await backupService.save(candidat_id, 'after_t2_seul', {
+        lignes_t2_produites:             t2Result.rows.length,
+        hypothese_pilier_dominant_ecart: t2Result.synthese.hypothese_pilier_dominant_ecart,
+        confiance_socle_par_ecart:       t2Result.synthese.confiance_socle_par_ecart,
+        flag_profil_quasi_conforme:      t2Result.synthese.flag_profil_quasi_conforme,
+        directive_t3:                    t2Result.synthese.directive_t3
+      });
+
+      const totalElapsedMs = Date.now() - startTime;
+      const totalCostUsd = costs.reduce((s, c) => s + c, 0);
+
+      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
+      logger.info('🎉 AGENT2_SEUL terminé', {
+        candidat_id,
+        rows:                t2Result.rows.length,
+        hypothese_socle:     t2Result.synthese.hypothese_pilier_dominant_ecart,
+        confiance:           t2Result.synthese.confiance_socle_par_ecart,
+        flag_quasi_conforme: t2Result.synthese.flag_profil_quasi_conforme,
+        directive_t3:        t2Result.synthese.directive_t3,
+        totalCostUsd:        totalCostUsd.toFixed(4),
+        totalElapsedMs
+      });
+      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
+
+      // Reset compteur tentatives après succès (Décision n°24)
+      await airtableService.resetTentativesEtape1(candidat_id);
+
+      // Retour { success: true } → orchestratorPrincipal mettra le statut
+      // à 'terminé'. Quand T3 sera branché en mode AGENT3_SEUL, on basculera
+      // vers 'REPRENDRE_AGENT3' ici plutôt que 'terminé'.
+      return {
+        success:        true,
+        candidat_id,
+        mode:           'AGENT2_SEUL',
+        totalCostUsd,
+        totalElapsedMs,
+        t2Result,
         usages
       };
     }
@@ -442,23 +528,62 @@ async function run({ candidat_id, visiteur }) {
       logger.info('Vérificateur T1 prompt NOT detected — skipping verification', { candidat_id });
     }
 
-    // ─── 3. Pipeline : T2, T3, T4, certificateur lexique ─────────────────────
-    // ⚠️ NON MIGRÉ EN v10 : ces agents seront migrés progressivement.
-    //   Pour le test Cécile T1+Vérificateur (Phase D), on s'arrête ici.
-    //   Le statut sera mis à 'terminé' par orchestratorPrincipal après le retour.
+    // ─── 3. Pipeline : T2 (T3, T4, certificateur lexique pas encore migrés) ───
     //
-    // Quand on migrera T2 :
-    //   await backupService.save(candidat_id, 'before_t2', {...});
-    //   const t2Result = await agentT2Service.runAgentT2({ candidat_id });
-    //   trackUsage(usages, costs, t2Result);
-    //   await backupService.save(candidat_id, 'after_t2', {...});
-    //   ... etc
+    // ⭐ v10.5 — T2 v3.4 branché dans le pipeline complet (Décision n°50)
+    // T2 lit les 25 lignes ETAPE1_T1 produites + corrigées par le vérificateur
+    // et produit ETAPE1_T2 (25 lignes + 8 champs synthèse).
     //
-    //   Idem pour T3, T4 (4 parallèles + synthèse + coûts), certificateur lexique.
+    // T2 est appelé seulement si son prompt existe (Décision n°32).
+    // Pas de vérificateur T2 (Décision n°32 — autonomie de T2).
 
-    logger.info('⚠️ Étape 1 partielle — seuls T1 + Vérificateur T1 ont été exécutés', {
+    let t2Result = null;
+    const t2Exists = agentBase.promptExists('etape1/etape1_t2.txt');
+
+    if (t2Exists) {
+      logger.info('Pipeline étape 1 — démarrage T2', { candidat_id });
+
+      await backupService.save(candidat_id, 'before_t2', {
+        lignes_t1_disponibles: t1Result.rows.length,
+        verdict_t1:            t1VerifResult?.verdict || 'N/A'
+      });
+
+      t2Result = await agentT2Service.runAgentT2({ candidat_id });
+      trackUsage(usages, costs, t2Result);
+
+      await backupService.save(candidat_id, 'after_t2', {
+        lignes_t2_produites:             t2Result.rows.length,
+        hypothese_pilier_dominant_ecart: t2Result.synthese.hypothese_pilier_dominant_ecart,
+        confiance_socle_par_ecart:       t2Result.synthese.confiance_socle_par_ecart,
+        flag_profil_quasi_conforme:      t2Result.synthese.flag_profil_quasi_conforme,
+        directive_t3:                    t2Result.synthese.directive_t3
+      });
+
+      logger.info('✅ T2 done', {
+        candidat_id,
+        rows:                t2Result.rows.length,
+        hypothese_socle:     t2Result.synthese.hypothese_pilier_dominant_ecart,
+        confiance:           t2Result.synthese.confiance_socle_par_ecart,
+        flag_quasi_conforme: t2Result.synthese.flag_profil_quasi_conforme,
+        directive_t3:        t2Result.synthese.directive_t3,
+        cost:                t2Result.cost.toFixed(4)
+      });
+    } else {
+      logger.info('T2 prompt NOT detected — skipping T2', { candidat_id });
+    }
+
+    // ⚠️ T3, T4, certificateur lexique pas encore migrés en v10
+    //   Quand on migrera T3 :
+    //     await backupService.save(candidat_id, 'before_t3', {...});
+    //     const t3Result = await agentT3Service.runAgentT3({ candidat_id });
+    //     trackUsage(usages, costs, t3Result);
+    //     await backupService.save(candidat_id, 'after_t3', {...});
+    //   Idem pour T4 (4 parallèles + synthèse + coûts), certificateur lexique.
+
+    logger.info('⚠️ Étape 1 partielle — T1 + Vérif T1 + T2 exécutés', {
       candidat_id,
-      message: 'T2/T3/T4/certificateur lexique non encore migrés en v10'
+      message: 'T3/T4/certificateur lexique non encore migrés en v10',
+      t2_executed: t2Exists
     });
 
     // ─── Statut final ────────────────────────────────────────────────────────
@@ -469,7 +594,7 @@ async function run({ candidat_id, visiteur }) {
     await airtableService.resetTentativesEtape1(candidat_id);
 
     logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-    logger.info('🎉 Étape 1 (T1+Vérif) completed', {
+    logger.info('🎉 Étape 1 (T1+Vérif+T2) completed', {
       candidat_id,
       mode,
       totalElapsedMs,
@@ -477,7 +602,12 @@ async function run({ candidat_id, visiteur }) {
       totalCostUsd:       totalCostUsd.toFixed(4),
       t1_rows:            t1Result.rows.length,
       t1_verdict:         t1VerifResult?.verdict || 'N/A',
-      t1_mode:            t1VerifResult?.mode_recommande || 'N/A'
+      t1_mode:            t1VerifResult?.mode_recommande || 'N/A',
+      t2_executed:        !!t2Result,
+      t2_rows:            t2Result?.rows.length || 0,
+      hypothese_socle:    t2Result?.synthese?.hypothese_pilier_dominant_ecart || 'N/A',
+      confiance:          t2Result?.synthese?.confiance_socle_par_ecart || 'N/A',
+      directive_t3:       t2Result?.synthese?.directive_t3 || 'N/A'
     });
     logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
 
@@ -489,6 +619,7 @@ async function run({ candidat_id, visiteur }) {
       totalElapsedMs,
       t1Result,
       t1VerifResult,
+      t2Result,
       usages
     };
 
