@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur principal — Profil-Cognitif v10.3
+// Orchestrateur principal — Profil-Cognitif v10.5
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
@@ -68,7 +68,7 @@ async function processCandidate(session_id) {
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal v10.3 — processCandidate          ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.5 — processCandidate          ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
@@ -185,7 +185,11 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     'REPRENDRE_T1_DES_WEEKEND',
     'REPRENDRE_T1_DES_ANIMAL1',
     'REPRENDRE_T1_DES_ANIMAL2',
-    'REPRENDRE_T1_DES_PANNE'
+    'REPRENDRE_T1_DES_PANNE',
+    // ⭐ v10.5 — T2 v3.4 migré : reprise à T2 (Contrat v1.9 §12 ligne 1095)
+    // T2 fait partie de l'Étape 1 (architecture v1.2 — services/etape1/agentT2Service.js)
+    // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT2_SEUL
+    'REPRENDRE_AGENT2'
   ];
 
   if (STATUTS_ETAPE_1.includes(statut_actuel)) {
@@ -193,17 +197,8 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     return await orchestratorEtape1.run({ candidat_id, visiteur });
   }
 
-  // Statut "REPRENDRE_AGENT2" → Étape 2 (à coder en Phase ultérieure)
-  // if (statut_actuel === 'REPRENDRE_AGENT2') {
-  //   logger.info('Aiguillage → Étape 2', { candidat_id });
-  //   return await orchestratorEtape2.run({ candidat_id, visiteur });
-  // }
-
-  // Statut "REPRENDRE_AGENT3" → Étape 3 (à coder en Phase ultérieure)
-  // if (statut_actuel === 'REPRENDRE_AGENT3') {
-  //   logger.info('Aiguillage → Étape 3', { candidat_id });
-  //   return await orchestratorEtape3.run({ candidat_id, visiteur });
-  // }
+  // Statut "REPRENDRE_AGENT3" → Étape 1 mode AGENT3_SEUL (à coder en Phase ultérieure)
+  // Quand T3 sera migré, ajouter 'REPRENDRE_AGENT3' à STATUTS_ETAPE_1 ci-dessus.
 
   // Statut "REPRENDRE_VERIFICATEUR4" → Étape 4 (à coder en Phase ultérieure)
   // if (statut_actuel === 'REPRENDRE_VERIFICATEUR4') {
