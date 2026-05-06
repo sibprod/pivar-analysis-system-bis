@@ -41,7 +41,7 @@ module.exports = {
     // ── Agents amont Étape 1 ──────────────────────────────────────────────
     agent_t1:                64000,  // 5 appels par scénario, thinking ON
     agent_t1_verificateur:   96000,  // ⭐ v10 : renommé depuis agent_t1_certificateur (Décision n°10)
-    agent_t2:                16000,  // pas de thinking (redistribution mécanique)
+    agent_t2:               32000,  // pas de thinking (redistribution mécanique)
     agent_t3:                64000,  // 75 lignes pilier × circuit, thinking ON
 
     // ── Agents T4 (production du bilan) ───────────────────────────────────
