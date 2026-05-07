@@ -281,8 +281,18 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
     );
   }
 
-  const acceptHeader = req.headers.accept || '';
-  const wantsJson = acceptHeader.includes('application/json');
+  // ⭐ v10.6 — Détection multi-critères "veut du JSON" :
+  //   1. Header Accept inclut application/json (fetch avec Accept explicite)
+  //   2. Query param ?format=json (force le JSON depuis l'URL pour debug)
+  //   3. Header Sec-Fetch-Mode === 'cors' (fetch JS depuis page web)
+  // Si aucun critère → on sert le HTML statique (chargement direct navigateur).
+  const acceptHeader  = req.headers.accept || '';
+  const fetchMode     = req.headers['sec-fetch-mode'] || '';
+  const formatParam   = (req.query && req.query.format) || '';
+  const wantsJson =
+    acceptHeader.includes('application/json') ||
+    formatParam === 'json' ||
+    fetchMode === 'cors';
 
   // ─── Mode JSON ────────────────────────────────────────────────────────────
   if (wantsJson) {
