@@ -15,7 +15,7 @@
 //   GET  /visualiser/etape1/:candidat_id             — visualisation Étape 1.1 (lecture cognitive) ⭐ v10.6
 //                                                       2 modes selon Accept header :
 //                                                         - application/json → renvoie {rows:[...]} depuis RESPONSES
-//                                                         - sinon            → sert visualisateur_etape1.html (à la racine)
+//                                                         - sinon            → sert services/visualisation/visualisateur_etape1.html
 //   GET  /visualiser/t1/:candidat_id                 — visualisation HTML T1 interne
 //   GET  /visualiser/t2/:candidat_id                 — visualisation HTML T2 interne ⭐ v10.5
 //   GET  /visualiser/t3/:candidat_id                 — visualisation HTML T3 (préparé, désactivé)
@@ -263,17 +263,15 @@ router.get('/debug/airtable', async (req, res) => {
 //
 //   1. Si Accept inclut "application/json" → renvoie les lignes RESPONSES
 //      enrichies par l'agent prompt_etape1, au format { rows: [...] }
-//      Le HTML statique visualisateur_etape1.html appelle cette URL en fetch
-//      pour récupérer ses données.
 //
-//   2. Sinon → sert le HTML statique visualisateur_etape1.html (à la racine
-//      du repo) via res.sendFile (natif Express, asynchrone, robuste).
+//   2. Sinon → sert le HTML statique
+//      services/visualisation/visualisateur_etape1.html
+//      via res.sendFile (natif Express, asynchrone, robuste).
 
 router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   const startTime = Date.now();
 
-  // Validation basique
   if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
     return res.status(400).type('html').send(
       '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
@@ -315,9 +313,10 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
     }
   }
 
-  // ─── Mode HTML : sert visualisateur_etape1.html via res.sendFile ──────────
+  // ─── Mode HTML : sert services/visualisation/visualisateur_etape1.html ────
   logger.info('Visualisation Étape 1.1 — mode HTML', { candidat_id });
-  const htmlPath = path.join(__dirname, '..', 'visualisateur_etape1.html');
+  // __dirname = routes/  →  remonter à la racine puis descendre dans services/visualisation/
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visualisateur_etape1.html');
   res.sendFile(htmlPath, function(err) {
     if (err) {
       logger.error('Visualisation Étape 1.1 — erreur sendFile', {
@@ -330,7 +329,7 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
           '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
           '<h1>Erreur de chargement du visualiseur</h1>' +
           '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
-          '<p style="color:#888;font-size:11px;">Le fichier visualisateur_etape1.html est-il bien à la racine du repo ?</p>' +
+          '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
           '</body></html>'
         );
       }
