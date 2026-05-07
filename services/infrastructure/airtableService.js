@@ -203,12 +203,18 @@ async function patchResponseRow(recordId, fields) {
 
   try {
     const cleanedFields = cleanFields(fields);
-    const updated = await getBase()(airtableConfig.TABLES.RESPONSES).update(recordId, cleanedFields);
+    // ⭐ v10.6 — typecast: true permet à Airtable de créer automatiquement
+    // les options singleSelect/multipleSelects manquantes (ex: OUI / NON / OUI_TRANSITION...)
+    // Sans ça : "Insufficient permissions to create new select option"
+    const updated = await getBase()(airtableConfig.TABLES.RESPONSES).update(
+      [{ id: recordId, fields: cleanedFields }],
+      { typecast: true }
+    );
     logger.debug('Response row patched', {
       recordId,
       nbFields: Object.keys(cleanedFields).length
     });
-    return updated;
+    return updated && updated[0] ? updated[0] : updated;
   } catch (error) {
     logger.error('Failed to patch response row', {
       recordId,
