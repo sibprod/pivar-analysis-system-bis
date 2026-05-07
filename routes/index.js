@@ -12,10 +12,10 @@
 //   POST /api/recover-from-backup/:session_id        — reprise depuis backup
 //   POST /api/retry-missing/:session_id              — legacy v8 (renvoie 410, gardé Décision D-C)
 //   GET  /debug/airtable                             — diagnostic permissions
-//   GET  /visualiser/etape1/:candidat_id             — visualisation HTML Étape 1.1 (lecture cognitive) ⭐ v10.6
+//   GET  /visualiser/etape1/:candidat_id             — visualisation Étape 1.1 (lecture cognitive) ⭐ v10.6
 //                                                       2 modes selon Accept header :
 //                                                         - application/json → renvoie {rows:[...]} depuis RESPONSES
-//                                                         - text/html        → sert le fichier statique visualisateur_etape1.html
+//                                                         - sinon            → sert visualisateur_etape1.html (à la racine)
 //   GET  /visualiser/t1/:candidat_id                 — visualisation HTML T1 interne
 //   GET  /visualiser/t2/:candidat_id                 — visualisation HTML T2 interne ⭐ v10.5
 //   GET  /visualiser/t3/:candidat_id                 — visualisation HTML T3 (préparé, désactivé)
@@ -34,8 +34,8 @@
 
 'use strict';
 
-const fs                   = require('fs');
-const path                 = require('path');
+const path = require('path');
+
 const express              = require('express');
 const router               = express.Router();
 const orchestratorPrincipal = require('../services/orchestrators/orchestratorPrincipal');  // ⭐ v10
@@ -267,18 +267,7 @@ router.get('/debug/airtable', async (req, res) => {
 //      pour récupérer ses données.
 //
 //   2. Sinon → sert le HTML statique visualisateur_etape1.html (à la racine
-//      du repo). Le navigateur reçoit la page, qui ensuite appelle elle-même
-//      la route en JSON pour s'auto-alimenter.
-//
-// Avantage : 1 seule URL côté Airtable (lien_visualiser_etape1), 2 contenus
-// servis selon le contexte. Pas besoin de servir des fichiers statiques avec
-// express.static — c'est cette route qui s'en charge.
-//
-// Usage :
-//   - Depuis Airtable : clic sur lien_visualiser_etape1 → navigateur → HTML
-//   - Le HTML fait fetch sur la même URL avec Accept=application/json
-//   - La route détecte → renvoie le JSON
-//   - Le HTML construit l'affichage côté client
+//      du repo) via res.sendFile (natif Express, asynchrone, robuste).
 
 router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
@@ -286,64 +275,67 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
 
   // Validation basique
   if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
-    return res.status(400).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Identifiant candidat invalide</h1>
-        <p>Le format attendu est par exemple : <code>pcc_1771077635499_gg1cj7z1q</code></p>
-      </body></html>
-    `);
+    return res.status(400).type('html').send(
+      '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+      '<h1>Identifiant candidat invalide</h1>' +
+      '<p>Format attendu : <code>pcc_1771077635499_gg1cj7z1q</code></p>' +
+      '</body></html>'
+    );
   }
 
-  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
+  const acceptHeader = req.headers.accept || '';
+  const wantsJson = acceptHeader.includes('application/json');
 
-  // ─── Mode JSON : alimente le HTML qui s'auto-rafraîchit ──────────────────
+  // ─── Mode JSON ────────────────────────────────────────────────────────────
   if (wantsJson) {
-    logger.info('Visualisation Étape 1.1 — mode JSON', { candidat_id, ip: req.ip });
+    logger.info('Visualisation Étape 1.1 — mode JSON', { candidat_id });
     try {
       const rows = await airtableService.getResponses(candidat_id);
       if (!rows || rows.length === 0) {
         return res.status(404).json({
           error: 'Aucune réponse trouvée pour ce candidat',
-          candidat_id
+          candidat_id: candidat_id
         });
       }
-      const elapsed = Date.now() - startTime;
       logger.info('Visualisation Étape 1.1 — JSON renvoyé', {
-        candidat_id, count: rows.length, elapsedMs: elapsed
+        candidat_id: candidat_id,
+        count: rows.length,
+        elapsedMs: Date.now() - startTime
       });
-      // Format compatible avec le HTML : { rows: [...] }
-      return res.json({ rows });
+      return res.json({ rows: rows });
     } catch (error) {
       logger.error('Visualisation Étape 1.1 — erreur lecture RESPONSES', {
-        candidat_id, error: error.message, stack: error.stack
+        candidat_id: candidat_id,
+        error: error.message
       });
       return res.status(500).json({
         error: error.message,
-        candidat_id
+        candidat_id: candidat_id
       });
     }
   }
 
-  // ─── Mode HTML : sert le fichier statique visualisateur_etape1.html ──────
-  logger.info('Visualisation Étape 1.1 — mode HTML', { candidat_id, ip: req.ip });
-  try {
-    const htmlPath = path.join(__dirname, '..', 'visualisateur_etape1.html');
-    const html = fs.readFileSync(htmlPath, 'utf-8');
-    res.set('Content-Type', 'text/html; charset=utf-8');
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.send(html);
-  } catch (error) {
-    logger.error('Visualisation Étape 1.1 — erreur lecture HTML', {
-      candidat_id, error: error.message
-    });
-    return res.status(500).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Erreur de chargement du visualiseur</h1>
-        <p><strong>Erreur :</strong> ${error.message}</p>
-        <p style="color:#888;font-size:11px;">Le fichier visualisateur_etape1.html est-il bien à la racine du repo ?</p>
-      </body></html>
-    `);
-  }
+  // ─── Mode HTML : sert visualisateur_etape1.html via res.sendFile ──────────
+  logger.info('Visualisation Étape 1.1 — mode HTML', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'visualisateur_etape1.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err) {
+      logger.error('Visualisation Étape 1.1 — erreur sendFile', {
+        candidat_id: candidat_id,
+        error: err.message,
+        path: htmlPath
+      });
+      if (!res.headersSent) {
+        res.status(500).type('html').send(
+          '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+          '<h1>Erreur de chargement du visualiseur</h1>' +
+          '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
+          '<p style="color:#888;font-size:11px;">Le fichier visualisateur_etape1.html est-il bien à la racine du repo ?</p>' +
+          '</body></html>'
+        );
+      }
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
