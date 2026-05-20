@@ -1,5 +1,5 @@
-// services/etape1/etape1_t4/agentT4_4_syntheseCoeurService.js
-// Agent T4_4 — Synthèse cœur (filtre + boucle + finalité + signature)
+// services/etape1/etape1_t3/agentT3_4_syntheseCoeurService.js
+// Agent T3_4 — Synthèse cœur (filtre + boucle + finalité + signature)
 // Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
