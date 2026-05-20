@@ -1,5 +1,5 @@
-// services/etape1/etape1_t4/agentT4_2_circuitsService.js
-// Agent T4_2 — Circuits par pilier (lab + cand + commentaires_t3)
+// services/etape1/etape1_t3/agentT3_2_circuitsService.js
+// Agent T3_2 — Circuits par pilier (lab + cand + commentaires_t3)
 // Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
