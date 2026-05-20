@@ -32,6 +32,22 @@ Pour chaque question reçue, tu produis une ligne d'analyse au format JSON stric
 - Pas de tableau de raisonnement avant le JSON.
 - Aucun commentaire dans le JSON.
 
+⭐ **STRUCTURE OBLIGATOIRE — clé racine `rows`** :
+
+```json
+{
+  "rows": [
+    { ... ligne 1 (les 26 champs) ... },
+    { ... ligne 2 ... },
+    { ... ligne 3 ... },
+    { ... ligne 4 ... },
+    { ... ligne 5 ... }
+  ]
+}
+```
+
+⚠ La clé racine doit être **exactement `rows`** (anglais, pluriel). Pas `resultats`, pas `analyses`, pas `lignes`, pas `t1`. Le pipeline rejette toute autre clé.
+
 Cette règle est **non négociable** : elle conditionne le respect du budget tokens et la lisibilité par le pipeline. Toute violation entraîne un échec d'analyse.
 
 Tu peux utiliser ton thinking pour raisonner intérieurement. Ton thinking n'apparaît PAS dans la sortie. La sortie ne contient que le JSON final propre.
