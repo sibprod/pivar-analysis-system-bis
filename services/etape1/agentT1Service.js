@@ -347,9 +347,16 @@ function groupResponsesByScenario(responses) {
 
 // ─── EXTRACTION DES LIGNES (5 niveaux de tolérance) ───────────────────────
 function extractRows(result, candidat_id) {
+  // ⭐ v10.7 — Tolérance multi-clés étendue.
+  // Claude Sonnet improvise parfois le nom de la clé racine (français/anglais).
+  // On accepte 7 variantes pour ne pas crasher sur un nommage non-standard.
   if (Array.isArray(result?.rows)) return result.rows;
+  if (Array.isArray(result?.resultats)) return result.resultats;
+  if (Array.isArray(result?.analyses)) return result.analyses;
   if (Array.isArray(result?.lignes)) return result.lignes;
+  if (Array.isArray(result?.lignes_t1)) return result.lignes_t1;
   if (Array.isArray(result?.t1)) return result.t1;
+  if (Array.isArray(result?.data)) return result.data;
   if (Array.isArray(result)) return result;
   if (result?.candidat_id && result?.id_question) {
     logger.warn('Agent T1 returned single object instead of array', { candidat_id });
