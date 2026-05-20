@@ -15,10 +15,8 @@
 //   new-prompts/
 //     ├── etape1/
 //     │   ├── etape1_t1.txt
-//     │   ├── verificateur1_t1.txt
 //     │   ├── etape1_t2.txt
-//     │   ├── etape1_t3.txt
-//     │   └── etape1_t4/
+//     │   └── etape1_t3/
 //     │       ├── AGENT_1_ARCHITECTURE.md
 //     │       ├── AGENT_2_CIRCUITS.md
 //     │       └── ...
