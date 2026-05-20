@@ -1,12 +1,18 @@
 // services/orchestrators/orchestratorPromptEtape1.js
 // Sous-Orchestrator Prompt Étape 1 — pré-étape doctrinale avant T1
-// Profil-Cognitif v10.7 (Phase ETAPE1.1-1.0.0 — 2026-05-07)
+// Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //
+// ARCHITECTURE v10.7 (3 étapes — après suppression T2 historique) :
+//   étape 1.1 (lecture cognitive amont) ← ce sous-orchestrator
+//   étape 1   (T1)                       ← orchestratorEtape1
+//   étape 2   (ex-T3 circuits)           ← orchestratorEtape1 (en attente refonte)
+//   étape 3   (ex-T4 synthèse)           ← orchestratorEtape1 (en attente refonte)
+//
 // Rôle :
 //   Sous-orchestrator dédié à la PRÉ-ÉTAPE 1.1 (lecture cognitive) qui s'exécute
-//   AVANT l'orchestratorEtape1 (T1+Vérif+T2+T3+T4).
+//   AVANT l'orchestratorEtape1 (T1 + étape 2 + étape 3).
 //
 // Flux d'aiguillage (côté orchestratorPrincipal) :
 //
@@ -15,11 +21,9 @@
 //   ├──────────────────────────────────────────────────────────────────────┤
 //   │ NOUVEAU                   → orchestratorPromptEtape1 (cette classe)  │
 //   │ REPRENDRE_PROMPT_ETAPE1   → orchestratorPromptEtape1 (cette classe)  │
-//   │ REPRENDRE_AGENT1          → orchestratorEtape1 (existant)            │
-//   │ REPRENDRE_VERIFICATEUR1   → orchestratorEtape1 (existant)            │
-//   │ REPRENDRE_AGENT2          → orchestratorEtape1 (mode AGENT2_SEUL)    │
-//   │ REPRENDRE_AGENT3          → orchestratorEtape1 (mode AGENT3_SEUL)    │
-//   │ REPRENDRE_AGENT4          → orchestratorEtape1 (mode AGENT4_SEUL)    │
+//   │ REPRENDRE_AGENT1          → orchestratorEtape1 (étape 1 T1)          │
+//   │ REPRENDRE_AGENT2          → orchestratorEtape1 (étape 2 circuits)    │
+//   │ REPRENDRE_AGENT3          → orchestratorEtape1 (étape 3 synthèse)    │
 //   └──────────────────────────────────────────────────────────────────────┘
 //
 // Bascule de fin :
