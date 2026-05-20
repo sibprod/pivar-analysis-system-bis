@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyse cognitive T1 — Profil-Cognitif</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --p1c:#0C447C;--p1bg:#deedf8;--p1bd:#378ADD;
+  --p2c:#27500A;--p2bg:#d8ecbe;--p2bd:#639922;
+  --p3c:#633806;--p3bg:#f5ddb0;--p3bd:#BA7517;
+  --p4c:#3C3489;--p4bg:#dedcfa;--p4bd:#7F77DD;
+  --p5c:#712B13;--p5bg:#f5d4c8;--p5bd:#D85A30;
+  --ouic:#085041;--ouibg:#c4edd9;
+  --nonc:#791F1F;--nonbg:#fcd4d4;
+  --gc:#444441;--gbg:#e8e6df;--gbd:#B4B2A9;
+  --text:#2C2C2A;--text2:#5F5E5A;--text3:#888780;
+  --bg:#f5f3ee;--white:#fff;--border:#dddad2;
+
+  /* Zone backgrounds (séparation visuelle) */
+  --zone-amont-bg:#fffefb;            /* fond légèrement chaud — zone amont (étape1.1) */
+  --zone-t1-bg:#f4f1ec;               /* fond grisé un peu plus sombre — zone technique T1 */
+  --zone-t1-border:#c8c0b3;           /* bordure verticale entre zones */
+  --zone-t1-header-bg:#3C3489;        /* en-tête colonnes T1 (violet doctrinal) */
+  --zone-t1-header-fg:#fff;
+}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+
+/* ── LOADING / ERROR ── */
+#loading,#error{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;flex-direction:column;gap:12px;
+  font-size:14px;color:var(--text2);
+}
+#loading .spinner{
+  width:28px;height:28px;border:2px solid var(--border);
+  border-top-color:var(--text2);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#error{color:var(--nonc);}
+#error .err-title{font-size:16px;font-weight:500;}
+#error .err-msg{font-size:12px;color:var(--text3);}
+
+/* ── HEADER ── */
+header{
+  background:var(--white);border-bottom:1px solid var(--border);
+  padding:.9rem 1.5rem;position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;
+}
+header h1{font-family:Georgia,serif;font-size:17px;font-weight:normal;}
+.badge{font-size:10px;background:var(--p4bg);color:var(--p4c);border-radius:4px;padding:2px 8px;font-weight:600;}
+.meta{font-size:11px;color:var(--text3);}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);}
+.ld{width:9px;height:9px;border-radius:2px;}
+
+/* ── FILTERS ── */
+.filters{
+  background:var(--white);border-bottom:1px solid var(--border);
+  padding:.4rem 1.5rem;display:flex;gap:5px;flex-wrap:wrap;
+  align-items:center;position:sticky;top:52px;z-index:190;
+}
+.filters label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px;}
+.sep{color:var(--border);margin:0 4px;}
+.fb{
+  border:1px solid var(--border);background:transparent;border-radius:4px;
+  padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--text2);
+  font-family:inherit;transition:all .1s;
+}
+.fb:hover{border-color:var(--text2);color:var(--text);}
+.fb.on{background:var(--text);color:var(--white);border-color:var(--text);}
+
+/* ── ZONE INDICATOR (bandeau au-dessus du tableau pour rappeler les 2 zones) ── */
+.zones-bar{
+  display:flex;padding:.5rem 1.5rem .35rem;font-size:10px;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.05em;gap:8px;align-items:center;
+}
+.zones-bar .zb{
+  padding:3px 10px;border-radius:3px;font-weight:600;
+}
+.zones-bar .zb.amont{background:var(--zone-amont-bg);border:1px solid var(--border);color:var(--text2);}
+.zones-bar .zb.t1{background:var(--zone-t1-header-bg);color:var(--white);}
+.zones-bar .arrow{color:var(--text3);font-weight:400;}
+
+/* ── STATS ── */
+.stats{display:flex;gap:8px;flex-wrap:wrap;padding:.75rem 1.5rem;}
+.stat{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:5px;padding:.4rem .8rem;text-align:center;min-width:90px;
+}
+.stat-n{font-family:Georgia,serif;font-size:20px;line-height:1;}
+.stat-l{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-top:1px;}
+
+/* ── TABLE ── */
+.tbl-wrap{padding:0 1.5rem 2rem;overflow-x:auto;}
+table{
+  width:100%;border-collapse:collapse;background:var(--white);
+  border:1px solid var(--border);border-radius:6px;overflow:hidden;
+  min-width:3200px;
+}
+
+/* En-têtes : 2 lignes — bandeau de zone + en-tête de colonne */
+thead .zone-head th{
+  text-align:center;padding:5px 8px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;
+  border-bottom:1px solid var(--border);
+}
+thead .zone-head th.zone-id{background:#eceae4;color:var(--text2);}
+thead .zone-head th.zone-amont{background:var(--zone-amont-bg);color:var(--text2);border-bottom:1px solid var(--border);}
+thead .zone-head th.zone-t1{background:var(--zone-t1-header-bg);color:var(--zone-t1-header-fg);}
+
+thead .cols-head th{
+  text-align:left;padding:6px 8px;font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--text2);
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+thead .cols-head th.t1col{background:#1a1430;color:#d8d3ed;}
+
+td{padding:7px 8px;border-bottom:1px solid #edeae4;vertical-align:top;line-height:1.45;}
+td.t1col{background:var(--zone-t1-bg);}
+td.zone-sep{border-left:3px double var(--zone-t1-border);}
+tr:last-child td{border-bottom:none;}
+tr.hidden{display:none;}
+tr:not(.hidden):hover td{background:#faf8f3;}
+tr:not(.hidden):hover td.t1col{background:#ebe7df;}
+
+/* ── PILLS ── */
+.pill{display:inline-block;border-radius:3px;padding:1px 6px;font-size:9.5px;font-weight:700;line-height:1.7;white-space:nowrap;vertical-align:middle;}
+.p1{background:var(--p1bg);color:var(--p1c);}
+.p2{background:var(--p2bg);color:var(--p2c);}
+.p3{background:var(--p3bg);color:var(--p3c);}
+.p4{background:var(--p4bg);color:var(--p4c);}
+.p5{background:var(--p5bg);color:var(--p5c);}
+.oui{background:var(--ouibg);color:var(--ouic);}
+.non{background:var(--nonbg);color:var(--nonc);}
+.gry{background:var(--gbg);color:var(--gc);}
+.coeur{background:var(--text);color:var(--white);}
+
+/* Mini-pills minuscules pour piliers_traverses (codes minuscules) */
+.minip{display:inline-block;border-radius:2px;padding:0 5px;font-size:9px;font-weight:600;line-height:1.6;margin-right:3px;opacity:.75;font-style:italic;}
+.minip.p1{background:var(--p1bg);color:var(--p1c);}
+.minip.p2{background:var(--p2bg);color:var(--p2c);}
+.minip.p3{background:var(--p3bg);color:var(--p3c);}
+.minip.p4{background:var(--p4bg);color:var(--p4c);}
+.minip.p5{background:var(--p5bg);color:var(--p5c);}
+.minip.empty{background:transparent;color:var(--text3);font-style:italic;border:1px dashed var(--border);}
+
+.sc-tag{
+  font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--text3);border:1px solid var(--gbd);border-radius:3px;
+  padding:1px 5px;display:inline-block;
+}
+.qid{font-size:12px;font-weight:700;color:var(--text);}
+.s{font-size:11px;}.m{color:var(--text2);}.i{font-style:italic;}
+.aln{color:var(--ouic);font-size:11px;}.sft{color:var(--nonc);font-size:11px;}
+
+/* Cellule outil cognitif (badge style) */
+.outil-libelle{
+  font-size:10px;color:var(--p4c);font-style:italic;
+  background:var(--p4bg);border-left:2px solid var(--p4bd);
+  padding:2px 6px;border-radius:2px;display:inline-block;
+}
+
+/* Bloc verbatim (citations) — pour types_verbatim */
+.tv-block{
+  margin-bottom:6px;padding:4px 6px;font-size:10px;
+  background:#fbf9f4;border-left:2px solid var(--gbd);border-radius:2px;
+}
+.tv-block:last-child{margin-bottom:0;}
+.tv-label{font-weight:600;font-size:9.5px;display:block;margin-bottom:2px;}
+.tv-cite{font-style:italic;color:var(--text2);font-size:10px;line-height:1.4;}
+
+/* Bloc verbes / angles */
+.va-line{margin-bottom:5px;padding-bottom:5px;border-bottom:1px dotted var(--border);font-size:10px;}
+.va-line:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.va-verb{font-weight:600;color:var(--text);}
+.va-arrow{color:var(--text3);margin:0 3px;}
+.va-action{color:var(--text2);font-style:italic;}
+
+/* Signal limbique */
+.limbique{
+  background:#fdf2e9;border-left:2px solid #d85a30;
+  padding:4px 6px;font-size:10px;color:var(--p5c);
+  border-radius:2px;
+}
+.limbique-empty{color:var(--text3);font-style:italic;font-size:10px;}
+
+details summary{cursor:pointer;font-size:9.5px;color:var(--p4c);margin-top:3px;list-style:none;}
+details summary::before{content:'▶ ';font-size:8px;}
+details[open] summary::before{content:'▼ ';}
+details p{
+  font-size:10px;color:var(--text2);font-style:italic;margin-top:3px;
+  padding:4px 7px;background:#faf8f3;
+  border-left:2px solid var(--gbd);border-radius:0 3px 3px 0;line-height:1.5;
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING STATE -->
+<div id="loading">
+  <div class="spinner"></div>
+  <span>Chargement de l'analyse…</span>
+</div>
+
+<!-- ERROR STATE -->
+<div id="error" style="display:none">
+  <div class="err-title">Impossible de charger l'analyse</div>
+  <div class="err-msg" id="err-detail"></div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="app" style="display:none">
+
+<header>
+  <h1 id="hdr-title">Analyse cognitive T1</h1>
+  <span class="badge">v10.7</span>
+  <span class="meta" id="hdr-meta"></span>
+  <div class="legend">
+    <div class="leg"><div class="ld" style="background:var(--p1bg);border:1px solid var(--p1bd)"></div>P1</div>
+    <div class="leg"><div class="ld" style="background:var(--p2bg);border:1px solid var(--p2bd)"></div>P2</div>
+    <div class="leg"><div class="ld" style="background:var(--p3bg);border:1px solid var(--p3bd)"></div>P3</div>
+    <div class="leg"><div class="ld" style="background:var(--p4bg);border:1px solid var(--p4bd)"></div>P4</div>
+    <div class="leg"><div class="ld" style="background:var(--p5bg);border:1px solid var(--p5bd)"></div>P5</div>
+    <div class="leg"><div class="ld" style="background:var(--text)"></div>★ Cœur</div>
+  </div>
+</header>
+
+<div class="filters">
+  <label>Scénario</label>
+  <button class="fb on" onclick="filt(this,'sc','all')">Tous</button>
+  <button class="fb" onclick="filt(this,'sc','SOMMEIL')">Sommeil</button>
+  <button class="fb" onclick="filt(this,'sc','WEEKEND')">Week-end</button>
+  <button class="fb" onclick="filt(this,'sc','ANIMAL_1')">Animal 1</button>
+  <button class="fb" onclick="filt(this,'sc','ANIMAL_2')">Animal 2</button>
+  <button class="fb" onclick="filt(this,'sc','PANNE')">Panne</button>
+  <span class="sep">|</span>
+  <label>Cœur</label>
+  <button class="fb on" onclick="filt(this,'gov','all')">Tous</button>
+  <button class="fb" onclick="filt(this,'gov','P1')">P1</button>
+  <button class="fb" onclick="filt(this,'gov','P2')">P2</button>
+  <button class="fb" onclick="filt(this,'gov','P3')">P3</button>
+  <button class="fb" onclick="filt(this,'gov','P4')">P4</button>
+  <button class="fb" onclick="filt(this,'gov','P5')">P5</button>
+  <span class="sep">|</span>
+  <label>Alignement</label>
+  <button class="fb on" onclick="filt(this,'aln','all')">Tous</button>
+  <button class="fb" onclick="filt(this,'aln','yes')">Demandé = cœur</button>
+  <button class="fb" onclick="filt(this,'aln','no')">Glissement</button>
+</div>
+
+<div class="zones-bar">
+  <span class="zb amont">Zone 1 — Lecture cognitive amont (étape1.1, langage simple)</span>
+  <span class="arrow">→</span>
+  <span class="zb t1">Zone 2 — Analyse technique T1 (verbes, citations, signal)</span>
+</div>
+
+<div class="stats" id="stats-bar"></div>
+
+<div class="tbl-wrap">
+<table>
+  <thead>
+    <!-- Bandeau de zones (regroupement visuel des colonnes) -->
+    <tr class="zone-head">
+      <th class="zone-id" colspan="3">Identité</th>
+      <th class="zone-amont" colspan="9">Zone 1 — Lecture cognitive amont (étape1.1)</th>
+      <th class="zone-t1" colspan="7">Zone 2 — Analyse technique T1</th>
+    </tr>
+    <!-- En-tête colonnes -->
+    <tr class="cols-head">
+      <!-- Identité (3) -->
+      <th>Q</th>
+      <th>Scénario</th>
+      <th>Demandé / Finalité</th>
+      <!-- Zone 1 — Amont (9) -->
+      <th>Répond Q</th>
+      <th>Répond Sit.</th>
+      <th style="min-width:165px">v2_analyse (descriptif)</th>
+      <th style="min-width:165px">cog_comprend</th>
+      <th style="min-width:210px">cog_outils_mobilises</th>
+      <th style="min-width:145px">Sortie + commentaire</th>
+      <th>Cœur ★</th>
+      <th style="min-width:210px">cog_gouverne_commentaire</th>
+      <th style="min-width:160px">finalite_reponse</th>
+      <!-- Zone 2 — Technique T1 (7) -->
+      <th class="t1col" style="min-width:200px">pilier_coeur_analyse + outil cognitif</th>
+      <th class="t1col" style="min-width:140px">Traversés + position</th>
+      <th class="t1col" style="min-width:130px">verbes_observes</th>
+      <th class="t1col" style="min-width:230px">verbes_angles_piliers</th>
+      <th class="t1col" style="min-width:260px">types_verbatim</th>
+      <th class="t1col" style="min-width:160px">signal_limbique</th>
+      <th class="t1col" style="min-width:100px">Vérif</th>
+    </tr>
+  </thead>
+  <tbody id="TB"></tbody>
+</table>
+</div>
+
+</div><!-- #app -->
+
+<script>
+const pc={P1:'p1',P2:'p2',P3:'p3',P4:'p4',P5:'p5'};
+const scL={SOMMEIL:'Sommeil',WEEKEND:'Week-end',ANIMAL_1:'Animal 1',ANIMAL_2:'Animal 2',PANNE:'Panne'};
+const pilierNoms={P1:"Collecte d'information",P2:"Tri et organisation",P3:"Analyse et diagnostic",P4:"Création de solutions",P5:"Mise en œuvre et exécution"};
+
+function pp(t,c){return`<span class="pill ${c}">${t}</span>`;}
+function ppill(p){return pp(p,pc[p]||'gry');}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ── Récupère candidate_ID depuis l'URL ── */
+function getCandidateID(){
+  const parts=window.location.pathname.split('/').filter(Boolean);
+  return parts[parts.length-1]||null;
+}
+
+/* ── Calcule les stats globales (alignement cœur/demandé) ── */
+function buildStats(rows){
+  const total=rows.length;
+  const repOui=rows.filter(r=>r.v2_repond_question==='OUI').length;
+  const govCount={P1:0,P2:0,P3:0,P4:0,P5:0};
+  let gliss=0;
+  rows.forEach(r=>{
+    const coeur=r.pilier_coeur||r.cog_pilier_gouverne;
+    const demande=r.pilier_demande||r.pilier;
+    if(coeur) govCount[coeur]=(govCount[coeur]||0)+1;
+    if(demande!==coeur) gliss++;
+  });
+  const sorted=Object.entries(govCount).sort((a,b)=>b[1]-a[1]);
+  const colors={'P1':'var(--p1c)','P2':'var(--p2c)','P3':'var(--p3c)','P4':'var(--p4c)','P5':'var(--p5c)'};
+  let html=`
+    <div class="stat"><div class="stat-n">${total}</div><div class="stat-l">Questions</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--ouic)">${repOui}</div><div class="stat-l">Répond Q</div></div>`;
+  sorted.forEach(([p,n])=>{
+    if(n>0) html+=`<div class="stat"><div class="stat-n" style="color:${colors[p]}">${n}</div><div class="stat-l">Cœur ${p}</div></div>`;
+  });
+  html+=`<div class="stat"><div class="stat-n" style="color:var(--nonc)">${gliss}</div><div class="stat-l">Glissements</div></div>`;
+  document.getElementById('stats-bar').innerHTML=html;
+}
+
+/* ── Rendu : piliers_traverses (codes minuscules, mini-pills + position) ── */
+function renderTraverses(traverses, secondaires){
+  if(!traverses && !secondaires) return '<span class="minip empty">—</span>';
+  const html=[];
+  if(traverses){
+    const matches=String(traverses).match(/[Pp][1-5]/g)||[];
+    if(matches.length===0){
+      html.push('<span class="minip empty">monolithique</span>');
+    }else{
+      const seen=new Set();
+      for(const m of matches){
+        const norm=m.toLowerCase();
+        if(!seen.has(norm)){
+          seen.add(norm);
+          const num=norm.charAt(1);
+          html.push(`<span class="minip p${num}">${norm}</span>`);
+        }
+      }
+    }
+  }else{
+    html.push('<span class="minip empty">monolithique</span>');
+  }
+  let out=`<div style="margin-bottom:4px">${html.join('')}</div>`;
+  if(secondaires){
+    out+=`<div class="s m i" style="font-size:10px;line-height:1.4">${esc(secondaires)}</div>`;
+  }
+  return out;
+}
+
+/* ── Rendu : verbes_angles_piliers (mapping verbe → action (PX)) ── */
+function renderAngles(text){
+  if(!text) return '<span class="limbique-empty">—</span>';
+  const trimmed=String(text).trim();
+  // Découpe sur les (P{N}) — chaque couple verbe→action se termine par un pilier
+  const pilierRegex=/\(([Pp][1-5])\)/g;
+  const couples=[];
+  let lastEnd=0;
+  let m;
+  while((m=pilierRegex.exec(trimmed))!==null){
+    const content=trimmed.substring(lastEnd, m.index).trim();
+    const pilier=m[1].toUpperCase();
+    if(content.length>0) couples.push({content, pilier});
+    lastEnd=m.index+m[0].length;
+  }
+  const tail=trimmed.substring(lastEnd).trim();
+  if(tail.length>0) couples.push({content:tail, pilier:null});
+
+  if(couples.length===0){
+    return `<div style="font-size:10px;color:var(--text2)">${esc(trimmed)}</div>`;
+  }
+
+  const blocks=[];
+  for(const c of couples){
+    const arrowIdx=c.content.search(/(?:→|->)/);
+    let verbe='', action=c.content;
+    if(arrowIdx>=0){
+      verbe=c.content.substring(0,arrowIdx).trim();
+      const arrowChar=c.content.charAt(arrowIdx)==='→'?'→':'->';
+      action=c.content.substring(arrowIdx+arrowChar.length).trim();
+    }
+    const pTag=c.pilier?` <span class="minip ${c.pilier.toLowerCase()}">${c.pilier}</span>`:'';
+    if(verbe){
+      blocks.push(
+        `<div class="va-line">`+
+        `<span class="va-verb">${esc(verbe)}</span>`+
+        `<span class="va-arrow">→</span>`+
+        `<span class="va-action">${esc(action)}</span>${pTag}`+
+        `</div>`
+      );
+    }else{
+      blocks.push(`<div class="va-line"><span class="va-action">${esc(c.content)}</span>${pTag}</div>`);
+    }
+  }
+  return blocks.join('');
+}
+
+/* ── Rendu : types_verbatim (P{N} · titre "citation") ── */
+function renderTypesVerbatim(text){
+  if(!text) return '<span class="limbique-empty">—</span>';
+  const trimmed=String(text).trim();
+  // Split sur les "P{N} ·" (début de chaque bloc) — gère collé sur 1 ligne
+  let chunks=trimmed.split(/(?:^|\n|(?<=[»"”])\s+|(?<=\.)\s+)(?=[Pp][1-5]\s*[·•:.\-])/g)
+    .map(c=>c.trim()).filter(c=>c.length>0);
+  if(chunks.length<=1){
+    chunks=trimmed.split(/(?=\s[Pp][1-5]\s*[·•:.\-])/g)
+      .map(c=>c.trim()).filter(c=>c.length>0);
+  }
+  if(chunks.length===0){
+    return `<div style="font-size:10px">${esc(trimmed)}</div>`;
+  }
+  const blocks=[];
+  for(const ch of chunks){
+    const m=ch.match(/^[Pp]([1-5])\s*[·•:.\-]\s*([^\n«"”]+?)(?:\s+[—–]\s+|\s+\-\s+|\n|\s+(?=[«"“]))(.+)$/s);
+    if(m){
+      const pNum=m[1];
+      const titre=m[2].trim();
+      const cite=m[3].trim();
+      blocks.push(
+        `<div class="tv-block">`+
+        `<span class="tv-label p${pNum}c"><span class="minip p${pNum}">P${pNum}</span> ${esc(titre)}</span>`+
+        `<span class="tv-cite">${esc(cite)}</span>`+
+        `</div>`
+      );
+    }else{
+      const m2=ch.match(/^[Pp]([1-5])\s*[·•:.\-]?\s*(.+)$/s);
+      if(m2){
+        const pNum=m2[1];
+        blocks.push(
+          `<div class="tv-block">`+
+          `<span class="tv-label"><span class="minip p${pNum}">P${pNum}</span></span>`+
+          `<span class="tv-cite">${esc(m2[2].trim())}</span>`+
+          `</div>`
+        );
+      }else{
+        blocks.push(`<div class="tv-block"><span class="tv-cite">${esc(ch)}</span></div>`);
+      }
+    }
+  }
+  return blocks.join('');
+}
+
+/* ── Rendu : pilier_coeur_analyse + outil_cognitif_libelle ── */
+function renderCoeurAnalyse(row){
+  const coeur=row.pilier_coeur||row.cog_pilier_gouverne||'';
+  const analyse=row.pilier_coeur_analyse||'';
+  const outil=row.outil_cognitif_libelle||'';
+  if(!analyse && !outil){
+    return '<span class="limbique-empty">—</span>';
+  }
+  const html=[];
+  if(outil){
+    html.push(`<div class="outil-libelle">${esc(outil)}</div>`);
+  }
+  if(analyse){
+    // Retire le préfixe PX · si déjà présent (redondant avec le badge cœur dans la colonne d'à côté)
+    let clean=analyse;
+    const m=analyse.match(/^[Pp]([1-5])\s*[·•:.\-]\s*(.+)$/s);
+    if(m && ('P'+m[1])===coeur){
+      clean=m[2].trim();
+    }
+    html.push(`<div class="s m" style="margin-top:5px;line-height:1.45">${esc(clean)}</div>`);
+  }
+  return html.join('');
+}
+
+/* ── Rendu : signal_limbique ── */
+function renderSignalLimbique(text){
+  if(!text || !String(text).trim()){
+    return '<span class="limbique-empty">— factuel</span>';
+  }
+  return `<div class="limbique">${esc(text)}</div>`;
+}
+
+/* ── Construit le tableau ── */
+function buildTable(rows){
+  const tb=document.getElementById('TB');
+  tb.innerHTML='';
+  rows.forEach(r=>{
+    // Compatibilité : on lit soit r.pilier_demande (ETAPE1_T1) soit r.pilier (RESPONSES)
+    const demande=r.pilier_demande||r.pilier||'';
+    const coeur=r.pilier_coeur||r.cog_pilier_gouverne||'';
+    const finaliteLib=r.pilier_finalite_libelle||pilierNoms[demande]||'';
+    const aln=demande===coeur;
+    const vs=r.v2_repond_situation||'';
+    const vsC=vs.startsWith('OUI')?'oui':'non';
+    const vsL=vs.replace('OUI_','');
+
+    // verbatim source : prioriser verbatim_candidat (ETAPE1_T1) sinon response_text (RESPONSES)
+    const verbatim=r.verbatim_candidat||r.response_text||'';
+
+    // finalite_reponse : prioriser ETAPE1_T1 sinon RESPONSES.cog_resultat_vise
+    const finRep=r.finalite_reponse||r.cog_resultat_vise||'';
+
+    // sortie cog : pilier + commentaire (depuis RESPONSES, recopié en aval)
+    const sortiePilier=r.cog_pilier_sortie||'';
+    const sortieComm=r.cog_sortie_commentaire||'';
+
+    // verbes_observes
+    const verbesObs=r.verbes_observes||'';
+    const verbesList=verbesObs?String(verbesObs).split(/[\n,;·]+/).map(v=>v.trim()).filter(v=>v.length>0):[];
+
+    // Corrections vérificateur
+    const nbCorr=parseInt(r.nb_corrections_verificateur,10)||0;
+    const corrText=r.corrections_verificateur||'';
+
+    const tr=document.createElement('tr');
+    tr.dataset.sc=r.scenario||r.scenario_nom||'';
+    tr.dataset.gov=coeur;
+    tr.dataset.aln=aln?'yes':'no';
+
+    tr.innerHTML=`
+      <!-- Identité -->
+      <td><span class="qid">${esc(r.id_question)}</span></td>
+      <td><span class="sc-tag">${esc(scL[r.scenario||r.scenario_nom]||r.scenario||r.scenario_nom||'')}</span></td>
+      <td>
+        ${ppill(demande)}
+        ${finaliteLib?`<div class="s m i" style="margin-top:4px;font-size:10px">${esc(finaliteLib)}</div>`:''}
+      </td>
+      <!-- Zone 1 — Amont -->
+      <td>${pp(r.v2_repond_question||'', r.v2_repond_question==='OUI'?'oui':'non')}</td>
+      <td>${pp(vsL,vsC)}</td>
+      <td class="s m">${esc(r.v2_analyse||'')}
+        ${verbatim?`<details><summary>verbatim</summary><p>${esc(verbatim)}</p></details>`:''}
+      </td>
+      <td class="s">${esc(r.cog_comprend||'')}</td>
+      <td class="s m i">${esc(r.cog_outils_mobilises||'')}</td>
+      <td class="s m">
+        ${sortiePilier?ppill(sortiePilier):''}
+        ${sortieComm?`<div style="margin-top:3px">${esc(sortieComm)}</div>`:''}
+      </td>
+      <td style="text-align:center">
+        ${coeur?pp(coeur,'coeur pill'):''}
+        <br><span class="${aln?'aln':'sft'}">${aln?'✓':'↗'}</span>
+      </td>
+      <td class="s">${esc(r.cog_gouverne_commentaire||'')}</td>
+      <td class="s m">${esc(finRep)}</td>
+      <!-- Zone 2 — Technique T1 -->
+      <td class="t1col zone-sep">${renderCoeurAnalyse(r)}</td>
+      <td class="t1col">${renderTraverses(r.piliers_traverses, r.piliers_secondaires)}</td>
+      <td class="t1col">
+        ${verbesList.length>0
+          ?`<div style="font-family:'Courier New',monospace;font-size:10px;line-height:1.7;color:var(--text2)">${verbesList.map(v=>esc(v)).join('<br>')}</div>`
+          :'<span class="limbique-empty">—</span>'}
+      </td>
+      <td class="t1col">${renderAngles(r.verbes_angles_piliers)}</td>
+      <td class="t1col">${renderTypesVerbatim(r.types_verbatim)}</td>
+      <td class="t1col">${renderSignalLimbique(r.signal_limbique)}</td>
+      <td class="t1col" style="text-align:center">
+        ${nbCorr>0
+          ?`<span class="pill non" title="${esc(corrText)}">⚠ ${nbCorr}</span>`
+          :`<span class="limbique-empty">—</span>`}
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ── Filtres ── */
+const S={sc:'all',gov:'all',aln:'all'};
+function filt(btn,dim,val){
+  S[dim]=val;
+  document.querySelectorAll('.fb').forEach(b=>{
+    const m=(b.getAttribute('onclick')||'').match(/filt\(this,'(\w+)','(\w+)'\)/);
+    if(m&&m[1]===dim) b.classList.toggle('on',m[2]===val);
+  });
+  document.querySelectorAll('#TB tr').forEach(tr=>{
+    const show=
+      (S.sc==='all'||tr.dataset.sc===S.sc)&&
+      (S.gov==='all'||tr.dataset.gov===S.gov)&&
+      (S.aln==='all'||tr.dataset.aln===S.aln);
+    tr.classList.toggle('hidden',!show);
+  });
+}
+
+/* ── INIT : appel API ── */
+async function init(){
+  const candidateID=getCandidateID();
+  if(!candidateID){
+    showError("Aucun identifiant candidat dans l'URL.","Format attendu : /visualiser/t1/{candidate_ID}");
+    return;
+  }
+
+  try{
+    /* Endpoint Render — service backend qui lit ETAPE1_T1 + enrichit
+       avec les champs RESPONSES de la zone amont (cog_*, v2_*) */
+    const url=`https://pivar-analysis-system-bis.onrender.com/visualiser/t1/${candidateID}`;
+    const resp=await fetch(url);
+    if(!resp.ok) throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
+    const data=await resp.json();
+
+    const rows=Array.isArray(data)?data:(data.rows||data.records||[]);
+    if(!rows.length) throw new Error("Aucune ligne d'analyse trouvée pour ce candidat.");
+
+    /* Tri par scénario canonique puis id_question */
+    const scOrder={'SOMMEIL':1,'WEEKEND':2,'ANIMAL_1':3,'ANIMAL_2':4,'PANNE':5};
+    rows.sort((a,b)=>{
+      const sa=scOrder[String(a.scenario||a.scenario_nom||'').toUpperCase()]||99;
+      const sb=scOrder[String(b.scenario||b.scenario_nom||'').toUpperCase()]||99;
+      if(sa!==sb) return sa-sb;
+      return String(a.id_question||'').localeCompare(String(b.id_question||''));
+    });
+
+    /* Header */
+    const prenom=rows[0].Prenom||rows[0].prenom||rows[0].candidat_id||candidateID;
+    document.title=`Analyse T1 · ${prenom}`;
+    document.getElementById('hdr-title').textContent=`Analyse cognitive T1 · ${prenom}`;
+    document.getElementById('hdr-meta').textContent=`${rows.length} questions · 5 scénarios · pipeline v10.7`;
+
+    buildStats(rows);
+    buildTable(rows);
+
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+
+  }catch(err){
+    showError("Erreur lors du chargement",err.message);
+  }
+}
+
+function showError(title,msg){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('err-detail').textContent=msg||'';
+  document.getElementById('error').style.display='flex';
+  document.querySelector('#error .err-title').textContent=title;
+}
+
+init();
+</script>
+</body>
+</html>
