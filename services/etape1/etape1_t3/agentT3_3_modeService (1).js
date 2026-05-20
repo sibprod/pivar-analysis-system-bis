@@ -1,5 +1,5 @@
-// services/etape1/etape1_t4/agentT4_3_modeService.js
-// Agent T4_3 — Modes par pilier (pX_mode_lab + pX_mode_cand)
+// services/etape1/etape1_t3/agentT3_3_modeService.js
+// Agent T3_3 — Modes par pilier (pX_mode_lab + pX_mode_cand)
 // Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
