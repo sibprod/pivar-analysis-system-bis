@@ -1,5 +1,5 @@
-// services/etape1/etape1_t4/agentT4_6_transversesService.js
-// Agent T4_6 — Transverses (lexique HTML, header, navigation, footer, schémas, cartouche)
+// services/etape1/etape1_t3/agentT3_6_transversesService.js
+// Agent T3_6 — Transverses (lexique HTML, header, navigation, footer, schémas, cartouche)
 // Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
