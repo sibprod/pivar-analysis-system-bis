@@ -1,17 +1,26 @@
 // services/orchestrators/orchestratorEtape1.js
 // Sous-orchestrateur Étape 1 — Profil-Cognitif
 //
-// Pipeline étape 1 : T1 → T2 → T3 → T4 (orchestrateur + certificateur lexique)
+// ARCHITECTURE v10.7 (3 étapes — suppression T2 historique, renumérotation propre) :
+//   étape 1 (analyse cognitive)  ← T1 (analyse 25 lignes)
+//   étape 2 (circuits)            ← ex-T3 (cartographie circuits cognitifs)
+//   étape 3 (synthèse)            ← ex-T4 (6 sous-agents + bilan + certificateur)
+//
+// ⚠ ÉTAT TRANSITOIRE — Phase Render-débloquage :
+//   Seule l'étape 1 (T1) est branchée dans le pipeline complet de cette version.
+//   Les étapes 2 et 3 sont en cours de refonte doctrinale (le prompt etape1_t2.txt
+//   et les services circuits/synthèse seront refondus en parallèle).
+//   La logique d'aiguillage par statut (REPRENDRE_AGENT2, REPRENDRE_AGENT3) est
+//   préservée pour brancher les étapes 2 et 3 dès qu'elles sont prêtes.
 //
 // Aiguillage par statut entrant :
-//   - NOUVEAU                       → mode PIPELINE_COMPLET
-//   - REPRENDRE_AGENT1              → mode PIPELINE_COMPLET
+//   - NOUVEAU                       → mode PIPELINE_COMPLET (actuellement T1 seul)
+//   - REPRENDRE_AGENT1              → mode PIPELINE_COMPLET (actuellement T1 seul)
 //   - en_cours                      → mode PIPELINE_COMPLET (cas marginal)
 //   - REPRENDRE_T1_<X>_SEUL         → mode SCENARIO_ISOLÉ
 //   - REPRENDRE_T1_DES_<X>          → mode SCENARIO_CASCADE
-//   - REPRENDRE_AGENT2              → mode AGENT2_SEUL (saute T1, démarre T2)
-//   - REPRENDRE_AGENT3              → mode AGENT3_SEUL (saute T1+T2, démarre T3)
-//   - REPRENDRE_AGENT4              → mode AGENT4_SEUL (saute T1+T2+T3, démarre T4)
+//   - REPRENDRE_AGENT2              → mode AGENT2_SEUL (en attente refonte étape 2)
+//   - REPRENDRE_AGENT3              → mode AGENT3_SEUL (en attente refonte étape 3)
 
 'use strict';
 
@@ -21,9 +30,14 @@ const agentBase           = require('../infrastructure/agentBase');
 const logger              = require('../../utils/logger');
 
 const agentT1Service      = require('../etape1/agentT1Service');
-const agentT2Service      = require('../etape1/agentT2Service');
-const agentT3Service      = require('../etape1/agentT3Service');
-const orchestratorT4      = require('./orchestratorT4');
+
+// ─── Étapes 2 et 3 — imports désactivés en attente refonte doctrinale ──────
+// Les services existent sur disk mais leur logique métier dépend encore de
+// l'ancienne architecture à 4 étapes. Réactivation après audit du prompt
+// etape1_t2.txt et refonte du service agentT2Service.js.
+//
+// const agentT2Service      = require('../etape1/agentT2Service');
+// const orchestratorT3      = require('./orchestratorT3');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -69,7 +83,6 @@ function identifyFailedStep(error) {
   if (msg.includes('agent t1') || msg.includes('etape1_t1')) return 't1';
   if (msg.includes('agent t2') || msg.includes('etape1_t2')) return 't2';
   if (msg.includes('agent t3') || msg.includes('etape1_t3')) return 't3';
-  if (msg.includes('agent t4') || msg.includes('etape1_t4')) return 't4';
   if (msg.includes('responses')) return 'responses_loading';
   if (msg.includes('scenario_isole') || msg.includes('runscenarioisole')) return 'scenario_isole';
   return 'unknown';
@@ -93,16 +106,13 @@ async function run({ candidat_id, visiteur }) {
   const statut_entrant = visiteur?.statut_analyse_pivar || 'INCONNU';
 
   const aiguillageScenario = parseStatutScenario(statut_entrant);
-  const reprendreAgentT2 = (statut_entrant === 'REPRENDRE_AGENT2');
-  const reprendreAgentT3 = (statut_entrant === 'REPRENDRE_AGENT3');
-  const reprendreAgentT4 = (statut_entrant === 'REPRENDRE_AGENT4');
+  const reprendreAgent2 = (statut_entrant === 'REPRENDRE_AGENT2');
+  const reprendreAgent3 = (statut_entrant === 'REPRENDRE_AGENT3');
 
   let mode;
-  if (reprendreAgentT4) {
-    mode = 'AGENT4_SEUL';
-  } else if (reprendreAgentT3) {
+  if (reprendreAgent3) {
     mode = 'AGENT3_SEUL';
-  } else if (reprendreAgentT2) {
+  } else if (reprendreAgent2) {
     mode = 'AGENT2_SEUL';
   } else if (aiguillageScenario?.type === 'SEUL') {
     mode = 'SCENARIO_ISOLÉ';
@@ -170,201 +180,25 @@ async function run({ candidat_id, visiteur }) {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // Mode AGENT2_SEUL
+    // Mode AGENT2_SEUL — étape 2 (circuits) en attente refonte doctrinale
     // ═════════════════════════════════════════════════════════════════════════
     if (mode === 'AGENT2_SEUL') {
-      logger.info('Mode AGENT2_SEUL — saute T1, exécute T2 seul', { candidat_id });
-
-      const t2Exists = agentBase.promptExists('etape1/etape1_t2.txt');
-      if (!t2Exists) {
-        throw new Error(
-          'Mode AGENT2_SEUL : le prompt etape1/etape1_t2.txt est introuvable.'
-        );
-      }
-
-      const existingT1 = await airtableService.getEtape1T1(candidat_id);
-      if (!existingT1 || existingT1.length === 0) {
-        throw new Error(
-          `Mode AGENT2_SEUL : aucune ligne ETAPE1_T1 trouvée pour ${candidat_id}. ` +
-          `T1 doit avoir tourné avec succès avant T2 seul.`
-        );
-      }
-
-      await backupService.save(candidat_id, 'before_t2_seul', {
-        statut_entrant,
-        nb_lignes_t1_lues: existingT1.length
-      });
-
-      const t2Result = await agentT2Service.runAgentT2({ candidat_id });
-      trackUsage(usages, costs, t2Result);
-
-      await backupService.save(candidat_id, 'after_t2_seul', {
-        lignes_t2_produites:             t2Result.rows.length,
-        hypothese_pilier_dominant_ecart: t2Result.synthese.hypothese_pilier_dominant_ecart,
-        confiance_socle_par_ecart:       t2Result.synthese.confiance_socle_par_ecart,
-        flag_profil_quasi_conforme:      t2Result.synthese.flag_profil_quasi_conforme,
-        directive_t3:                    t2Result.synthese.directive_t3
-      });
-
-      const totalElapsedMs = Date.now() - startTime;
-      const totalCostUsd = costs.reduce((s, c) => s + c, 0);
-
-      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-      logger.info('🎉 AGENT2_SEUL terminé', {
-        candidat_id,
-        rows:                t2Result.rows.length,
-        hypothese_socle:     t2Result.synthese.hypothese_pilier_dominant_ecart,
-        confiance:           t2Result.synthese.confiance_socle_par_ecart,
-        flag_quasi_conforme: t2Result.synthese.flag_profil_quasi_conforme,
-        directive_t3:        t2Result.synthese.directive_t3,
-        totalCostUsd:        totalCostUsd.toFixed(4),
-        totalElapsedMs
-      });
-      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-
-      await airtableService.resetTentativesEtape1(candidat_id);
-
-      return {
-        success:        true,
-        candidat_id,
-        mode:           'AGENT2_SEUL',
-        totalCostUsd,
-        totalElapsedMs,
-        t2Result,
-        usages
-      };
+      throw new Error(
+        'Mode AGENT2_SEUL : étape 2 (circuits) en cours de refonte doctrinale. ' +
+        'Le prompt etape1_t2.txt et le service agentT2Service doivent être adaptés ' +
+        'à la nouvelle architecture v10.7 à 3 étapes avant réactivation.'
+      );
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // Mode AGENT3_SEUL
+    // Mode AGENT3_SEUL — étape 3 (synthèse 6 sous-agents) en attente refonte
     // ═════════════════════════════════════════════════════════════════════════
     if (mode === 'AGENT3_SEUL') {
-      logger.info('Mode AGENT3_SEUL — saute T1+T2, exécute T3 seul', { candidat_id });
-
-      const t3Exists = agentBase.promptExists('etape1/etape1_t3.txt');
-      if (!t3Exists) {
-        throw new Error(
-          'Mode AGENT3_SEUL : le prompt etape1/etape1_t3.txt est introuvable.'
-        );
-      }
-
-      const lignesT1 = await airtableService.getEtape1T1(candidat_id);
-      if (!lignesT1 || lignesT1.length === 0) {
-        throw new Error(
-          `Mode AGENT3_SEUL : aucune ligne ETAPE1_T1 trouvée pour ${candidat_id}.`
-        );
-      }
-      const lignesT2 = await airtableService.getEtape1T2(candidat_id);
-      if (!lignesT2 || lignesT2.length === 0) {
-        throw new Error(
-          `Mode AGENT3_SEUL : aucune ligne ETAPE1_T2 trouvée pour ${candidat_id}.`
-        );
-      }
-
-      await backupService.save(candidat_id, 'before_t3_seul', {
-        statut_entrant,
-        lignes_t1_disponibles: lignesT1.length,
-        lignes_t2_disponibles: lignesT2.length
-      });
-
-      const t3Result = await agentT3Service.runAgentT3({ candidat_id });
-      trackUsage(usages, costs, t3Result);
-
-      const piliersSocleFortes = Object.entries(t3Result.syntheseParPilier || {})
-        .filter(([_p, s]) => s.candidature_socle_score === 'FORTE')
-        .map(([p]) => p);
-      const piliersResistantFortes = Object.entries(t3Result.syntheseParPilier || {})
-        .filter(([_p, s]) => s.candidature_resistant_score === 'FORTE')
-        .map(([p]) => p);
-
-      await backupService.save(candidat_id, 'after_t3_seul', {
-        lignes_t3_produites:        t3Result.rows.length,
-        piliers_socle_fortes:       piliersSocleFortes,
-        piliers_resistant_fortes:   piliersResistantFortes
-      });
-
-      const totalElapsedMs = Date.now() - startTime;
-      const totalCostUsd = costs.reduce((s, c) => s + c, 0);
-
-      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-      logger.info('🎉 AGENT3_SEUL terminé', {
-        candidat_id,
-        rows:                     t3Result.rows.length,
-        piliers_socle_FORTE:      piliersSocleFortes.join(',') || 'aucun',
-        piliers_resistant_FORTE:  piliersResistantFortes.join(',') || 'aucun',
-        totalCostUsd:             totalCostUsd.toFixed(4),
-        totalElapsedMs
-      });
-      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-
-      await airtableService.resetTentativesEtape1(candidat_id);
-
-      return {
-        success:        true,
-        candidat_id,
-        mode:           'AGENT3_SEUL',
-        totalCostUsd,
-        totalElapsedMs,
-        t3Result,
-        usages
-      };
-    }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // Mode AGENT4_SEUL
-    // ═════════════════════════════════════════════════════════════════════════
-    if (mode === 'AGENT4_SEUL') {
-      logger.info('Mode AGENT4_SEUL — saute T1+T2+T3, exécute T4 seul', { candidat_id });
-
-      const t4Exists = agentBase.promptExists('etape1/etape1_t4/etape1_t4_1_architecture.txt');
-      if (!t4Exists) {
-        throw new Error(
-          'Mode AGENT4_SEUL : le prompt etape1/etape1_t4/etape1_t4_1_architecture.txt est introuvable.'
-        );
-      }
-
-      await backupService.save(candidat_id, 'before_t4_seul', { statut_entrant });
-
-      const t4Result = await orchestratorT4.runOrchestratorT4({ candidat_id });
-      trackUsage(usages, costs, t4Result);
-
-      await backupService.save(candidat_id, 'after_t4_seul', {
-        nb_champs_bilan:        Object.keys(t4Result.bilan_t4 || {}).length,
-        pilier_socle:           t4Result.pilier_socle,
-        pilier_resistant:       t4Result.pilier_resistant,
-        socle_par_defaut:       t4Result.socle_par_defaut,
-        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
-        certificateur_score:    t4Result.certificateur?.score_conformite || 0
-      });
-
-      const totalElapsedMs = Date.now() - startTime;
-      const totalCostUsd = costs.reduce((s, c) => s + c, 0);
-
-      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-      logger.info('🎉 AGENT4_SEUL terminé', {
-        candidat_id,
-        pilier_socle:           t4Result.pilier_socle,
-        pilier_resistant:       t4Result.pilier_resistant || 'aucun',
-        socle_par_defaut:       t4Result.socle_par_defaut,
-        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
-        certificateur_score:    t4Result.certificateur?.score_conformite || 0,
-        nb_champs_bilan:        Object.keys(t4Result.bilan_t4 || {}).length,
-        totalCostUsd:           totalCostUsd.toFixed(4),
-        totalElapsedMs
-      });
-      logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-
-      await airtableService.resetTentativesEtape1(candidat_id);
-
-      return {
-        success:        true,
-        candidat_id,
-        mode:           'AGENT4_SEUL',
-        totalCostUsd,
-        totalElapsedMs,
-        t4Result,
-        usages
-      };
+      throw new Error(
+        'Mode AGENT3_SEUL : étape 3 (synthèse) en cours de refonte doctrinale. ' +
+        'Le orchestratorT3 et ses 6 sous-services seront branchés après refonte ' +
+        'de l\'étape 2 (circuits).'
+      );
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -457,7 +291,7 @@ async function run({ candidat_id, visiteur }) {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // Mode PIPELINE_COMPLET — T1 → T2 → T3 → T4
+    // Mode PIPELINE_COMPLET — T1 seul (étapes 2 et 3 en attente refonte)
     // ═════════════════════════════════════════════════════════════════════════
 
     // ─── T1 ──────────────────────────────────────────────────────────────────
@@ -476,122 +310,11 @@ async function run({ candidat_id, visiteur }) {
       cost: t1Result.cost.toFixed(4)
     });
 
-    // ─── T2 ──────────────────────────────────────────────────────────────────
-    let t2Result = null;
-    const t2Exists = agentBase.promptExists('etape1/etape1_t2.txt');
+    // ─── Étape 2 (circuits) — en attente refonte doctrinale ──────────────────
+    logger.info('Étape 2 (circuits) skipped — refonte doctrinale en cours', { candidat_id });
 
-    if (t2Exists) {
-      logger.info('Pipeline étape 1 — démarrage T2', { candidat_id });
-
-      await backupService.save(candidat_id, 'before_t2', {
-        lignes_t1_disponibles: t1Result.rows.length
-      });
-
-      t2Result = await agentT2Service.runAgentT2({ candidat_id });
-      trackUsage(usages, costs, t2Result);
-
-      await backupService.save(candidat_id, 'after_t2', {
-        lignes_t2_produites:             t2Result.rows.length,
-        hypothese_pilier_dominant_ecart: t2Result.synthese.hypothese_pilier_dominant_ecart,
-        confiance_socle_par_ecart:       t2Result.synthese.confiance_socle_par_ecart,
-        flag_profil_quasi_conforme:      t2Result.synthese.flag_profil_quasi_conforme,
-        directive_t3:                    t2Result.synthese.directive_t3
-      });
-
-      logger.info('✅ T2 done', {
-        candidat_id,
-        rows:                t2Result.rows.length,
-        hypothese_socle:     t2Result.synthese.hypothese_pilier_dominant_ecart,
-        confiance:           t2Result.synthese.confiance_socle_par_ecart,
-        flag_quasi_conforme: t2Result.synthese.flag_profil_quasi_conforme,
-        directive_t3:        t2Result.synthese.directive_t3,
-        cost:                t2Result.cost.toFixed(4)
-      });
-    } else {
-      logger.info('T2 prompt NOT detected — skipping T2', { candidat_id });
-    }
-
-    // ─── T3 ──────────────────────────────────────────────────────────────────
-    let t3Result = null;
-    const t3Exists = agentBase.promptExists('etape1/etape1_t3.txt');
-
-    if (t3Exists && t2Result) {
-      logger.info('Pipeline étape 1 — démarrage T3', { candidat_id });
-
-      await backupService.save(candidat_id, 'before_t3', {
-        lignes_t1_disponibles: t1Result.rows.length,
-        lignes_t2_disponibles: t2Result.rows.length,
-        directive_t3:          t2Result.synthese?.directive_t3 || 'unknown'
-      });
-
-      t3Result = await agentT3Service.runAgentT3({ candidat_id });
-      trackUsage(usages, costs, t3Result);
-
-      const piliersSocleFortes = Object.entries(t3Result.syntheseParPilier || {})
-        .filter(([_p, s]) => s.candidature_socle_score === 'FORTE')
-        .map(([p]) => p);
-      const piliersResistantFortes = Object.entries(t3Result.syntheseParPilier || {})
-        .filter(([_p, s]) => s.candidature_resistant_score === 'FORTE')
-        .map(([p]) => p);
-
-      await backupService.save(candidat_id, 'after_t3', {
-        lignes_t3_produites:        t3Result.rows.length,
-        piliers_socle_fortes:       piliersSocleFortes,
-        piliers_resistant_fortes:   piliersResistantFortes
-      });
-
-      logger.info('✅ T3 done', {
-        candidat_id,
-        rows:                     t3Result.rows.length,
-        piliers_socle_FORTE:      piliersSocleFortes.join(',') || 'aucun',
-        piliers_resistant_FORTE:  piliersResistantFortes.join(',') || 'aucun',
-        cost:                     t3Result.cost.toFixed(4)
-      });
-    } else if (!t2Result) {
-      logger.warn('T3 skipped — T2 n\'a pas tourné en amont', { candidat_id });
-    } else {
-      logger.info('T3 prompt NOT detected — skipping T3', { candidat_id });
-    }
-
-    // ─── T4 ──────────────────────────────────────────────────────────────────
-    let t4Result = null;
-    const t4Exists = agentBase.promptExists('etape1/etape1_t4/etape1_t4_1_architecture.txt');
-
-    if (t4Exists && t3Result) {
-      logger.info('Pipeline étape 1 — démarrage T4', { candidat_id });
-
-      await backupService.save(candidat_id, 'before_t4', {
-        lignes_t1_disponibles: t1Result.rows.length,
-        lignes_t2_disponibles: t2Result.rows.length,
-        lignes_t3_disponibles: t3Result.rows.length
-      });
-
-      t4Result = await orchestratorT4.runOrchestratorT4({ candidat_id });
-      trackUsage(usages, costs, t4Result);
-
-      await backupService.save(candidat_id, 'after_t4', {
-        nb_champs_bilan:        Object.keys(t4Result.bilan_t4 || {}).length,
-        pilier_socle:           t4Result.pilier_socle,
-        pilier_resistant:       t4Result.pilier_resistant,
-        socle_par_defaut:       t4Result.socle_par_defaut,
-        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
-        certificateur_score:    t4Result.certificateur?.score_conformite || 0
-      });
-
-      logger.info('✅ T4 done', {
-        candidat_id,
-        pilier_socle:           t4Result.pilier_socle,
-        pilier_resistant:       t4Result.pilier_resistant || 'aucun',
-        socle_par_defaut:       t4Result.socle_par_defaut,
-        certificateur_verdict:  t4Result.certificateur?.verdict || 'N/A',
-        certificateur_score:    t4Result.certificateur?.score_conformite || 0,
-        cost:                   t4Result.cost.toFixed(4)
-      });
-    } else if (!t3Result) {
-      logger.warn('T4 skipped — T3 n\'a pas tourné en amont', { candidat_id });
-    } else {
-      logger.info('T4 prompts NOT detected — skipping T4', { candidat_id });
-    }
+    // ─── Étape 3 (synthèse) — en attente refonte ─────────────────────────────
+    logger.info('Étape 3 (synthèse) skipped — refonte en cours', { candidat_id });
 
     // ─── Statut final ────────────────────────────────────────────────────────
     const totalElapsedMs = Date.now() - startTime;
@@ -600,23 +323,13 @@ async function run({ candidat_id, visiteur }) {
     await airtableService.resetTentativesEtape1(candidat_id);
 
     logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-    logger.info('🎉 Étape 1 completed', {
+    logger.info('🎉 Étape 1 completed (T1 only — étapes 2 et 3 en refonte)', {
       candidat_id,
       mode,
       totalElapsedMs,
       totalElapsedSec:    (totalElapsedMs / 1000).toFixed(1),
       totalCostUsd:       totalCostUsd.toFixed(4),
-      t1_rows:            t1Result.rows.length,
-      t2_executed:        !!t2Result,
-      t2_rows:            t2Result?.rows.length || 0,
-      hypothese_socle:    t2Result?.synthese?.hypothese_pilier_dominant_ecart || 'N/A',
-      confiance:          t2Result?.synthese?.confiance_socle_par_ecart || 'N/A',
-      directive_t3:       t2Result?.synthese?.directive_t3 || 'N/A',
-      t3_executed:        !!t3Result,
-      t3_rows:            t3Result?.rows.length || 0,
-      t4_executed:        !!t4Result,
-      t4_pilier_socle:    t4Result?.pilier_socle || 'N/A',
-      t4_certificateur:   t4Result?.certificateur?.verdict || 'N/A'
+      t1_rows:            t1Result.rows.length
     });
     logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
 
@@ -627,9 +340,6 @@ async function run({ candidat_id, visiteur }) {
       totalCostUsd,
       totalElapsedMs,
       t1Result,
-      t2Result,
-      t3Result,
-      t4Result,
       usages
     };
 
