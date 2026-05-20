@@ -1,5 +1,5 @@
 // routes/index.js
-// Routes HTTP — Profil-Cognitif v10.0
+// Routes HTTP — Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
@@ -13,24 +13,37 @@
 //   POST /api/retry-missing/:session_id              — legacy v8 (renvoie 410, gardé Décision D-C)
 //   GET  /debug/airtable                             — diagnostic permissions
 //   GET  /visualiser/etape1/:candidat_id             — visualisation Étape 1.1 (lecture cognitive) ⭐ v10.6
-//                                                       2 modes selon Accept header :
-//                                                         - application/json → renvoie {rows:[...]} depuis RESPONSES
-//                                                         - sinon            → sert services/visualisation/visualisateur_etape1.html
-//   GET  /visualiser/t1/:candidat_id                 — visualisation HTML T1 interne
+//   GET  /visualiser/t1/:candidat_id                 — visualisation HTML T1 ⭐ v10.7
+//                                                       (refonte sur modèle étape1.1 — sendFile + mode JSON)
 //   GET  /visualiser/t2/:candidat_id                 — visualisation HTML T2 interne ⭐ v10.5
 //   GET  /visualiser/t3/:candidat_id                 — visualisation HTML T3 (préparé, désactivé)
 //   GET  /visualiser/t4/:candidat_id                 — visualisation HTML T4 (préparé, désactivé)
 //
+// PHASE v10.7 (2026-05-20) — refonte route T1 :
+//   La route /visualiser/t1/ utilisait un service Node `tableauT1HtmlService.js`
+//   qui générait le HTML côté serveur (devenu obsolète après refonte systémique
+//   de l'architecture en 2 étapes : étape1.1 + T1).
+//
+//   La route est désormais alignée sur le modèle de /visualiser/etape1/ (Phase
+//   HTML-Etape11 v10.6) — architecture à 2 modes (négociation par Accept header) :
+//     - Mode JSON  → renvoie les lignes ETAPE1_T1 enrichies des champs RESPONSES
+//                    de la zone amont (cog_outils_mobilises, cog_pilier_sortie,
+//                    cog_gouverne_commentaire) au format { rows: [...] }
+//     - Mode HTML  → sert le fichier statique
+//                    services/visualisation/tableauT1HtmlService.html
+//                    via res.sendFile (natif Express, asynchrone, robuste).
+//
+//   Le require obsolète `const tableauT1HtmlService = require(...)` est supprimé.
+//   Aucun service Node de visualisation T1 n'est plus nécessaire.
+//
 // PHASE D (2026-04-28) — v10 :
 //   - Chemins require mis à jour vers nouvelle architecture (Décision n°27)
-//   - /status enrichi : nombre_tentatives_etape1, validation_humaine, emails_candidat (Décisions n°16, n°24, n°33)
-//   - Alias statut_analyse_pivar gardé (Décision D-B — interne, pas exposé externe)
-//   - Endpoint legacy /api/retry-missing gardé en 410 (Décision D-C — pierre tombale propre)
+//   - /status enrichi : nombre_tentatives_etape1, validation_humaine, emails_candidat
+//   - Alias statut_analyse_pivar gardé (Décision D-B)
+//   - Endpoint legacy /api/retry-missing gardé en 410 (Décision D-C)
 //
 // PHASE HTML-T2 (2026-05-06) — v10.5 :
 //   - Ajout route /visualiser/t2/:candidat_id (Phase HTML-T2-1.0.0)
-//   - Routes T3 et T4 préparées en commentaires — décommenter quand les services
-//     tableauT3HtmlService et tableauT4HtmlService seront créés.
 
 'use strict';
 
@@ -38,12 +51,14 @@ const path = require('path');
 
 const express              = require('express');
 const router               = express.Router();
-const orchestratorPrincipal = require('../services/orchestrators/orchestratorPrincipal');  // ⭐ v10
-const queueService         = require('../services/flux/queueService');                      // ⭐ v10
-const airtableService      = require('../services/infrastructure/airtableService');         // ⭐ v10
-const backupService        = require('../services/infrastructure/backupService');           // ⭐ v10
-const tableauT1HtmlService = require('../services/visualisation/tableauT1HtmlService');     // ⭐ v10.2 (Phase HTML-1)
-const tableauT2HtmlService = require('../services/visualisation/tableauT2HtmlService');     // ⭐ v10.5 (Phase HTML-T2-1.0.0)
+const orchestratorPrincipal = require('../services/orchestrators/orchestratorPrincipal');
+const queueService         = require('../services/flux/queueService');
+const airtableService      = require('../services/infrastructure/airtableService');
+const backupService        = require('../services/infrastructure/backupService');
+// ⛔ v10.7 — Le require `tableauT1HtmlService` est SUPPRIMÉ.
+//           La route T1 utilise désormais res.sendFile sur un HTML statique
+//           (modèle étape1.1). Aucun service Node n'est plus nécessaire.
+const tableauT2HtmlService = require('../services/visualisation/tableauT2HtmlService');     // ⭐ v10.5
 // ⭐ Décommenter quand les services T3/T4 seront créés :
 // const tableauT3HtmlService = require('../services/visualisation/tableauT3HtmlService');
 // const tableauT4HtmlService = require('../services/visualisation/tableauT4HtmlService');
@@ -117,22 +132,19 @@ router.get('/status/:session_id', async (req, res) => {
     return res.json({
       session_id,
       statut_test:           visiteur.statut_test,
-      statut_analyse_pivar:  visiteur.statut_analyse_pivar,  // alias rétrocompat (Décision D-B)
+      statut_analyse_pivar:  visiteur.statut_analyse_pivar,
       statut_analyse:        visiteur.statut_analyse_pivar,
       derniere_activite:     visiteur.derniere_activite,
       erreur_analyse:        visiteur.erreur_analyse,
 
-      // ⭐ v10 — Tentatives Mode 4 (Décision n°24)
       nombre_tentatives_etape1: visiteur.nombre_tentatives_etape1 || 0,
 
-      // ⭐ v10 — Validation humaine (Décision n°16)
       validation_humaine: visiteur.validation_humaine_action ? {
         action: visiteur.validation_humaine_action,
         motif:  visiteur.validation_humaine_motif,
         date:   visiteur.validation_humaine_date
       } : null,
 
-      // ⭐ v10 — Communication candidat (Décision n°33)
       emails_candidat: {
         date_T0:           visiteur.date_T0 || null,
         T0_envoye:         !!visiteur.email_T0_envoye,
@@ -200,7 +212,7 @@ router.post('/api/recover-from-backup/:session_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// POST /api/retry-missing/:session_id — LEGACY v8, retiré en v9 (Décision D-C : gardé en 410)
+// POST /api/retry-missing/:session_id — LEGACY v8, retiré en v9 (gardé en 410)
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.post('/api/retry-missing/:session_id', (req, res) => {
@@ -257,16 +269,10 @@ router.get('/debug/airtable', async (req, res) => {
 // GET /visualiser/etape1/:candidat_id — VISUALISATION ÉTAPE 1.1 ⭐ v10.6
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// ⭐ Phase HTML-Etape11 (v10.6 — 2026-05-07)
-//
 // Architecture à 2 modes (négociation par Accept header) :
-//
 //   1. Si Accept inclut "application/json" → renvoie les lignes RESPONSES
 //      enrichies par l'agent prompt_etape1, au format { rows: [...] }
-//
-//   2. Sinon → sert le HTML statique
-//      services/visualisation/visualisateur_etape1.html
-//      via res.sendFile (natif Express, asynchrone, robuste).
+//   2. Sinon → sert le HTML statique services/visualisation/visualisateur_etape1.html
 
 router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
@@ -281,11 +287,6 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
     );
   }
 
-  // ⭐ v10.6 — Détection multi-critères "veut du JSON" :
-  //   1. Header Accept inclut application/json (fetch avec Accept explicite)
-  //   2. Query param ?format=json (force le JSON depuis l'URL pour debug)
-  //   3. Header Sec-Fetch-Mode === 'cors' (fetch JS depuis page web)
-  // Si aucun critère → on sert le HTML statique (chargement direct navigateur).
   const acceptHeader  = req.headers.accept || '';
   const fetchMode     = req.headers['sec-fetch-mode'] || '';
   const formatParam   = (req.query && req.query.format) || '';
@@ -325,7 +326,6 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
 
   // ─── Mode HTML : sert services/visualisation/visualisateur_etape1.html ────
   logger.info('Visualisation Étape 1.1 — mode HTML', { candidat_id });
-  // __dirname = routes/  →  remonter à la racine puis descendre dans services/visualisation/
   const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visualisateur_etape1.html');
   res.sendFile(htmlPath, function(err) {
     if (err) {
@@ -348,79 +348,131 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/t1/:candidat_id — VISUALISATION HTML T1 INTERNE
+// GET /visualiser/t1/:candidat_id — VISUALISATION HTML T1 ⭐ v10.7
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// ⭐ Phase HTML-1 (v10.2 — 2026-04-29)
-// Génère dynamiquement le tableau T1 d'un candidat à partir d'Airtable.
-// Visualisation interne uniquement — NON destinée au candidat ni au DRH.
+// ⭐ Phase v10.7 (2026-05-20) — Refonte sur modèle étape1.1
 //
-// Usage : https://pivar-analysis-system-bis.onrender.com/visualiser/t1/<candidat_id>
-// Le lien est disponible directement dans Airtable VISITEUR (champ formule
-// `lien_visualiser_t1`).
+// Architecture identique à /visualiser/etape1/ — 2 modes selon Accept header :
 //
-// La page est régénérée à chaque ouverture → toujours à jour avec les
-// dernières corrections du vérificateur (Décision n°38).
+//   1. Si Accept inclut "application/json" → renvoie les lignes ETAPE1_T1
+//      du candidat enrichies des champs RESPONSES de la zone amont
+//      (cog_outils_mobilises, cog_pilier_sortie, cog_gouverne_commentaire
+//      qui ne sont pas recopiés en ETAPE1_T1).
+//
+//   2. Sinon → sert le HTML statique
+//      services/visualisation/tableauT1HtmlService.html
+//      qui fait lui-même un fetch JSON sur la même URL (avec Accept: application/json).
 
 router.get('/visualiser/t1/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   const startTime = Date.now();
 
-  logger.info('Visualisation T1 demandée', { candidat_id, ip: req.ip });
-
-  // Validation basique du format candidat_id
   if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
-    return res.status(400).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Identifiant candidat invalide</h1>
-        <p>Le format attendu est par exemple : <code>pcc_1771077635499_gg1cj7z1q</code></p>
-      </body></html>
-    `);
+    return res.status(400).type('html').send(
+      '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+      '<h1>Identifiant candidat invalide</h1>' +
+      '<p>Format attendu : <code>pcc_1771077635499_gg1cj7z1q</code></p>' +
+      '</body></html>'
+    );
   }
 
-  try {
-    const html = await tableauT1HtmlService.generateTableauT1Html(candidat_id);
-    const elapsed = Date.now() - startTime;
-    logger.info('Visualisation T1 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
+  const acceptHeader  = req.headers.accept || '';
+  const fetchMode     = req.headers['sec-fetch-mode'] || '';
+  const formatParam   = (req.query && req.query.format) || '';
+  const wantsJson =
+    acceptHeader.includes('application/json') ||
+    formatParam === 'json' ||
+    fetchMode === 'cors';
 
-    res.set('Content-Type', 'text/html; charset=utf-8');
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate'); // toujours frais
-    res.send(html);
-  } catch (error) {
-    logger.error('Erreur génération visualisation T1', { candidat_id, error: error.message, stack: error.stack });
-    return res.status(500).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Erreur lors de la génération du tableau T1</h1>
-        <p><strong>Candidat :</strong> ${candidat_id}</p>
-        <p><strong>Erreur :</strong> ${error.message}</p>
-        <p style="color:#888;font-size:11px;">Vérifiez que le candidat existe dans Airtable et qu'il a bien une analyse T1 dans ETAPE1_T1.</p>
-      </body></html>
-    `);
+  // ─── Mode JSON ────────────────────────────────────────────────────────────
+  if (wantsJson) {
+    logger.info('Visualisation T1 — mode JSON', { candidat_id });
+    try {
+      // 1. Lire les lignes ETAPE1_T1
+      const rowsT1 = await airtableService.getEtape1T1(candidat_id);
+      if (!rowsT1 || rowsT1.length === 0) {
+        return res.status(404).json({
+          error: 'Aucune analyse T1 trouvée pour ce candidat',
+          candidat_id: candidat_id
+        });
+      }
+
+      // 2. Lire RESPONSES pour enrichir avec les champs cog_* non recopiés
+      //    en ETAPE1_T1 (cog_outils_mobilises, cog_pilier_sortie,
+      //    cog_gouverne_commentaire). Best-effort : si la lecture RESPONSES
+      //    échoue, on continue avec les données ETAPE1_T1 seules.
+      let responsesMap = {};
+      try {
+        const responses = await airtableService.getResponses(candidat_id);
+        if (responses && responses.length > 0) {
+          for (const r of responses) {
+            if (r.id_question) responsesMap[r.id_question] = r;
+          }
+        }
+      } catch (e) {
+        logger.warn('Visualisation T1 — lecture RESPONSES échouée (continue avec T1 seul)', {
+          candidat_id: candidat_id,
+          error: e.message
+        });
+      }
+
+      // 3. Fusionner ETAPE1_T1 + RESPONSES pour la zone amont
+      const mergedRows = rowsT1.map(t1 => {
+        const resp = responsesMap[t1.id_question] || {};
+        return {
+          ...t1,
+          // Champs RESPONSES non recopiés en ETAPE1_T1 (zone amont étape1.1)
+          cog_outils_mobilises:    t1.cog_outils_mobilises    || resp.cog_outils_mobilises    || '',
+          cog_pilier_sortie:       t1.cog_pilier_sortie       || resp.cog_pilier_sortie       || '',
+          cog_gouverne_commentaire: t1.cog_gouverne_commentaire || resp.cog_gouverne_commentaire || ''
+        };
+      });
+
+      logger.info('Visualisation T1 — JSON renvoyé', {
+        candidat_id: candidat_id,
+        count: mergedRows.length,
+        elapsedMs: Date.now() - startTime
+      });
+      return res.json({ rows: mergedRows });
+    } catch (error) {
+      logger.error('Visualisation T1 — erreur lecture ETAPE1_T1', {
+        candidat_id: candidat_id,
+        error: error.message
+      });
+      return res.status(500).json({
+        error: error.message,
+        candidat_id: candidat_id
+      });
+    }
   }
+
+  // ─── Mode HTML : sert services/visualisation/tableauT1HtmlService.html ────
+  logger.info('Visualisation T1 — mode HTML', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'tableauT1HtmlService.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err) {
+      logger.error('Visualisation T1 — erreur sendFile', {
+        candidat_id: candidat_id,
+        error: err.message,
+        path: htmlPath
+      });
+      if (!res.headersSent) {
+        res.status(500).type('html').send(
+          '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+          '<h1>Erreur de chargement du visualiseur T1</h1>' +
+          '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
+          '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
+          '</body></html>'
+        );
+      }
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /visualiser/t2/:candidat_id — VISUALISATION HTML T2 INTERNE ⭐ v10.5
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ Phase HTML-T2-1.0.0 (v10.5 — 2026-05-06)
-// Génère dynamiquement le tableau T2 (lecture transversale) d'un candidat à
-// partir d'Airtable ETAPE1_T2.
-// Visualisation interne uniquement — NON destinée au candidat ni au DRH.
-//
-// Usage : https://pivar-analysis-system-bis.onrender.com/visualiser/t2/<candidat_id>
-// Le lien est disponible directement dans Airtable VISITEUR (champ formule
-// `lien_visualiser_t2`).
-//
-// Le tableau affiche :
-//   - Bloc synthèse héros : 8 champs identiques sur les 25 lignes (par doctrine
-//     v3.4) — hypothese_pilier_dominant_ecart, confiance_socle_par_ecart,
-//     pourcentage_concentration_ecart, flag_profil_quasi_conforme,
-//     directive_t3, pattern_finalite_pressenti, nb_conformes_total, nb_ecart_total
-//   - Signal transversal candidat (texte invariant)
-//   - Stat pattern pilier (statistiques mécaniques invariantes)
-//   - 25 lignes T2 : ID · Scénario · Demande · Cœur · Conforme/Écart ·
-//     Séquence piliers · Analyse (note OU ecart_action) · Signal limbique · Type
 
 router.get('/visualiser/t2/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
@@ -428,7 +480,6 @@ router.get('/visualiser/t2/:candidat_id', async (req, res) => {
 
   logger.info('Visualisation T2 demandée', { candidat_id, ip: req.ip });
 
-  // Validation basique du format candidat_id
   if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
     return res.status(400).type('html').send(`
       <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
@@ -444,7 +495,7 @@ router.get('/visualiser/t2/:candidat_id', async (req, res) => {
     logger.info('Visualisation T2 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
 
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate'); // toujours frais
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.send(html);
   } catch (error) {
     logger.error('Erreur génération visualisation T2', { candidat_id, error: error.message, stack: error.stack });
@@ -462,49 +513,22 @@ router.get('/visualiser/t2/:candidat_id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /visualiser/t3/:candidat_id — VISUALISATION HTML T3 (PRÉPARÉE — DÉSACTIVÉE)
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// ⏳ Préparée pour Phase HTML-T3 — décommenter quand tableauT3HtmlService
-//    sera créé dans services/visualisation/.
-//
-// Pour activer :
-//   1. Créer services/visualisation/tableauT3HtmlService.js
-//   2. Décommenter le require en haut de ce fichier
-//   3. Décommenter le bloc router.get ci-dessous
-//   4. Créer dans Airtable VISITEUR un champ formule `lien_visualiser_t3` :
-//      IF({candidate_ID}, CONCATENATE("https://pivar-analysis-system-bis.onrender.com/visualiser/t3/", {candidate_ID}), "")
 
 /*
 router.get('/visualiser/t3/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   const startTime = Date.now();
-
   logger.info('Visualisation T3 demandée', { candidat_id, ip: req.ip });
-
   if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
-    return res.status(400).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Identifiant candidat invalide</h1>
-      </body></html>
-    `);
+    return res.status(400).type('html').send('<html><body><h1>⚠ Identifiant candidat invalide</h1></body></html>');
   }
-
   try {
     const html = await tableauT3HtmlService.generateTableauT3Html(candidat_id);
-    const elapsed = Date.now() - startTime;
-    logger.info('Visualisation T3 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
-
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.send(html);
   } catch (error) {
-    logger.error('Erreur génération visualisation T3', { candidat_id, error: error.message, stack: error.stack });
-    return res.status(500).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Erreur lors de la génération du tableau T3</h1>
-        <p><strong>Candidat :</strong> ${candidat_id}</p>
-        <p><strong>Erreur :</strong> ${error.message}</p>
-      </body></html>
-    `);
+    return res.status(500).type('html').send('<html><body><h1>⚠ Erreur T3</h1><p>' + error.message + '</p></body></html>');
   }
 });
 */
@@ -512,46 +536,22 @@ router.get('/visualiser/t3/:candidat_id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /visualiser/t4/:candidat_id — VISUALISATION HTML T4 (PRÉPARÉE — DÉSACTIVÉE)
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// ⏳ Préparée pour Phase HTML-T4 — décommenter quand tableauT4HtmlService
-//    sera créé. T4 est en 6 sous-agents (cf. Décision n°39 — Contrat v1.9
-//    section 16) : la page T4 affichera le bilan synthétique des 6 sorties
-//    + le résultat du certificateur lexique.
-//
-// Pour activer : voir procédure T3 ci-dessus.
 
 /*
 router.get('/visualiser/t4/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   const startTime = Date.now();
-
   logger.info('Visualisation T4 demandée', { candidat_id, ip: req.ip });
-
   if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
-    return res.status(400).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Identifiant candidat invalide</h1>
-      </body></html>
-    `);
+    return res.status(400).type('html').send('<html><body><h1>⚠ Identifiant candidat invalide</h1></body></html>');
   }
-
   try {
     const html = await tableauT4HtmlService.generateTableauT4Html(candidat_id);
-    const elapsed = Date.now() - startTime;
-    logger.info('Visualisation T4 générée', { candidat_id, elapsedMs: elapsed, htmlSize: html.length });
-
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.send(html);
   } catch (error) {
-    logger.error('Erreur génération visualisation T4', { candidat_id, error: error.message, stack: error.stack });
-    return res.status(500).type('html').send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-        <h1>⚠ Erreur lors de la génération du tableau T4</h1>
-        <p><strong>Candidat :</strong> ${candidat_id}</p>
-        <p><strong>Erreur :</strong> ${error.message}</p>
-      </body></html>
-    `);
+    return res.status(500).type('html').send('<html><body><h1>⚠ Erreur T4</h1><p>' + error.message + '</p></body></html>');
   }
 });
 */
