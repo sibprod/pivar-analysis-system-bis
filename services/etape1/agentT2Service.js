@@ -1,5 +1,5 @@
-// services/etape1/agentT3Service.js
-// Agent T3 — Cartographie des circuits cognitifs par pilier
+// services/etape1/agentT2Service.js
+// Agent T2 — Cartographie des circuits cognitifs par pilier
 // Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
