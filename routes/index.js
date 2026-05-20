@@ -58,7 +58,10 @@ const backupService        = require('../services/infrastructure/backupService')
 // ⛔ v10.7 — Le require `tableauT1HtmlService` est SUPPRIMÉ.
 //           La route T1 utilise désormais res.sendFile sur un HTML statique
 //           (modèle étape1.1). Aucun service Node n'est plus nécessaire.
-const tableauT2HtmlService = require('../services/visualisation/tableauT2HtmlService');     // ⭐ v10.5
+// ⛔ v10.7 (20/05) — T2 temporairement désactivé : le fichier
+//                   services/visualisation/tableauT2HtmlService.js est absent
+//                   du repo. À réactiver quand le fichier sera restauré.
+// const tableauT2HtmlService = require('../services/visualisation/tableauT2HtmlService');
 // ⭐ Décommenter quand les services T3/T4 seront créés :
 // const tableauT3HtmlService = require('../services/visualisation/tableauT3HtmlService');
 // const tableauT4HtmlService = require('../services/visualisation/tableauT4HtmlService');
@@ -471,9 +474,11 @@ router.get('/visualiser/t1/:candidat_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/t2/:candidat_id — VISUALISATION HTML T2 INTERNE ⭐ v10.5
+// GET /visualiser/t2/:candidat_id — VISUALISATION HTML T2 INTERNE
+// ⛔ v10.7 — DÉSACTIVÉE temporairement : tableauT2HtmlService.js absent du repo
 // ═══════════════════════════════════════════════════════════════════════════
 
+/*
 router.get('/visualiser/t2/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   const startTime = Date.now();
@@ -509,6 +514,7 @@ router.get('/visualiser/t2/:candidat_id', async (req, res) => {
     `);
   }
 });
+*/
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /visualiser/t3/:candidat_id — VISUALISATION HTML T3 (PRÉPARÉE — DÉSACTIVÉE)
