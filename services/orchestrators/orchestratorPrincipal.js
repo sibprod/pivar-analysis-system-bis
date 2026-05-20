@@ -1,6 +1,12 @@
 // services/orchestrators/orchestratorPrincipal.js
 // Orchestrateur Principal — Profil-Cognitif
 //
+// ARCHITECTURE v10.7 (3 étapes — après suppression T2 historique et renumérotation) :
+//   étape 1.1 (lecture cognitive amont) → orchestratorPromptEtape1
+//   étape 1   (T1 — analyse 25 lignes)  → orchestratorEtape1
+//   étape 2   (ex-T3 — circuits)         → orchestratorEtape1 (en attente refonte)
+//   étape 3   (ex-T4 — synthèse)         → orchestratorEtape1 (en attente refonte)
+//
 // Point d'entrée unique du pipeline d'analyse pour un candidat.
 // Lit le statut dans VISITEUR et aiguille vers le bon sous-orchestrateur.
 //
@@ -10,14 +16,13 @@
 //   - NOUVEAU                       → orchestratorPromptEtape1
 //   - REPRENDRE_PROMPT_ETAPE1       → orchestratorPromptEtape1
 //
-//   ─── Étape 1 (T1 → T2 → T3 → T4) ─────────────────────────────────────
+//   ─── Étape 1 et suivantes ────────────────────────────────────────────
 //   - REPRENDRE_AGENT1              → orchestratorEtape1 (mode PIPELINE_COMPLET)
 //   - en_cours                      → orchestratorEtape1 (cas marginal)
 //   - REPRENDRE_T1_<X>_SEUL  (5)    → orchestratorEtape1 (mode SCENARIO_ISOLÉ)
 //   - REPRENDRE_T1_DES_<X>   (5)    → orchestratorEtape1 (mode SCENARIO_CASCADE)
-//   - REPRENDRE_AGENT2              → orchestratorEtape1 (mode AGENT2_SEUL)
-//   - REPRENDRE_AGENT3              → orchestratorEtape1 (mode AGENT3_SEUL)
-//   - REPRENDRE_AGENT4              → orchestratorEtape1 (mode AGENT4_SEUL)
+//   - REPRENDRE_AGENT2              → orchestratorEtape1 (mode AGENT2_SEUL — étape 2 circuits)
+//   - REPRENDRE_AGENT3              → orchestratorEtape1 (mode AGENT3_SEUL — étape 3 synthèse)
 //
 //   ─── Statuts hors pipeline ───────────────────────────────────────────
 //   - SUSPENDU MANUELLEMENT         → ignoré (pause superviseur)
@@ -162,7 +167,8 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     'REPRENDRE_PROMPT_ETAPE1'
   ];
 
-  // Statuts qui aiguillent vers l'Étape 1 (T1 → T2 → T3 → T4)
+  // Statuts qui aiguillent vers l'orchestrateur Étape 1
+  // (couvre étape 1 T1 + étape 2 circuits + étape 3 synthèse)
   const STATUTS_ETAPE_1 = [
     'REPRENDRE_AGENT1',
     'en_cours',
@@ -177,8 +183,7 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     'REPRENDRE_T1_DES_ANIMAL2',
     'REPRENDRE_T1_DES_PANNE',
     'REPRENDRE_AGENT2',
-    'REPRENDRE_AGENT3',
-    'REPRENDRE_AGENT4'
+    'REPRENDRE_AGENT3'
   ];
 
   if (STATUTS_PROMPT_ETAPE1.includes(statut_actuel)) {
