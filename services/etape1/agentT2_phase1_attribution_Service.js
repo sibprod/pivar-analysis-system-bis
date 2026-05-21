@@ -63,7 +63,7 @@
 
 'use strict';
 
-const agentBase       = require('./agentBase');
+const agentBase       = require('../infrastructure/agentBase');
 const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
