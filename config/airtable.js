@@ -71,10 +71,11 @@ module.exports = {
     ETAPE1_T4_BILAN:     'ETAPE1_T4_BILAN',
 
     // ─── Référentiels stables ──────────────────────────────────────────────
-    REFERENTIEL_LEXIQUE:   'REFERENTIEL_LEXIQUE',
-    REFERENTIEL_PILIERS:   'REFERENTIEL_PILIERS',
-    REFERENTIEL_PROFILS:   'REFERENTIEL_PROFILS',
-    REFERENTIEL_CIRCUITS:  'REFERENTIEL_CIRCUITS'
+    REFERENTIEL_LEXIQUE:           'REFERENTIEL_LEXIQUE',
+    REFERENTIEL_PILIERS:           'REFERENTIEL_PILIERS',
+    REFERENTIEL_PROFILS:           'REFERENTIEL_PROFILS',
+    REFERENTIEL_CIRCUITS:          'REFERENTIEL_CIRCUITS',
+    REFERENTIEL_CIRCUITS_CANDIDATS: 'REFERENTIEL_CIRCUITS_CANDIDATS'  // ⭐ v10.8 (21/05/2026) — table manquante de la config, référencée par airtableService.getCircuitsAdHocByStatut / upsertCircuitAdHoc
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
