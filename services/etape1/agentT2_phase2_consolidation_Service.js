@@ -97,13 +97,13 @@ async function runConsolidation({ candidat_id, session_id = null }) {
   }
 
   // ─── 2. Résoudre session_id depuis T1 si pas fourni ───────────────────
+  // Doctrine projet : session_id == candidat_id (le visiteur a un identifiant
+  // unique partagé entre VISITEUR.candidate_ID et RESPONSES.session_ID).
   if (!session_id) {
-    session_id = lignesT1[0].session_ID || lignesT1[0].session_id || null;
-    if (!session_id) {
-      throw new Error(
-        `Agent consolidation — session_ID introuvable dans T1 pour ${candidat_id}`
-      );
-    }
+    session_id = lignesT1[0].session_ID || lignesT1[0].session_id || candidat_id;
+    logger.info('Agent consolidation — session_id résolu', {
+      candidat_id, session_id, source: lignesT1[0].session_ID ? 'T1' : 'fallback_candidat_id'
+    });
   }
 
   // ─── 3. Lire les infos VISITEUR (civilité + prénom + nom anonymisés) ──
