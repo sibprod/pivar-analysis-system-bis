@@ -117,13 +117,14 @@ async function runAttribution({ candidat_id, session_id = null }) {
   }
 
   // ─── 3. Résoudre session_id depuis T1 si pas fourni ───────────────────
+  // Doctrine projet : session_id == candidat_id (le visiteur a un identifiant
+  // unique partagé entre VISITEUR.candidate_ID et RESPONSES.session_ID).
+  // Donc si le champ n'existe pas dans ETAPE1_T1, on retombe sur candidat_id.
   if (!session_id) {
-    session_id = lignesT1[0].session_ID || lignesT1[0].session_id || null;
-    if (!session_id) {
-      throw new Error(
-        `Agent attribution — session_ID introuvable dans ETAPE1_T1 pour ${candidat_id}.`
-      );
-    }
+    session_id = lignesT1[0].session_ID || lignesT1[0].session_id || candidat_id;
+    logger.info('Agent attribution — session_id résolu', {
+      candidat_id, session_id, source: lignesT1[0].session_ID ? 'T1' : 'fallback_candidat_id'
+    });
   }
 
   // ─── 4. Lire les 25 lignes RESPONSES (pour les 6 champs cog_*) ─────────
