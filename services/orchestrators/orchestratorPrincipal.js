@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur principal — Profil-Cognitif v10.5
+// Orchestrateur principal — Profil-Cognitif v10.6
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
@@ -48,10 +48,11 @@
 
 'use strict';
 
-const airtableService     = require('../infrastructure/airtableService');
-const orchestratorEtape1  = require('./orchestratorEtape1');
-const orchestratorEtape2  = require('./orchestratorEtape2');   // ⭐ v10.7 — étape 2 circuits refondue
-const logger              = require('../../utils/logger');
+const airtableService            = require('../infrastructure/airtableService');
+const orchestratorEtape1         = require('./orchestratorEtape1');
+const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
+const orchestratorEtape2         = require('./orchestratorEtape2');         // ⭐ v10.7 (étape 2 circuits)
+const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POINT D'ENTRÉE — processCandidate
@@ -69,7 +70,7 @@ async function processCandidate(session_id) {
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal v10.5 — processCandidate          ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.6 — processCandidate          ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
@@ -168,10 +169,31 @@ async function processCandidate(session_id) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_actuel }) {
-  // ─── STATUTS ÉTAPE 1 (T1) ────────────────────────────────────────────────
-  // Source primaire : Section 12 du Contrat ETAPE1 v1.9
-  const STATUTS_ETAPE_1 = [
+  // ⭐ v10.6 — Aiguillage vers la pré-étape 1.1 (lecture cognitive)
+  // (Phase ETAPE1.1-1.0.0 — 2026-05-07)
+  //
+  // NOUVEAU et REPRENDRE_PROMPT_ETAPE1 vont vers orchestratorPromptEtape1 :
+  //   - NOUVEAU : nouveau candidat → on commence par la lecture cognitive
+  //     puis bascule auto vers REPRENDRE_AGENT1 (T1 déclenché au pickup suivant)
+  //   - REPRENDRE_PROMPT_ETAPE1 : relance manuelle de la pré-étape seule
+  //     (idempotent — skip les scénarios déjà traités, ne rejoue que ce qu'il faut)
+  const STATUTS_PROMPT_ETAPE1 = [
     'NOUVEAU',
+    'REPRENDRE_PROMPT_ETAPE1'
+  ];
+
+  if (STATUTS_PROMPT_ETAPE1.includes(statut_actuel)) {
+    logger.info('Aiguillage → Prompt Étape 1 (lecture cognitive)', {
+      candidat_id, statut: statut_actuel
+    });
+    return await orchestratorPromptEtape1.run({ candidat_id, visiteur });
+  }
+
+  // Statuts qui aiguillent vers Étape 1 (T1+Vérif)
+  // Source primaire : Section 12 du Contrat ETAPE1 v1.9
+  // ⚠️ NOUVEAU n'est plus dans cette liste depuis v10.6 (va vers orchestratorPromptEtape1)
+  // ⚠️ REPRENDRE_AGENT2 n'est plus dans cette liste depuis v10.7 (va vers orchestratorEtape2 dédié)
+  const STATUTS_ETAPE_1 = [
     'REPRENDRE_AGENT1',
     'REPRENDRE_VERIFICATEUR1',
     'en_cours',
@@ -186,39 +208,38 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     'REPRENDRE_T1_DES_WEEKEND',
     'REPRENDRE_T1_DES_ANIMAL1',
     'REPRENDRE_T1_DES_ANIMAL2',
-    'REPRENDRE_T1_DES_PANNE'
+    'REPRENDRE_T1_DES_PANNE',
+    // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
+    // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT3_SEUL
+    'REPRENDRE_AGENT3',
+    // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
+    // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT4_SEUL
+    'REPRENDRE_AGENT4'
   ];
 
-  // ─── STATUTS ÉTAPE 2 (circuits) ─────────────────────────────────────────
-  // ⭐ v10.7 — Refonte étape 2 (mai 2026) :
-  // L'aiguillage va maintenant vers orchestratorEtape2 (sous-orchestrator dédié),
-  // PLUS vers orchestratorEtape1 comme dans la v10.5. Symétrie avec
-  // orchestratorPromptEtape1 et orchestratorEtape3.
+  if (STATUTS_ETAPE_1.includes(statut_actuel)) {
+    logger.info('Aiguillage → Étape 1', { candidat_id, statut: statut_actuel });
+    return await orchestratorEtape1.run({ candidat_id, visiteur });
+  }
+
+  // ⭐ v10.7 — Étape 2 (circuits) refondue : sous-orchestrateur DÉDIÉ.
+  // Avant v10.7 : REPRENDRE_AGENT2 était dans STATUTS_ETAPE_1 et routait vers
+  //               orchestratorEtape1 qui détectait le mode AGENT2_SEUL.
+  // Depuis v10.7 : REPRENDRE_AGENT2 route vers orchestratorEtape2 (symétrique
+  //                de orchestratorPromptEtape1, dédié à la refonte étape 2).
   const STATUTS_ETAPE_2 = [
     'REPRENDRE_AGENT2'
   ];
-
-  // ─── STATUTS ÉTAPE 3 (synthèse) — en attente refonte ─────────────────────
-  // L'orchestratorEtape3 (ex-orchestratorT3) sera branché après refonte.
-  // const STATUTS_ETAPE_3 = [
-  //   'REPRENDRE_AGENT3'
-  // ];
-
-  // ─── AIGUILLAGE ─────────────────────────────────────────────────────────
-  if (STATUTS_ETAPE_1.includes(statut_actuel)) {
-    logger.info('Aiguillage → Étape 1 (T1)', { candidat_id, statut: statut_actuel });
-    return await orchestratorEtape1.run({ candidat_id, visiteur });
-  }
 
   if (STATUTS_ETAPE_2.includes(statut_actuel)) {
     logger.info('Aiguillage → Étape 2 (circuits)', { candidat_id, statut: statut_actuel });
     return await orchestratorEtape2.run({ candidat_id, visiteur });
   }
 
-  // Étape 3 (synthèse) — à coder après refonte
-  // if (STATUTS_ETAPE_3.includes(statut_actuel)) {
-  //   logger.info('Aiguillage → Étape 3 (synthèse)', { candidat_id, statut: statut_actuel });
-  //   return await orchestratorEtape3.run({ candidat_id, visiteur });
+  // Statut "REPRENDRE_VERIFICATEUR4" → Étape 4 (à coder en Phase ultérieure)
+  // if (statut_actuel === 'REPRENDRE_VERIFICATEUR4') {
+  //   logger.info('Aiguillage → Étape 4', { candidat_id });
+  //   return await orchestratorEtape4.run({ candidat_id, visiteur });
   // }
 
   // Statut inconnu ou non éligible
