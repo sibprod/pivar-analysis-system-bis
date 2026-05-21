@@ -1,64 +1,81 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur Principal — Profil-Cognitif
+// Orchestrateur principal — Profil-Cognitif v10.5
 //
-// ARCHITECTURE v10.7 (3 étapes — après suppression T2 historique et renumérotation) :
-//   étape 1.1 (lecture cognitive amont) → orchestratorPromptEtape1
-//   étape 1   (T1 — analyse 25 lignes)  → orchestratorEtape1
-//   étape 2   (ex-T3 — circuits)         → orchestratorEtape1 (en attente refonte)
-//   étape 3   (ex-T4 — synthèse)         → orchestratorEtape1 (en attente refonte)
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
+//                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
 //
-// Point d'entrée unique du pipeline d'analyse pour un candidat.
-// Lit le statut dans VISITEUR et aiguille vers le bon sous-orchestrateur.
+// Rôle (métaphore "chef de cuisine") :
+//   - Lit le statut du candidat dans VISITEUR
+//   - Aiguille vers le bon sous-orchestrateur selon où le candidat en est dans le pipeline
+//   - Surveille la santé globale (healthcheck préalable, Décision n°23) — squelette pour Phase D-2
+//   - Met à jour le statut final en sortie
 //
-// Aiguillage par statut :
-//
-//   ─── Pré-étape (lecture cognitive amont) ─────────────────────────────
-//   - NOUVEAU                       → orchestratorPromptEtape1
-//   - REPRENDRE_PROMPT_ETAPE1       → orchestratorPromptEtape1
-//
-//   ─── Étape 1 et suivantes ────────────────────────────────────────────
-//   - REPRENDRE_AGENT1              → orchestratorEtape1 (mode PIPELINE_COMPLET)
-//   - en_cours                      → orchestratorEtape1 (cas marginal)
-//   - REPRENDRE_T1_<X>_SEUL  (5)    → orchestratorEtape1 (mode SCENARIO_ISOLÉ)
-//   - REPRENDRE_T1_DES_<X>   (5)    → orchestratorEtape1 (mode SCENARIO_CASCADE)
-//   - REPRENDRE_AGENT2              → orchestratorEtape1 (mode AGENT2_SEUL — étape 2 circuits)
-//   - REPRENDRE_AGENT3              → orchestratorEtape1 (mode AGENT3_SEUL — étape 3 synthèse)
-//
+// Aiguillage par statut (Section 12 du Contrat ETAPE1 v1.9) :
+//   ─── Étape 1 ────────────────────────────────────────────────────────
+//   - NOUVEAU                       → Étape 1 mode PIPELINE_COMPLET
+//   - REPRENDRE_AGENT1              → Étape 1 mode PIPELINE_COMPLET (synonyme de REPRENDRE_T1_DES_SOMMEIL)
+//   - REPRENDRE_VERIFICATEUR1       → Étape 1 mode VÉRIFICATEUR_SEUL
+//   - en_cours                      → Étape 1 (cas marginal, typiquement après ACCEPTER_TEL_QUEL)
+//   - REPRENDRE_T1_<X>_SEUL  (5)    → Étape 1 mode SCENARIO_ISOLÉ      ⭐ v10.2b
+//   - REPRENDRE_T1_DES_<X>   (5)    → Étape 1 mode SCENARIO_CASCADE    ⭐ v10.2b
+//   ─── Étapes ultérieures (à coder) ────────────────────────────────────
+//   - REPRENDRE_AGENT2              → Étape 2 (à coder)
+//   - REPRENDRE_AGENT3              → Étape 3 (à coder)
+//   - REPRENDRE_AGENT4              → Étape 4 (à coder)
+//   - REPRENDRE_VERIFICATEUR4       → Étape 4 (à coder)
 //   ─── Statuts hors pipeline ───────────────────────────────────────────
-//   - SUSPENDU MANUELLEMENT         → ignoré (pause superviseur)
-//   - EN_ATTENTE_VALIDATION_HUMAINE → ignoré (attente diagnostic)
+//   - SUSPENDU MANUELLEMENT         → ignoré par l'orchestrateur (pause superviseur)
+//   - EN_ATTENTE_VALIDATION_HUMAINE → ignoré (Mode 4 vérificateur, attente diagnostic)
 //   - terminé                       → ignoré (pipeline complet réussi)
 //   - ERREUR                        → ignoré (reprise manuelle nécessaire)
+//
+// PHASE D (2026-04-28) — v10 :
+//   - Fichier NOUVEAU : extrait du monolithe orchestratorService.js (Décision n°26)
+//   - Aiguillage par statut implémenté
+//   - Healthcheck préalable : squelette (sera enrichi en Phase D-2 avec healthcheckService)
+//
+// PHASE v10.2b (2026-05-03) — relances par scénario (Décision n°42) :
+//   - STATUTS_ETAPE_1 élargi : +5 statuts _SEUL +5 statuts _DES_
+//   - Le retour { success: false, stopReason: 'scenario_*_done' } est traité comme
+//     un arrêt volontaire (le statut REPRENDRE_VERIFICATEUR1 posé par
+//     orchestratorEtape1 est préservé, le polling reprend au cycle suivant)
+//
+// PHASE v10.3 (2026-05-04) — alignement v1.9 :
+//   - Mise à jour références v1.8 → v1.9
+//   - Aucun changement fonctionnel : la liste STATUTS_ETAPE_1 est déjà alignée
+//     sur la Décision n°42 et le statut SUSPENDU MANUELLEMENT est correctement
+//     ignoré (rejeté par aiguillerVersSousOrchestrateur, ce qui le préserve en pause).
 
 'use strict';
 
-const airtableService             = require('../infrastructure/airtableService');
-const orchestratorPromptEtape1    = require('./orchestratorPromptEtape1');
-const orchestratorEtape1          = require('./orchestratorEtape1');
-const logger                      = require('../../utils/logger');
+const airtableService     = require('../infrastructure/airtableService');
+const orchestratorEtape1  = require('./orchestratorEtape1');
+const orchestratorEtape2  = require('./orchestratorEtape2');   // ⭐ v10.7 — étape 2 circuits refondue
+const logger              = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POINT D'ENTRÉE — processCandidate
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Point d'entrée unique pour traiter un candidat.
+ * Point d'entrée unique pour traiter un candidat
+ * Signature compatible avec l'ancien orchestrateur v9 (utilisé par routes/index.js et queueService.js)
  *
  * @param {string} session_id - Identifiant du candidat (= candidate_ID dans VISITEUR)
  * @returns {Promise<Object>} { success, candidat_id, totalCostUsd, totalElapsedMs, ... }
  */
 async function processCandidate(session_id) {
-  const candidat_id = session_id;
+  const candidat_id = session_id;  // uniformisation v9 (D7 actée)
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal — processCandidate                ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.5 — processCandidate          ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
 
   try {
-    // ─── 1. Lecture VISITEUR ────────────────────────────────────────────────
+    // ─── 1. Lecture VISITEUR & vérifications préalables ────────────────────
     visiteur = await airtableService.getVisiteur(candidat_id);
     if (!visiteur) {
       throw new Error(`Visiteur ${candidat_id} not found in Airtable`);
@@ -72,84 +89,74 @@ async function processCandidate(session_id) {
       tentatives_etape1:    visiteur.nombre_tentatives_etape1 || 0
     });
 
-    // ─── 2. Marquer en cours ────────────────────────────────────────────────
+    // ─── 2. Healthcheck préalable (Décision n°23) ───────────────────────────
+    // Squelette pour Phase D-2 : sera implémenté avec healthcheckService.js
+    // Pour l'instant, on log juste l'intention.
+    logger.debug('Healthcheck préalable — squelette (à implémenter Phase D-2)', { candidat_id });
+    // const healthOk = await healthcheckService.checkAllServices();
+    // if (!healthOk.allOk) { return { success: false, reason: 'services_externes_down' }; }
+
+    // ─── 3. Marquer en cours ─────────────────────────────────────────────────
     await airtableService.updateVisiteur(candidat_id, {
       statut_analyse_pivar: 'en_cours',
       erreur_analyse:       '',
       derniere_activite:    new Date().toISOString()
     });
 
-    // ─── 3. Aiguillage selon le statut ──────────────────────────────────────
+    // ─── 4. Aiguillage selon le statut ─────────────────────────────────────
     const result = await aiguillerVersSousOrchestrateur({
       candidat_id,
       visiteur,
       statut_actuel
     });
 
-    // ─── 4. Statut final ────────────────────────────────────────────────────
+    // ─── 5. Statut final ─────────────────────────────────────────────────────
     const totalElapsedMs = Date.now() - startTime;
 
     if (result?.success) {
-      // Pipeline réussi → terminé (sauf si le sous-orchestrateur a déjà mis un statut)
-      if (!result.nextStatus) {
-        await airtableService.updateVisiteur(candidat_id, {
-          statut_analyse_pivar: 'terminé',
-          erreur_analyse:       '',
-          derniere_activite:    new Date().toISOString()
-        });
-      }
-
-      logger.info('🎉 Pipeline terminé', {
-        candidat_id,
-        totalElapsedMs,
-        totalCostUsd: result.totalCostUsd?.toFixed(4) || '0',
-        finalStatus:  result.nextStatus || 'terminé'
+      // Pipeline réussi → terminé
+      await airtableService.updateVisiteur(candidat_id, {
+        statut_analyse_pivar: 'terminé',
+        erreur_analyse:       '',
+        derniere_activite:    new Date().toISOString()
       });
 
-      return {
-        success: true,
+      logger.info('🎉 Pipeline complet terminé', {
         candidat_id,
         totalElapsedMs,
-        totalCostUsd: result.totalCostUsd || 0,
-        ...result
-      };
-    } else {
-      // Sous-orchestrateur a renvoyé success=false (cas particulier, statut déjà géré)
-      logger.info('Sous-orchestrateur a renvoyé success=false (statut géré par le sous-orchestrateur)', {
+        totalElapsedSec: (totalElapsedMs / 1000).toFixed(1)
+      });
+    } else if (result?.stopReason) {
+      // Pipeline arrêté volontairement (Mode 3, Mode 4 du vérificateur, ou SCENARIO_*_done v10.2b)
+      // Le statut a déjà été mis à jour par le sous-orchestrateur — ne rien écraser ici
+      logger.info('Pipeline arrêté avec raison', {
         candidat_id,
-        stopReason: result?.stopReason || 'unknown',
+        stopReason: result.stopReason,
         totalElapsedMs
       });
-
-      return {
-        success: false,
-        candidat_id,
-        totalElapsedMs,
-        ...result
-      };
     }
 
-  } catch (error) {
-    const totalElapsedMs = Date.now() - startTime;
+    return {
+      ...result,
+      totalElapsedMs
+    };
 
+  } catch (error) {
+    // Gestion erreur — statut ERREUR
     logger.error('Pipeline failed dans orchestratorPrincipal', {
       candidat_id,
       error: error.message,
       stack: error.stack?.substring(0, 500)
     });
 
-    // Marquer en erreur dans Airtable
     try {
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ERREUR',
-        erreur_analyse:       error.message?.substring(0, 500) || 'unknown error',
+        erreur_analyse:       (error.message || '').substring(0, 1000),
         derniere_activite:    new Date().toISOString()
       });
-    } catch (updateErr) {
-      logger.error('Failed to update visiteur status to ERREUR', {
-        candidat_id,
-        error: updateErr.message
-      });
+    } catch (e) {
+      logger.error('Failed to update VISITEUR error status', { candidat_id, error: e.message });
     }
 
     throw error;
@@ -157,44 +164,62 @@ async function processCandidate(session_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AIGUILLAGE PAR STATUT
+// AIGUILLAGE SELON LE STATUT DU CANDIDAT
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_actuel }) {
-  // Statuts qui aiguillent vers la pré-étape (lecture cognitive amont)
-  const STATUTS_PROMPT_ETAPE1 = [
-    'NOUVEAU',
-    'REPRENDRE_PROMPT_ETAPE1'
-  ];
-
-  // Statuts qui aiguillent vers l'orchestrateur Étape 1
-  // (couvre étape 1 T1 + étape 2 circuits + étape 3 synthèse)
+  // ─── STATUTS ÉTAPE 1 (T1) ────────────────────────────────────────────────
+  // Source primaire : Section 12 du Contrat ETAPE1 v1.9
   const STATUTS_ETAPE_1 = [
+    'NOUVEAU',
     'REPRENDRE_AGENT1',
+    'REPRENDRE_VERIFICATEUR1',
     'en_cours',
+    // ⭐ v10.2b — Famille A : relances isolées (Décision n°42)
     'REPRENDRE_T1_SOMMEIL_SEUL',
     'REPRENDRE_T1_WEEKEND_SEUL',
     'REPRENDRE_T1_ANIMAL1_SEUL',
     'REPRENDRE_T1_ANIMAL2_SEUL',
     'REPRENDRE_T1_PANNE_SEUL',
+    // ⭐ v10.2b — Famille B : relances cascade (Décision n°42)
     'REPRENDRE_T1_DES_SOMMEIL',
     'REPRENDRE_T1_DES_WEEKEND',
     'REPRENDRE_T1_DES_ANIMAL1',
     'REPRENDRE_T1_DES_ANIMAL2',
-    'REPRENDRE_T1_DES_PANNE',
-    'REPRENDRE_AGENT2',
-    'REPRENDRE_AGENT3'
+    'REPRENDRE_T1_DES_PANNE'
   ];
 
-  if (STATUTS_PROMPT_ETAPE1.includes(statut_actuel)) {
-    logger.info('Aiguillage → Pré-étape (lecture cognitive amont)', { candidat_id, statut: statut_actuel });
-    return await orchestratorPromptEtape1.run({ candidat_id, visiteur });
-  }
+  // ─── STATUTS ÉTAPE 2 (circuits) ─────────────────────────────────────────
+  // ⭐ v10.7 — Refonte étape 2 (mai 2026) :
+  // L'aiguillage va maintenant vers orchestratorEtape2 (sous-orchestrator dédié),
+  // PLUS vers orchestratorEtape1 comme dans la v10.5. Symétrie avec
+  // orchestratorPromptEtape1 et orchestratorEtape3.
+  const STATUTS_ETAPE_2 = [
+    'REPRENDRE_AGENT2'
+  ];
 
+  // ─── STATUTS ÉTAPE 3 (synthèse) — en attente refonte ─────────────────────
+  // L'orchestratorEtape3 (ex-orchestratorT3) sera branché après refonte.
+  // const STATUTS_ETAPE_3 = [
+  //   'REPRENDRE_AGENT3'
+  // ];
+
+  // ─── AIGUILLAGE ─────────────────────────────────────────────────────────
   if (STATUTS_ETAPE_1.includes(statut_actuel)) {
-    logger.info('Aiguillage → Étape 1', { candidat_id, statut: statut_actuel });
+    logger.info('Aiguillage → Étape 1 (T1)', { candidat_id, statut: statut_actuel });
     return await orchestratorEtape1.run({ candidat_id, visiteur });
   }
+
+  if (STATUTS_ETAPE_2.includes(statut_actuel)) {
+    logger.info('Aiguillage → Étape 2 (circuits)', { candidat_id, statut: statut_actuel });
+    return await orchestratorEtape2.run({ candidat_id, visiteur });
+  }
+
+  // Étape 3 (synthèse) — à coder après refonte
+  // if (STATUTS_ETAPE_3.includes(statut_actuel)) {
+  //   logger.info('Aiguillage → Étape 3 (synthèse)', { candidat_id, statut: statut_actuel });
+  //   return await orchestratorEtape3.run({ candidat_id, visiteur });
+  // }
 
   // Statut inconnu ou non éligible
   logger.warn('Statut non éligible pour traitement', { candidat_id, statut_actuel });
@@ -202,24 +227,19 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REPRISE APRÈS CRASH — recoverCandidate
+// REPRISE APRÈS CRASH — recoverCandidate (signature compatible v9)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Reprend le traitement d'un candidat après un crash du service.
- * Lit le statut actuel dans VISITEUR et relance le pipeline approprié.
- *
- * @param {string} session_id
- * @returns {Promise<Object>}
- */
 async function recoverCandidate(session_id) {
   const candidat_id = session_id;
-  logger.info('Reprise après crash', { candidat_id });
-  return await processCandidate(candidat_id);
+  logger.info('Recovery requested via orchestratorPrincipal', { candidat_id });
+
+  // Pour la v10, on relance simplement le pipeline (aiguillage par statut fait le travail)
+  // Le statut actuel détermine où on reprend (REPRENDRE_AGENT1, REPRENDRE_VERIFICATEUR1, etc.)
+  return processCandidate(session_id);
 }
 
 module.exports = {
   processCandidate,
-  recoverCandidate,
-  aiguillerVersSousOrchestrateur
+  recoverCandidate
 };
