@@ -1,0 +1,53 @@
+# PROMPT — AGENT T2 PHASE 2 (CONSOLIDATION)
+## Étape 2 · Phase 2 — Consolidation mécanique vers ETAPE1_T2
+## Projet Profil-Cognitif · Version 1.0 — 21/05/2026
+
+---
+
+## ⚠️ PROMPT VIDE — Phase 2 N'APPELLE PAS CLAUDE
+
+La Phase 2 (consolidation) est **purement mécanique**. Tout le traitement
+est fait en Node.js dans `services/etape1/agentT2_phase2_consolidation_Service.js`.
+
+**Aucun appel à Claude.** Aucun prompt nécessaire.
+
+Ce fichier existe uniquement pour la symétrie de nommage avec Phase 1
+(`etape1_t2_phase1_attribution.txt`).
+
+---
+
+## CE QUE FAIT LA PHASE 2
+
+Le service `agentT2_phase2_consolidation_Service.js` :
+
+1. Lit la colonne `types_verbatim_circuits` des 25 lignes ETAPE1_T1
+   (remplie par Phase 1).
+
+2. Parse les attributions geste par geste (regex sur le texte structuré).
+
+3. Consolide mécaniquement par circuit :
+   - Compte les fréquences (FRANCHE + NUANCEE)
+   - Détermine HAUT (≥4) / MOYEN (1-3)
+   - Sépare franches / nuancées
+   - Détecte les clusters par pilier (3 conditions strictes)
+   - Calcule les 12 champs synthétiques par pilier
+   - Rédige `analyse_commentee_pilier` (texte narratif)
+   - Calcule `candidature_socle_*` et `candidature_resistant_*`
+
+4. Écrit ETAPE1_T2 (delete + create atomique).
+
+→ Coût : $0.00
+→ Durée : < 5 secondes
+→ Reproductible à 100% à partir de T1 + REFERENTIEL_CIRCUITS
+
+---
+
+## SI TU MODIFIES LA PHASE 2
+
+Lire :
+- `docs/PLAN_CORRECTION_v10_8.md` (doctrine de la refonte)
+- `services/etape1/agentT2_phase2_consolidation_Service.js` (code source)
+
+Pas de prompt à modifier puisqu'il n'y en a pas.
+
+## FIN
