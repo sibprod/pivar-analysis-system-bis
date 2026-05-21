@@ -253,6 +253,75 @@ async function patchEtape1T1Rows(candidat_id, patchPlan) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ETAPE1_T1 — updateTypesVerbatimCircuits — ⭐ v10.8 (refonte étape 2)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ v10.8 (21/05/2026) — Ajouté pour l'agent d'attribution (Phase 1 de
+// l'étape 2 refondue). Met à jour la colonne types_verbatim_circuits sur les
+// 25 lignes ETAPE1_T1 d'un candidat.
+//
+// Cette colonne contient l'attribution d'un circuit (officiel ou ad hoc)
+// à chaque entrée de types_verbatim. C'est la trace doctrinale qui garantit
+// l'exhaustivité de l'attribution geste par geste.
+//
+// Source primaire du nom de champ :
+//   - Champ Airtable ETAPE1_T1 = 'types_verbatim_circuits' (multilineText)
+//
+// @param {Array<{record_id: string, types_verbatim_circuits: string}>} updates
+// @returns {Promise<{updated: number}>}
+
+async function updateTypesVerbatimCircuits(updates) {
+  if (!updates || updates.length === 0) {
+    logger.info('updateTypesVerbatimCircuits — empty updates, nothing to do');
+    return { updated: 0 };
+  }
+
+  try {
+    const tableName = airtableConfig.TABLES.ETAPE1_T1;
+    const BATCH_SIZE = 10;
+
+    // Validation : chaque update doit avoir record_id et types_verbatim_circuits
+    for (const u of updates) {
+      if (!u.record_id) {
+        throw new Error('updateTypesVerbatimCircuits — record_id manquant');
+      }
+      if (typeof u.types_verbatim_circuits !== 'string') {
+        throw new Error(
+          `updateTypesVerbatimCircuits — types_verbatim_circuits non-string pour ${u.record_id}`
+        );
+      }
+    }
+
+    const records = updates.map(u => ({
+      id:     u.record_id,
+      fields: cleanFields({
+        types_verbatim_circuits: u.types_verbatim_circuits
+      })
+    }));
+
+    let totalUpdated = 0;
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      await getBase()(tableName).update(batch, { typecast: true });
+      totalUpdated += batch.length;
+      if (i + BATCH_SIZE < records.length) await sleep(200);
+    }
+
+    logger.info('ETAPE1_T1 types_verbatim_circuits updated', {
+      lignes_updated: totalUpdated
+    });
+
+    return { updated: totalUpdated };
+  } catch (error) {
+    logger.error('Failed to update types_verbatim_circuits', {
+      error:        error.message,
+      updates_size: updates.length
+    });
+    throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ETAPE1_T1 — ⭐ v10.2b (Décision n°42 — relances par scénario)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1381,6 +1450,7 @@ module.exports = {
   getEtape1T1,
   writeEtape1T1,
   patchEtape1T1Rows,
+  updateTypesVerbatimCircuits, // ⭐ v10.8 (refonte étape 2 phase 1 - attribution)
   deleteEtape1T1Scenario,   // ⭐ v10.2b (Décision n°42)
   writeEtape1T1Scenario,    // ⭐ v10.2b (Décision n°42)
 
