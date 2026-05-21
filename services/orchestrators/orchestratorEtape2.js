@@ -177,7 +177,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     try {
       attributionResult = await agentT2_phase1_attribution_Service.runAttribution({
         candidat_id,
-        session_id: session_id || null
+        session_id: session_id || candidat_id
       });
     } catch (err) {
       logger.error('Pipeline Étape 2 — PHASE 1 (attribution) failed', {
@@ -325,7 +325,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   try {
     consolidationResult = await agentT2_phase2_consolidation_Service.runConsolidation({
       candidat_id,
-      session_id: session_id || null
+      session_id: session_id || candidat_id
     });
   } catch (err) {
     logger.error('Pipeline Étape 2 — PHASE 2 (consolidation) failed', {
