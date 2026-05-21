@@ -232,13 +232,17 @@ async function runAgentT2({ candidat_id, session_id = null }) {
   // ─── 13. Stats finales ────────────────────────────────────────────────
   const totalMs = Date.now() - startTime;
   const stats = {
-    nb_rows_ecrites:           normalizedRows.length,
-    nb_circuits_ad_hoc_nouveaux: adHocStats.crees,
-    nb_circuits_ad_hoc_existants_incremente: adHocStats.incrementes,
-    nb_promotions_signalees:   adHocStats.promotions_signalees,
-    elapsed_call_ms:           callMs,
-    elapsed_total_ms:          totalMs,
-    cost_usd:                  cost
+    nb_rows_ecrites:                         normalizedRows.length,
+    nb_circuits_ad_hoc_nouveaux:             adHocStats.crees,
+    nb_circuits_ad_hoc_increment_principal:  adHocStats.incrementes_principal,
+    nb_circuits_ad_hoc_increment_autres:     adHocStats.incrementes_autres,
+    nb_circuits_ad_hoc_skipped:              adHocStats.skipped,
+    nb_promotions_auto:                      adHocStats.promotions_auto,
+    nb_flags_arbitrage:                      adHocStats.flags_arbitrage,
+    nb_erreurs_ad_hoc:                       adHocStats.erreurs,
+    elapsed_call_ms:                         callMs,
+    elapsed_total_ms:                        totalMs,
+    cost_usd:                                cost
   };
 
   logger.info('Agent étape 2 (circuits) completed', { candidat_id, ...stats });
@@ -319,14 +323,17 @@ function buildPayload({
   }));
 
   // ─── Circuits ad hoc existants groupés par pilier (anti-doublons) ────
+  // Nouveau schéma 21/05/2026 : pilier_principal + geste_propose +
+  // occurrences_pilier_principal/autres_piliers
   const circuits_ad_hoc_existants = { P1: [], P2: [], P3: [], P4: [], P5: [] };
   for (const ad of (adHocExistants || [])) {
-    const pilier = extractLookup(ad.pilier_propose);
+    const pilier = extractLookup(ad.pilier_principal);
     if (pilier && circuits_ad_hoc_existants[pilier]) {
       circuits_ad_hoc_existants[pilier].push({
-        nom_propose:        ad.nom_propose,
-        description_courte: ad.description_courte || null,
-        occurrences:        ad.occurrences || 1
+        nom_propose:                  ad.nom_propose,
+        geste_propose:                ad.geste_propose || null,
+        occurrences_pilier_principal: ad.occurrences_pilier_principal || 0,
+        occurrences_autres_piliers:   ad.occurrences_autres_piliers   || 0
       });
     }
   }
@@ -602,21 +609,37 @@ function numOrNull(v) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Pour chaque circuit ad hoc proposé par l'agent :
- *   - Si un ad hoc EN_ATTENTE avec le même nom_propose existe déjà → upsert
- *     (incrément occurrences + ajout candidat_id dans candidats_concernes)
- *   - Sinon → création d'un nouveau record EN_ATTENTE
+ * Pour chaque circuit ad hoc proposé par l'agent étape 2 (PASSE 5) :
+ *   - Si nom_propose existe déjà → upsert (incrément le bon compteur :
+ *     pilier_principal si même pilier, sinon autres_piliers)
+ *   - Sinon → création EN_ATTENTE
  *
- * En sortie, signale les ad hoc qui atteignent le seuil de promotion (3 dans
- * le même pilier, ou 5 multi-piliers). Ces signaux sont loggés mais
- * l'arbitrage reste manuel (CTO décide dans Airtable).
+ * La fonction airtableService.upsertCircuitAdHoc gère elle-même la doctrine
+ * de promotion :
+ *   - Cas A : occurrences_pilier_principal ≥ 3 → bascule statut PROMU_AUTO
+ *   - Cas B : total ≥ 5 multi-piliers → flag log pour arbitrage CTO manuel
+ *
+ * Cette fonction ne fait que router et agréger les stats.
+ *
+ * Le prompt agent émet pour chaque ad hoc :
+ *   - nom_propose                  (obligatoire)
+ *   - pilier_propose               (obligatoire, P1..P5 : pilier du geste
+ *                                    chez CE candidat — devient
+ *                                    pilier_principal à la création)
+ *   - geste_propose                (description doctrinale du geste)
+ *   - verbatim_source              (verbatim qui a justifié la création)
+ *   - question_source              (ex "P2Q15 SOMMEIL")
+ *   - circuits_proches_envisages   (pourquoi aucun des 75 ne matche)
  */
 async function processCircuitsAdHoc({ candidat_id, circuitsAdHocProposes }) {
   const stats = {
-    crees:                0,
-    incrementes:          0,
-    promotions_signalees: 0,
-    erreurs:              0
+    crees:                     0,
+    incrementes_principal:     0,
+    incrementes_autres:        0,
+    skipped:                   0,
+    promotions_auto:           0,
+    flags_arbitrage:           0,
+    erreurs:                   0
   };
 
   if (!circuitsAdHocProposes || circuitsAdHocProposes.length === 0) {
@@ -636,40 +659,51 @@ async function processCircuitsAdHoc({ candidat_id, circuitsAdHocProposes }) {
 
       const result = await airtableService.upsertCircuitAdHoc({
         candidat_id,
-        nom_propose:               ad.nom_propose,
-        pilier_propose:            ad.pilier_propose,
-        description_courte:        ad.description_courte || null,
-        geste_decrit:              ad.geste_decrit || null,
-        verbatim_source:           ad.verbatim_source || null,
-        question_source:           ad.question_source || null,
+        nom_propose:                ad.nom_propose,
+        pilier_courant:             ad.pilier_propose,          // → pilier_principal à la création / comparaison à l'incrément
+        geste_propose:              ad.geste_propose || ad.geste_decrit || null,
+        verbatim_source:            ad.verbatim_source || null,
+        question_source:            ad.question_source || null,
         circuits_proches_envisages: ad.circuits_proches_envisages || null
       });
 
-      if (result.action === 'created') {
-        stats.crees++;
-        logger.info('Circuit ad hoc nouveau créé', {
-          candidat_id,
-          nom_propose: ad.nom_propose,
-          pilier:      ad.pilier_propose
-        });
-      } else if (result.action === 'incremented') {
-        stats.incrementes++;
-        logger.info('Circuit ad hoc existant incrémenté', {
-          candidat_id,
-          nom_propose: ad.nom_propose,
-          occurrences: result.occurrences
-        });
-
-        // Signal de promotion (seuil 3 même pilier ou 5 multi-piliers)
-        if (result.occurrences >= PROMOTION_OCCURRENCE_THRESHOLD_SAME_PILLAR) {
-          stats.promotions_signalees++;
-          logger.info('🎯 Circuit ad hoc candidat à la promotion (signal)', {
-            nom_propose: ad.nom_propose,
-            pilier:      ad.pilier_propose,
-            occurrences: result.occurrences,
-            note: `Seuil ${PROMOTION_OCCURRENCE_THRESHOLD_SAME_PILLAR} atteint — arbitrage manuel requis`
+      // Comptage selon l'action
+      switch (result.action) {
+        case 'created':
+          stats.crees++;
+          logger.info('Circuit ad hoc nouveau créé', {
+            candidat_id,
+            nom_propose:      ad.nom_propose,
+            pilier_principal: ad.pilier_propose
           });
-        }
+          break;
+
+        case 'incremented_principal':
+          stats.incrementes_principal++;
+          break;
+
+        case 'incremented_autres':
+          stats.incrementes_autres++;
+          logger.info('Circuit ad hoc apparu dans un autre pilier (transversalité)', {
+            candidat_id,
+            nom_propose:                ad.nom_propose,
+            pilier_courant:             ad.pilier_propose,
+            occurrences_autres_piliers: result.occurrences_autres_piliers
+          });
+          break;
+
+        case 'skipped':
+          stats.skipped++;
+          break;
+      }
+
+      // Promotion / arbitrage
+      if (result.promotion_triggered === 'auto') {
+        stats.promotions_auto++;
+        // Le log warn détaillé est déjà émis par upsertCircuitAdHoc
+      } else if (result.promotion_triggered === 'flag_arbitrage') {
+        stats.flags_arbitrage++;
+        // Idem
       }
     } catch (err) {
       stats.erreurs++;
