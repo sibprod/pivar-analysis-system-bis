@@ -67,7 +67,7 @@ const agentBase       = require('../infrastructure/agentBase');
 const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
-const SERVICE_NAME = 'agent_attribution';
+const SERVICE_NAME = 'agent_t2';  // ⭐ v10.8 — réutilise la clé MAX_TOKENS existante de l'ancien agent T2
 const PROMPT_PATH  = 'etape1/etape1_t2_phase1_attribution.txt';
 
 // Types d'attribution valides
