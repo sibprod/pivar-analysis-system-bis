@@ -19,7 +19,9 @@
 //   - REPRENDRE_T1_<X>_SEUL  (5)    → Étape 1 mode SCENARIO_ISOLÉ      ⭐ v10.2b
 //   - REPRENDRE_T1_DES_<X>   (5)    → Étape 1 mode SCENARIO_CASCADE    ⭐ v10.2b
 //   ─── Étapes ultérieures (à coder) ────────────────────────────────────
-//   - REPRENDRE_AGENT2              → Étape 2 (à coder)
+//   - REPRENDRE_AGENT2              → Étape 2 v10.8 mode COMPLET (Phase 1 + Phase 2)
+//   - REPRENDRE_AGENT2_PHASE1       → Étape 2 v10.8 mode PHASE1_ISOLEE
+//   - REPRENDRE_AGENT2_PHASE2       → Étape 2 v10.8 mode PHASE2_ISOLEE (coût zéro)
 //   - REPRENDRE_AGENT3              → Étape 3 (à coder)
 //   - REPRENDRE_AGENT4              → Étape 4 (à coder)
 //   - REPRENDRE_VERIFICATEUR4       → Étape 4 (à coder)
@@ -50,8 +52,8 @@
 
 const airtableService            = require('../infrastructure/airtableService');
 const orchestratorEtape1         = require('./orchestratorEtape1');
+const orchestratorEtape2         = require('./orchestratorEtape2');  // ⭐ v10.8 (refonte étape 2 en 2 phases)
 const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
-const orchestratorEtape2         = require('./orchestratorEtape2');         // ⭐ v10.7 (étape 2 circuits)
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -189,10 +191,9 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     return await orchestratorPromptEtape1.run({ candidat_id, visiteur });
   }
 
-  // Statuts qui aiguillent vers Étape 1 (T1+Vérif)
-  // Source primaire : Section 12 du Contrat ETAPE1 v1.9
+  // Statuts qui aiguillent vers Étape 1 (T1+Vérif+T2+T3+T4)
+  // Source primaire : Section 12 du Contrat ETAPE1 v1.8
   // ⚠️ NOUVEAU n'est plus dans cette liste depuis v10.6 (va vers orchestratorPromptEtape1)
-  // ⚠️ REPRENDRE_AGENT2 n'est plus dans cette liste depuis v10.7 (va vers orchestratorEtape2 dédié)
   const STATUTS_ETAPE_1 = [
     'REPRENDRE_AGENT1',
     'REPRENDRE_VERIFICATEUR1',
@@ -209,6 +210,9 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     'REPRENDRE_T1_DES_ANIMAL1',
     'REPRENDRE_T1_DES_ANIMAL2',
     'REPRENDRE_T1_DES_PANNE',
+    // ⭐ v10.8 (21/05/2026) — REPRENDRE_AGENT2 retiré d'ici, désormais aiguillé
+    //  vers orchestratorEtape2.run() (refonte étape 2 en 2 phases)
+    //  cf. bloc d'aiguillage spécifique étape 2 ci-dessous.
     // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
     // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT3_SEUL
     'REPRENDRE_AGENT3',
@@ -222,17 +226,18 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     return await orchestratorEtape1.run({ candidat_id, visiteur });
   }
 
-  // ⭐ v10.7 — Étape 2 (circuits) refondue : sous-orchestrateur DÉDIÉ.
-  // Avant v10.7 : REPRENDRE_AGENT2 était dans STATUTS_ETAPE_1 et routait vers
-  //               orchestratorEtape1 qui détectait le mode AGENT2_SEUL.
-  // Depuis v10.7 : REPRENDRE_AGENT2 route vers orchestratorEtape2 (symétrique
-  //                de orchestratorPromptEtape1, dédié à la refonte étape 2).
+  // ─── ⭐ v10.8 — Aiguillage Étape 2 (refonte en 2 phases) ─────────────────
+  // Les 3 statuts ci-dessous sont tous gérés par orchestratorEtape2 qui détecte
+  // automatiquement le mode (COMPLET / PHASE1_ISOLEE / PHASE2_ISOLEE) à partir
+  // du statut entrant via la table STATUT_TO_MODE.
   const STATUTS_ETAPE_2 = [
-    'REPRENDRE_AGENT2'
+    'REPRENDRE_AGENT2',           // Mode COMPLET : Phase 1 + Phase 2 enchaînées
+    'REPRENDRE_AGENT2_PHASE1',    // Mode PHASE1_ISOLEE : attribution seule, statut sentinelle ETAPE2_PHASE1_TERMINEE
+    'REPRENDRE_AGENT2_PHASE2'     // Mode PHASE2_ISOLEE : consolidation seule (coût zéro, pré-requis : types_verbatim_circuits rempli)
   ];
 
   if (STATUTS_ETAPE_2.includes(statut_actuel)) {
-    logger.info('Aiguillage → Étape 2 (circuits)', { candidat_id, statut: statut_actuel });
+    logger.info('Aiguillage → Étape 2 (v10.8 refonte)', { candidat_id, statut: statut_actuel });
     return await orchestratorEtape2.run({ candidat_id, visiteur });
   }
 
