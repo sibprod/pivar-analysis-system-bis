@@ -868,26 +868,58 @@ async function getReferentielCircuits() {
 // REFERENTIEL_CIRCUITS_CANDIDATS — Bac de veille circuits ad hoc (étape 2)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// ⭐ v10.7 (mai 2026) — Table créée le 20/05/2026 pour la mission de veille
-// de l'agent étape 2. Quand l'agent ne trouve aucun circuit officiel dans le
-// pilier annoncé pour décrire un geste, il crée un circuit ad hoc et l'écrit
-// dans cette table en statut EN_ATTENTE pour arbitrage humain (École C —
-// hybride : référentiel officiel stable + bac de veille évolutif).
+// ⭐ v10.7.1 (21/05/2026) — Refonte schéma + logique de promotion automatique
 //
-// Schéma (13 champs) :
-//   - nom_propose                : singleLineText (primary)
-//   - pilier_propose             : singleSelect P1/P2/P3/P4/P5
-//   - description_courte         : multilineText
-//   - geste_decrit               : multilineText
-//   - verbatim_source            : multilineText
-//   - candidat_source            : singleLineText (1er candidat détecté)
-//   - question_source            : singleLineText (ex P2Q15)
-//   - circuits_proches_envisages : multilineText
-//   - occurrences                : number (precision 0)
-//   - candidats_concernes        : multilineText (1 candidat_id par ligne)
-//   - statut                     : singleSelect EN_ATTENTE/VALIDÉ_PROMU/REJETÉ/FUSIONNÉ
-//   - date_premiere_detection    : dateTime (Europe/Paris)
-//   - commentaire_validation     : multilineText (notes CTO)
+// Table créée le 20/05/2026 puis refondue le même soir (tblUDy7QTOzMMkhEK)
+// avec un schéma plus rigoureux distinguant les occurrences dans le pilier
+// principal vs dans d'autres piliers (transversalité).
+//
+// Mission : quand l'agent étape 2 ne trouve aucun circuit officiel pour
+// décrire un geste (PASSE 5), il crée un circuit ad hoc et l'écrit ici en
+// statut EN_ATTENTE. Promotion automatique selon doctrine ci-dessous.
+//
+// ─── SCHÉMA RÉEL (14 champs — confirmé via CSV export 21/05/2026) ─────────
+//   - nom_propose                       : singleLineText (primary)
+//   - pilier_principal                  : singleSelect P1/P2/P3/P4/P5
+//   - geste_propose                     : multilineText
+//   - occurrences_pilier_principal      : number (precision 0)
+//   - occurrences_autres_piliers        : number (precision 0)
+//   - candidats_concernes               : multilineText (1 candidat_id par ligne)
+//   - questions_concernees              : multilineText (1 "PXQYY SCENARIO - candidat_id" par ligne)
+//   - verbatim_source_premier           : multilineText (verbatim du 1er candidat détecté)
+//   - circuits_proches_envisages        : multilineText
+//   - statut                            : singleSelect
+//                                          EN_ATTENTE | PROMU_AUTO | PROMU_MANUEL | REJETE | FUSIONNE
+//   - circuit_officiel_apres_promotion  : singleLineText (ex "P3·C16" si promu)
+//   - date_premiere_detection           : dateTime (Europe/Paris)
+//   - date_derniere_mise_a_jour         : dateTime (Europe/Paris)
+//   - commentaire_validation            : multilineText (notes CTO)
+//
+// ─── DOCTRINE DE PROMOTION (validée 20/05/2026) ───────────────────────────
+//
+//   Cas A — Promotion automatique :
+//     Si occurrences_pilier_principal ≥ PROMOTION_THRESHOLD_SAME_PILLAR (3)
+//     → statut = PROMU_AUTO
+//     → c'est une signature cognitive structurante du pilier principal
+//     → bascule du statut + log. La création effective du record dans
+//       REFERENTIEL_CIRCUITS sous P{X}·C{16+} est faite manuellement par
+//       la CTO (choix du numéro libre + relecture nom officiel).
+//
+//   Cas B — Flag pour arbitrage humain :
+//     Si (occurrences_pilier_principal + occurrences_autres_piliers) ≥
+//        PROMOTION_THRESHOLD_MULTI_PILLAR (5)
+//     ET présent sur ≥ 2 piliers distincts
+//     → reste EN_ATTENTE (pas PROMU_AUTO car ambigu — quel pilier ?)
+//     → log warn pour signaler à la CTO qu'arbitrage manuel requis
+//     → la CTO décide du pilier de rattachement puis bascule manuellement
+//       en PROMU_MANUEL.
+//
+//   Cas C — Sous seuil : statut reste EN_ATTENTE, on attend d'autres
+//   candidats pour mûrir le compteur.
+
+// ─── Seuils doctrinaux de promotion ─────────────────────────────────────
+const PROMOTION_THRESHOLD_SAME_PILLAR  = 3;
+const PROMOTION_THRESHOLD_MULTI_PILLAR = 5;
 
 /**
  * Lit tous les circuits ad hoc filtrés par statut (par défaut EN_ATTENTE).
@@ -896,7 +928,7 @@ async function getReferentielCircuits() {
  * la liste des ad hoc déjà détectés — l'agent réutilise un nom existant si
  * le même geste réapparaît chez un nouveau candidat (anti-doublons).
  *
- * @param {string} statut  EN_ATTENTE | VALIDÉ_PROMU | REJETÉ | FUSIONNÉ
+ * @param {string} statut  EN_ATTENTE | PROMU_AUTO | PROMU_MANUEL | REJETE | FUSIONNE
  * @returns {Promise<Array>}
  */
 async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
@@ -905,27 +937,27 @@ async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
       .select({
         filterByFormula: `{statut} = "${statut}"`,
         sort: [
-          { field: 'pilier_propose', direction: 'asc' },
-          { field: 'occurrences',    direction: 'desc' }
+          { field: 'occurrences_pilier_principal', direction: 'desc' }
         ]
       })
       .all();
 
     const adHocs = records.map(r => ({
-      airtable_id:                r.id,
-      nom_propose:                r.fields.nom_propose,
-      pilier_propose:             extractLookup(r.fields.pilier_propose),
-      description_courte:         r.fields.description_courte || null,
-      geste_decrit:               r.fields.geste_decrit || null,
-      verbatim_source:            r.fields.verbatim_source || null,
-      candidat_source:            r.fields.candidat_source || null,
-      question_source:            r.fields.question_source || null,
-      circuits_proches_envisages: r.fields.circuits_proches_envisages || null,
-      occurrences:                r.fields.occurrences || 1,
-      candidats_concernes:        r.fields.candidats_concernes || '',
-      statut:                     extractLookup(r.fields.statut),
-      date_premiere_detection:    r.fields.date_premiere_detection || null,
-      commentaire_validation:     r.fields.commentaire_validation || null
+      airtable_id:                       r.id,
+      nom_propose:                       r.fields.nom_propose,
+      pilier_principal:                  extractLookup(r.fields.pilier_principal),
+      geste_propose:                     r.fields.geste_propose || null,
+      occurrences_pilier_principal:      r.fields.occurrences_pilier_principal || 0,
+      occurrences_autres_piliers:        r.fields.occurrences_autres_piliers || 0,
+      candidats_concernes:               r.fields.candidats_concernes || '',
+      questions_concernees:              r.fields.questions_concernees || '',
+      verbatim_source_premier:           r.fields.verbatim_source_premier || null,
+      circuits_proches_envisages:        r.fields.circuits_proches_envisages || null,
+      statut:                            extractLookup(r.fields.statut),
+      circuit_officiel_apres_promotion:  r.fields.circuit_officiel_apres_promotion || null,
+      date_premiere_detection:           r.fields.date_premiere_detection || null,
+      date_derniere_mise_a_jour:         r.fields.date_derniere_mise_a_jour || null,
+      commentaire_validation:            r.fields.commentaire_validation || null
     }));
 
     logger.debug('Circuits ad hoc loaded', { statut, count: adHocs.length });
@@ -939,132 +971,246 @@ async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
 }
 
 /**
- * Upsert d'un circuit ad hoc :
- *   - Si un ad hoc existe avec le même (nom_propose, pilier_propose)
- *     → incrémente occurrences ET ajoute candidat_id à candidats_concernes
- *     (si pas déjà présent, sinon no-op).
- *   - Sinon → crée un nouveau record statut=EN_ATTENTE, occurrences=1,
- *     candidats_concernes=candidat_id, date_premiere_detection=now.
+ * Upsert d'un circuit ad hoc avec gestion automatique des compteurs par
+ * pilier (principal vs autres) ET déclenchement automatique de la promotion
+ * si seuils franchis.
  *
- * Match strict, case-sensitive sur le nom (les noms ad hoc sont produits
+ *   - Si un ad hoc avec ce nom_propose existe déjà :
+ *     • Si le pilier_courant == pilier_principal du record
+ *       → occurrences_pilier_principal++
+ *     • Sinon (transversalité)
+ *       → occurrences_autres_piliers++
+ *     • Ajout candidat_id à candidats_concernes (si pas déjà présent)
+ *     • Ajout entrée "PXQYY SCENARIO - candidat_id" à questions_concernees
+ *     • date_derniere_mise_a_jour = now
+ *     • Check promotion (Cas A ou flag Cas B)
+ *
+ *   - Sinon (création) :
+ *     • Crée avec pilier_principal = pilier_courant
+ *     • occurrences_pilier_principal = 1, occurrences_autres_piliers = 0
+ *     • statut = EN_ATTENTE
+ *     • date_premiere_detection = now, date_derniere_mise_a_jour = now
+ *
+ * Match strict, case-sensitive sur nom_propose (les noms ad hoc sont produits
  * par Claude avec une convention stable).
  *
- * @returns {Promise<{action: 'created'|'incremented', airtable_id: string, occurrences: number}>}
+ * @param {Object}   args
+ * @param {string}   args.candidat_id              candidat_id du candidat courant
+ * @param {string}   args.nom_propose              nom du circuit ad hoc
+ * @param {string}   args.pilier_courant           pilier du geste pour CE candidat (P1..P5)
+ * @param {string}  [args.geste_propose]           description doctrinale du geste
+ * @param {string}  [args.verbatim_source]         verbatim qui a justifié la création
+ * @param {string}  [args.question_source]         question_id_protocole + scénario (ex "P2Q15 SOMMEIL")
+ * @param {string}  [args.circuits_proches_envisages]
+ *
+ * @returns {Promise<{
+ *   action: 'created'|'incremented_principal'|'incremented_autres'|'skipped',
+ *   airtable_id: string,
+ *   occurrences_pilier_principal: number,
+ *   occurrences_autres_piliers: number,
+ *   total: number,
+ *   promotion_triggered: 'auto'|'flag_arbitrage'|null
+ * }>}
  */
 async function upsertCircuitAdHoc({
   candidat_id,
   nom_propose,
-  pilier_propose,
-  description_courte = null,
-  geste_decrit = null,
-  verbatim_source = null,
-  question_source = null,
-  circuits_proches_envisages = null
+  pilier_courant,
+  geste_propose                = null,
+  verbatim_source              = null,
+  question_source              = null,
+  circuits_proches_envisages   = null
 }) {
-  if (!candidat_id || !nom_propose || !pilier_propose) {
+  if (!candidat_id || !nom_propose || !pilier_courant) {
     throw new Error(
-      'upsertCircuitAdHoc — candidat_id, nom_propose et pilier_propose sont requis'
+      'upsertCircuitAdHoc — candidat_id, nom_propose et pilier_courant sont requis'
     );
   }
 
+  const nowIso = new Date().toISOString();
+
   try {
-    // ─── 1. Chercher un ad hoc existant (match strict nom + pilier) ─────
-    const safeName   = String(nom_propose).replace(/"/g, '\\"');
-    const safePilier = String(pilier_propose).replace(/"/g, '\\"');
+    // ─── 1. Chercher un ad hoc existant (match strict sur nom_propose) ──
+    const safeName = String(nom_propose).replace(/"/g, '\\"');
 
     const existants = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS)
       .select({
-        filterByFormula:
-          `AND({nom_propose} = "${safeName}", {pilier_propose} = "${safePilier}")`,
+        filterByFormula: `{nom_propose} = "${safeName}"`,
         maxRecords: 1
       })
       .firstPage();
 
     if (existants && existants.length > 0) {
-      // ─── Cas A : Incrémenter occurrences + ajouter candidat ──────────
+      // ─── Cas Incrément ────────────────────────────────────────────────
       const existant = existants[0];
-      const currentOcc = existant.fields.occurrences || 1;
-      const currentCandidats = existant.fields.candidats_concernes || '';
+      const pilierPrincipalRecord = extractLookup(existant.fields.pilier_principal);
 
+      const currentOccPrincipal = existant.fields.occurrences_pilier_principal || 0;
+      const currentOccAutres    = existant.fields.occurrences_autres_piliers   || 0;
+      const currentCandidats    = existant.fields.candidats_concernes || '';
+      const currentQuestions    = existant.fields.questions_concernees || '';
+      const currentStatut       = extractLookup(existant.fields.statut);
+
+      // Si déjà PROMU ou REJETE/FUSIONNE, on n'incrémente plus
+      if (['PROMU_AUTO', 'PROMU_MANUEL', 'REJETE', 'FUSIONNE'].includes(currentStatut)) {
+        logger.debug('Circuit ad hoc déjà finalisé — skip', {
+          nom_propose, statut: currentStatut, candidat_id
+        });
+        return {
+          action:                       'skipped',
+          airtable_id:                  existant.id,
+          occurrences_pilier_principal: currentOccPrincipal,
+          occurrences_autres_piliers:   currentOccAutres,
+          total:                        currentOccPrincipal + currentOccAutres,
+          promotion_triggered:          null
+        };
+      }
+
+      // Liste des candidats déjà connus
       const candidatsList = currentCandidats
         .split('\n')
         .map(s => s.trim())
         .filter(s => s.length > 0);
 
+      // Si même candidat re-soumis sur le même ad hoc, no-op
       if (candidatsList.includes(candidat_id)) {
-        // Re-soumission du même candidat sur le même ad hoc — no-op
         logger.debug('Circuit ad hoc déjà connu pour ce candidat (skip)', {
           nom_propose, candidat_id
         });
         return {
-          action:      'incremented',
-          airtable_id: existant.id,
-          occurrences: currentOcc
+          action:                       'skipped',
+          airtable_id:                  existant.id,
+          occurrences_pilier_principal: currentOccPrincipal,
+          occurrences_autres_piliers:   currentOccAutres,
+          total:                        currentOccPrincipal + currentOccAutres,
+          promotion_triggered:          null
         };
       }
 
+      // Détermine de quel compteur on incrémente
+      const isPilierPrincipal = (pilier_courant === pilierPrincipalRecord);
+      const newOccPrincipal   = isPilierPrincipal ? currentOccPrincipal + 1 : currentOccPrincipal;
+      const newOccAutres      = isPilierPrincipal ? currentOccAutres        : currentOccAutres + 1;
+      const total             = newOccPrincipal + newOccAutres;
+
+      // Mise à jour des listes
       candidatsList.push(candidat_id);
-      const newOcc = currentOcc + 1;
       const newCandidats = candidatsList.join('\n');
 
+      const questionEntry  = `${question_source || '?'} - ${candidat_id}`;
+      const newQuestions   = currentQuestions
+        ? `${currentQuestions}\n${questionEntry}`
+        : questionEntry;
+
+      // ─── Check promotion automatique (Cas A) ────────────────────────
+      let promotionTriggered = null;
+      let newStatut          = currentStatut;
+      let circuitOfficielTag = existant.fields.circuit_officiel_apres_promotion || null;
+
+      if (newOccPrincipal >= PROMOTION_THRESHOLD_SAME_PILLAR) {
+        // Cas A : promotion automatique
+        newStatut = 'PROMU_AUTO';
+        promotionTriggered = 'auto';
+        // circuit_officiel_apres_promotion reste vide — la CTO la remplit
+        // après création manuelle du C16+ dans REFERENTIEL_CIRCUITS
+        logger.warn('🎯 PROMOTION AUTOMATIQUE DÉCLENCHÉE (Cas A : ≥3 même pilier)', {
+          nom_propose,
+          pilier_principal:                  pilierPrincipalRecord,
+          occurrences_pilier_principal:      newOccPrincipal,
+          candidats_concernes_count:         candidatsList.length,
+          action_requise:                    'CTO doit créer le circuit officiel dans REFERENTIEL_CIRCUITS sous P{X}·C{16+}'
+        });
+      } else if (total >= PROMOTION_THRESHOLD_MULTI_PILLAR && newOccAutres > 0) {
+        // Cas B : flag arbitrage manuel (statut reste EN_ATTENTE)
+        promotionTriggered = 'flag_arbitrage';
+        logger.warn('⚠️ ARBITRAGE MANUEL REQUIS (Cas B : ≥5 total multi-piliers)', {
+          nom_propose,
+          pilier_principal:                  pilierPrincipalRecord,
+          occurrences_pilier_principal:      newOccPrincipal,
+          occurrences_autres_piliers:        newOccAutres,
+          total,
+          action_requise:                    'CTO doit décider du pilier de rattachement définitif et basculer manuellement en PROMU_MANUEL'
+        });
+      }
+
+      // Update
+      const updateFields = {
+        occurrences_pilier_principal: newOccPrincipal,
+        occurrences_autres_piliers:   newOccAutres,
+        candidats_concernes:          newCandidats,
+        questions_concernees:         newQuestions,
+        date_derniere_mise_a_jour:    nowIso
+      };
+      if (newStatut !== currentStatut) {
+        updateFields.statut = newStatut;
+      }
+
       await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).update([
-        {
-          id: existant.id,
-          fields: {
-            occurrences:         newOcc,
-            candidats_concernes: newCandidats
-          }
-        }
+        { id: existant.id, fields: updateFields }
       ]);
 
       logger.info('Circuit ad hoc incrémenté', {
-        nom_propose, pilier_propose,
-        new_occurrences: newOcc,
-        candidat_id
+        nom_propose,
+        pilier_courant,
+        pilier_principal_record: pilierPrincipalRecord,
+        incremented:             isPilierPrincipal ? 'pilier_principal' : 'autres_piliers',
+        occurrences_pilier_principal: newOccPrincipal,
+        occurrences_autres_piliers:   newOccAutres,
+        total,
+        candidat_id,
+        statut: newStatut
       });
 
       return {
-        action:      'incremented',
-        airtable_id: existant.id,
-        occurrences: newOcc
+        action:                       isPilierPrincipal ? 'incremented_principal' : 'incremented_autres',
+        airtable_id:                  existant.id,
+        occurrences_pilier_principal: newOccPrincipal,
+        occurrences_autres_piliers:   newOccAutres,
+        total,
+        promotion_triggered:          promotionTriggered
       };
     }
 
-    // ─── Cas B : Créer un nouveau record ────────────────────────────────
+    // ─── Cas Création (aucun record existant) ───────────────────────────
+    const questionEntry = `${question_source || '?'} - ${candidat_id}`;
+
     const created = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).create([
       {
         fields: cleanFields({
           nom_propose,
-          pilier_propose,
-          description_courte,
-          geste_decrit,
-          verbatim_source,
-          candidat_source:         candidat_id,
-          question_source,
+          pilier_principal:              pilier_courant,
+          geste_propose,
+          occurrences_pilier_principal:  1,
+          occurrences_autres_piliers:    0,
+          candidats_concernes:           candidat_id,
+          questions_concernees:          questionEntry,
+          verbatim_source_premier:       verbatim_source,
           circuits_proches_envisages,
-          occurrences:             1,
-          candidats_concernes:     candidat_id,
-          statut:                  'EN_ATTENTE',
-          date_premiere_detection: new Date().toISOString()
+          statut:                        'EN_ATTENTE',
+          date_premiere_detection:       nowIso,
+          date_derniere_mise_a_jour:     nowIso
         })
       }
     ]);
 
     logger.info('Circuit ad hoc créé', {
       nom_propose,
-      pilier_propose,
+      pilier_principal: pilier_courant,
       candidat_id,
       airtable_id: created[0].id
     });
 
     return {
-      action:      'created',
-      airtable_id: created[0].id,
-      occurrences: 1
+      action:                       'created',
+      airtable_id:                  created[0].id,
+      occurrences_pilier_principal: 1,
+      occurrences_autres_piliers:   0,
+      total:                        1,
+      promotion_triggered:          null
     };
   } catch (error) {
     logger.error('Failed to upsert circuit ad hoc', {
-      candidat_id, nom_propose, pilier_propose,
+      candidat_id, nom_propose, pilier_courant,
       error: error.message
     });
     throw error;
@@ -1079,6 +1225,7 @@ function extractLookup(value) {
   if (Array.isArray(value)) return value.length > 0 ? String(value[0]) : null;
   return String(value);
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VISITEUR — getCiviliteCandidat (Décision n°4 : anonymisation absolue)
