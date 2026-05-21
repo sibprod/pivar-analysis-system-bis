@@ -71,11 +71,10 @@ module.exports = {
     ETAPE1_T4_BILAN:     'ETAPE1_T4_BILAN',
 
     // ─── Référentiels stables ──────────────────────────────────────────────
-    REFERENTIEL_LEXIQUE:            'REFERENTIEL_LEXIQUE',
-    REFERENTIEL_PILIERS:            'REFERENTIEL_PILIERS',
-    REFERENTIEL_PROFILS:            'REFERENTIEL_PROFILS',
-    REFERENTIEL_CIRCUITS:           'REFERENTIEL_CIRCUITS',
-    REFERENTIEL_CIRCUITS_CANDIDATS: 'REFERENTIEL_CIRCUITS_CANDIDATS'  // ⭐ v10.7 — bac de veille circuits ad hoc (étape 2)
+    REFERENTIEL_LEXIQUE:   'REFERENTIEL_LEXIQUE',
+    REFERENTIEL_PILIERS:   'REFERENTIEL_PILIERS',
+    REFERENTIEL_PROFILS:   'REFERENTIEL_PROFILS',
+    REFERENTIEL_CIRCUITS:  'REFERENTIEL_CIRCUITS'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -380,6 +379,11 @@ module.exports = {
       'REPRENDRE_AGENT1',                  // Décisions n°16, n°24 — synonyme de REPRENDRE_T1_DES_SOMMEIL
       'REPRENDRE_VERIFICATEUR1',           // Décision n°16
       'REPRENDRE_AGENT2',
+      // ⭐ v10.8 (21/05/2026) — Refonte étape 2 en 2 phases (Phase 1 attribution + Phase 2 consolidation)
+      'REPRENDRE_AGENT2_PHASE1',           // Mode PHASE1_ISOLEE (attribution seule)
+      'REPRENDRE_AGENT2_PHASE2',           // Mode PHASE2_ISOLEE (consolidation seule, coût zéro)
+      'ETAPE2_PHASE1_TERMINEE',            // Sentinelle : Phase 1 OK (avec ou sans Phase 2 KO)
+      'ETAPE2_TERMINEE',                   // Sentinelle : étape 2 complète terminée (tant que étape 3 non prête)
       'REPRENDRE_AGENT3',
       'REPRENDRE_AGENT4',                  // Reprise depuis T4 (4 sous-agents)
       'REPRENDRE_VERIFICATEUR4',           // Reprise depuis T4-Synthèse
