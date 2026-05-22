@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventaire des circuits — Profil-Cognitif</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Variables couleurs piliers (cohérent avec tableau2piliersHtmlService.html)
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --p1c: #185FA5; --p1bg: #E6F1FB; --p1bd: #B5D4F4;
+    --p2c: #534AB7; --p2bg: #EEEDFE; --p2bd: #C9C5F0;
+    --p3c: #993C1D; --p3bg: #FAECE7; --p3bd: #F0C9B8;
+    --p4c: #0F6E56; --p4bg: #E1F5EE; --p4bd: #B0E0CD;
+    --p5c: #993556; --p5bg: #FBEAF0; --p5bd: #EFC4D2;
+
+    --text:  #1a1a1a;
+    --text2: #555;
+    --text3: #888;
+    --bg:    #fafafa;
+    --white: #fff;
+    --border: #ddd;
+    --border-light: #eee;
+    --grey-na: #f0f0f0;
+    --grey-na-text: #bbb;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Reset & base
+     ═══════════════════════════════════════════════════════════════════════ */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    padding: 1.5rem 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.3rem; }
+  .meta { font-size: 12px; color: var(--text2); margin-bottom: 1.5rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Loading & Error states
+     ═══════════════════════════════════════════════════════════════════════ */
+  #loading, #error, #empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 60vh;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text2);
+  }
+  #loading .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--p3c);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #error { color: #993556; }
+  #error .icon { font-size: 32px; }
+  #empty { color: var(--text2); }
+  #empty .icon { font-size: 32px; opacity: 0.5; }
+  #empty .hint {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 8px;
+    text-align: center;
+    max-width: 500px;
+    line-height: 1.6;
+  }
+  code {
+    background: #f0f0f0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "SF Mono", Monaco, "Cascadia Mono", monospace;
+    font-size: 11px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Synthèse globale (bandeau du haut)
+     ═══════════════════════════════════════════════════════════════════════ */
+  .synthese {
+    font-size: 13px;
+    color: var(--text2);
+    background: #f0f0f0;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+  }
+  .synthese .pilier-mention {
+    font-weight: 500;
+    margin: 0 4px;
+  }
+  .synthese .ad-hoc-mention {
+    font-style: italic;
+    color: var(--p5c);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Tableau d'inventaire
+     ═══════════════════════════════════════════════════════════════════════ */
+  .inv-header {
+    margin-top: 1.5rem;
+    padding: 12px 16px;
+    background: #2c2c2a;
+    color: white;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .inv-title { font-size: 15px; font-weight: 600; }
+  .inv-stats { font-size: 12px; opacity: 0.85; }
+
+  table.inv-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    font-size: 12px;
+    table-layout: fixed;
+  }
+  table.inv-table th,
+  table.inv-table td {
+    padding: 7px 10px;
+    text-align: center;
+    vertical-align: middle;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  table.inv-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  table.inv-table th.circuit-label,
+  table.inv-table td.circuit-label {
+    text-align: left;
+    width: 26%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  table.inv-table td.num {
+    font-family: ui-monospace, "SF Mono", Monaco, monospace;
+    font-size: 12px;
+  }
+  table.inv-table td.total {
+    background: #f5f5f5;
+    font-weight: 600;
+  }
+  table.inv-table td.na {
+    background: var(--grey-na);
+    color: var(--grey-na-text);
+  }
+  table.inv-table tr.owner-divider td {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.inv-table tr.adhoc td.circuit-label {
+    font-style: italic;
+  }
+  table.inv-table tr.adhoc .badge-adhoc {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: var(--p5bg);
+    color: var(--p5c);
+    margin-right: 6px;
+    vertical-align: middle;
+    font-style: normal;
+    letter-spacing: 0.3px;
+  }
+  table.inv-table tr.adhoc .ad-hoc-name {
+    font-size: 11px;
+    color: var(--text3);
+    margin-left: 4px;
+  }
+
+  /* Largeurs des colonnes numériques (égales) */
+  table.inv-table th.num,
+  table.inv-table td.num,
+  table.inv-table td.total {
+    width: 10.5%;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Footer
+     ═══════════════════════════════════════════════════════════════════════ */
+  .footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-light);
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div>Chargement de l'inventaire des circuits…</div>
+</div>
+
+<div id="error" style="display:none">
+  <div class="icon">⚠️</div>
+  <div id="error-message">Erreur de chargement</div>
+</div>
+
+<div id="empty" style="display:none">
+  <div class="icon">📋</div>
+  <div>Aucun circuit inventorié pour ce candidat.</div>
+  <div class="hint">
+    La Phase 3 d'enrichissement n'a pas encore été exécutée pour ce candidat.<br>
+    Pour générer ces données, pose le statut <code>REPRENDRE_AGENT2_PHASE3</code>
+    dans la table VISITEUR.
+  </div>
+</div>
+
+<div id="content" style="display:none">
+  <h1>Inventaire des circuits</h1>
+  <p class="meta">
+    Profil-Cognitif · Candidat : <code id="candidat-label">—</code> ·
+    Source : ETAPE1_T2_INVENTAIRE_CIRCUITS · Algorithme A v1.1
+  </p>
+
+  <div id="synthese-bandeau"></div>
+  <div id="tableau-container"></div>
+
+  <div class="footer">
+    <span id="meta-footer"></span>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Constantes couleurs piliers (synchronisé avec :root CSS)
+// ═══════════════════════════════════════════════════════════════════════════
+const PILIER_COLORS = {
+  P1: { c: '#185FA5', bg: '#E6F1FB', bd: '#B5D4F4' },
+  P2: { c: '#534AB7', bg: '#EEEDFE', bd: '#C9C5F0' },
+  P3: { c: '#993C1D', bg: '#FAECE7', bd: '#F0C9B8' },
+  P4: { c: '#0F6E56', bg: '#E1F5EE', bd: '#B0E0CD' },
+  P5: { c: '#993556', bg: '#FBEAF0', bd: '#EFC4D2' }
+};
+
+const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+
+const PILIER_LIBELLES_DEFAUT = {
+  P1: 'Collecte',
+  P2: 'Tri / Organisation',
+  P3: 'Analyse / Diagnostic',
+  P4: 'Création',
+  P5: 'Exécution'
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function extractCandidatIdFromUrl() {
+  const path = window.location.pathname;
+  const m = path.match(/\/visualiser\/tableau2circuits\/([^\/\?]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * Affiche une cellule numérique :
+ *  - "0" comme cellule vide (pas affiché, juste fond léger pour différencier)
+ *  - n > 0 affiché
+ *  - cellule "svc P_X" pour un circuit dont pilier_owner = P_X → "—" gris (NA)
+ */
+function renderCellNum(n, color, isNA) {
+  if (isNA) {
+    return `<td class="num na">—</td>`;
+  }
+  if (!n || n === 0) {
+    return `<td class="num" style="color:${color};opacity:0.3;">·</td>`;
+  }
+  return `<td class="num" style="color:${color};font-weight:600;">${n}</td>`;
+}
+
+/**
+ * Bandeau de synthèse : "P1 : 12 circuits · P2 : 8 · ... · Total : 53 + 3 ad hoc"
+ */
+function renderSynthese(rows) {
+  const compteurs = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
+  let nbAdHoc = 0;
+  for (const r of rows) {
+    if (compteurs[r.pilier_owner] !== undefined) compteurs[r.pilier_owner]++;
+    if (r.circuit_origine === 'AD_HOC') nbAdHoc++;
+  }
+
+  const mentions = PILIERS
+    .filter(P => compteurs[P] > 0)
+    .map(P => {
+      const color = PILIER_COLORS[P].c;
+      return `<span class="pilier-mention" style="color:${color};">${P}</span> : ${compteurs[P]} circuit${compteurs[P] > 1 ? 's' : ''}`;
+    })
+    .join(' · ');
+
+  const totalCircuits = rows.length;
+  const totalActivations = rows.reduce((s, r) => s + (r.total_activations || 0), 0);
+
+  const adhocMention = nbAdHoc > 0
+    ? ` · <span class="ad-hoc-mention">+ ${nbAdHoc} ad hoc</span>`
+    : '';
+
+  return `<div class="synthese">
+    Répartition par pilier owner : ${mentions} ·
+    <strong>${totalCircuits} circuits distincts</strong> (${totalActivations} activations totales)${adhocMention}
+  </div>`;
+}
+
+/**
+ * Une ligne du tableau (1 circuit).
+ */
+function renderRow(row) {
+  const pc = row.pilier_owner;
+  const ownerColor = PILIER_COLORS[pc] || PILIER_COLORS.P3;
+  const isAdHoc = row.circuit_origine === 'AD_HOC';
+
+  // Label du circuit
+  let labelHtml;
+  if (isAdHoc) {
+    const nom = row.nom_ad_hoc || '';
+    labelHtml = `<span class="badge-adhoc">AD HOC</span>${escapeHtml(pc)}<span class="ad-hoc-name">"${escapeHtml(nom)}"</span>`;
+  } else {
+    labelHtml = `<strong>${escapeHtml(row.circuit_label || (pc + (row.circuit_id || '')))}</strong>`;
+  }
+
+  // Cellule "cœur" — toujours affichée avec fond léger du pilier_owner
+  const nbCoeur = row.nb_coeur || 0;
+  const coeurStyle = `background:${ownerColor.bg};color:${ownerColor.c};font-weight:700;`;
+  const coeurHtml = `<td class="num" style="${coeurStyle}">${nbCoeur > 0 ? nbCoeur : '·'}</td>`;
+
+  // Cellules "en svc P1..P5"
+  const svcCells = PILIERS.map(P => {
+    const color = PILIER_COLORS[P].c;
+    const isNA = (P === pc);  // svc P_X = NA pour un circuit dont owner est P_X
+    const n = row['nb_svc_' + P] || 0;
+    return renderCellNum(n, color, isNA);
+  }).join('');
+
+  // Cellule total
+  const total = row.total_activations || 0;
+  const totalHtml = `<td class="num total">${total}</td>`;
+
+  const rowClass = isAdHoc ? 'adhoc' : '';
+
+  return `<tr class="${rowClass}">
+    <td class="circuit-label" style="color:${ownerColor.c};">${labelHtml}</td>
+    ${coeurHtml}
+    ${svcCells}
+    ${totalHtml}
+  </tr>`;
+}
+
+/**
+ * Une section (1 par pilier_owner non vide) : divider + lignes triées par rang_dans_pilier ASC.
+ */
+function renderOwnerSection(pilier_owner, rowsOfOwner) {
+  const colors = PILIER_COLORS[pilier_owner];
+  const libelle = PILIER_LIBELLES_DEFAUT[pilier_owner];
+
+  rowsOfOwner.sort((a, b) => (a.rang_dans_pilier || 99) - (b.rang_dans_pilier || 99));
+
+  const dividerHtml = `<tr class="owner-divider" style="background:${colors.bg};">
+    <td colspan="8" style="color:${colors.c};">
+      Circuits du pilier ${pilier_owner} — ${libelle}
+      <span style="font-weight:400;opacity:0.7;font-size:11px;margin-left:8px;">(${rowsOfOwner.length})</span>
+    </td>
+  </tr>`;
+
+  const lignesHtml = rowsOfOwner.map(renderRow).join('');
+
+  return dividerHtml + lignesHtml;
+}
+
+/**
+ * Tableau complet — toutes les sections + header.
+ */
+function renderTableau(rows) {
+  // Grouper par pilier_owner
+  const groupes = { P1: [], P2: [], P3: [], P4: [], P5: [] };
+  for (const r of rows) {
+    if (groupes[r.pilier_owner]) groupes[r.pilier_owner].push(r);
+  }
+
+  // Construire le HTML — 1 section par pilier_owner non vide, dans l'ordre P1..P5
+  const bodyHtml = PILIERS
+    .filter(P => groupes[P].length > 0)
+    .map(P => renderOwnerSection(P, groupes[P]))
+    .join('');
+
+  return `
+    <div class="inv-header">
+      <span class="inv-title">📋 Inventaire des circuits utilisés</span>
+      <span class="inv-stats">${rows.length} circuits distincts</span>
+    </div>
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th class="circuit-label">Circuit</th>
+          <th class="num">Cœur</th>
+          <th class="num" style="color:${PILIER_COLORS.P1.c};">en svc P1</th>
+          <th class="num" style="color:${PILIER_COLORS.P2.c};">en svc P2</th>
+          <th class="num" style="color:${PILIER_COLORS.P3.c};">en svc P3</th>
+          <th class="num" style="color:${PILIER_COLORS.P4.c};">en svc P4</th>
+          <th class="num" style="color:${PILIER_COLORS.P5.c};">en svc P5</th>
+          <th class="num">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bodyHtml}
+      </tbody>
+    </table>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Point d'entrée — Fetch & render
+// ═══════════════════════════════════════════════════════════════════════════
+(async function init() {
+  const candidat_id = extractCandidatIdFromUrl();
+
+  try {
+    const response = await fetch(window.location.href, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ' — ' + response.statusText);
+    }
+
+    const data = await response.json();
+    const rows = (data && Array.isArray(data.rows)) ? data.rows : [];
+
+    if (rows.length === 0) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('empty').style.display = 'flex';
+      return;
+    }
+
+    document.getElementById('candidat-label').textContent = candidat_id || '?';
+    document.getElementById('synthese-bandeau').innerHTML = renderSynthese(rows);
+    document.getElementById('tableau-container').innerHTML = renderTableau(rows);
+    document.getElementById('meta-footer').textContent =
+      rows.length + ' circuit' + (rows.length > 1 ? 's' : '') + ' · ' +
+      'généré le ' + new Date().toLocaleString('fr-FR');
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+  } catch (err) {
+    console.error('Erreur chargement tableau2circuits :', err);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'flex';
+    document.getElementById('error-message').textContent =
+      'Erreur de chargement : ' + (err.message || 'erreur inconnue');
+  }
+})();
+</script>
+
+</body>
+</html>
