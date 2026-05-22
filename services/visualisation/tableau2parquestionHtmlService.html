@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Détail par question — Profil-Cognitif</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Variables couleurs piliers (cohérent avec tableau2piliers + tableau2circuits)
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --p1c: #185FA5; --p1bg: #E6F1FB; --p1bd: #B5D4F4;
+    --p2c: #534AB7; --p2bg: #EEEDFE; --p2bd: #C9C5F0;
+    --p3c: #993C1D; --p3bg: #FAECE7; --p3bd: #F0C9B8;
+    --p4c: #0F6E56; --p4bg: #E1F5EE; --p4bd: #B0E0CD;
+    --p5c: #993556; --p5bg: #FBEAF0; --p5bd: #EFC4D2;
+
+    --text:  #1a1a1a;
+    --text2: #555;
+    --text3: #888;
+    --bg:    #fafafa;
+    --white: #fff;
+    --border: #ddd;
+    --border-light: #eee;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Reset & base
+     ═══════════════════════════════════════════════════════════════════════ */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    padding: 1.5rem 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.3rem; }
+  .meta { font-size: 12px; color: var(--text2); margin-bottom: 1.5rem; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Loading / Error / Empty states
+     ═══════════════════════════════════════════════════════════════════════ */
+  #loading, #error, #empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 60vh;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text2);
+  }
+  #loading .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--p3c);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #error { color: #993556; }
+  #error .icon { font-size: 32px; }
+  #empty { color: var(--text2); }
+  #empty .icon { font-size: 32px; opacity: 0.5; }
+  #empty .hint {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 8px;
+    text-align: center;
+    max-width: 500px;
+    line-height: 1.6;
+  }
+  code {
+    background: #f0f0f0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "SF Mono", Monaco, "Cascadia Mono", monospace;
+    font-size: 11px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Synthèse globale
+     ═══════════════════════════════════════════════════════════════════════ */
+  .synthese {
+    font-size: 13px;
+    color: var(--text2);
+    background: #f0f0f0;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+  }
+  .synthese .pilier-mention { font-weight: 500; margin: 0 4px; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Section pilier (1 par pilier_coeur observé)
+     ═══════════════════════════════════════════════════════════════════════ */
+  .section-pilier {
+    margin-top: 1.5rem;
+  }
+  .pilier-header {
+    padding: 10px 14px;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    background: var(--bg-pilier);
+    border-left: 4px solid var(--bd-pilier);
+  }
+  .pilier-rang {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    background: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  .pilier-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--c-pilier);
+  }
+  .pilier-stats {
+    font-size: 12px;
+    color: var(--c-pilier);
+    margin-left: auto;
+  }
+  .pilier-stats .stat-num { font-weight: 600; }
+
+  /* Tableau questions */
+  table.questions-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    font-size: 11.5px;
+    table-layout: fixed;
+  }
+  table.questions-table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: #f5f5f5;
+    font-weight: 600;
+    font-size: 10.5px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.questions-table td {
+    padding: 7px 10px;
+    font-size: 11px;
+    vertical-align: top;
+    line-height: 1.5;
+    border-bottom: 0.5px solid var(--border-light);
+    word-break: break-word;
+  }
+  table.questions-table td.q {
+    width: 60px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--c-pilier);
+  }
+  table.questions-table td.nb,
+  table.questions-table th.nb {
+    width: 60px;
+    text-align: center;
+    font-weight: 600;
+  }
+  table.questions-table td.nbtot {
+    background: var(--bg-pilier);
+    color: var(--c-pilier);
+  }
+  table.questions-table td.det-coeur {
+    background: var(--bg-pilier);
+    color: var(--c-pilier);
+  }
+  table.questions-table td.det-instru,
+  table.questions-table td.nb-par {
+    color: var(--text);
+  }
+  table.questions-table td.empty-cell {
+    color: var(--text3);
+    font-style: italic;
+  }
+  table.questions-table td.nb-par {
+    width: 110px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 10.5px;
+  }
+
+  /* Sous-total */
+  table.questions-table tr.subtotal td {
+    font-weight: 600;
+    background: var(--bd-pilier);
+    color: var(--c-pilier);
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Footer
+     ═══════════════════════════════════════════════════════════════════════ */
+  .footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-light);
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div>Chargement du détail par question…</div>
+</div>
+
+<div id="error" style="display:none">
+  <div class="icon">⚠️</div>
+  <div id="error-message">Erreur de chargement</div>
+</div>
+
+<div id="empty" style="display:none">
+  <div class="icon">📋</div>
+  <div>Aucune donnée enrichie pour ce candidat.</div>
+  <div class="hint">
+    La Phase 3 d'enrichissement n'a pas encore écrit les 14 champs dans ETAPE1_T1.<br>
+    Pour générer ces données, lance le statut <code>REPRENDRE_AGENT2</code>
+    ou <code>REPRENDRE_AGENT2_PHASE3</code> dans VISITEUR.
+  </div>
+</div>
+
+<div id="content" style="display:none">
+  <h1>Détail par question</h1>
+  <p class="meta">
+    Profil-Cognitif · Candidat : <code id="candidat-label">—</code> ·
+    Source : ETAPE1_T1 (14 champs Phase 3A) · Algorithme A v1.1
+  </p>
+
+  <div id="synthese-bandeau"></div>
+  <div id="sections-container"></div>
+
+  <div class="footer">
+    <span id="meta-footer"></span>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Constantes couleurs piliers (synchronisé avec :root CSS)
+// ═══════════════════════════════════════════════════════════════════════════
+const PILIER_COLORS = {
+  P1: { c: '#185FA5', bg: '#E6F1FB', bd: '#B5D4F4' },
+  P2: { c: '#534AB7', bg: '#EEEDFE', bd: '#C9C5F0' },
+  P3: { c: '#993C1D', bg: '#FAECE7', bd: '#F0C9B8' },
+  P4: { c: '#0F6E56', bg: '#E1F5EE', bd: '#B0E0CD' },
+  P5: { c: '#993556', bg: '#FBEAF0', bd: '#EFC4D2' }
+};
+
+const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+
+const PILIER_LIBELLES = {
+  P1: 'Collecte',
+  P2: 'Tri / Organisation',
+  P3: 'Analyse / Diagnostic',
+  P4: 'Création',
+  P5: 'Exécution'
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function extractCandidatIdFromUrl() {
+  const path = window.location.pathname;
+  const m = path.match(/\/visualiser\/tableau2parquestion\/([^\/\?]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * Affiche un nombre ou "—" si vide/0.
+ */
+function fmtNum(n) {
+  if (n === null || n === undefined || n === 0 || n === '0') return '·';
+  return String(n);
+}
+
+/**
+ * Affiche un texte de détail ou "—" si vide.
+ */
+function fmtDetail(s) {
+  if (!s || (typeof s === 'string' && s.trim().length === 0)) return '<span class="empty-cell">—</span>';
+  return escapeHtml(s);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Synthèse globale
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderSynthese(rows) {
+  const totalReponses = rows.length;
+  if (totalReponses === 0) return '';
+
+  // Compter les piliers cœur
+  const compteurs = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
+  for (const r of rows) {
+    if (r.pilier_coeur && compteurs[r.pilier_coeur] !== undefined) compteurs[r.pilier_coeur]++;
+  }
+
+  const mentions = PILIERS
+    .filter(P => compteurs[P] > 0)
+    .map(P => {
+      const color = PILIER_COLORS[P].c;
+      const pct = Math.round(100 * compteurs[P] / totalReponses);
+      return `<span class="pilier-mention" style="color:${color};">${P}</span> : ${compteurs[P]} (${pct}%)`;
+    })
+    .join(' · ');
+
+  return `<div class="synthese">
+    Répartition par pilier cœur : ${mentions} ·
+    <strong>${totalReponses} réponses</strong>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Section pilier (1 par pilier_coeur observé)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderSectionPilier(pilier_coeur, lignes, rang) {
+  const colors = PILIER_COLORS[pilier_coeur] || PILIER_COLORS.P3;
+  const libelle = PILIER_LIBELLES[pilier_coeur] || pilier_coeur;
+
+  // Trier par id_question ASC
+  lignes.sort((a, b) => (a.id_question || '').localeCompare(b.id_question || ''));
+
+  // Calculs agrégés pour le sous-total
+  const nbReponses = lignes.length;
+  const totalCoeur = lignes.reduce((sum, l) => sum + (Number(l.nb_activations_coeur) || 0), 0);
+
+  // Total instrumentales = somme de tous les nb_P{N}_instru pour ce pilier_coeur
+  let totalInstru = 0;
+  for (const l of lignes) {
+    for (const P of PILIERS) {
+      if (P === pilier_coeur) continue;
+      totalInstru += (Number(l['nb_' + P + '_instru']) || 0);
+    }
+  }
+
+  // Construire le sous-total agrégé "P1:7/P5:6/P3:1"
+  const aggParPilier = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
+  for (const l of lignes) {
+    for (const P of PILIERS) {
+      if (P === pilier_coeur) continue;
+      aggParPilier[P] += (Number(l['nb_' + P + '_instru']) || 0);
+    }
+  }
+  const aggSorted = PILIERS
+    .filter(P => P !== pilier_coeur && aggParPilier[P] > 0)
+    .sort((a, b) => aggParPilier[b] - aggParPilier[a]);
+  const aggStr = aggSorted.length > 0
+    ? aggSorted.map(P => P + ':' + aggParPilier[P]).join('/')
+    : '—';
+
+  // Construire les lignes du tableau (une par question)
+  const rowsHtml = lignes.map(l => `
+    <tr>
+      <td class="q">${escapeHtml(l.id_question || '?')}</td>
+      <td class="nb nbtot">${fmtNum(l.nb_activations_coeur)}</td>
+      <td class="det-coeur">${fmtDetail(l.detail_circuits_coeur)}</td>
+      <td class="det-instru">${fmtDetail(l.detail_circuits_instrumentaux)}</td>
+      <td class="nb-par">${fmtDetail(l.nb_activations_par_pilier_instrumental)}</td>
+    </tr>
+  `).join('');
+
+  const pct = Math.round(100 * nbReponses / 25);  // 25 questions par candidat dans Sib Prod
+
+  // Variables CSS pour le bloc colorisé
+  const styleVars = `--c-pilier:${colors.c};--bg-pilier:${colors.bg};--bd-pilier:${colors.bd};`;
+
+  return `
+    <div class="section-pilier" style="${styleVars}">
+      <div class="pilier-header">
+        <span class="pilier-rang">#${rang}</span>
+        <span class="pilier-title">${escapeHtml(pilier_coeur)} — ${escapeHtml(libelle)} cœur</span>
+        <span class="pilier-stats">
+          <span class="stat-num">${nbReponses}</span> rép (${pct}%) ·
+          <span class="stat-num">${totalCoeur}</span> activations cœur ·
+          <span class="stat-num">${totalInstru}</span> activations instrumentales
+        </span>
+      </div>
+      <table class="questions-table">
+        <thead>
+          <tr>
+            <th>Q.</th>
+            <th class="nb">Nb cœur</th>
+            <th>Détail circuits cœur</th>
+            <th>Détail circuits instrumentaux</th>
+            <th>Nb par pilier instru.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+          <tr class="subtotal">
+            <td><strong>Sous-total ${escapeHtml(pilier_coeur)}</strong></td>
+            <td class="nb"><strong>${totalCoeur}</strong></td>
+            <td>${nbReponses} réponse${nbReponses > 1 ? 's' : ''}</td>
+            <td>${totalInstru} activations instrumentales</td>
+            <td class="nb-par"><strong>${aggStr}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Point d'entrée — Fetch & render
+// ═══════════════════════════════════════════════════════════════════════════
+(async function init() {
+  const candidat_id = extractCandidatIdFromUrl();
+
+  try {
+    const response = await fetch(window.location.href, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ' — ' + response.statusText);
+    }
+
+    const data = await response.json();
+    const rows = (data && Array.isArray(data.rows)) ? data.rows : [];
+
+    if (rows.length === 0) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('empty').style.display = 'flex';
+      return;
+    }
+
+    // Vérifier si Phase 3A a tourné (présence de nb_activations_coeur dans au moins une ligne)
+    const phase3aFait = rows.some(r =>
+      r.nb_activations_coeur !== null && r.nb_activations_coeur !== undefined
+    );
+    if (!phase3aFait) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('empty').style.display = 'flex';
+      document.getElementById('empty').querySelector('div:nth-child(2)').textContent =
+        'Les 25 lignes T1 existent, mais la Phase 3 d\'enrichissement n\'a pas tourné.';
+      return;
+    }
+
+    // Grouper par pilier_coeur
+    const groupes = { P1: [], P2: [], P3: [], P4: [], P5: [] };
+    for (const r of rows) {
+      if (r.pilier_coeur && groupes[r.pilier_coeur]) {
+        groupes[r.pilier_coeur].push(r);
+      }
+    }
+
+    // Ordonner les sections par rang (nb_reponses DESC, tie-break alpha)
+    const piliersOrdonnes = PILIERS
+      .filter(P => groupes[P].length > 0)
+      .sort((a, b) => {
+        if (groupes[b].length !== groupes[a].length) return groupes[b].length - groupes[a].length;
+        return a.localeCompare(b);
+      });
+
+    // Render
+    document.getElementById('candidat-label').textContent = candidat_id || '?';
+    document.getElementById('synthese-bandeau').innerHTML = renderSynthese(rows);
+    document.getElementById('sections-container').innerHTML = piliersOrdonnes
+      .map((P, idx) => renderSectionPilier(P, groupes[P], idx + 1))
+      .join('');
+    document.getElementById('meta-footer').textContent =
+      rows.length + ' questions · ' +
+      piliersOrdonnes.length + ' pilier' + (piliersOrdonnes.length > 1 ? 's' : '') + ' cœur · ' +
+      'généré le ' + new Date().toLocaleString('fr-FR');
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+  } catch (err) {
+    console.error('Erreur chargement tableau2parquestion :', err);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'flex';
+    document.getElementById('error-message').textContent =
+      'Erreur de chargement : ' + (err.message || 'erreur inconnue');
+  }
+})();
+</script>
+
+</body>
+</html>
