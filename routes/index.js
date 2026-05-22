@@ -17,6 +17,7 @@
 //                                                       (refonte sur modèle étape1.1 — sendFile + mode JSON)
 //   GET  /visualiser/tableau2piliers/:candidat_id    — ⭐ v10.9 — ventilation par pilier cœur (Phase 3 Algorithme A)
 //   GET  /visualiser/tableau2circuits/:candidat_id   — ⭐ v10.9 — inventaire complet des circuits (Phase 3 Algorithme A)
+//   GET  /visualiser/tableau2parquestion/:candidat_id — ⭐ v10.9b — détail par question (lit ETAPE1_T1 14 champs Phase 3A)
 //   GET  /visualiser/t2/:candidat_id                 — visualisation HTML T2 interne ⭐ v10.5
 //   GET  /visualiser/t3/:candidat_id                 — visualisation HTML T3 (préparé, désactivé)
 //   GET  /visualiser/t4/:candidat_id                 — visualisation HTML T4 (préparé, désactivé)
@@ -54,6 +55,15 @@
 //     lecture Airtable directe en mode JSON (helpers getEtape1T2VentilationPiliers
 //     et getEtape1T2InventaireCircuits définis dans airtableService.js v10.9).
 //   - Aucune modification des routes existantes.
+//
+// PHASE v10.9b (2026-05-22 soir) — 3e vue Phase 3 :
+//   - Ajout route /visualiser/tableau2parquestion/:candidat_id
+//     qui lit DIRECTEMENT ETAPE1_T1 (les 14 champs Phase 3A) avec projection
+//     côté serveur (~17 champs utiles sur ~40) pour alléger le JSON.
+//   - Plus proche de la vérité primaire que les vues 1 et 2 (qui lisent les
+//     tables agrégées). Sert d'audit ligne par ligne en parallèle des 2 vues
+//     agrégées.
+//   - Aucune modification des routes existantes ni du pipeline.
 
 'use strict';
 
@@ -621,6 +631,106 @@ router.get('/visualiser/tableau2circuits/:candidat_id', async (req, res) => {
         res.status(500).type('html').send(
           '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
           '<h1>Erreur de chargement du visualiseur tableau2circuits</h1>' +
+          '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
+          '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
+          '</body></html>'
+        );
+      }
+    }
+  });
+});
+
+// ─── Route 3 : Tableau détail par question ──────────────────────────────────
+// ⭐ v10.9b (22/05/2026) — 3e vue de la Phase 3 enrichissement.
+//
+// Différence avec les routes 1 et 2 :
+//   - Routes 1 et 2 lisent les tables agrégées ETAPE1_T2_VENTILATION_PILIERS
+//     et ETAPE1_T2_INVENTAIRE_CIRCUITS (écrites par Phase 3B/3C).
+//   - Route 3 lit DIRECTEMENT ETAPE1_T1 (les 14 champs Phase 3A) — donc
+//     plus proche de la vérité primaire, granularité ligne par ligne.
+//
+// Projection côté serveur : on ne renvoie que les ~17 champs utiles pour
+// alléger le JSON (le record T1 complet contient ~40 champs avec verbatim
+// brut, raisonnement Claude, scoring, etc., dont la vue n'a pas besoin).
+router.get('/visualiser/tableau2parquestion/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send(
+      '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+      '<h1>Identifiant candidat invalide</h1>' +
+      '<p>Format attendu : <code>pcc_1771077635499_gg1cj7z1q</code></p>' +
+      '</body></html>'
+    );
+  }
+
+  const acceptHeader = req.headers.accept || '';
+  const fetchMode    = req.headers['sec-fetch-mode'] || '';
+  const formatParam  = (req.query && req.query.format) || '';
+  const wantsJson =
+    acceptHeader.includes('application/json') ||
+    formatParam === 'json' ||
+    fetchMode === 'cors';
+
+  // ─── Mode JSON ────────────────────────────────────────────────────────────
+  if (wantsJson) {
+    logger.info('Visualisation tableau2parquestion — mode JSON', { candidat_id });
+    try {
+      const rowsT1 = await airtableService.getEtape1T1(candidat_id);
+      if (!rowsT1 || rowsT1.length === 0) {
+        return res.json({ rows: [] });
+      }
+
+      // Projection des champs utiles uniquement (~17 champs sur ~40)
+      // pour alléger le JSON et la bande passante.
+      const projected = rowsT1.map(t1 => ({
+        id_question:   t1.id_question,
+        pilier_coeur:  t1.pilier_coeur,
+        // 4 champs synthèse Phase 3A
+        nb_activations_coeur:                   t1.nb_activations_coeur,
+        detail_circuits_coeur:                  t1.detail_circuits_coeur,
+        detail_circuits_instrumentaux:          t1.detail_circuits_instrumentaux,
+        nb_activations_par_pilier_instrumental: t1.nb_activations_par_pilier_instrumental,
+        // 10 champs décomposés par pilier instrumental
+        nb_P1_instru:     t1.nb_P1_instru,
+        nb_P2_instru:     t1.nb_P2_instru,
+        nb_P3_instru:     t1.nb_P3_instru,
+        nb_P4_instru:     t1.nb_P4_instru,
+        nb_P5_instru:     t1.nb_P5_instru,
+        detail_P1_instru: t1.detail_P1_instru,
+        detail_P2_instru: t1.detail_P2_instru,
+        detail_P3_instru: t1.detail_P3_instru,
+        detail_P4_instru: t1.detail_P4_instru,
+        detail_P5_instru: t1.detail_P5_instru
+      }));
+
+      return res.json({ rows: projected });
+    } catch (error) {
+      logger.error('Visualisation tableau2parquestion — erreur lecture', {
+        candidat_id: candidat_id,
+        error: error.message
+      });
+      return res.status(500).json({
+        error: error.message,
+        candidat_id: candidat_id
+      });
+    }
+  }
+
+  // ─── Mode HTML : sert services/visualisation/tableau2parquestionHtmlService.html ────
+  logger.info('Visualisation tableau2parquestion — mode HTML', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'tableau2parquestionHtmlService.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err) {
+      logger.error('Visualisation tableau2parquestion — erreur sendFile', {
+        candidat_id: candidat_id,
+        error: err.message,
+        path: htmlPath
+      });
+      if (!res.headersSent) {
+        res.status(500).type('html').send(
+          '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+          '<h1>Erreur de chargement du visualiseur tableau2parquestion</h1>' +
           '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
           '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
           '</body></html>'
