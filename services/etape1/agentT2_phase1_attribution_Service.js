@@ -74,8 +74,8 @@ const PROMPT_PATH  = 'etape1/etape1_t2_phase1_attribution.txt';
 
 // ⭐ v11.0 (23/05/2026) — Mapping doctrinal injecté dans le payload
 // Dossier contenant les 5 mappings doctrinaux par pilier (un .md par pilier).
-// Voir doctrine/mappings/mapping_P{1,2,3,4,5}.md
-const MAPPING_DOCTRINAL_DIR = path.join(__dirname, '../../doctrine/mappings');
+// Voir new-prompts/doctrine/mappings/mapping_P{1,2,3,4,5}.md
+const MAPPING_DOCTRINAL_DIR = path.join(__dirname, '../../new-prompts/doctrine/mappings');
 
 // Types d'attribution valides
 const VALID_TYPE_ATTRIBUTION = ['FRANCHE', 'NUANCEE', 'AD_HOC', 'NON_ATTRIBUEE'];
