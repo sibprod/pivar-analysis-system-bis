@@ -1562,7 +1562,7 @@ function _mapByFieldIds(record, fieldsMap) {
 // Delete par formule sur un champ clé arbitraire (T3_PILIER utilise candidate_ID)
 async function _deleteT3ByKeyField(tableName, keyFieldName, candidat_id) {
   const records = await getBase()(tableName)
-    .select({ filterByFormula: `{${keyFieldName}} = "${candidat_id}"`, fields: [] })
+    .select({ filterByFormula: `{${keyFieldName}} = "${candidat_id}"` })
     .all();
   if (records.length === 0) return 0;
   const ids = records.map(r => r.id);
