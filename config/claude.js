@@ -51,6 +51,16 @@ module.exports = {
     agent_t2:                32000,  // ⭐ v10.5 — bumped from 16000 (output 25 lignes JSON + synthese tronquait à 16k)
     agent_t3:                64000,  // 75 lignes pilier × circuit, thinking ON
 
+    // ── Étape 3 — le bilan (v11.0, 28/05/2026) ────────────────────────────
+    // 7 appels segmentés du même prompt etape1_t3bilan.txt :
+    // - Appel 0 (sections globales)   : ~4k output
+    // - Appel 0bis (soleil §02bis)    : ~6k output
+    // - Appels 1-5 (un par pilier)    : pilier socle riche peut dépasser 8k
+    //                                    (12 circuits × verbatims + synthèses + bloc 4)
+    // → 64000 cohérent avec agent_t3 et la richesse du contenu pilier socle.
+    // Pas de thinking : assemblage rédactionnel structuré, pas de raisonnement complexe.
+    agent_t3_bilan:          64000,
+
     // ── Agents T4 (production du bilan) ───────────────────────────────────
     agent_t4_architecture:   64000,
     agent_t4_circuits:       64000,
@@ -83,6 +93,7 @@ module.exports = {
     agent_t1_verificateur:   true,   // ⭐ v10 : vérification doctrinale stricte
     agent_t2:                false,  // pas de thinking requis (redistribution mécanique)
     agent_t3:                true,   // nuances + clusters
+    agent_t3_bilan:          false,  // ⭐ v11.0 — assemblage rédactionnel du bilan, pas de raisonnement complexe
     agent_t4_architecture:   true,
     agent_t4_circuits:       true,
     agent_t4_modes:          true,
