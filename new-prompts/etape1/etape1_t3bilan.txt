@@ -1,4 +1,4 @@
-# PROMPT SYSTÈME — AGENT BILAN PROFIL-COGNITIF
+# PROMPT SYSTÈME — etape 1_t3 : AGENT BILAN PROFIL-COGNITIF
 # Version 5.3 · 27 mai 2026 · Projet Sib Prod
 # v5.3 : 4 nouvelles doctrines :
 #        §2.11 PILIER_MODE — formulation construite à partir des circuits HAUT/MOYEN cœur,
