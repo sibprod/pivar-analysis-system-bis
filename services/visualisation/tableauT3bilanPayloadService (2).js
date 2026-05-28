@@ -1,0 +1,390 @@
+// services/visualisation/tableauT3bilanPayloadService.js
+// Service de VISUALISATION du bilan (étape 3) — assemblage du payload
+// Profil-Cognitif v11.0 (28/05/2026)
+//
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md + le prompt
+//                        new-prompts/etape1/etape1_t3bilan.txt (doctrines D1-D14)
+//
+// ───────────────────────────────────────────────────────────────────────────
+// RÔLE
+// ───────────────────────────────────────────────────────────────────────────
+// Lit les 3 tables T3 d'un candidat (déjà remplies par agentT3BilanService) et
+// assemble l'objet `payload` attendu par le template Handlebars-like
+// services/visualisation/tableauT3bilanService.html (v5.5).
+//
+// Ce service NE génère PAS le bilan (aucun appel Claude). Il transforme les
+// données stockées en la structure de rendu. Il est appelé par la route
+// GET /visualiser/t3_bilan/:candidat_id en mode JSON.
+//
+// Le template attend 2 familles de champs :
+//   - champs plats (filtre_label, pilier_mode, ...) → recopiés depuis Airtable
+//   - champs reconstruits (circuits_groupes, *_html, piliers_dict) → assemblés ici
+//
+// ───────────────────────────────────────────────────────────────────────────
+// DOCTRINES APPLIQUÉES (rappel — le détail est dans le prompt)
+//   D1  : tous les circuits actifs affichés, jamais filtrés
+//   D2  : socle = role_pilier 'socle' (déjà tranché en base, on recopie)
+//   R8  : cluster_label recopié tel quel (jamais réordonné)
+//   §2.12 : tableau récap regroupé HAUT/MOYEN/FAIBLE/instrumental/ADHOC
+//   §2.11 : pilier_mode recopié à l'identique partout (permanence)
+//
+// ───────────────────────────────────────────────────────────────────────────
+
+'use strict';
+
+const airtableService = require('../infrastructure/airtableService');
+const logger          = require('../../utils/logger');
+
+// Ordre canonique des rôles (pour piliers_dict et l'ordre d'affichage)
+const ROLE_ORDER = ['socle', 'structurant_1', 'structurant_2', 'fonctionnel_1', 'fonctionnel_2'];
+
+// Mapping rôle → clé piliers_dict du template
+const ROLE_TO_DICT_KEY = {
+  socle:          'socle',
+  structurant_1:  'str1',
+  structurant_2:  'str2',
+  fonctionnel_1:  'fn1',
+  fonctionnel_2:  'fn2',
+};
+
+// Mapping rôle → classe CSS du template (role-socle, role-str1, ...)
+const ROLE_TO_CLASS = {
+  socle:          'role-socle',
+  structurant_1:  'role-str1',
+  structurant_2:  'role-str2',
+  fonctionnel_1:  'role-fn1',
+  fonctionnel_2:  'role-fn2',
+};
+
+// Mapping rôle → suffixe court (socle, str1, str2, fn1, fn2) pour role_class du template
+const ROLE_TO_SHORT = {
+  socle:          'socle',
+  structurant_1:  'str1',
+  structurant_2:  'str2',
+  fonctionnel_1:  'fn1',
+  fonctionnel_2:  'fn2',
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POINT D'ENTRÉE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Assemble le payload de rendu du bilan pour un candidat.
+ * @param {string} candidat_id
+ * @returns {Promise<Object|null>} payload prêt pour le template, ou null si pas de bilan.
+ */
+async function buildPayload(candidat_id) {
+  logger.info('T3 Visu — assemblage payload', { candidat_id });
+
+  // ─── 1. Lire les 3 tables T3 ───────────────────────────────────────────────
+  const [bilanRow, pilierRows, circuitRows] = await Promise.all([
+    airtableService.getEtape1T3Bilan(candidat_id),
+    airtableService.getEtape1T3Piliers(candidat_id),
+    airtableService.getEtape1T3Circuits(candidat_id),
+  ]);
+
+  if (!bilanRow) {
+    logger.warn('T3 Visu — aucun bilan T3 trouvé', { candidat_id });
+    return null;
+  }
+  if (!pilierRows || pilierRows.length === 0) {
+    logger.warn('T3 Visu — aucun pilier T3 trouvé', { candidat_id });
+    return null;
+  }
+
+  // ─── 2. Indexer les circuits par pilier (code P1..P5) ──────────────────────
+  const circuitsParPilier = {};
+  for (const c of circuitRows || []) {
+    const p = c.pilier;
+    if (!circuitsParPilier[p]) circuitsParPilier[p] = [];
+    circuitsParPilier[p].push(c);
+  }
+
+  // ─── 3. Trier les piliers par rôle (socle → str1 → str2 → fn1 → fn2) ───────
+  const pilierByRole = {};
+  for (const pr of pilierRows) {
+    pilierByRole[pr.role_pilier] = pr;
+  }
+  const pilierOrdered = ROLE_ORDER
+    .map(role => pilierByRole[role])
+    .filter(Boolean);
+
+  // ─── 4. Construire piliers_dict (pour §01 vue globale) ─────────────────────
+  const piliers_dict = {};
+  const totalSorties = pilierOrdered.reduce((s, p) => s + (p.nb_sorties || 0), 0) || 25;
+  for (const pr of pilierOrdered) {
+    const key = ROLE_TO_DICT_KEY[pr.role_pilier];
+    if (!key) continue;
+    const nbSorties = pr.nb_sorties != null ? pr.nb_sorties : 0;
+    piliers_dict[key] = {
+      pilier:          pr.pilier,
+      pilier_label:    pr.pilier_label,
+      pilier_css:      (pr.pilier || '').toLowerCase(),
+      role_situation:  pr.pilier_mode || '',
+      nb_sorties:      nbSorties,
+      nb_sorties_pct:  Math.round((nbSorties / totalSorties) * 100),
+    };
+  }
+
+  // ─── 5. Construire le tableau piliers[] (sections détaillées) ──────────────
+  const piliers = pilierOrdered.map(pr =>
+    buildPilierBlock(pr, circuitsParPilier[pr.pilier] || [])
+  );
+
+  // ─── 6. Socle pour les champs globaux ──────────────────────────────────────
+  const socle = pilierByRole['socle'] || pilierOrdered[0];
+
+  // ─── 7. Assembler le payload final ──────────────────────────────────────────
+  const payload = {
+    // Globaux
+    version_bilan:      bilanRow.version_bilan || 'v1',
+    civilite:           bilanRow.civilite || '',
+    prenom:             bilanRow.prenom || '',
+    nom:                bilanRow.nom || '',
+    pilier_socle:       socle ? socle.pilier : '',
+    pilier_socle_label: socle ? socle.pilier_label : '',
+    socle_code:         socle ? socle.pilier : '',
+    filtre_label:       bilanRow.filtre_label || '',
+    signal_type:        bilanRow.signal_type || extractSignalType(socle),
+
+    piliers_dict,
+    piliers,
+
+    // §01
+    note_profil_global: bilanRow.note_profil_global || '',
+
+    // §02 filtre
+    filtre_preuve_1:  bilanRow.filtre_preuve_1 || '',
+    filtre_preuve_2:  bilanRow.filtre_preuve_2 || '',
+    filtre_preuve_3:  bilanRow.filtre_preuve_3 || '',
+    filtre_preuve_4:  bilanRow.filtre_preuve_4 || '',
+    filtre_preuve_5:  bilanRow.filtre_preuve_5 || '',
+    filtre_lecture_candidat: bilanRow.filtre_developpe || bilanRow.filtre_lecture_candidat || '',
+
+    // §03 glissements
+    glissement_intro:        bilanRow.glissement_intro || '',
+    glissement_1_label_html: bilanRow.glissement_1_label || '',
+    glissement_1_titre:      bilanRow.glissement_phrase_p3 || '',
+    glissement_1_corps:      bilanRow.glissement_dominant_expl || '',
+    glissement_2_label_html: bilanRow.glissement_2_label || '',
+    glissement_3_label_html: bilanRow.glissement_3_label || '',
+    glissement_4_label_html: bilanRow.glissement_4_label || '',
+    glissements_conclusion:  bilanRow.glissement_convergence || '',
+
+    // §04 boucles
+    boucle_intro:     bilanRow.boucle_intro || '',
+    boucle_1_label:   bilanRow.boucle1_label || '',
+    boucle_1_scenario:bilanRow.boucle1_scenario || '',
+    boucle_1_reponse: bilanRow.boucle1_reponse || '',
+    boucle_1_sequence:bilanRow.boucle1_sequence || '',
+    boucle_1_labo:    bilanRow.boucle1_analyse || '',
+    boucle_2_label:   bilanRow.boucle2_label || '',
+    boucle_2_scenario:bilanRow.boucle2_titre || '',
+    boucle_2_reponse: bilanRow.boucle2_reponse || '',
+    boucle_2_sequence:bilanRow.boucle2_sequence || '',
+    boucle_2_labo:    bilanRow.boucle2_analyse || '',
+    boucle_3_label:   bilanRow.boucle3_label || '',
+    boucle_3_scenario:bilanRow.boucle3_titre || '',
+    boucle_3_reponse: bilanRow.boucle3_reponse || '',
+    boucle_3_sequence:bilanRow.boucle3_sequence || '',
+    boucle_3_labo:    bilanRow.boucle3_analyse || '',
+
+    // §05 signal
+    signal_synthese:  bilanRow.signal_synthese_socle || '',
+
+    // §07 signature
+    sig_pilier_label:    socle ? `${socle.pilier_label} (${socle.pilier})` : '',
+    sig_filtre_val:      bilanRow.filtre_label || '',
+    sig_finalite:        bilanRow.signature_finalite || '',
+    sig_resultat_ligne1: bilanRow.sig_resultat_l1 || '',
+    sig_resultat_ligne2: bilanRow.sig_resultat_l2 || '',
+    sig_recit_html:      bilanRow.filtre_long || '',
+  };
+
+  logger.info('T3 Visu — payload assemblé', {
+    candidat_id,
+    nb_piliers: piliers.length,
+    nb_circuits: (circuitRows || []).length,
+  });
+
+  return payload;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTRUCTION D'UN BLOC PILIER
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildPilierBlock(pr, circuits) {
+  const pilier_lower = (pr.pilier || '').toLowerCase();
+  const role = pr.role_pilier || 'fonctionnel_2';
+
+  // Normaliser chaque circuit pour le template
+  const circuitsNorm = circuits.map(c => normalizeCircuit(c, pr.pilier));
+
+  // Regrouper par niveau d'usage (§2.12) sur l'échelle CŒUR
+  const groupes = buildCircuitsGroupes(circuitsNorm);
+
+  // Sous-listes pour les détails (HAUT / MOYEN / FAIBLE)
+  const circuits_haut   = circuitsNorm.filter(c => c.niveau_cible === 'HAUT');
+  const circuits_moyen  = circuitsNorm.filter(c => c.niveau_cible === 'MOYEN');
+  const circuits_faible = circuitsNorm.filter(c => c.niveau_cible === 'FAIBLE');
+
+  return {
+    pilier:            pr.pilier,
+    pilier_lower,
+    is_socle:          role === 'socle',
+    pilier_label:      pr.pilier_label,
+    pilier_role:       ROLE_TO_SHORT[role] || 'fn2',          // pour class role-{{pilier_role}}
+    role_class:        roleBadgeClass(role),                   // socle/str/fn pour ph-rb
+    role_color_class:  ROLE_TO_CLASS[role] || 'role-fn2',
+    pilier_role_label: pr.pilier_role_label || '',
+    pilier_rappel:     pr.rappel_chiffres || '',
+    pilier_mode:       pr.pilier_mode || '',                   // §2.11 permanence : recopié tel quel
+
+    circuits_groupes:  groupes,
+
+    nb_activations_coeur:     sumCoeur(circuitsNorm),
+    nb_activations_total:     pr.nb_activations_total != null ? pr.nb_activations_total : sumTotal(circuitsNorm),
+    nb_circuits_actifs:       pr.nb_circuits_actifs != null ? pr.nb_circuits_actifs : circuitsNorm.length,
+    nb_circuits_haut_coeur:   circuits_haut.length,
+    nb_circuits_moyen_coeur:  circuits_moyen.length,
+    cluster_label:            pr.cluster_label || '',
+    cluster_detail:           pr.cluster_detail || '',
+    signal_label:             extractSignalType(pr) || 'NULLE',
+
+    // Blocs HTML reconstruits (le template les rend via {{{...}}})
+    synth_factuelle_coeur_html:    escapeToHtml(pr.synthese_technique || ''),
+    synth_factuelle_elargie_html:  escapeToHtml(pr.synthese_technique_det || ''),
+    synth_interpretee_html:        escapeToHtml(pr.synthese_interpretee || ''),
+    note_doc_ouverte:              '',
+
+    has_circuits_haut:   circuits_haut.length > 0,
+    has_circuits_moyen:  circuits_moyen.length > 0,
+    has_circuits_faible: circuits_faible.length > 0,
+    circuits_haut,
+    circuits_moyen,
+    circuits_faible,
+  };
+}
+
+// Normalise un circuit Airtable → objet template
+function normalizeCircuit(c, pilier) {
+  const nbCoeur = c.nb_coeur != null ? c.nb_coeur : 0;
+  const nbTotal = c.nb_total != null ? c.nb_total : nbCoeur;
+  const circuitId = c.circuit_id || '';
+  const isAdhoc = circuitId === 'ADHOC' || c.circuit_id === 'ADHOC';
+
+  // Niveau cible = échelle CŒUR (HAUT≥4, MOYEN 2-3, FAIBLE 1, instrumental cœur 0)
+  let niveau_cible;
+  if (isAdhoc)            niveau_cible = 'ADHOC';
+  else if (nbCoeur >= 4)  niveau_cible = 'HAUT';
+  else if (nbCoeur >= 2)  niveau_cible = 'MOYEN';
+  else if (nbCoeur === 1) niveau_cible = 'FAIBLE';
+  else                    niveau_cible = 'INSTRUMENTAL';
+
+  const code_complet = isAdhoc
+    ? `${pilier}·ADHOC`
+    : `${pilier}${circuitId}`;
+
+  return {
+    code_complet,
+    circuit_id:        circuitId,
+    circuit_nom:       c.circuit_nom || '',
+    is_adhoc:          isAdhoc,
+    niveau_cible,
+    niveau_lower:      (c.niveau || niveau_cible).toLowerCase(),
+    circuit_niveau:    c.niveau || niveau_cible,
+    circuit_freq_coeur:nbCoeur,
+    circuit_freq_total:nbTotal,
+    circuit_deborde:   nbTotal > nbCoeur,
+    // Ventilation par pilier (T3_CIRCUIT ne stocke pas le détail en_svc par pilier ;
+    // on laisse vide — le template affiche '·'. Si besoin, enrichir via T2_INVENTAIRE.)
+    ven_p1: '', ven_p2: '', ven_p3: '', ven_p4: '', ven_p5: '',
+    // Pour les détails
+    verbatim_emblematique: extractVerbatim(c.verbatim_source),
+    verbatim_source:       extractVerbatimSource(c.verbatim_source),
+    personnalisation:      c.interpretation || '',
+  };
+}
+
+// Regroupe les circuits en groupes d'usage (§2.12)
+function buildCircuitsGroupes(circuitsNorm) {
+  const defs = [
+    { id: 'haut',         filtre: c => c.niveau_cible === 'HAUT',         label: 'Gestes natifs dominants (cœur ≥ 4)',               expl: "L'identité forte de cet outil chez vous" },
+    { id: 'moyen',        filtre: c => c.niveau_cible === 'MOYEN',        label: 'Gestes secondaires (cœur 2-3)',                    expl: 'Utilisés régulièrement, nuancent la signature' },
+    { id: 'faible',       filtre: c => c.niveau_cible === 'FAIBLE',       label: 'Gestes ponctuels (cœur 1)',                        expl: 'Présents mais marginaux' },
+    { id: 'instrumental', filtre: c => c.niveau_cible === 'INSTRUMENTAL', label: "Instrumentaux purs (cœur 0, en service d'autres outils)", expl: "Gestes mobilisés uniquement en service d'autres outils" },
+    { id: 'adhoc',        filtre: c => c.niveau_cible === 'ADHOC',        label: 'Gestes ad-hoc',                                    expl: 'Détectés spécifiquement chez vous' },
+  ];
+  return defs
+    .map(d => ({
+      groupe_id: d.id,
+      groupe_label: d.label,
+      groupe_explication: d.expl,
+      circuits: circuitsNorm.filter(d.filtre),
+    }))
+    .filter(g => g.circuits.length > 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function sumCoeur(circuits)  { return circuits.reduce((s, c) => s + (c.circuit_freq_coeur || 0), 0); }
+function sumTotal(circuits)  { return circuits.reduce((s, c) => s + (c.circuit_freq_total || 0), 0); }
+
+function roleBadgeClass(role) {
+  if (role === 'socle') return 'socle';
+  if (role && role.startsWith('structurant')) return 'str';
+  return 'fn';
+}
+
+// Extrait le type de signal depuis le champ rappel/synthese (best effort)
+function extractSignalType(pr) {
+  if (!pr) return '';
+  const src = (pr.rappel_chiffres || '') + ' ' + (pr.synthese_technique || '');
+  const m = src.match(/Signal\s+(FORTE|FAIBLE positif|FAIBLE négatif|NULLE)/i);
+  return m ? m[1] : '';
+}
+
+// Le verbatim_source de T3_CIRCUIT a un format markdown :
+//   "**P2Q6 PANNE** — P5 · ...\n> \"citation\""  OU  "P5Q15 ANIMAL_2 — « ... »..."
+// On extrait la citation (entre « » ou guillemets droits) et la source (QID + scénario).
+function extractVerbatim(raw) {
+  if (!raw) return '';
+  const mGuillemets = raw.match(/[«"]([^»"]+)[»"]/);
+  if (mGuillemets) return mGuillemets[1].trim();
+  return '';
+}
+
+function extractVerbatimSource(raw) {
+  if (!raw) return '';
+  const mQid = raw.match(/\*?\*?(P\d+Q\d+\s+[A-Z_0-9]+)/);
+  if (mQid) return mQid[1].trim();
+  return '';
+}
+
+// Le contenu Airtable est du texte avec \n. Le template attend du HTML (rendu via {{{}}}).
+// On convertit les sauts de ligne en <br> et on échappe le minimum.
+function escapeToHtml(txt) {
+  if (!txt) return '';
+  return String(txt)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+}
+
+module.exports = {
+  buildPayload,
+  // exposés pour tests
+  _internal: {
+    buildPilierBlock,
+    normalizeCircuit,
+    buildCircuitsGroupes,
+    extractVerbatim,
+    extractVerbatimSource,
+  },
+};
