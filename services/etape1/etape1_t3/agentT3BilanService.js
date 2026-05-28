@@ -212,8 +212,19 @@ async function safeGetAdhoc(candidat_id) {
 // ═══════════════════════════════════════════════════════════════════════════
 // ARCHITECTURE MOTEUR — calcul de l'ordre des piliers (D2/D2bis)
 // Source autoritaire : nb_questions_coeur dans ETAPE1_T2_VENTILATION_PILIERS.
+// ⚠️ La table peut ne contenir que les piliers avec ≥ 1 cœur. On complète avec
+//    les piliers absents (0 cœur) en queue pour TOUJOURS avoir les 5 piliers.
 // ═══════════════════════════════════════════════════════════════════════════
 function computeArchitecture(ventilationPiliers) {
+  const PILIERS_TOUS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+  const PILIER_LABELS = {
+    P1: "Collecte d'information",
+    P2: 'Tri et organisation',
+    P3: 'Analyse et diagnostic',
+    P4: 'Création de solutions',
+    P5: 'Mise en œuvre et exécution'
+  };
+
   // Trie par nb_questions_coeur décroissant ; départage par activations totales.
   const sorted = [...ventilationPiliers].sort((a, b) => {
     const ca = a.nb_questions_coeur || a.nb_reponses || 0;
@@ -221,12 +232,27 @@ function computeArchitecture(ventilationPiliers) {
     if (cb !== ca) return cb - ca;
     return (b.nb_activations_coeur_total || 0) - (a.nb_activations_coeur_total || 0);
   });
+
+  // Construire les piliers présents
   const ordered = sorted.map((p, idx) => ({
     pilier: p.pilier_coeur,
-    pilier_label: p.pilier_coeur_libelle,
+    pilier_label: p.pilier_coeur_libelle || PILIER_LABELS[p.pilier_coeur] || p.pilier_coeur,
     role: ROLE_ORDER[idx] || 'fonctionnel_2',
-    raw: p,
+    raw: p
   }));
+
+  // Compléter avec les piliers ABSENTS de la ventilation (0 cœur)
+  const presents = new Set(ordered.map(o => o.pilier));
+  const absents = PILIERS_TOUS.filter(p => !presents.has(p));
+  for (const p of absents) {
+    ordered.push({
+      pilier: p,
+      pilier_label: PILIER_LABELS[p] || p,
+      role: ROLE_ORDER[ordered.length] || 'fonctionnel_2',
+      raw: { pilier_coeur: p, nb_questions_coeur: 0, nb_reponses: 0, nb_activations_coeur_total: 0 }
+    });
+  }
+
   return { ordered, socle: ordered[0] || null };
 }
 
