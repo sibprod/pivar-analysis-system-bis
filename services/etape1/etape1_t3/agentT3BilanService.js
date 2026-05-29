@@ -391,7 +391,7 @@ function mapPilierToFields(candidat_id, pilierResult, architecture) {
   const u = pilierResult.update || {};
   const pa = pilierResult.pilierArch;
   const row = {};
-  row[F.candidate_ID]          = candidat_id;
+  row[F.candidat_id]           = candidat_id;
   row[F.cle_composite]         = `${candidat_id}_${pa.pilier}`;
   row[F.pilier]                = pa.pilier;
   row[F.pilier_label]          = pa.pilier_label || '';
