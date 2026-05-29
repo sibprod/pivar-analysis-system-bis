@@ -160,46 +160,79 @@ async function buildPayload(candidat_id) {
     filtre_preuve_3:  bilanRow.filtre_preuve_3 || '',
     filtre_preuve_4:  bilanRow.filtre_preuve_4 || '',
     filtre_preuve_5:  bilanRow.filtre_preuve_5 || '',
-    filtre_lecture_candidat: bilanRow.filtre_developpe || bilanRow.filtre_lecture_candidat || '',
+    filtre_lecture_candidat: bilanRow.filtre_lecture_candidat || '',
 
-    // §03 glissements
+    // §03 glissements (lecture directe : config alignée schéma 29/05)
     glissement_intro:        bilanRow.glissement_intro || '',
     glissement_1_label_html: bilanRow.glissement_1_label || '',
-    glissement_1_titre:      bilanRow.glissement_phrase_p3 || '',
-    glissement_1_corps:      bilanRow.glissement_dominant_expl || '',
+    glissement_1_titre:      bilanRow.glissement_1_titre || '',
+    glissement_1_corps:      bilanRow.glissement_1_corps || '',
     glissement_2_label_html: bilanRow.glissement_2_label || '',
+    glissement_2_titre:      bilanRow.glissement_2_titre || '',
+    glissement_2_corps:      bilanRow.glissement_2_corps || '',
     glissement_3_label_html: bilanRow.glissement_3_label || '',
+    glissement_3_titre:      bilanRow.glissement_3_titre || '',
+    glissement_3_corps:      bilanRow.glissement_3_corps || '',
     glissement_4_label_html: bilanRow.glissement_4_label || '',
-    glissements_conclusion:  bilanRow.glissement_convergence || '',
+    glissement_4_titre:      bilanRow.glissement_4_titre || '',
+    glissement_4_corps:      bilanRow.glissement_4_corps || '',
+    glissements_conclusion:  bilanRow.glissements_conclusion || '',
 
     // §04 boucles
     boucle_intro:     bilanRow.boucle_intro || '',
-    boucle_1_label:   bilanRow.boucle1_label || '',
-    boucle_1_scenario:bilanRow.boucle1_scenario || '',
-    boucle_1_reponse: bilanRow.boucle1_reponse || '',
-    boucle_1_sequence:bilanRow.boucle1_sequence || '',
-    boucle_1_labo:    bilanRow.boucle1_analyse || '',
-    boucle_2_label:   bilanRow.boucle2_label || '',
-    boucle_2_scenario:bilanRow.boucle2_titre || '',
-    boucle_2_reponse: bilanRow.boucle2_reponse || '',
-    boucle_2_sequence:bilanRow.boucle2_sequence || '',
-    boucle_2_labo:    bilanRow.boucle2_analyse || '',
-    boucle_3_label:   bilanRow.boucle3_label || '',
-    boucle_3_scenario:bilanRow.boucle3_titre || '',
-    boucle_3_reponse: bilanRow.boucle3_reponse || '',
-    boucle_3_sequence:bilanRow.boucle3_sequence || '',
-    boucle_3_labo:    bilanRow.boucle3_analyse || '',
+    boucle_1_label:   bilanRow.boucle_1_label || '',
+    boucle_1_scenario:bilanRow.boucle_1_scenario || '',
+    boucle_1_reponse: bilanRow.boucle_1_reponse || '',
+    boucle_1_sequence:bilanRow.boucle_1_sequence || '',
+    boucle_1_labo:    bilanRow.boucle_1_labo || '',
+    boucle_2_label:   bilanRow.boucle_2_label || '',
+    boucle_2_scenario:bilanRow.boucle_2_scenario || '',
+    boucle_2_reponse: bilanRow.boucle_2_reponse || '',
+    boucle_2_sequence:bilanRow.boucle_2_sequence || '',
+    boucle_2_labo:    bilanRow.boucle_2_labo || '',
+    boucle_3_label:   bilanRow.boucle_3_label || '',
+    boucle_3_scenario:bilanRow.boucle_3_scenario || '',
+    boucle_3_reponse: bilanRow.boucle_3_reponse || '',
+    boucle_3_sequence:bilanRow.boucle_3_sequence || '',
+    boucle_3_labo:    bilanRow.boucle_3_labo || '',
 
-    // §05 signal
-    signal_synthese:  bilanRow.signal_synthese_socle || '',
+    // §05 signal limbique (15 champs)
+    signal_intro:          bilanRow.signal_intro || '',
+    signal_item1_q:        bilanRow.signal_item1_q || '',
+    signal_item1_corps:    bilanRow.signal_item1_corps || '',
+    signal_item1_verbatim: bilanRow.signal_item1_verbatim || '',
+    signal_item2_q:        bilanRow.signal_item2_q || '',
+    signal_item2_corps:    bilanRow.signal_item2_corps || '',
+    signal_item2_verbatim: bilanRow.signal_item2_verbatim || '',
+    signal_item3_q:        bilanRow.signal_item3_q || '',
+    signal_item3_corps:    bilanRow.signal_item3_corps || '',
+    signal_item3_verbatim: bilanRow.signal_item3_verbatim || '',
+    signal_item4_q:        bilanRow.signal_item4_q || '',
+    signal_item4_corps:    bilanRow.signal_item4_corps || '',
+    signal_item4_verbatim: bilanRow.signal_item4_verbatim || '',
+    signal_synthese:       bilanRow.signal_synthese || '',
+
+    // §06 coûts (12 champs)
+    cout1_niveau:   bilanRow.cout1_niveau || '',
+    cout1_titre:    bilanRow.cout1_titre || '',
+    cout1_corps:    bilanRow.cout1_corps || '',
+    cout1_verbatim: bilanRow.cout1_verbatim || '',
+    cout2_niveau:   bilanRow.cout2_niveau || '',
+    cout2_titre:    bilanRow.cout2_titre || '',
+    cout2_corps:    bilanRow.cout2_corps || '',
+    cout2_verbatim: bilanRow.cout2_verbatim || '',
+    cout3_niveau:   bilanRow.cout3_niveau || '',
+    cout3_titre:    bilanRow.cout3_titre || '',
+    cout3_corps:    bilanRow.cout3_corps || '',
+    cout3_verbatim: bilanRow.cout3_verbatim || '',
 
     // §07 signature
-    sig_pilier_label:    socle ? `${socle.pilier_label} (${socle.pilier})` : '',
-    sig_filtre_val:      bilanRow.filtre_label || '',
-    sig_finalite:        bilanRow.signature_finalite || '',
-    sig_resultat_ligne1: bilanRow.sig_resultat_l1 || '',
-    sig_resultat_ligne2: bilanRow.sig_resultat_l2 || '',
-    sig_recit_html:      bilanRow.filtre_long || '',
+    sig_pilier_label:    bilanRow.sig_pilier_label || (socle ? `${socle.pilier_label} (${socle.pilier})` : ''),
+    sig_filtre_val:      bilanRow.sig_filtre_val || bilanRow.filtre_label || '',
+    sig_finalite:        bilanRow.sig_finalite || '',
+    sig_resultat_ligne1: bilanRow.sig_resultat_ligne1 || '',
+    sig_resultat_ligne2: bilanRow.sig_resultat_ligne2 || '',
+    sig_recit_html:      bilanRow.sig_recit || '',
   };
 
   logger.info('T3 Visu — payload assemblé', {
@@ -239,13 +272,13 @@ function buildPilierBlock(pr, circuits) {
     role_class:        roleBadgeClass(role),                   // socle/str/fn pour ph-rb
     role_color_class:  ROLE_TO_CLASS[role] || 'role-fn2',
     pilier_role_label: pr.pilier_role_label || '',
-    pilier_rappel:     pr.rappel_chiffres || '',
+    pilier_rappel:     pr.pilier_rappel || '',
     pilier_mode:       pr.pilier_mode || '',                   // §2.11 permanence : recopié tel quel
 
     circuits_groupes:  groupes,
 
     nb_activations_coeur:     sumCoeur(circuitsNorm),
-    nb_activations_total:     pr.nb_activations_total != null ? pr.nb_activations_total : sumTotal(circuitsNorm),
+    nb_activations_total:     pr.nb_activations != null ? pr.nb_activations : sumTotal(circuitsNorm),
     nb_circuits_actifs:       pr.nb_circuits_actifs != null ? pr.nb_circuits_actifs : circuitsNorm.length,
     nb_circuits_haut_coeur:   circuits_haut.length,
     nb_circuits_moyen_coeur:  circuits_moyen.length,
@@ -254,9 +287,9 @@ function buildPilierBlock(pr, circuits) {
     signal_label:             extractSignalType(pr) || 'NULLE',
 
     // Blocs HTML reconstruits (le template les rend via {{{...}}})
-    synth_factuelle_coeur_html:    escapeToHtml(pr.synthese_technique || ''),
-    synth_factuelle_elargie_html:  escapeToHtml(pr.synthese_technique_det || ''),
-    synth_interpretee_html:        escapeToHtml(pr.synthese_interpretee || ''),
+    synth_factuelle_coeur_html:    escapeToHtml(pr.tableau_note || ''),
+    synth_factuelle_elargie_html:  escapeToHtml(pr.synth_factuelle || ''),
+    synth_interpretee_html:        escapeToHtml(pr.synth_interpretee || ''),
     note_doc_ouverte:              '',
 
     has_circuits_haut:   circuits_haut.length > 0,
@@ -270,8 +303,12 @@ function buildPilierBlock(pr, circuits) {
 
 // Normalise un circuit Airtable → objet template
 function normalizeCircuit(c, pilier) {
-  const nbCoeur = c.nb_coeur != null ? c.nb_coeur : 0;
-  const nbTotal = c.nb_total != null ? c.nb_total : nbCoeur;
+  // v11.1 : circuit_freq = total cœur ; circuit_franches + circuit_nuancees = décomposition
+  const nbCoeur = c.circuit_freq != null ? c.circuit_freq
+                : (c.nb_coeur != null ? c.nb_coeur : 0);
+  // Pour le total mobilisations (cœur + emprunts), à défaut on garde nbCoeur
+  const nbTotal = c.circuit_freq_total != null ? c.circuit_freq_total
+                : (c.nb_total != null ? c.nb_total : nbCoeur);
   const circuitId = c.circuit_id || '';
   const isAdhoc = circuitId === 'ADHOC' || c.circuit_id === 'ADHOC';
 
@@ -287,24 +324,28 @@ function normalizeCircuit(c, pilier) {
     ? `${pilier}·ADHOC`
     : `${pilier}${circuitId}`;
 
+  const niveauStr = c.circuit_niveau || c.niveau || niveau_cible;
+  const verbatimSrc = c.n2_verbatims || c.verbatim_source || '';
   return {
     code_complet,
     circuit_id:        circuitId,
     circuit_nom:       c.circuit_nom || '',
     is_adhoc:          isAdhoc,
     niveau_cible,
-    niveau_lower:      (c.niveau || niveau_cible).toLowerCase(),
-    circuit_niveau:    c.niveau || niveau_cible,
+    niveau_lower:      niveauStr.toLowerCase(),
+    circuit_niveau:    niveauStr,
     circuit_freq_coeur:nbCoeur,
     circuit_freq_total:nbTotal,
+    circuit_franches:  c.circuit_franches || 0,
+    circuit_nuancees:  c.circuit_nuancees || 0,
     circuit_deborde:   nbTotal > nbCoeur,
     // Ventilation par pilier (T3_CIRCUIT ne stocke pas le détail en_svc par pilier ;
     // on laisse vide — le template affiche '·'. Si besoin, enrichir via T2_INVENTAIRE.)
     ven_p1: '', ven_p2: '', ven_p3: '', ven_p4: '', ven_p5: '',
     // Pour les détails
-    verbatim_emblematique: extractVerbatim(c.verbatim_source),
-    verbatim_source:       extractVerbatimSource(c.verbatim_source),
-    personnalisation:      c.interpretation || '',
+    verbatim_emblematique: extractVerbatim(verbatimSrc),
+    verbatim_source:       extractVerbatimSource(verbatimSrc),
+    personnalisation:      c.n3_nuance || c.interpretation || '',
   };
 }
 
@@ -343,7 +384,7 @@ function roleBadgeClass(role) {
 // Extrait le type de signal depuis le champ rappel/synthese (best effort)
 function extractSignalType(pr) {
   if (!pr) return '';
-  const src = (pr.rappel_chiffres || '') + ' ' + (pr.synthese_technique || '');
+  const src = (pr.pilier_rappel || '') + ' ' + (pr.tableau_note || '');
   const m = src.match(/Signal\s+(FORTE|FAIBLE positif|FAIBLE négatif|NULLE)/i);
   return m ? m[1] : '';
 }
