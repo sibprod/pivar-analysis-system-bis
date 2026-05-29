@@ -139,13 +139,25 @@ async function runAgentT3Bilan({ candidat_id, visiteur = null }) {
   }
 
   // ─── 6. Mapper les résultats → lignes Airtable (field IDs) ─────────────────
-  const bilanRow    = mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif);
-  const pilierRows  = pilierResults.map(pr => mapPilierToFields(candidat_id, pr, architecture));
-  const circuitRows = circuitResults.map(cr => mapCircuitToFields(candidat_id, cr));
+  // v11.1 (29/05) : mapping COMPLET architecture + §01-§07 + linked records
+  const bilanRow    = mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif, architecture, pilierResults);
 
-  // ─── 7. Écrire les 3 tables (BILAN upsert, PILIER/CIRCUIT delete+create) ───
-  await airtableService.upsertEtape1T3Bilan(candidat_id, bilanRow);
-  const nbP = await airtableService.writeEtape1T3Piliers(candidat_id, pilierRows);
+  // ─── 7. Écrire BILAN d'abord (on a besoin de son recordId pour les liens) ──
+  const bilanRecordId = await airtableService.upsertEtape1T3Bilan(candidat_id, bilanRow);
+
+  // ─── 8. Mapper et écrire PILIER avec bilan_link → recordId BILAN ──────────
+  const pilierRows  = pilierResults.map(pr =>
+    mapPilierToFields(candidat_id, pr, architecture, bilanRecordId, sources)
+  );
+  const pilierMap   = await airtableService.writeEtape1T3Piliers(candidat_id, pilierRows);
+  const nbP = pilierMap.size;
+
+  // ─── 9. Mapper et écrire CIRCUIT avec bilan_link + pilier_link ───────────
+  const circuitRows = circuitResults.map(cr => {
+    const pilierRecordId = pilierMap.get(cr.pilier) || null;
+    const ordrePilier    = architecture.ordered.findIndex(p => p.pilier === cr.pilier) + 1;
+    return mapCircuitToFields(candidat_id, cr, bilanRecordId, pilierRecordId, ordrePilier);
+  });
   const nbC = await airtableService.writeEtape1T3Circuits(candidat_id, circuitRows);
 
   const totalElapsedMs = Date.now() - startTime;
@@ -333,95 +345,281 @@ function consigneAppelPilier(pilierArch) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAPPING JSON Claude → lignes Airtable (field IDs des 3 tables T3)
+// v11.1 (29/05/2026) — RÉÉCRITURE COMPLÈTE après audit des champs manquants
+// (cf. transcript 29/05 : 71/99 champs vides chez Véronique sur ancienne version)
+//
+// Conventions de lecture du JSON Claude (déduites du prompt v5.3 et de Rémi) :
+//   - Bilan global  : { bilan: { §01_vue_globale, §02_filtre_cognitif, §03_glissements,
+//                                §04_boucle_cognitive, §05_signal_limbique, §06_couts, §07_signature } }
+//   - Chaque section accepte deux formats (défensif) :
+//       a) clés FLAT directement dans la section (ex: gl.glissement_1_titre)
+//       b) sous-objets (ex: gl.glissement_1.titre, sl.signal.item1.q, sc.cout1.niveau)
+//   - L'architecture §01 vient du SERVICE (computeArchitecture), pas de Claude.
 // ═══════════════════════════════════════════════════════════════════════════
-function mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif) {
+
+// Helper : lecture défensive avec fallback sur sous-objet
+function pick(...vals) {
+  for (const v of vals) if (v !== undefined && v !== null && v !== '') return v;
+  return undefined;
+}
+
+// Helper : libellé du rôle pour pilier_role_label
+const ROLE_LABELS = {
+  socle:           '★ Pilier socle — Cœur de votre moteur',
+  structurant_1:   'Pilier structurant 1 — Mise en mouvement du socle',
+  structurant_2:   'Pilier structurant 2 — Soutien du moteur',
+  fonctionnel_1:   'Pilier fonctionnel 1',
+  fonctionnel_2:   'Pilier fonctionnel 2 — Sortie de cycle'
+};
+
+// Helper : compteurs cœur depuis l'inventaire de circuits du candidat
+function computePilierCounters(pilier, sources) {
+  const circuits = (sources.inventaireCircuits || []).filter(c =>
+    (c.pilier_owner === pilier) || (c.circuit_label || '').startsWith(pilier)
+  );
+  let nb_activations = 0, nb_circuits_actifs = 0, nb_circuits_haut = 0;
+  for (const c of circuits) {
+    const coeur = Number(c.nb_coeur || 0);
+    if (coeur > 0) {
+      nb_activations    += coeur;
+      nb_circuits_actifs += 1;
+      if (coeur >= 4) nb_circuits_haut += 1;
+    }
+  }
+  return { nb_activations, nb_circuits_actifs, nb_circuits_haut };
+}
+
+// Helper : signal limbique dominant du pilier (depuis t2)
+function computeSignalLabel(pilier, sources) {
+  const sigs = (sources.t2 || [])
+    .filter(t => (t.circuit_id || '').startsWith(pilier))
+    .map(t => t.signal_limbique_detecte || t.signal_limbique || 'NULLE')
+    .filter(s => s && s !== 'NULLE');
+  if (sigs.length === 0) return 'NULLE';
+  return sigs[0]; // premier non-nul
+}
+
+function mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif, architecture, pilierResults) {
   const F = airtableConfig.ETAPE1_T3_BILAN_FIELDS;
-  const b = (bilanGlobal && bilanGlobal.bilan) || {};
-  const vg = b['§01_vue_globale'] || {};
-  const fc = b['§02_filtre_cognitif'] || {};
-  const gl = b['§03_glissements'] || {};
+  const b  = (bilanGlobal && bilanGlobal.bilan) || {};
+  const vg = b['§01_vue_globale']      || {};
+  const fc = b['§02_filtre_cognitif']  || {};
+  const gl = b['§03_glissements']      || {};
   const bc = b['§04_boucle_cognitive'] || {};
-  const sl = b['§05_signal_limbique'] || {};
-  const sg = b['§07_signature'] || {};
+  const sl = b['§05_signal_limbique']  || {};
+  const sc = b['§06_couts']            || {};
+  const sg = b['§07_signature']        || {};
+
+  // pilierResults = [{ pilierArch: {...}, update: { pilier_mode, ... } }]
+  // → on récupère le mode du pilier socle pour le pousser dans T3_BILAN.pilier_socle_mode
+  const socleResult = (pilierResults || []).find(pr => pr.pilierArch?.role === 'socle');
+  const pilierSocleMode = socleResult?.update?.pilier_mode || '';
+
+  // Sous-objets pour le format imbriqué (signal items + coûts)
+  const si1 = sl.item1 || {}; const si2 = sl.item2 || {};
+  const si3 = sl.item3 || {}; const si4 = sl.item4 || {};
+  const cT1 = sc.cout1 || {}; const cT2 = sc.cout2 || {}; const cT3 = sc.cout3 || {};
+  const g1 = gl.glissement_1 || {}; const g2 = gl.glissement_2 || {};
+  const g3 = gl.glissement_3 || {}; const g4 = gl.glissement_4 || {};
+  const b1 = bc.boucle_1 || {}; const b2 = bc.boucle_2 || {}; const b3 = bc.boucle_3 || {};
 
   const row = {};
-  // Identité
+
+  // ── Identité ──
   row[F.candidat_id]   = candidat_id;
   if (sources.visiteur) {
-    row[F.prenom]   = sources.visiteur.Prenom || sources.visiteur.prenom || '';
-    row[F.nom]      = sources.visiteur.Nom || sources.visiteur.nom || '';
+    row[F.prenom] = sources.visiteur.Prenom || sources.visiteur.prenom || '';
+    row[F.nom]    = sources.visiteur.Nom    || sources.visiteur.nom    || '';
   }
   row[F.civilite]      = sources.civilite || '';
-  row[F.version_bilan] = 'v1';
+  row[F.version_bilan] = 'v2';
 
-  // §01 / filtre / glissements / boucles / signal / signature (best effort — clés du prompt)
-  row[F.note_profil_global]   = vg.note_profil_global || '';
-  row[F.filtre_titre_court]   = sg.sig_resultat_ligne1 || '';
-  row[F.filtre_developpe]     = fc.filtre_lecture_candidat || '';
-  row[F.filtre_label]         = fc.filtre_label || '';
-  row[F.glissement_intro]     = gl.glissement_intro || '';
-  row[F.glissement_1_label]   = gl.glissement_1_label || '';
-  row[F.glissement_2_label]   = gl.glissement_2_label || '';
-  row[F.glissement_3_label]   = gl.glissement_3_label || '';
-  row[F.glissement_4_label]   = gl.glissement_4_label || '';
-  row[F.glissement_convergence] = gl.glissements_conclusion || '';
-  row[F.boucle_intro]         = bc.boucle_intro || '';
-  row[F.boucle1_label]        = bc.boucle_1_label || '';
-  row[F.boucle1_sequence]     = bc.boucle_1_sequence || '';
-  row[F.boucle1_analyse]      = bc.boucle_1_labo || '';
-  row[F.boucle1_reponse]      = bc.boucle_1_reponse || '';
-  row[F.boucle2_label]        = bc.boucle_2_label || '';
-  row[F.boucle2_sequence]     = bc.boucle_2_sequence || '';
-  row[F.boucle2_analyse]      = bc.boucle_2_labo || '';
-  row[F.boucle2_reponse]      = bc.boucle_2_reponse || '';
-  row[F.boucle3_label]        = bc.boucle_3_label || '';
-  row[F.boucle3_sequence]     = bc.boucle_3_sequence || '';
-  row[F.boucle3_analyse]      = bc.boucle_3_labo || '';
-  row[F.boucle3_reponse]      = bc.boucle_3_reponse || '';
-  row[F.signal_synthese_socle]= sl.signal_synthese || '';
-  row[F.signature_finalite]   = sg.sig_finalite || '';
-  row[F.sig_resultat_l2]      = sg.sig_resultat_ligne2 || '';
+  // ── §01 ARCHITECTURE (source : computeArchitecture, PAS Claude) ──
+  // Ordre : ordered[0]=socle, [1]=str1, [2]=str2, [3]=fn1, [4]=fn2 (5 piliers garantis)
+  const ord = architecture.ordered;
+  const pSocle = ord[0], pStr1 = ord[1], pStr2 = ord[2], pFn1 = ord[3], pFn2 = ord[4];
+  const sortiesParPilier = {};
+  for (const v of (sources.ventilationPiliers || [])) {
+    sortiesParPilier[v.pilier_coeur] = v.nb_reponses || 0;
+  }
+  if (pSocle) {
+    row[F.pilier_socle]       = pSocle.pilier;
+    row[F.pilier_socle_label] = pSocle.pilier_label;
+    row[F.pilier_socle_role]  = ROLE_LABELS[pSocle.role] || pSocle.role;
+    row[F.pilier_socle_mode]  = pilierSocleMode || pick(vg.pilier_socle_mode, '');
+  }
+  if (pStr1) {
+    row[F.pilier_str1]         = pStr1.pilier;
+    row[F.pilier_str1_label]   = pStr1.pilier_label;
+    row[F.pilier_str1_sorties] = sortiesParPilier[pStr1.pilier] || 0;
+  }
+  if (pStr2) {
+    row[F.pilier_str2]         = pStr2.pilier;
+    row[F.pilier_str2_label]   = pStr2.pilier_label;
+    row[F.pilier_str2_sorties] = sortiesParPilier[pStr2.pilier] || 0;
+  }
+  if (pFn1) {
+    row[F.pilier_fn1]          = pFn1.pilier;
+    row[F.pilier_fn1_label]    = pFn1.pilier_label;
+    row[F.pilier_fn1_sorties]  = sortiesParPilier[pFn1.pilier] || 0;
+  }
+  if (pFn2) {
+    row[F.pilier_fn2]          = pFn2.pilier;
+    row[F.pilier_fn2_label]    = pFn2.pilier_label;
+    row[F.pilier_fn2_sorties]  = sortiesParPilier[pFn2.pilier] || 0;
+  }
+  row[F.sorties_P1] = sortiesParPilier['P1'] || 0;
+  row[F.sorties_P2] = sortiesParPilier['P2'] || 0;
+  row[F.sorties_P3] = sortiesParPilier['P3'] || 0;
+  row[F.sorties_P4] = sortiesParPilier['P4'] || 0;
+  row[F.sorties_P5] = sortiesParPilier['P5'] || 0;
+  row[F.note_profil_global] = pick(vg.note_profil_global, vg.note, '');
 
-  // Nettoyage des undefined
+  // ── §02 FILTRE COGNITIF (7 champs) ──
+  row[F.filtre_label]            = pick(fc.filtre_label, fc.label, '');
+  row[F.filtre_preuve_1]         = pick(fc.filtre_preuve_1, fc.preuve_1, fc.preuves?.[0], '');
+  row[F.filtre_preuve_2]         = pick(fc.filtre_preuve_2, fc.preuve_2, fc.preuves?.[1], '');
+  row[F.filtre_preuve_3]         = pick(fc.filtre_preuve_3, fc.preuve_3, fc.preuves?.[2], '');
+  row[F.filtre_preuve_4]         = pick(fc.filtre_preuve_4, fc.preuve_4, fc.preuves?.[3], '');
+  row[F.filtre_preuve_5]         = pick(fc.filtre_preuve_5, fc.preuve_5, fc.preuves?.[4], '');
+  row[F.filtre_lecture_candidat] = pick(fc.filtre_lecture_candidat, fc.lecture_candidat, '');
+
+  // ── §03 GLISSEMENTS (14 champs) ──
+  row[F.glissement_intro]      = pick(gl.glissement_intro, gl.intro, '');
+  row[F.glissement_1_label]    = pick(gl.glissement_1_label, g1.label, '');
+  row[F.glissement_1_titre]    = pick(gl.glissement_1_titre, g1.titre, '');
+  row[F.glissement_1_corps]    = pick(gl.glissement_1_corps, g1.corps, '');
+  row[F.glissement_2_label]    = pick(gl.glissement_2_label, g2.label, '');
+  row[F.glissement_2_titre]    = pick(gl.glissement_2_titre, g2.titre, '');
+  row[F.glissement_2_corps]    = pick(gl.glissement_2_corps, g2.corps, '');
+  row[F.glissement_3_label]    = pick(gl.glissement_3_label, g3.label, '');
+  row[F.glissement_3_titre]    = pick(gl.glissement_3_titre, g3.titre, '');
+  row[F.glissement_3_corps]    = pick(gl.glissement_3_corps, g3.corps, '');
+  row[F.glissement_4_label]    = pick(gl.glissement_4_label, g4.label, '');
+  row[F.glissement_4_titre]    = pick(gl.glissement_4_titre, g4.titre, '');
+  row[F.glissement_4_corps]    = pick(gl.glissement_4_corps, g4.corps, '');
+  row[F.glissements_conclusion]= pick(gl.glissements_conclusion, gl.conclusion, '');
+
+  // ── §04 BOUCLES COGNITIVES (16 champs) ──
+  row[F.boucle_intro]      = pick(bc.boucle_intro, bc.intro, '');
+  row[F.boucle_1_label]    = pick(bc.boucle_1_label, b1.label, '');
+  row[F.boucle_1_scenario] = pick(bc.boucle_1_scenario, b1.scenario, '');
+  row[F.boucle_1_reponse]  = pick(bc.boucle_1_reponse, b1.reponse, '');
+  row[F.boucle_1_sequence] = pick(bc.boucle_1_sequence, b1.sequence, '');
+  row[F.boucle_1_labo]     = pick(bc.boucle_1_labo, b1.labo, '');
+  row[F.boucle_2_label]    = pick(bc.boucle_2_label, b2.label, '');
+  row[F.boucle_2_scenario] = pick(bc.boucle_2_scenario, b2.scenario, '');
+  row[F.boucle_2_reponse]  = pick(bc.boucle_2_reponse, b2.reponse, '');
+  row[F.boucle_2_sequence] = pick(bc.boucle_2_sequence, b2.sequence, '');
+  row[F.boucle_2_labo]     = pick(bc.boucle_2_labo, b2.labo, '');
+  row[F.boucle_3_label]    = pick(bc.boucle_3_label, b3.label, '');
+  row[F.boucle_3_scenario] = pick(bc.boucle_3_scenario, b3.scenario, '');
+  row[F.boucle_3_reponse]  = pick(bc.boucle_3_reponse, b3.reponse, '');
+  row[F.boucle_3_sequence] = pick(bc.boucle_3_sequence, b3.sequence, '');
+  row[F.boucle_3_labo]     = pick(bc.boucle_3_labo, b3.labo, '');
+
+  // ── §05 SIGNAL LIMBIQUE (15 champs) ──
+  row[F.signal_type]            = pick(sl.signal_type, sl.type, '');
+  row[F.signal_intro]           = pick(sl.signal_intro, sl.intro, '');
+  row[F.signal_item1_q]         = pick(sl.signal_item1_q, si1.q, si1.question, '');
+  row[F.signal_item1_corps]     = pick(sl.signal_item1_corps, si1.corps, '');
+  row[F.signal_item1_verbatim]  = pick(sl.signal_item1_verbatim, si1.verbatim, '');
+  row[F.signal_item2_q]         = pick(sl.signal_item2_q, si2.q, si2.question, '');
+  row[F.signal_item2_corps]     = pick(sl.signal_item2_corps, si2.corps, '');
+  row[F.signal_item2_verbatim]  = pick(sl.signal_item2_verbatim, si2.verbatim, '');
+  row[F.signal_item3_q]         = pick(sl.signal_item3_q, si3.q, si3.question, '');
+  row[F.signal_item3_corps]     = pick(sl.signal_item3_corps, si3.corps, '');
+  row[F.signal_item3_verbatim]  = pick(sl.signal_item3_verbatim, si3.verbatim, '');
+  row[F.signal_item4_q]         = pick(sl.signal_item4_q, si4.q, si4.question, '');
+  row[F.signal_item4_corps]     = pick(sl.signal_item4_corps, si4.corps, '');
+  row[F.signal_item4_verbatim]  = pick(sl.signal_item4_verbatim, si4.verbatim, '');
+  row[F.signal_synthese]        = pick(sl.signal_synthese, sl.synthese, '');
+
+  // ── §06 COÛTS (12 champs) ──
+  row[F.cout1_niveau]   = pick(sc.cout1_niveau, cT1.niveau, '');
+  row[F.cout1_titre]    = pick(sc.cout1_titre,  cT1.titre,  '');
+  row[F.cout1_corps]    = pick(sc.cout1_corps,  cT1.corps,  '');
+  row[F.cout1_verbatim] = pick(sc.cout1_verbatim, cT1.verbatim, '');
+  row[F.cout2_niveau]   = pick(sc.cout2_niveau, cT2.niveau, '');
+  row[F.cout2_titre]    = pick(sc.cout2_titre,  cT2.titre,  '');
+  row[F.cout2_corps]    = pick(sc.cout2_corps,  cT2.corps,  '');
+  row[F.cout2_verbatim] = pick(sc.cout2_verbatim, cT2.verbatim, '');
+  row[F.cout3_niveau]   = pick(sc.cout3_niveau, cT3.niveau, '');
+  row[F.cout3_titre]    = pick(sc.cout3_titre,  cT3.titre,  '');
+  row[F.cout3_corps]    = pick(sc.cout3_corps,  cT3.corps,  '');
+  row[F.cout3_verbatim] = pick(sc.cout3_verbatim, cT3.verbatim, '');
+
+  // ── §07 SIGNATURE (6 champs) ──
+  row[F.sig_pilier_label]    = pick(sg.sig_pilier_label, sg.pilier_label, '');
+  row[F.sig_filtre_val]      = pick(sg.sig_filtre_val, sg.filtre_val, fc.filtre_label, '');
+  row[F.sig_finalite]        = pick(sg.sig_finalite, sg.finalite, '');
+  row[F.sig_resultat_ligne1] = pick(sg.sig_resultat_ligne1, sg.resultat_ligne1, sg.ligne1, '');
+  row[F.sig_resultat_ligne2] = pick(sg.sig_resultat_ligne2, sg.resultat_ligne2, sg.ligne2, '');
+  row[F.sig_recit]           = pick(sg.sig_recit, sg.recit, '');
+
   return stripUndefined(row);
 }
 
-function mapPilierToFields(candidat_id, pilierResult, architecture) {
-  const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
-  const u = pilierResult.update || {};
+function mapPilierToFields(candidat_id, pilierResult, architecture, bilanRecordId, sources) {
+  const F  = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
+  const u  = pilierResult.update || {};
   const pa = pilierResult.pilierArch;
+  const counters = computePilierCounters(pa.pilier, sources);
+  const signalLabel = computeSignalLabel(pa.pilier, sources);
+  // Tétière "Sortie X/25 · Signal Y · N activations · M circuits actifs · K HAUT"
+  const sorties = (sources.ventilationPiliers || []).find(v => v.pilier_coeur === pa.pilier);
+  const sortiesN = sorties ? (sorties.nb_reponses || 0) : 0;
+  const rappel = `Sortie ${sortiesN}/25 · Signal ${signalLabel} · ${counters.nb_activations} activations · ${counters.nb_circuits_actifs} circuits actifs · ${counters.nb_circuits_haut} HAUT`;
+
   const row = {};
-  row[F.candidat_id]           = candidat_id;
-  row[F.cle_composite]         = `${candidat_id}_${pa.pilier}`;
-  row[F.pilier]                = pa.pilier;
-  row[F.pilier_label]          = pa.pilier_label || '';
-  row[F.role_pilier]           = pa.role;
-  row[F.pilier_mode]           = u.pilier_mode || '';
-  row[F.synthese_technique]    = u.synth_factuelle_coeur || '';
-  row[F.synthese_technique_det]= u.synth_factuelle_elargie || '';
-  row[F.synthese_interpretee]  = u.synth_interpretee || '';
+  row[F.candidat_id]        = candidat_id;
+  row[F.cle_composite]      = `${candidat_id}_${pa.pilier}`;
+  row[F.pilier]             = pa.pilier;
+  row[F.pilier_label]       = pa.pilier_label || '';
+  row[F.role_pilier]        = pa.role;
+  row[F.pilier_role_label]  = ROLE_LABELS[pa.role] || pa.role;
+  row[F.pilier_mode]        = u.pilier_mode || '';
+  row[F.pilier_rappel]      = rappel;
+  row[F.nb_activations]     = counters.nb_activations;
+  row[F.nb_circuits_actifs] = counters.nb_circuits_actifs;
+  row[F.nb_circuits_haut]   = counters.nb_circuits_haut;
+  row[F.cluster_label]      = u.cluster_label || '';
+  row[F.cluster_detail]     = u.cluster_detail || (u.cluster_label ? '' : 'Aucun cluster détecté au seuil protocole.');
+  row[F.tableau_note]       = u.tableau_note || u.synth_factuelle_coeur || '';
+  row[F.synth_factuelle]    = u.synth_factuelle_elargie || u.synth_factuelle || '';
+  row[F.synth_interpretee]  = u.synth_interpretee || '';
+  if (bilanRecordId) row[F.bilan_link] = [bilanRecordId];
   return stripUndefined(row);
 }
 
-function mapCircuitToFields(candidat_id, circuitResult) {
+function mapCircuitToFields(candidat_id, circuitResult, bilanRecordId, pilierRecordId, ordrePilier) {
   const F = airtableConfig.ETAPE1_T3_CIRCUIT_FIELDS;
   const c = circuitResult.circuit || {};
   const pilier = circuitResult.pilier;
   const cid = c.circuit_id || (c.is_adhoc ? 'ADHOC' : '');
   const row = {};
-  row[F.cle_composite]    = `${candidat_id}_${pilier}_${cid}`;
+  row[F.circuit_uid]      = `${candidat_id}_${pilier}_${cid}`;
   row[F.candidat_id]      = candidat_id;
   row[F.pilier]           = pilier;
   row[F.circuit_id]       = cid;
   row[F.circuit_nom]      = c.circuit_nom || '';
-  row[F.circuit_nom_detail] = c.n1_definition || '';
-  row[F.niveau]           = c.circuit_niveau || '';
-  row[F.nb_coeur]         = c.circuit_freq_coeur != null ? c.circuit_freq_coeur : 0;
-  row[F.nb_total]         = c.circuit_freq_total != null ? c.circuit_freq_total : 0;
-  row[F.cluster_label]    = c.circuit_cluster || '';
-  row[F.signal_limbique]  = c.circuit_signal || 'NULLE';
-  row[F.interpretation]   = c.n3_nuance || '';
-  row[F.verbatim_source]  = c.n2_verbatims || '';
+  row[F.n1_definition]    = c.n1_definition || '';
+  row[F.n2_verbatims]     = c.n2_verbatims || '';
+  row[F.n3_nuance]        = c.n3_nuance || '';
+  row[F.circuit_niveau]   = c.circuit_niveau || '';
+  // 3 compteurs distincts : freq=total cœur, franches, nuancees
+  row[F.circuit_freq]      = (c.circuit_freq != null) ? c.circuit_freq
+                            : (c.circuit_freq_coeur != null) ? c.circuit_freq_coeur : 0;
+  row[F.circuit_franches]  = (c.circuit_franches != null) ? c.circuit_franches : 0;
+  row[F.circuit_nuancees]  = (c.circuit_nuancees != null) ? c.circuit_nuancees : 0;
+  row[F.circuit_cluster]   = c.circuit_cluster || c.cluster || '';
+  row[F.circuit_signal]    = c.circuit_signal || c.signal_limbique || 'NULLE';
+  if (c.rang_dans_pilier != null || c.ordre_circuit != null) {
+    row[F.ordre_circuit]   = c.ordre_circuit != null ? c.ordre_circuit : c.rang_dans_pilier;
+  }
+  if (ordrePilier) row[F.ordre_pilier] = ordrePilier;
+  if (bilanRecordId)  row[F.bilan_link]  = [bilanRecordId];
+  if (pilierRecordId) row[F.pilier_link] = [pilierRecordId];
   return stripUndefined(row);
 }
 
