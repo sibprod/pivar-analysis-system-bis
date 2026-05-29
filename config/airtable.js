@@ -533,11 +533,11 @@ module.exports = {
   // Lue par   : route /visualiser/t3_bilan/:candidat_id (assemblage payload)
   // Granularité : 5 lignes par candidat (socle → str1 → str2 → fn1 → fn2)
   // tableId : tblzDIn7P2cOvVvY2
-  // ⚠️ Clé candidat = champ "candidate_ID" (avec 'e', ID majuscule), PAS candidat_id
-  // Field IDs vérifiés en lecture directe Airtable le 28/05/2026.
+  // ⚠️ Clé candidat = champ "candidat_id" (minuscule, sans 'e' contrairement à VISITEUR).
+  // Schéma vérifié via list_tables_for_base le 28/05/2026.
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_PILIER_FIELDS: {
-    candidate_ID:           'fldZKruIBDdjAsY47',  // texte "pivar_..." (clé candidat)
+    candidat_id:            'fldZKruIBDdjAsY47',  // texte "pivar_..." (clé candidat)
     lien_visiteur:          'fld4vR7DGcEVCzz32',  // linked → VISITEUR
     cle_composite:          'fldiL5nkdk50zFwkX',  // "{cid}_P{N}" (clé primaire)
     pilier:                 'fldVvi5gbKioBmlsQ',  // singleSelect P1-P5
