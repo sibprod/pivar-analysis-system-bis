@@ -1536,10 +1536,12 @@ async function createRowsInBatches(tableName, rows, candidat_id) {
 // Lecture/écriture de ETAPE1_T3_PILIER, ETAPE1_T3_CIRCUIT, ETAPE1_T3_BILAN.
 // Écrit par agentT3BilanService ; lu par /visualiser/t3_bilan/.
 //
-// ⚠️ Noms de champs clés DIFFÉRENTS selon la table :
-//    - ETAPE1_T3_PILIER  → clé candidat = "candidate_ID" (avec 'e')
-//    - ETAPE1_T3_CIRCUIT → clé candidat = "candidat_id"  (sans 'e')
-//    - ETAPE1_T3_BILAN   → clé candidat = "candidat_id"  (sans 'e')
+// ⚠️ Noms de champs clés des 3 tables T3 (vérifiés via list_tables_for_base 28/05) :
+//    - ETAPE1_T3_PILIER  → clé candidat = "candidat_id"  (vérifié schéma Airtable)
+//    - ETAPE1_T3_CIRCUIT → clé candidat = "candidat_id"
+//    - ETAPE1_T3_BILAN   → clé candidat = "candidat_id"
+//
+// (À ne pas confondre avec VISITEUR qui utilise "candidate_ID" avec 'e' majuscule ID.)
 //
 // Ces helpers renvoient des objets aux CLÉS LISIBLES (remappées depuis les field
 // IDs via _mapByFieldIds), pour que les services consommateurs ignorent les fldXXX.
@@ -1559,7 +1561,7 @@ function _mapByFieldIds(record, fieldsMap) {
   return out;
 }
 
-// Delete par formule sur un champ clé arbitraire (T3_PILIER utilise candidate_ID)
+// Delete par formule sur un champ clé arbitraire (T3_PILIER/T3_CIRCUIT/T3_BILAN utilisent tous "candidat_id")
 async function _deleteT3ByKeyField(tableName, keyFieldName, candidat_id) {
   const records = await getBase()(tableName)
     .select({ filterByFormula: `{${keyFieldName}} = "${candidat_id}"` })
@@ -1591,7 +1593,7 @@ async function getEtape1T3Piliers(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_PILIER)
-      .select({ filterByFormula: `{candidate_ID} = "${candidat_id}"` })
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
       .all();
     return records.map(r => _mapByFieldIds(r, F));
   } catch (error) {
@@ -1632,7 +1634,7 @@ async function getEtape1T3Bilan(candidat_id) {
 async function writeEtape1T3Piliers(candidat_id, rows) {
   try {
     const t = airtableConfig.TABLES.ETAPE1_T3_PILIER;
-    await _deleteT3ByKeyField(t, 'candidate_ID', candidat_id);
+    await _deleteT3ByKeyField(t, 'candidat_id', candidat_id);
     const n = await _createT3Batches(t, rows);
     logger.info('ETAPE1_T3_PILIER written', { candidat_id, count: n });
     return n;
