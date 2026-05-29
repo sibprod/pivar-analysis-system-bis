@@ -538,23 +538,23 @@ module.exports = {
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_PILIER_FIELDS: {
     candidat_id:            'fldZKruIBDdjAsY47',  // texte "pivar_..." (clé candidat)
-    lien_visiteur:          'fld4vR7DGcEVCzz32',  // linked → VISITEUR
-    cle_composite:          'fldiL5nkdk50zFwkX',  // "{cid}_P{N}" (clé primaire)
+    bilan_link:             'fld4vR7DGcEVCzz32',  // linked → ETAPE1_T3_BILAN (récupère recordId BILAN)
+    cle_composite:          'fldiL5nkdk50zFwkX',  // "{cid}_P{N}" (primaire, alias pilier_uid)
     pilier:                 'fldVvi5gbKioBmlsQ',  // singleSelect P1-P5
     pilier_label:           'fldbDYECHFEGkh0Ng',  // "Création de solutions", "Tri", ...
     role_pilier:            'fldhFisqhUf9oBLOe',  // singleSelect socle/structurant_1/2/fonctionnel_1/2
     pilier_role_label:      'fld1X3FQYRcxB2Qwy',  // "★ Pilier socle — Cœur de votre moteur"
-    pilier_mode:            'fldoGY71vyiaUeFl6',  // ⭐ DOCTRINE PILIER_MODE — "Intuitif et synthétique · Créatif et combinatoire"
-    nb_activations_total:   'fldg5DCdL9U523YfG',  // number — échelle TOTALE (P4=36)
+    pilier_mode:            'fldoGY71vyiaUeFl6',  // ⭐ DOCTRINE PILIER_MODE
+    pilier_rappel:          'fld6qIK9UOZPAE59k',  // tétière "Sortie 9/25 · Signal ... · X activations · Y circuits · Z HAUT"
+    nb_activations:         'fldg5DCdL9U523YfG',  // number — échelle TOTALE
     nb_circuits_actifs:     'fldtUV0KYT0zyjg0J',  // number
     nb_circuits_haut:       'fldUmfMvtMEsADKFX',  // number
     cluster_label:          'fldfpEzRkoHqXHmJ2',  // "C4+C9" (vide si aucun)
     cluster_detail:         'fldNbdQTQFrL9MmLv',  // texte long
-    rappel_chiffres:        'fld6qIK9UOZPAE59k',  // tétière "Sortie 9/25 · Signal ..."
-    synthese_technique:     'fldKax0VwI4BhnLKV',  // "36 activations · 8 circuits actifs · ..."
-    synthese_technique_det: 'fldcGtODAh6b0vZs5',  // texte long (circuits HAUT nommés)
-    synthese_interpretee:   'fldho6MPGr5J5QmPu',  // ⭐ "Ce que ça signifie pour vous" + § DRH
-    liens_circuits:         'fldtZdnuftdhGx2mb'   // linked → ETAPE1_T3_CIRCUIT
+    tableau_note:           'fldKax0VwI4BhnLKV',  // tableau récap doctrine §2.12
+    synth_factuelle:        'fldcGtODAh6b0vZs5',  // synthèse factuelle (élargie/détaillée)
+    synth_interpretee:      'fldho6MPGr5J5QmPu',  // ⭐ "Ce que ça signifie pour vous" + § DRH
+    liens_circuits:         'fldtZdnuftdhGx2mb'   // linked → ETAPE1_T3_CIRCUIT du pilier
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -564,22 +564,24 @@ module.exports = {
   // ⚠️ Clé candidat = champ "candidat_id" (sans 'e')
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_CIRCUIT_FIELDS: {
-    cle_composite:       'fldeaMdgx3WVWgxgv',  // "{cid}_P{N}_C{M}" ou "..._P5_ADHOC" (clé primaire)
+    circuit_uid:         'fldeaMdgx3WVWgxgv',  // "{cid}_P{N}_C{M}" ou "..._P5_ADHOC" (primaire)
+    bilan_link:          'fldUewcuNizHi3NrW',  // linked → ETAPE1_T3_BILAN (récupère recordId BILAN)
+    pilier_link:         'fldPpfFtaCh9wI9IQ',  // linked → ETAPE1_T3_PILIER parent
     candidat_id:         'fldpQzPEvlNaRXFgg',  // texte (clé candidat)
-    lien_visiteur:       'fldUewcuNizHi3NrW',  // linked → VISITEUR
-    lien_pilier:         'fldPpfFtaCh9wI9IQ',  // linked → ETAPE1_T3_PILIER parent
     pilier:              'fld74EvZRf7r4biGh',  // singleSelect P1-P5
     circuit_id:          'fldrnHJtNOWWYJ91t',  // "C4", "C7", "ADHOC"
     circuit_nom:         'fldSGRXf8mi4q1NTd',  // nom catalogue
-    circuit_nom_detail:  'fldKKSpL02oLC8Gwn',  // définition technique
-    niveau:              'fld0LTPI1KfAVHRqI',  // singleSelect HAUT/MOYEN/FAIBLE
-    nb_coeur:            'fldrM33rxdYnJ39vz',  // number — activations cœur
-    nb_total:            'fldwfbNZ0DKsdXray',  // number — total mobilisations
-    rang_dans_pilier:    'fld5SPJJXdv9Bo6vT',  // number
-    cluster_label:       'fldGzHp6ZFEsiIERf',  // "C4+C7"
-    signal_limbique:     'fldVsySoS1k0yFHgx',  // singleSelect NULLE/FAIBLE positif/...
-    interpretation:      'fldSx0VOHYILowFSj',  // "Chez vous, ce circuit..."
-    verbatim_source:     'fldV3EBlHGUleiifK'   // verbatim + séquence (markdown **QID** + > citation)
+    circuit_freq:        'fldrM33rxdYnJ39vz',  // number — nb total d'activations cœur
+    circuit_franches:    'fldwfbNZ0DKsdXray',  // number — nb activations franches
+    circuit_nuancees:    'fldDnY9fRw3g62C6o',  // number — nb activations nuancées
+    circuit_cluster:     'fldGzHp6ZFEsiIERf',  // "C4+C7" (vide si aucun)
+    circuit_signal:      'fldVsySoS1k0yFHgx',  // singleSelect NULLE/FAIBLE positif/...
+    circuit_niveau:      'fld0LTPI1KfAVHRqI',  // singleSelect HAUT/MOYEN/FAIBLE
+    n1_definition:       'fldKKSpL02oLC8Gwn',  // définition catalogue générique
+    n2_verbatims:        'fldV3EBlHGUleiifK',  // manifestation candidat + séquence T1
+    n3_nuance:           'fldSx0VOHYILowFSj',  // "Chez vous, ce circuit..."
+    ordre_pilier:        'fldSK79cCYsuICAAy',  // number 1=socle, 2=str1, 3=str2, 4=fn1, 5=fn2
+    ordre_circuit:       'fld5SPJJXdv9Bo6vT'   // number — rang dans le pilier
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -592,64 +594,131 @@ module.exports = {
   // (preuves filtre détaillées, items signal, coûts) seront complétés après lecture
   // exhaustive du schéma — non bloquant pour la visualisation des champs principaux.
   // ═══════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ v11.1 (29/05/2026) — ETAPE1_T3_BILAN_FIELDS — RÉÉCRITURE COMPLÈTE
+  // Tous les noms et field IDs vérifiés via list_tables_for_base (Airtable schéma).
+  // La précédente version inventait des noms et mappait plusieurs field IDs sur
+  // les MAUVAISES clés (ex: fldZQPfKAJu0cPvLJ étiqueté "signature_finalite" alors
+  // que c'est en réalité cout3_titre). Tout est restauré ici sur le vrai schéma.
+  // tableId : tblv775KQrEhsogdI
+  // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_BILAN_FIELDS: {
-    // Identité
-    candidat_id:         'fldk66gddYGCREOV4',
-    prenom:              'fldFjVTaedAE8iXkU',
-    nom:                 'fldsOkyWddI15pqgU',
-    civilite:            'fld8yjgv2jIp2dzvW',
-    version_bilan:       'fldBlTX1Fuiv81mRc',
-    liens_piliers:       'fld0i2Xr5A07KJZOC',  // linked → 5 ETAPE1_T3_PILIER
-    liens_circuits:      'fld8F9KkASvL3Gqet',  // linked → tous les ETAPE1_T3_CIRCUIT
-    // §01 / soleil
-    note_profil_global:  'fldXeBlXJ2IpU3diJ',
-    nb_sorties_socle:    'fldiTpqZAsWuKiZML',
-    explication_sorties_socle: 'fldFPhv8r1PtQpzN0',
-    // §02 filtre
-    filtre_titre_court:  'fldR2LjSEpCvbS0Uy',  // "Vous concevez"
-    filtre_developpe:    'fldQlgWGaPg49Xlnv',
-    filtre_long:         'fldiGDaUJ4cO0c0zI',
-    filtre_label:        'fldxNmTAxP5FkqYWz',  // "Maintenir les voies ouvertes..."
-    // §03 glissements
-    glissement_intro:        'fldyJliwwvAV2jhFc',
-    glissement_convergence:  'fldI9PSSEB05HfKLR',
-    glissement_1_label:      'fldVeFU4zOLNOtrKh',  // "P3→P4 ×5"
-    glissement_2_label:      'fldImdOKR5wB8ns41',
-    glissement_3_label:      'fldfIi0nXadtyi0IG',
-    glissement_4_label:      'fldnVsaltgsoJF63c',
-    glissement_dominant_expl:'fldSEckaqiK0jKXuZ',
-    glissement_phrase_p1:    'fldoxKFKjZCPczJfd',
-    glissement_phrase_p3:    'fldX0YFp5ELpcy7vT',
-    glissement_phrase_p4:    'fldezsa8t1QMRUAPd',
-    glissement_phrase_p2:    'fldUYhsd4CxZJ3WUf',
-    // §04 boucles (3 patterns)
-    boucle_intro:        'fldM9qq4vQedoBejk',
-    boucle1_titre:       'flddgKN52eZZq4jMk',
-    boucle1_sequence:    'fldzc7ElJmx5lHxZv',
-    boucle1_analyse:     'fldXxBHuZ6GYHvxsN',
-    boucle1_label:       'flduVchzSfMWP5wCF',
-    boucle1_scenario:    'fldoET8wzVBlP7t57',
-    boucle1_reponse:     'fldgCUORgJ7WR7CxZ',
-    boucle2_titre:       'fld6bxTiiuQ0byREw',
-    boucle2_sequence:    'fld9viJ0nWwbR6O8V',
-    boucle2_analyse:     'fldb6wCYgGUQ4Uahd',
-    boucle2_label:       'fld0TRj327hFgtIAl',
-    boucle2_reponse:     'fldQYTI8O0DrSW7o9',
-    boucle3_titre:       'fldxiIah51ibxBqUJ',
-    boucle3_sequence:    'fld0FFqL5wJuVtVo1',
-    boucle3_analyse:     'fld4FT1HOL1DGQMNK',
-    boucle3_label:       'flduzmUTK4uj0oNT3',
-    boucle3_reponse:     'fldhW2RP6P13oZwxJ',
-    // §05 signal
-    signal_synthese_socle: 'fldgq35VLCUvSa0uu',
-    signal_charge_1:       'flds2JqcNQwKy9pFg',
-    signal_charge_2:       'fldx4U59bOkoI7MkN',
-    // §07 signature
-    signature_finalite:    'fldZQPfKAJu0cPvLJ',
-    signature_ressource:   'fldRLZNGvUevhxMUn',
-    sig_resultat_l2:       'fldYlaGZTAewseLgK',
-    // ⚠️ Mode P4 dupliqué (ancien "Expérimental et itératif") — à synchroniser (D8)
-    pilier_socle_mode_DEPRECATED: 'fldLt4GhtqRUyl7V4'
+    // ── Identité ──
+    candidat_id:               'fldk66gddYGCREOV4',
+    civilite:                  'fld8yjgv2jIp2dzvW',
+    prenom:                    'fldFjVTaedAE8iXkU',
+    nom:                       'fldsOkyWddI15pqgU',
+    version_bilan:             'fldBlTX1Fuiv81mRc',
+
+    // ── §01 Architecture moteur (21 champs) ──
+    pilier_socle:              'fldfJHsX7A38IYele',  // singleSelect P1-P5
+    pilier_socle_label:        'fldUf6rhEyR3MKI1x',
+    pilier_socle_mode:         'fldLt4GhtqRUyl7V4',
+    pilier_socle_role:         'fldBMHWSk6DsnRN2i',  // "★ Pilier socle"
+    pilier_str1:               'fldzsZUsyQR7vvbEi',
+    pilier_str1_label:         'fldVwPsne8uUxYbOG',
+    pilier_str1_sorties:       'fld9wiwYRbBf1Eu1s',
+    pilier_str2:               'fldefRzq9hqbn4gHn',
+    pilier_str2_label:         'fld1mfPfxoQNXxPR5',
+    pilier_str2_sorties:       'fldad4ntutJO9lesl',
+    pilier_fn1:                'fld5kBccd13uSx9ll',
+    pilier_fn1_label:          'fld8vqxt3y7AmvCud',
+    pilier_fn1_sorties:        'fldcEfmIax60HZZPJ',
+    pilier_fn2:                'fldyw87BmzorCZ93j',
+    pilier_fn2_label:          'fldexYDVC5sLzBsJH',
+    pilier_fn2_sorties:        'fldKRf4ixcN7bOE04',
+    sorties_P1:                'fld1VX56hmKEE5Jq2',
+    sorties_P2:                'fldPrsVmktnmYYgQ2',
+    sorties_P3:                'fld23tLTuIWHyLcRs',
+    sorties_P4:                'fldiTpqZAsWuKiZML',
+    sorties_P5:                'fldu2FJSPYmjkFCUt',
+    note_profil_global:        'fldXeBlXJ2IpU3diJ',
+
+    // ── §02 Filtre cognitif (7 champs) ──
+    filtre_label:              'fld6KItM77nOSojnf',
+    filtre_preuve_1:           'fldFPhv8r1PtQpzN0',
+    filtre_preuve_2:           'fldRCUSIQ8sbx4rM4',
+    filtre_preuve_3:           'fldKeQsg0PvyQTOWx',
+    filtre_preuve_4:           'fldSEckaqiK0jKXuZ',
+    filtre_preuve_5:           'fldgq35VLCUvSa0uu',
+    filtre_lecture_candidat:   'fldQlgWGaPg49Xlnv',
+
+    // ── §03 Glissements (14 champs : intro + 4×(label/titre/corps) + conclusion) ──
+    glissement_intro:          'fldyJliwwvAV2jhFc',
+    glissement_1_label:        'fldVeFU4zOLNOtrKh',
+    glissement_1_titre:        'fldX0YFp5ELpcy7vT',
+    glissement_1_corps:        'fldmOJ9XhFI4KgBvk',
+    glissement_2_label:        'fldfIi0nXadtyi0IG',
+    glissement_2_titre:        'fldoxKFKjZCPczJfd',
+    glissement_2_corps:        'fldhW2RP6P13oZwxJ',
+    glissement_3_label:        'fldImdOKR5wB8ns41',
+    glissement_3_titre:        'fldUYhsd4CxZJ3WUf',
+    glissement_3_corps:        'fldxxT2D5kD1J6SwQ',
+    glissement_4_label:        'fldnVsaltgsoJF63c',
+    glissement_4_titre:        'fldezsa8t1QMRUAPd',
+    glissement_4_corps:        'fld6lWY9dpbwfrqTY',
+    glissements_conclusion:    'fldI9PSSEB05HfKLR',
+
+    // ── §04 Boucles cognitives (16 champs : intro + 3×(label/scenario/reponse/sequence/labo)) ──
+    boucle_intro:              'fldM9qq4vQedoBejk',
+    boucle_1_label:            'flduVchzSfMWP5wCF',
+    boucle_1_scenario:         'flddgKN52eZZq4jMk',
+    boucle_1_reponse:          'fldgCUORgJ7WR7CxZ',
+    boucle_1_sequence:         'fldzc7ElJmx5lHxZv',
+    boucle_1_labo:             'fldXxBHuZ6GYHvxsN',
+    boucle_2_label:            'flduzmUTK4uj0oNT3',
+    boucle_2_scenario:         'fldxiIah51ibxBqUJ',
+    boucle_2_reponse:          'fldT9VuEZoFUz7mff',
+    boucle_2_sequence:         'fld0FFqL5wJuVtVo1',
+    boucle_2_labo:             'fld4FT1HOL1DGQMNK',
+    boucle_3_label:            'fld0TRj327hFgtIAl',
+    boucle_3_scenario:         'fld6bxTiiuQ0byREw',
+    boucle_3_reponse:          'fldQYTI8O0DrSW7o9',
+    boucle_3_sequence:         'fld9viJ0nWwbR6O8V',
+    boucle_3_labo:             'fldb6wCYgGUQ4Uahd',
+
+    // ── §05 Signal limbique (15 champs : type + intro + 4×(q/corps/verbatim) + synthese) ──
+    signal_type:               'fld4kDga5E9AcrE3V',
+    signal_intro:              'fldx4U59bOkoI7MkN',
+    signal_item1_q:            'fldtHh4X5LLKxj5d8',
+    signal_item1_corps:        'fldJsMUEFQkJ3jbru',
+    signal_item1_verbatim:     'fldDLb7kHyvfRwSVQ',
+    signal_item2_q:            'fld3DPvqaAWjcjvdv',
+    signal_item2_corps:        'fldB4yyZ4yTdzTkwd',
+    signal_item2_verbatim:     'fldRyQKzNernSROVA',
+    signal_item3_q:            'fldUxgogVIMQTseuK',
+    signal_item3_corps:        'fldlYtwIjhGbch7fo',
+    signal_item3_verbatim:     'fldISXvpIK4Dan2Q1',
+    signal_item4_q:            'fldoET8wzVBlP7t57',
+    signal_item4_corps:        'fldVVKDnMuiqf5gGx',
+    signal_item4_verbatim:     'fldyLATVAfXhzKTbb',
+    signal_synthese:           'flds2JqcNQwKy9pFg',
+
+    // ── §06 Coûts (12 champs : 3 × (niveau/titre/corps/verbatim)) ──
+    cout1_niveau:              'fldUj9AnjGAC6mRA0',
+    cout1_titre:               'flda1ghovzGZP61Pi',
+    cout1_corps:               'fld98zcU1LR08eyrt',
+    cout1_verbatim:            'fldRYcMc9N6bWCiB8',
+    cout2_niveau:              'fldtjitVSF0pECezg',
+    cout2_titre:               'fldmt53ekFZqbaGXW',
+    cout2_corps:               'fldGhXQ8WWxqGOUxA',
+    cout2_verbatim:            'fldOi1UiI3EmzhN0H',
+    cout3_niveau:              'fldBnBoWIPHW9pki9',
+    cout3_titre:               'fldZQPfKAJu0cPvLJ',
+    cout3_corps:               'fldRLZNGvUevhxMUn',
+    cout3_verbatim:            'fldWqhn5VKJMPSG6s',
+
+    // ── §07 Signature (6 champs) ──
+    sig_pilier_label:          'fld1PZRqPxejsYc0Z',
+    sig_filtre_val:            'fld6uiqUpCtWHfWYf',
+    sig_finalite:              'fldxNmTAxP5FkqYWz',
+    sig_resultat_ligne1:       'fldR2LjSEpCvbS0Uy',
+    sig_resultat_ligne2:       'fldYlaGZTAewseLgK',
+    sig_recit:                 'fldiGDaUJ4cO0c0zI',
+
+    // ── Linked records ──
+    liens_piliers:             'fld0i2Xr5A07KJZOC',  // linked → 5 ETAPE1_T3_PILIER
+    liens_circuits:            'fld8F9KkASvL3Gqet'   // linked → tous les ETAPE1_T3_CIRCUIT
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
