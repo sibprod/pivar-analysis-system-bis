@@ -283,7 +283,7 @@ function buildPayloadAppel0(candidat_id, sources, architecture) {
     architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
     glissements_precalcules: extractGlissements(sources.t1),
     boucles_top3: extractBouclesTop3(sources.t1, sources.responses),
-    signaux_limbiques: extractSignaux(sources.t2),
+    signaux_limbiques: extractSignaux(sources.t1),
     tableau_t1_compact: sources.t1.map(compactT1Row),
   };
 }
@@ -389,14 +389,20 @@ function computePilierCounters(pilier, sources) {
   return { nb_activations, nb_circuits_actifs, nb_circuits_haut };
 }
 
-// Helper : signal limbique dominant du pilier (depuis t2)
+// Helper : signal limbique dominant du pilier (depuis T1)
+// v11.2 (29/05) FIX : les signaux limbiques sont dans T1.signal_limbique
+// (texte libre type "sérénité affichée · \"...\""), filtrés sur le pilier
+// du candidat (pilier_demande OU pilier_coeur = pilier ciblé).
 function computeSignalLabel(pilier, sources) {
-  const sigs = (sources.t2 || [])
-    .filter(t => (t.circuit_id || '').startsWith(pilier))
-    .map(t => t.signal_limbique_detecte || t.signal_limbique || 'NULLE')
-    .filter(s => s && s !== 'NULLE');
+  const sigs = (sources.t1 || [])
+    .filter(r => (r.pilier_demande === pilier) || (r.pilier_coeur === pilier))
+    .map(r => (r.signal_limbique || '').trim())
+    .filter(s => s && s.toLowerCase() !== 'nulle' && s.toLowerCase() !== 'aucun');
   if (sigs.length === 0) return 'NULLE';
-  return sigs[0]; // premier non-nul
+  // On extrait le type (avant le ·) pour la tétière compacte
+  const first = sigs[0];
+  const idx = first.indexOf('·');
+  return idx > 0 ? first.slice(0, idx).trim() : first;
 }
 
 function mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif, architecture, pilierResults) {
@@ -650,10 +656,39 @@ function extractBouclesTop3(t1, responses) {
   }));
 }
 
-function extractSignaux(t2) {
-  return (t2 || [])
-    .filter(t => t.signal_limbique_detecte && t.signal_limbique_detecte !== 'NULLE')
-    .map(t => ({ circuit: t.circuit_id, signal: t.signal_limbique_detecte, detail: t.signal_limbique_detail }));
+function extractSignaux(t1) {
+  // v11.2 (29/05) FIX CRITIQUE : les signaux limbiques sont stockés dans T1
+  // (champ signal_limbique, texte libre format "type · \"verbatim\"") et NON
+  // dans T2. L'ancienne version filtrait t.signal_limbique_detecte !== 'NULLE'
+  // sur T2 où ce champ n'existe pas → retournait toujours [] → l'agent recevait
+  // signaux_limbiques: [] → écrivait "NULLE" / "Aucun signal limbique documenté"
+  // même chez des candidats avec des signaux réels (cas Véronique 29/05).
+  return (t1 || [])
+    .filter(r => {
+      const s = (r.signal_limbique || '').trim();
+      return s && s.toLowerCase() !== 'nulle' && s.toLowerCase() !== 'aucun';
+    })
+    .map(r => {
+      const raw = (r.signal_limbique || '').trim();
+      // Format attendu : "type · \"verbatim\""  ex : "sérénité affichée · \"...\""
+      // On sépare type / verbatim si possible, sinon on passe le brut.
+      let type = raw, verbatim = '';
+      const idx = raw.indexOf('·');
+      if (idx > 0) {
+        type = raw.slice(0, idx).trim();
+        verbatim = raw.slice(idx + 1).trim().replace(/^["«»]+|["«»]+$/g, '').trim();
+      }
+      return {
+        id_question:   r.id_question || '',
+        scenario:      r.scenario || '',
+        pilier_demande:r.pilier_demande || '',
+        pilier_coeur:  r.pilier_coeur || '',
+        signal_type:   type,
+        signal_verbatim: verbatim,
+        signal_raw:    raw,
+        verbatim_candidat: r.verbatim_candidat || ''
+      };
+    });
 }
 
 function compactT1Row(r) {
