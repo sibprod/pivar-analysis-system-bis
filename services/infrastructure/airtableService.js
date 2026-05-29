@@ -1634,10 +1634,23 @@ async function getEtape1T3Bilan(candidat_id) {
 async function writeEtape1T3Piliers(candidat_id, rows) {
   try {
     const t = airtableConfig.TABLES.ETAPE1_T3_PILIER;
+    const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
     await _deleteT3ByKeyField(t, 'candidat_id', candidat_id);
-    const n = await _createT3Batches(t, rows);
-    logger.info('ETAPE1_T3_PILIER written', { candidat_id, count: n });
-    return n;
+    // Création par lots de 10, en conservant les recordIds pour mapping pilier → recordId
+    const pilierMap = new Map();
+    for (let i = 0; i < rows.length; i += 10) {
+      const batch = rows.slice(i, i + 10).map(fields => ({ fields }));
+      const created = await getBase()(t).create(batch, { typecast: true });
+      for (const rec of created) {
+        const pilier = rec.get(F.pilier);
+        // Airtable renvoie singleSelect comme {id, name} ou string brut
+        const pilierKey = typeof pilier === 'object' && pilier ? (pilier.name || pilier) : pilier;
+        if (pilierKey) pilierMap.set(pilierKey, rec.id);
+      }
+      if (i + 10 < rows.length) await sleep(200);
+    }
+    logger.info('ETAPE1_T3_PILIER written', { candidat_id, count: pilierMap.size });
+    return pilierMap;
   } catch (error) {
     logger.error('Failed to write ETAPE1_T3_PILIER', { candidat_id, error: error.message });
     throw error;
@@ -1665,11 +1678,17 @@ async function upsertEtape1T3Bilan(candidat_id, fields) {
       .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
       .firstPage();
     if (existing.length > 0) {
-      await getBase()(t).update([{ id: existing[0].id, fields }], { typecast: true });
-      logger.info('ETAPE1_T3_BILAN updated', { candidat_id });
+      const updated = await getBase()(t).update(
+        [{ id: existing[0].id, fields }],
+        { typecast: true }
+      );
+      logger.info('ETAPE1_T3_BILAN updated', { candidat_id, recordId: existing[0].id });
+      return existing[0].id;
     } else {
-      await getBase()(t).create([{ fields }], { typecast: true });
-      logger.info('ETAPE1_T3_BILAN created', { candidat_id });
+      const created = await getBase()(t).create([{ fields }], { typecast: true });
+      const newId = created[0].id;
+      logger.info('ETAPE1_T3_BILAN created', { candidat_id, recordId: newId });
+      return newId;
     }
   } catch (error) {
     logger.error('Failed to upsert ETAPE1_T3_BILAN', { candidat_id, error: error.message });
