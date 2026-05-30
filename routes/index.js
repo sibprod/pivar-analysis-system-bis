@@ -622,7 +622,14 @@ function _renderT3Template(tpl, ctx) {
     return true;
   }
   // Tokenize : on alterne textes littéraux et tags {{...}}
+  // v11.5 : retire d'abord les commentaires HTML <!-- ... --> pour ne pas
+  // interpréter les {{...}} qu'ils peuvent contenir (notamment des exemples
+  // documentaires comme "Boucle {{#each circuits_groupes}} remplace ...").
+  function stripHtmlComments(str) {
+    return str.replace(/<!--[\s\S]*?-->/g, '');
+  }
   function parse(str) {
+    str = stripHtmlComments(str);
     const tokens = [];
     const re = /\{\{\{?[#/^!]?\s*[^{}]+?\s*\}?\}\}/g;
     let last = 0, m;
@@ -636,7 +643,7 @@ function _renderT3Template(tpl, ctx) {
       else if (raw === '{{else}}') tokens.push({ type: 'else' });
       else if (raw === '{{/if}}') tokens.push({ type: 'if_close' });
       else if (raw === '{{/each}}') tokens.push({ type: 'each_close' });
-      else if (raw.startsWith('{{!')) { /* commentaire — ignoré */ }
+      else if (raw.startsWith('{{!')) { /* commentaire Handlebars — ignoré */ }
       else tokens.push({ type: 'var', path: inner });
       last = m.index + raw.length;
     }
