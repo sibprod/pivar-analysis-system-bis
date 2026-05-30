@@ -1549,10 +1549,15 @@ async function createRowsInBatches(tableName, rows, candidat_id) {
 
 // Remappe un record Airtable (fields indexés par field ID) → objet clés lisibles
 function _mapByFieldIds(record, fieldsMap) {
+  // v11.4 (30/05/2026) — Robustesse double : lit raw[fieldId] en priorité (mode
+  // returnFieldsByFieldId), avec fallback sur raw[cleLisible] si le SDK a été
+  // appelé sans cette option. Aligné sur la convention où nos clés lisibles
+  // correspondent au nom Airtable du champ.
   const out = { airtable_id: record.id };
   const raw = record.fields || {};
   for (const [cleLisible, fieldId] of Object.entries(fieldsMap)) {
     let v = raw[fieldId];
+    if (v === undefined) v = raw[cleLisible];
     if (v && typeof v === 'object' && !Array.isArray(v) && v.name !== undefined) {
       v = v.name; // singleSelect → .name
     }
@@ -1593,7 +1598,10 @@ async function getEtape1T3Piliers(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_PILIER)
-      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
+      .select({
+        filterByFormula: `{candidat_id} = "${candidat_id}"`,
+        returnFieldsByFieldId: true  // v11.4 : aligne le SDK sur _mapByFieldIds
+      })
       .all();
     return records.map(r => _mapByFieldIds(r, F));
   } catch (error) {
@@ -1606,7 +1614,10 @@ async function getEtape1T3Circuits(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_CIRCUIT_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_CIRCUIT)
-      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
+      .select({
+        filterByFormula: `{candidat_id} = "${candidat_id}"`,
+        returnFieldsByFieldId: true  // v11.4 : aligne le SDK sur _mapByFieldIds
+      })
       .all();
     return records.map(r => _mapByFieldIds(r, F));
   } catch (error) {
@@ -1619,7 +1630,11 @@ async function getEtape1T3Bilan(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_BILAN_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_BILAN)
-      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+      .select({
+        filterByFormula: `{candidat_id} = "${candidat_id}"`,
+        maxRecords: 1,
+        returnFieldsByFieldId: true  // v11.4 : aligne le SDK sur _mapByFieldIds
+      })
       .firstPage();
     if (records.length === 0) return null;
     return _mapByFieldIds(records[0], F);
