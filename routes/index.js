@@ -584,8 +584,126 @@ router.get('/visualiser/tableau2piliers/:candidat_id', async (req, res) => {
 //   GET /visualiser/t3_bilan/:candidat_id
 //       → JSON : payload assemblé pour le template (tableauT3bilanPayloadService)
 //       → HTML : sert services/visualisation/tableauT3bilanService.html
+//         RENDU CÔTÉ SERVEUR : assemble payload + lit template + compile +
+//         renvoie HTML complet. v11.3 (30/05/2026) — Avant cette version, la
+//         route faisait res.sendFile() du template brut, ce qui envoyait les
+//         {{...}} non rendus au navigateur. Le template n'a aucun <script>
+//         de rendu côté client : il a toujours été conçu serveur-rendu.
 //   Cible de la formule Airtable VISITEUR.lien_visualiser_t3 :
 //     https://pivar-analysis-system-bis.onrender.com/visualiser/t3_bilan/{candidate_ID}
+
+// ─── Mini-moteur Handlebars zéro-dépendance pour les cas utilisés ──────────
+// Supporte : {{var}} (échappé HTML), {{{var}}} (brut), {{obj.path.subpath}},
+//            {{#if x}}...{{else}}...{{/if}}, {{#each list}}...{{/each}} avec
+//            accès aux propriétés du sous-contexte (this implicite).
+// Les conditions/each acceptent les chemins pointés (ex {{#if profil_tandem.x}}).
+function _renderT3Template(tpl, ctx) {
+  function escapeHtml(s) {
+    if (s === undefined || s === null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function resolvePath(scope, path) {
+    if (path === 'this' || path === '.') return scope;
+    const parts = path.split('.');
+    let cur = scope;
+    for (const p of parts) {
+      if (cur === null || cur === undefined) return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  }
+  function isTruthy(v) {
+    if (Array.isArray(v)) return v.length > 0;
+    if (v === null || v === undefined || v === false || v === 0 || v === '') return false;
+    return true;
+  }
+  // Tokenize : on alterne textes littéraux et tags {{...}}
+  function parse(str) {
+    const tokens = [];
+    const re = /\{\{\{?[#/^!]?\s*[^{}]+?\s*\}?\}\}/g;
+    let last = 0, m;
+    while ((m = re.exec(str)) !== null) {
+      if (m.index > last) tokens.push({ type: 'text', value: str.slice(last, m.index) });
+      const raw = m[0];
+      const inner = raw.replace(/^\{\{\{?[#/^!]?\s*/, '').replace(/\s*\}?\}\}$/, '').trim();
+      if (raw.startsWith('{{{')) tokens.push({ type: 'raw', path: inner });
+      else if (raw.startsWith('{{#if ')) tokens.push({ type: 'if_open', path: inner.replace(/^if\s+/, '') });
+      else if (raw.startsWith('{{#each ')) tokens.push({ type: 'each_open', path: inner.replace(/^each\s+/, '') });
+      else if (raw === '{{else}}') tokens.push({ type: 'else' });
+      else if (raw === '{{/if}}') tokens.push({ type: 'if_close' });
+      else if (raw === '{{/each}}') tokens.push({ type: 'each_close' });
+      else if (raw.startsWith('{{!')) { /* commentaire — ignoré */ }
+      else tokens.push({ type: 'var', path: inner });
+      last = m.index + raw.length;
+    }
+    if (last < str.length) tokens.push({ type: 'text', value: str.slice(last) });
+    return tokens;
+  }
+  // Construit un arbre d'AST pour gérer les blocs imbriqués
+  function buildAst(tokens) {
+    let i = 0;
+    function readBlock(stopTypes) {
+      const out = [];
+      while (i < tokens.length) {
+        const tk = tokens[i];
+        if (stopTypes.includes(tk.type)) return out;
+        if (tk.type === 'if_open') {
+          i++;
+          const ifBody = readBlock(['else', 'if_close']);
+          let elseBody = [];
+          if (tokens[i] && tokens[i].type === 'else') { i++; elseBody = readBlock(['if_close']); }
+          if (tokens[i] && tokens[i].type === 'if_close') i++;
+          out.push({ type: 'if', path: tk.path, ifBody, elseBody });
+        } else if (tk.type === 'each_open') {
+          i++;
+          const body = readBlock(['each_close']);
+          if (tokens[i] && tokens[i].type === 'each_close') i++;
+          out.push({ type: 'each', path: tk.path, body });
+        } else {
+          out.push(tk);
+          i++;
+        }
+      }
+      return out;
+    }
+    return readBlock([]);
+  }
+  function renderNodes(nodes, scopes) {
+    function lookup(path) {
+      // Cherche dans la pile de contexte du plus interne au plus externe
+      for (let i = scopes.length - 1; i >= 0; i--) {
+        const v = resolvePath(scopes[i], path);
+        if (v !== undefined) return v;
+      }
+      return undefined;
+    }
+    let out = '';
+    for (const n of nodes) {
+      if (n.type === 'text') out += n.value;
+      else if (n.type === 'var') out += escapeHtml(lookup(n.path));
+      else if (n.type === 'raw') {
+        const v = lookup(n.path);
+        out += (v === undefined || v === null) ? '' : String(v);
+      }
+      else if (n.type === 'if') {
+        if (isTruthy(lookup(n.path))) out += renderNodes(n.ifBody, scopes);
+        else out += renderNodes(n.elseBody, scopes);
+      }
+      else if (n.type === 'each') {
+        const list = lookup(n.path);
+        if (Array.isArray(list)) {
+          for (const item of list) out += renderNodes(n.body, scopes.concat([item]));
+        }
+      }
+    }
+    return out;
+  }
+  const ast = buildAst(parse(tpl));
+  return renderNodes(ast, [ctx]);
+}
+
 router.get('/visualiser/t3_bilan/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
 
@@ -599,12 +717,10 @@ router.get('/visualiser/t3_bilan/:candidat_id', async (req, res) => {
   }
 
   const acceptHeader = req.headers.accept || '';
-  const fetchMode    = req.headers['sec-fetch-mode'] || '';
   const formatParam  = (req.query && req.query.format) || '';
   const wantsJson =
     acceptHeader.includes('application/json') ||
-    formatParam === 'json' ||
-    fetchMode === 'cors';
+    formatParam === 'json';
 
   // ─── Mode JSON : payload assemblé pour le template ─────────────────────────
   if (wantsJson) {
@@ -630,27 +746,42 @@ router.get('/visualiser/t3_bilan/:candidat_id', async (req, res) => {
     }
   }
 
-  // ─── Mode HTML : sert services/visualisation/tableauT3bilanService.html ────
-  logger.info('Visualisation t3_bilan — mode HTML', { candidat_id });
+  // ─── Mode HTML : assemble payload + lit template + rend Handlebars ────────
+  logger.info('Visualisation t3_bilan — mode HTML (rendu serveur)', { candidat_id });
+  const fs = require('fs');
   const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'tableauT3bilanService.html');
-  res.sendFile(htmlPath, function(err) {
-    if (err) {
-      logger.error('Visualisation t3_bilan — erreur sendFile', {
-        candidat_id: candidat_id,
-        error: err.message,
-        path: htmlPath
-      });
-      if (!res.headersSent) {
-        res.status(500).type('html').send(
-          '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
-          '<h1>Erreur de chargement du visualiseur t3_bilan</h1>' +
-          '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
-          '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
-          '</body></html>'
-        );
-      }
+  try {
+    // 1) Assemble le payload (mêmes données qu'en mode JSON)
+    const payload = await tableauT3bilanPayloadService.buildPayload(candidat_id);
+    if (!payload) {
+      return res.status(404).type('html').send(
+        '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+        '<h1>Aucun bilan T3 trouvé pour ce candidat</h1>' +
+        '<p>Étape 3 non exécutée ? candidat_id : <code>' + candidat_id + '</code></p>' +
+        '</body></html>'
+      );
     }
-  });
+    // 2) Lit le template
+    const tpl = fs.readFileSync(htmlPath, 'utf8');
+    // 3) Compile + rend
+    const html = _renderT3Template(tpl, payload);
+    res.type('html').send(html);
+  } catch (error) {
+    logger.error('Visualisation t3_bilan — erreur rendu HTML', {
+      candidat_id: candidat_id,
+      error: error.message,
+      stack: error.stack
+    });
+    if (!res.headersSent) {
+      res.status(500).type('html').send(
+        '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+        '<h1>Erreur de rendu t3_bilan</h1>' +
+        '<p>Erreur : ' + (error.message || 'inconnue') + '</p>' +
+        '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
+        '</body></html>'
+      );
+    }
+  }
 });
 
 // ─── Route 2 : Tableau inventaire circuits ──────────────────────────────────
