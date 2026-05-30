@@ -19,7 +19,9 @@
 //   GET  /visualiser/tableau2circuits/:candidat_id   — ⭐ v10.9 — inventaire complet des circuits (Phase 3 Algorithme A)
 //   GET  /visualiser/tableau2parquestion/:candidat_id — ⭐ v10.9b — détail par question (lit ETAPE1_T1 14 champs Phase 3A)
 //   GET  /visualiser/t2/:candidat_id                 — visualisation HTML T2 interne ⭐ v10.5
-//   GET  /visualiser/t3/:candidat_id                 — visualisation HTML T3 (préparé, désactivé)
+//   GET  /visualiser/t3_bilan/:candidat_id           — visualisation HTML bilan étape 3 ⭐ v11.3
+//                                                       (rendu serveur via mini-moteur Handlebars maison)
+//   GET  /visualiser/t3/:candidat_id                 — ancienne route T3 (préparé, désactivé)
 //   GET  /visualiser/t4/:candidat_id                 — visualisation HTML T4 (préparé, désactivé)
 //
 // PHASE v10.7 (2026-05-20) — refonte route T1 :
