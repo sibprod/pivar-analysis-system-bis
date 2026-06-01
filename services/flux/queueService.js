@@ -68,6 +68,11 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'REPRENDRE_T1_DES_PANNE',
   // ⭐ v10.5 — T2 v3.4 migré : reprise à T2 (Contrat v1.9 §12 ligne 1095)
   'REPRENDRE_AGENT2',
+  // ⭐ v10.9 (01/06/2026) — sous-phases isolées de l'étape 2 (manquaient dans le polling :
+  // ajoutées à orchestratorPrincipal STATUTS_ETAPE_2 en v10.9 mais oubliées ici → non détectées)
+  'REPRENDRE_AGENT2_PHASE1',
+  'REPRENDRE_AGENT2_PHASE2',
+  'REPRENDRE_AGENT2_PHASE3',
   // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
   'REPRENDRE_AGENT3',
   // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
