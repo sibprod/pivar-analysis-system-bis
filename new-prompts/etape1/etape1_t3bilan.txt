@@ -1139,6 +1139,25 @@ Lecture : tandem **serein** = l'exécution prolonge naturellement le socle, sans
 ### D13 — Cohérence globale du HTML *(v5)*
 Toute visualisation du bilan doit être un document COMPLET. Avant de présenter le HTML, vérifier que **TOUTES les sections du template** sont peuplées : §01, §02, §02bis, §03, §04, §05, §06, §07, et les sections piliers détaillées. Si UNE SEULE section est vide, le travail est à refaire. Toute modification doit maintenir la cohérence globale du profil, pas seulement enrichir une partie.
 
+### D13bis — COHÉRENCE INTERNE : un pilier dit la MÊME chose partout *(v5.5)*
+Un bilan est UN SEUL document qui parle d'UN SEUL candidat. Les sections ne sont pas indépendantes : ce qui est dit d'un pilier dans une section doit être cohérent avec ce qui en est dit dans toutes les autres. **Avant de rendre, relis et vérifie. Une contradiction interne est une faute grave — elle signale que l'analyse n'a pas été comprise.**
+
+Points de contrôle obligatoires (un pilier donné) :
+- **UN SEUL rôle.** Le pilier P_ a le même rôle (socle / structurant 1 / structurant 2 / fonctionnel 1 / fonctionnel 2) dans le §01, dans le §02bis (Soleil) et dans sa section détaillée. Il est INTERDIT qu'un pilier soit « structurant 1 » dans le Soleil et « fonctionnel 2 » dans la vue globale.
+- **Les MÊMES chiffres.** Les activations, le nombre de circuits, le service au socle d'un pilier sont identiques partout où ils apparaissent.
+- **Cohérence rôle ↔ chiffres.** Un pilier présenté comme **structurant** NE PEUT PAS afficher « 0 activations » : s'il structure, c'est qu'il est actif (au minimum en instrumental). Si tu écris « structurant » et « 0 activation » sur le même pilier, l'une des deux affirmations est fausse — arrête-toi et corrige.
+- **Cohérence mode ↔ socle.** Le `pilier_socle_mode` décrit le pilier socle ; il doit correspondre au pilier affiché comme socle (pas un mode P3 sur un socle annoncé P4).
+
+Ces chiffres et rôles viennent du service (architecture + compteurs) : tu les DÉCLINES, tu ne les inventes pas (§3.4). Si tu constates une incohérence entre deux sections, c'est que tu as recalculé quelque part au lieu de décliner la source — reviens à la source unique.
+
+### D13ter — RÈGLE DES TÉTIÈRES : cœur, sinon instrumental, sinon zéro *(v5.5)*
+Les chiffres d'en-tête d'un pilier (la « tétière ») se lisent sur DEUX plans, dans cet ordre :
+1. **Côté cœur** — ce que le pilier fait quand il EST cœur (ses sorties propres).
+2. **Si pas de cœur → côté instrumental** — ce qu'il fait au service des autres piliers (la somme de ses `en_svc_P1..P5`). Un pilier qui n'est jamais cœur n'est PAS vide : il est instrumental. Sa tétière doit montrer cette activité (« N activations instrumentales, au service d'autres piliers »), **jamais « 0 activations »**.
+3. **Si ni cœur ni instrumental → « 0 » est alors juste** (ce cas existe : un pilier réellement non activé ; le zéro est vrai).
+
+La mention « Sortie X/25 » reste le nombre de sorties cœur (elle peut valoir 0 pour un pilier instrumental — c'est exact). Mais « activations » et « circuits actifs » doivent inclure l'instrumental. Le service fournit ces compteurs déjà corrects : tu les affiches tels quels.
+
 ### D14 — Pédagogie systématique en `synth_interpretee` et `personnalisation` *(v5)*
 Dans toute partie « ce que ça signifie pour vous » (synth_interpretee de pilier, personnalisation de circuit dans §02bis), tout terme technique doit être expliqué entre parenthèses à sa première occurrence dans le champ :
 - « cluster » → « (deux circuits qui s'activent toujours ensemble) »
@@ -1231,6 +1250,8 @@ Avant de retourner le JSON, vérifie mentalement :
 8. ☐ Aucun mot évaluatif (« remarquable », « excellent », etc.)
 9. ☐ Aucune `synth_interpretee` ni signature ne contient de clôture DRH, de mention recruteur/manager, de recommandation prescriptive (« à mobiliser sur », « à associer à », « anticiper », « prévoir »), ni de terme évaluatif (« précieux »)
 10. ☐ Le JSON est propre, valide, sans champ hors-schéma
+11. ☐ **COHÉRENCE INTERNE (D13bis)** : chaque pilier a le MÊME rôle et les MÊMES chiffres dans le §01, le §02bis et sa section détaillée. Aucun pilier « structurant » n'affiche « 0 activations ». Le mode du socle correspond au pilier socle affiché.
+12. ☐ **TÉTIÈRES (D13ter)** : aucun pilier instrumental (0 cœur mais sert les autres) n'affiche « 0 activations » — il montre ses activations instrumentales. Le « 0 » n'apparaît que pour un pilier réellement inactif (ni cœur ni service).
 
 ---
 
