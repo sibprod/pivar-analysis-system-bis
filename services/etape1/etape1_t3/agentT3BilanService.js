@@ -227,6 +227,41 @@ async function safeGetAdhoc(candidat_id) {
 // ⚠️ La table peut ne contenir que les piliers avec ≥ 1 cœur. On complète avec
 //    les piliers absents (0 cœur) en queue pour TOUJOURS avoir les 5 piliers.
 // ═══════════════════════════════════════════════════════════════════════════
+// ─── Parse "P5C13(4) · P5C1(3) · P5C15(3)" → { total, nbCircuits, occurrences:[4,3,3] } ──
+// DOCTRINE (Isabelle, 01/06) : le service au socle se lit dans ventilation_P{x}_instru de la
+// ligne du SOCLE. Le format porte les 3 dimensions du diagnostic en 3 phases.
+function parseServiceAuSocle(ventilationStr) {
+  if (!ventilationStr || typeof ventilationStr !== 'string' || ventilationStr.trim() === '') {
+    return { total: 0, nbCircuits: 0, occurrences: [] };
+  }
+  const occurrences = [];
+  // chaque terme "PxCy(n)" — on extrait le n entre parenthèses
+  for (const terme of ventilationStr.split('·')) {
+    const m = terme.match(/\((\d+)\)/);
+    if (m) occurrences.push(parseInt(m[1], 10));
+  }
+  occurrences.sort((a, b) => b - a); // décroissant pour le départage Phase 3
+  return {
+    total: occurrences.reduce((s, n) => s + n, 0),
+    nbCircuits: occurrences.length,
+    occurrences
+  };
+}
+
+/**
+ * Calcule l'architecture moteur (ordre des piliers par rôle).
+ *
+ * DOCTRINE D'ARCHITECTURE (Isabelle, verrouillée 01/06) :
+ *   - Le SOCLE = pilier le plus souvent CŒUR (rang_par_frequence = 1 dans VENTILATION_PILIERS).
+ *   - Les 4 AUTRES piliers (str1/str2/fn1/fn2) sont classés par leur SERVICE AU SOCLE, lu dans la
+ *     colonne ventilation_P{x}_instru de la LIGNE DU SOCLE. L'absence de cœur d'un pilier NE LE
+ *     DISQUALIFIE PAS comme structurant (ex : P5 jamais cœur peut être le tandem n°1).
+ *   - Règle de tri en 3 PHASES en cascade (sur le service au socle) :
+ *       Phase 1 : nombre d'activations au service du socle (total) décroissant ;
+ *       Phase 2 : si égalité → nombre de circuits distincts décroissant ;
+ *       Phase 3 : si égalité → occurrences de chaque circuit (profil de répartition) décroissant.
+ *   - VASE CLOS = pilier à service-au-socle = 0 → classé dernier, flag vase_clos = true.
+ */
 function computeArchitecture(ventilationPiliers) {
   const PILIERS_TOUS = ['P1', 'P2', 'P3', 'P4', 'P5'];
   const PILIER_LABELS = {
@@ -237,35 +272,72 @@ function computeArchitecture(ventilationPiliers) {
     P5: 'Mise en œuvre et exécution'
   };
 
-  // Trie par nb_questions_coeur décroissant ; départage par activations totales.
-  const sorted = [...ventilationPiliers].sort((a, b) => {
-    const ca = a.nb_questions_coeur || a.nb_reponses || 0;
-    const cb = b.nb_questions_coeur || b.nb_reponses || 0;
-    if (cb !== ca) return cb - ca;
-    return (b.nb_activations_coeur_total || 0) - (a.nb_activations_coeur_total || 0);
-  });
+  // ─── 1. SOCLE = pilier le plus souvent cœur (rang_par_frequence=1, sinon max nb_reponses) ──
+  const socleRow = [...ventilationPiliers].sort((a, b) => {
+    const ra = a.rang_par_frequence || 99;
+    const rb = b.rang_par_frequence || 99;
+    if (ra !== rb) return ra - rb;
+    return (b.nb_reponses || 0) - (a.nb_reponses || 0);
+  })[0];
 
-  // Construire les piliers présents
-  const ordered = sorted.map((p, idx) => ({
-    pilier: p.pilier_coeur,
-    pilier_label: p.pilier_coeur_libelle || PILIER_LABELS[p.pilier_coeur] || p.pilier_coeur,
-    role: ROLE_ORDER[idx] || 'fonctionnel_2',
-    raw: p
-  }));
+  if (!socleRow) return { ordered: [], socle: null };
+  const soclePilier = socleRow.pilier_coeur;
 
-  // Compléter avec les piliers ABSENTS de la ventilation (0 cœur)
-  const presents = new Set(ordered.map(o => o.pilier));
-  const absents = PILIERS_TOUS.filter(p => !presents.has(p));
-  for (const p of absents) {
-    ordered.push({
+  // ─── 2. SERVICE AU SOCLE : lire ventilation_P{x}_instru de la LIGNE DU SOCLE ──
+  // (le socle lui-même est exclu ; les 4 autres piliers sont classés par leur service au socle)
+  const autres = PILIERS_TOUS.filter(p => p !== soclePilier).map(p => {
+    const svc = parseServiceAuSocle(socleRow[`ventilation_${p}_instru`]);
+    return {
       pilier: p,
       pilier_label: PILIER_LABELS[p] || p,
-      role: ROLE_ORDER[ordered.length] || 'fonctionnel_2',
-      raw: { pilier_coeur: p, nb_questions_coeur: 0, nb_reponses: 0, nb_activations_coeur_total: 0 }
-    });
-  }
+      svc_total: svc.total,
+      svc_nb_circuits: svc.nbCircuits,
+      svc_occurrences: svc.occurrences,
+      vase_clos: svc.total === 0
+    };
+  });
 
-  return { ordered, socle: ordered[0] || null };
+  // ─── 3. TRI EN 3 PHASES (cascade) ──
+  autres.sort((a, b) => {
+    // Phase 1 : total d'activations au service du socle
+    if (b.svc_total !== a.svc_total) return b.svc_total - a.svc_total;
+    // Phase 2 : nombre de circuits distincts
+    if (b.svc_nb_circuits !== a.svc_nb_circuits) return b.svc_nb_circuits - a.svc_nb_circuits;
+    // Phase 3 : occurrences de chaque circuit (comparaison lexicographique décroissante)
+    const max = Math.max(a.svc_occurrences.length, b.svc_occurrences.length);
+    for (let i = 0; i < max; i++) {
+      const oa = a.svc_occurrences[i] || 0;
+      const ob = b.svc_occurrences[i] || 0;
+      if (ob !== oa) return ob - oa;
+    }
+    // Tie-break stable : ordre alphabétique du pilier
+    return a.pilier.localeCompare(b.pilier);
+  });
+
+  // ─── 4. Construire l'architecture : socle (rang 0) + 4 autres dans l'ordre du service ──
+  const socleLabel = socleRow.pilier_coeur_libelle || PILIER_LABELS[soclePilier] || soclePilier;
+  const ordered = [{
+    pilier: soclePilier,
+    pilier_label: socleLabel,
+    role: ROLE_ORDER[0], // 'socle'
+    svc_au_socle_total: null, // n/a pour le socle lui-même
+    vase_clos: false,
+    raw: socleRow
+  }];
+
+  autres.forEach((p, idx) => {
+    ordered.push({
+      pilier: p.pilier,
+      pilier_label: p.pilier_label,
+      role: ROLE_ORDER[idx + 1] || 'fonctionnel_2',
+      svc_au_socle_total: p.svc_total,
+      svc_au_socle_nb_circuits: p.svc_nb_circuits,
+      vase_clos: p.vase_clos,
+      raw: ventilationPiliers.find(v => v.pilier_coeur === p.pilier) || { pilier_coeur: p.pilier }
+    });
+  });
+
+  return { ordered, socle: ordered[0] };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -291,7 +363,15 @@ function buildPayloadAppel0(candidat_id, sources, architecture) {
 function buildPayloadAppel0bis(candidat_id, sources, architecture) {
   return {
     candidat: identiteAnonyme(sources),
-    architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
+    // Architecture = SOURCE UNIQUE (computeArchitecture). Le Soleil DÉCLINE cet ordre, il ne le recalcule pas.
+    // On transmet le service au socle et le flag vase_clos pour que le §02bis soit cohérent avec le §01.
+    architecture_moteur: architecture.ordered.map(p => ({
+      pilier: p.pilier,
+      role: p.role,
+      svc_au_socle_total: (p.svc_au_socle_total != null ? p.svc_au_socle_total : null),
+      svc_au_socle_nb_circuits: (p.svc_au_socle_nb_circuits != null ? p.svc_au_socle_nb_circuits : null),
+      vase_clos: !!p.vase_clos,
+    })),
     inventaire_circuits_complet: sources.inventaireCircuits,  // table complète (autoritaire)
     referentiel_circuits: sources.referentielCircuits,
     responses: sources.responses,
@@ -372,21 +452,63 @@ const ROLE_LABELS = {
   fonctionnel_2:   'Pilier fonctionnel 2 — Sortie de cycle'
 };
 
-// Helper : compteurs cœur depuis l'inventaire de circuits du candidat
+// Helper : compteurs d'un pilier depuis l'inventaire de circuits du candidat.
+//
+// RÈGLE TÉTIÈRES (Isabelle, 01/06) — un pilier se lit sur DEUX plans :
+//   1. CŒUR : ce qu'il fait quand il EST cœur (nb_coeur des circuits du pilier).
+//   2. INSTRUMENTAL : ce qu'il fait au service des AUTRES piliers (somme des nb_svc_P1..P5
+//      de ses circuits). Un pilier qui n'est JAMAIS cœur (ex : P5 chez Véronique) n'est PAS
+//      vide : il est instrumental. Afficher « 0 activations » pour lui est FAUX.
+//   3. Si ni cœur ni instrumental → 0 est alors JUSTE.
+//
+// On expose donc les deux plans séparément + un total, pour que la tétière puisse dire la vérité :
+//   - coeur_*        : activité en tant que cœur (sorties propres)
+//   - instru_*       : activité au service des autres (instrumental)
+//   - nb_activations / nb_circuits_actifs : TOTAL (cœur + instrumental) — ce que la tétière affiche
+//   - nb_circuits_haut : circuits HAUT en cœur (échelle cœur, inchangé)
 function computePilierCounters(pilier, sources) {
   const circuits = (sources.inventaireCircuits || []).filter(c =>
     (c.pilier_owner === pilier) || (c.circuit_label || '').startsWith(pilier)
   );
-  let nb_activations = 0, nb_circuits_actifs = 0, nb_circuits_haut = 0;
+  let coeur_activations = 0, coeur_circuits = 0, nb_circuits_haut = 0;
+  let instru_activations = 0, instru_circuits = 0;
+  const SVC = ['nb_svc_P1', 'nb_svc_P2', 'nb_svc_P3', 'nb_svc_P4', 'nb_svc_P5'];
+
   for (const c of circuits) {
     const coeur = Number(c.nb_coeur || 0);
+    // somme du service rendu aux autres piliers (instrumental) par ce circuit
+    let svc = 0;
+    for (const k of SVC) svc += Number(c[k] || 0);
+
     if (coeur > 0) {
-      nb_activations    += coeur;
-      nb_circuits_actifs += 1;
+      coeur_activations += coeur;
+      coeur_circuits    += 1;
       if (coeur >= 4) nb_circuits_haut += 1;
     }
+    if (svc > 0) {
+      instru_activations += svc;
+      instru_circuits    += 1;
+    }
   }
-  return { nb_activations, nb_circuits_actifs, nb_circuits_haut };
+
+  const nb_activations     = coeur_activations + instru_activations;
+  const nb_circuits_actifs = coeur_circuits + instru_circuits;
+
+  return {
+    // total (ce que la tétière affiche par défaut)
+    nb_activations,
+    nb_circuits_actifs,
+    nb_circuits_haut,
+    // détail des deux plans (pour distinguer cœur vs instrumental dans la tétière)
+    coeur_activations,
+    coeur_circuits,
+    instru_activations,
+    instru_circuits,
+    // un pilier est purement instrumental s'il n'a aucun cœur mais sert les autres
+    est_instrumental_pur: (coeur_activations === 0 && instru_activations > 0),
+    // vraiment inactif (ni cœur ni service) → le 0 est alors juste
+    est_inactif: (coeur_activations === 0 && instru_activations === 0)
+  };
 }
 
 // Helper : signal limbique dominant du pilier (depuis T1)
@@ -589,7 +711,19 @@ function mapPilierToFields(candidat_id, pilierResult, architecture, bilanRecordI
   // Tétière "Sortie X/25 · Signal Y · N activations · M circuits actifs · K HAUT"
   const sorties = (sources.ventilationPiliers || []).find(v => v.pilier_coeur === pa.pilier);
   const sortiesN = sorties ? (sorties.nb_reponses || 0) : 0;
-  const rappel = `Sortie ${sortiesN}/25 · Signal ${signalLabel} · ${counters.nb_activations} activations · ${counters.nb_circuits_actifs} circuits actifs · ${counters.nb_circuits_haut} HAUT`;
+  // Tétière. RÈGLE (Isabelle 01/06) : un pilier instrumental pur (0 cœur mais sert les autres)
+  // ne doit JAMAIS afficher « 0 activations ». On dit alors son activité au service des autres.
+  let rappel;
+  if (counters.est_inactif) {
+    // Ni cœur ni service : le 0 est juste.
+    rappel = `Sortie 0/25 · Signal ${signalLabel} · pilier non activé`;
+  } else if (counters.est_instrumental_pur) {
+    // Jamais cœur, mais instrumental : on montre le service rendu aux autres piliers.
+    rappel = `Sortie ${sortiesN}/25 · Signal ${signalLabel} · ${counters.instru_activations} activations instrumentales (au service d'autres piliers) · ${counters.instru_circuits} circuits actifs`;
+  } else {
+    // Pilier avec cœur : on montre le total (cœur + instrumental) + les HAUT en cœur.
+    rappel = `Sortie ${sortiesN}/25 · Signal ${signalLabel} · ${counters.nb_activations} activations · ${counters.nb_circuits_actifs} circuits actifs · ${counters.nb_circuits_haut} HAUT`;
+  }
 
   const row = {};
   row[F.candidat_id]        = candidat_id;
