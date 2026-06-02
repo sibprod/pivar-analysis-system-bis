@@ -538,7 +538,6 @@ function buildSoleil(jsonStr, socle, bilanRow) {
   let p;
   try {
     p = JSON.parse(jsonStr);
-    // robustesse : le JSON peut être { §02bis_profil_cognitif: {...} } ou directement {...}
     if (p && p['§02bis_profil_cognitif']) p = p['§02bis_profil_cognitif'];
     if (p && p.bilan && p.bilan['§02bis_profil_cognitif']) p = p.bilan['§02bis_profil_cognitif'];
   } catch (e) {
@@ -547,49 +546,128 @@ function buildSoleil(jsonStr, socle, bilanRow) {
   }
   if (!p || typeof p !== 'object') return out;
 
-  out.profil_intro = p.intro || '';
-  out.profil_conclusion_cycle = p.conclusion_cycle || '';
+  // ─── Intro ── (structure agent : "introduction")
+  out.profil_intro = asText(p.introduction || p.intro || '');
 
-  // Centre — zone haute : circuits cœur du socle (HAUT puis MOYEN puis FAIBLE)
-  const haut  = Array.isArray(p.bloc1_circuits_haut)   ? p.bloc1_circuits_haut   : [];
-  const moyen = Array.isArray(p.bloc1_circuits_moyen)  ? p.bloc1_circuits_moyen  : [];
-  const faible= Array.isArray(p.bloc1_circuits_faible) ? p.bloc1_circuits_faible : [];
-  out.profil_bloc1_circuits_haut  = haut;
-  out.profil_bloc1_circuits_moyen = moyen;
-  out.profil_centre_coeur_html = renderCentreCircuits([...haut, ...moyen, ...faible]);
+  // ─── Conclusion du cycle ── conclusion_cycle est un OBJET {cycle_complet, lecture,
+  // point_de_vigilance, force_structurelle}. Le template attend une STRING → on assemble.
+  out.profil_conclusion_cycle = renderConclusionCycle(p.conclusion_cycle);
 
-  // Centre — zone basse : sortants (le bloc1 n'a pas de "sortants" dédié dans le schéma ;
-  // on affiche l'intro de bloc1 si présente, sinon vide — le détail sortant est porté par les branches)
-  out.profil_centre_sortants_html = p.bloc1_sortants_html
-    || (p.bloc1_socle_intro ? `<div style="font-size:12px;color:#374151;line-height:1.6;">${esc(p.bloc1_socle_intro)}</div>` : '');
+  // ─── Centre — circuits cœur du socle ── (structure agent : bloc1_socle.circuits_dominants[])
+  const socleBloc = p.bloc1_socle || {};
+  const dominants = Array.isArray(socleBloc.circuits_dominants) ? socleBloc.circuits_dominants : [];
+  const mapCirc = c => ({
+    code: c.circuit_id || c.code || '',
+    nom_catalogue: c.circuit_nom || c.nom_catalogue || '',
+    coeur: (c.nb_coeur != null ? c.nb_coeur : (c.coeur != null ? c.coeur : 0)),
+    total: c.total != null ? c.total : null,
+    total_si_different: (c.total != null && c.total !== c.nb_coeur),
+    verbatim_emblematique: c.verbatim_emblematique || c.verbatim || '',
+    verbatim_source: c.verbatim_source || '',
+    personnalisation: c.personnalisation || c.lecture || '',
+    niveau: (c.niveau || '').toUpperCase(),
+  });
+  const all = dominants.map(mapCirc);
+  out.profil_bloc1_circuits_haut  = all.filter(c => c.niveau === 'HAUT' || c.coeur >= 4);
+  out.profil_bloc1_circuits_moyen = all.filter(c => c.niveau === 'MOYEN' || (c.coeur >= 2 && c.coeur < 4));
+  out.profil_centre_coeur_html = renderCentreCircuits(all);
 
-  // Branches — bloc2_par_pilier, dans l'ordre fourni par l'agent (str1→str2→fn1→fn2)
-  const branches = Array.isArray(p.bloc2_par_pilier) ? p.bloc2_par_pilier : [];
+  // Zone basse (sortants du socle) : la note du socle sert de lecture d'ensemble si présente.
+  out.profil_centre_sortants_html = socleBloc.note_socle
+    ? `<div style="font-size:12px;color:#374151;line-height:1.6;">${esc(socleBloc.note_socle)}</div>`
+    : (socleBloc.description ? `<div style="font-size:12px;color:#374151;line-height:1.6;">${esc(socleBloc.description)}</div>` : '');
+
+  // ─── Branches — bloc2_satellites[] (déjà dans l'ordre str1→str2→fn1→fn2) ──
+  const satellites = Array.isArray(p.bloc2_satellites) ? p.bloc2_satellites : [];
   const ROLE_LABELS = { str1: 'Structurant 1', str2: 'Structurant 2', fn1: 'Fonctionnel 1', fn2: 'Fonctionnel 2' };
-  branches.forEach((br, i) => {
+  satellites.forEach((sat, i) => {
     const roleCss = BRANCHE_ROLE_ORDER[i] || 'fn2';
-    const html = renderBranche(br, roleCss, ROLE_LABELS[roleCss]);
-    if (i === 0) out.profil_branche_tandem_html = html;   // 1re branche = str1 (souvent P5, le tandem)
-    else if (i === 1) out.profil_branche_str2_html = html;
-    else if (i === 2) out.profil_branche_fn1_html = html;
-    else if (i === 3) out.profil_branche_fn2_html = html;
+    const html = renderBrancheSatellite(sat, roleCss, ROLE_LABELS[roleCss]);
+    if (i === 0)      out.profil_branche_tandem_html = html;
+    else if (i === 1) out.profil_branche_str2_html  = html;
+    else if (i === 2) out.profil_branche_fn1_html   = html;
+    else if (i === 3) out.profil_branche_fn2_html   = html;
   });
 
-  // Tandem socle↔P5 (objet structuré, le template le rend via #if profil_tandem)
-  if (p.tandem_socle_p5 && typeof p.tandem_socle_p5 === 'object') {
-    const t = p.tandem_socle_p5;
+  // ─── Tandem ── (structure agent : "tandem" {piliers[], description, svc_tandem, signature_tandem})
+  if (p.tandem && typeof p.tandem === 'object') {
+    const t = p.tandem;
     out.profil_tandem = {
-      label: t.label || '',
+      label: asText(t.signature_tandem || t.description || ''),
+      asymetrie_lecture: asText(t.svc_tandem || t.description || ''),
       socle_vers_p5_count: t.socle_vers_p5_count != null ? t.socle_vers_p5_count : 0,
       socle_vers_p5_plural: (t.socle_vers_p5_count || 0) > 1,
       p5_vers_socle_count: t.p5_vers_socle_count != null ? t.p5_vers_socle_count : 0,
       p5_vers_socle_plural: (t.p5_vers_socle_count || 0) > 1,
-      asymetrie_lecture: t.asymetrie_lecture || '',
       circuit_pont_socle_vers_p5: t.circuit_pont_socle_vers_p5 || null,
     };
   }
 
   return out;
+}
+
+// Assemble l'objet conclusion_cycle en une STRING HTML lisible (jamais [object Object]).
+function renderConclusionCycle(cc) {
+  if (!cc) return '';
+  if (typeof cc === 'string') return esc(cc);
+  const parts = [];
+  if (cc.cycle_complet)      parts.push(`<div style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.85);margin-bottom:8px;">${esc(cc.cycle_complet)}</div>`);
+  if (cc.lecture)            parts.push(`<div style="margin-bottom:8px;">${esc(cc.lecture)}</div>`);
+  if (cc.force_structurelle) parts.push(`<div style="margin-bottom:8px;"><strong>Force structurelle —</strong> ${esc(cc.force_structurelle)}</div>`);
+  if (cc.point_de_vigilance) parts.push(`<div><strong>Point de vigilance —</strong> ${esc(cc.point_de_vigilance)}</div>`);
+  return parts.join('');
+}
+
+// Rend une branche à partir d'un satellite (bloc2_satellites[i]) de la structure agent.
+function renderBrancheSatellite(sat, roleCss, roleLabel) {
+  const nb = (sat.svc_au_socle_nb_circuits != null)
+    ? sat.svc_au_socle_nb_circuits
+    : (Array.isArray(sat.circuits_actifs) ? sat.circuits_actifs.length
+       : (Array.isArray(sat.circuits_actifs_svc_P3) ? sat.circuits_actifs_svc_P3.length
+          : (Array.isArray(sat.circuits_actifs_propres) ? sat.circuits_actifs_propres.length : 0)));
+  const circuits = sat.circuits_actifs || sat.circuits_actifs_svc_P3 || sat.circuits_actifs_propres || [];
+  const lecture = sat.lecture_satellite || sat.nature_service || '';
+  const vaseClos = sat.vase_clos === true;
+  const pilier = sat.pilier || '';
+  const pilierLabel = sat.pilier_nom || sat.pilier_label || '';
+  return ''
+    + `<div style="background:var(--role-${roleCss}-bg);border:1.5px solid var(--role-${roleCss});border-radius:10px;padding:16px 20px;margin:12px auto;max-width:760px;box-shadow:0 2px 6px rgba(0,0,0,.05);">`
+    +   `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">`
+    +     `<div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--role-${roleCss});font-weight:700;">☀ ${esc(pilier)} — ${esc(pilierLabel)}</div>`
+    +     `<div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-${roleCss});background:white;padding:3px 10px;border-radius:3px;font-weight:600;border:1px solid var(--role-${roleCss}-edge);">${esc(roleLabel)} · ${vaseClos ? 'vase clos — n\'irrigue pas le socle' : nb + ' fonctionnalité' + (nb > 1 ? 's' : '') + ' au service du socle'}</div>`
+    +   `</div>`
+    +   (lecture ? `<div style="font-size:12px;color:#374151;font-style:italic;margin-bottom:12px;line-height:1.55;background:white;padding:8px 12px;border-radius:4px;border-left:2px solid var(--role-${roleCss});">${esc(lecture)}</div>` : '')
+    +   `<div>${circuits.map(c => renderSatelliteCircuit(c, roleCss)).join('')}</div>`
+    + `</div>`;
+}
+
+// Rend un circuit de satellite (gère svc_P3 ou nb_coeur selon vase clos).
+function renderSatelliteCircuit(c, roleCss) {
+  const code = c.circuit_id || c.code || '';
+  const nom  = c.circuit_nom || c.nom_catalogue || '';
+  // valeur affichée : service au socle si présent, sinon cœur propre (vase clos)
+  const svcKeys = ['nb_svc_P3','nb_svc_P1','nb_svc_P2','nb_svc_P4','nb_svc_P5'];
+  let val = 0, label = 'au svc';
+  for (const k of svcKeys) { if (c[k] != null && c[k] > 0) { val += c[k]; } }
+  if (val === 0 && c.nb_coeur != null) { val = c.nb_coeur; label = 'cœur'; }
+  return ''
+    + `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);">`
+    +   `<div><strong style="font-family:var(--mono);font-size:10px;color:var(--role-${roleCss});">${esc(code)}</strong> <span style="font-size:11px;color:var(--ink);">${esc(nom)}</span></div>`
+    +   `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">${esc(label)} <strong>${esc(val)}</strong></div>`
+    + `</div>`;
+}
+
+// Convertit n'importe quelle valeur (string/objet) en texte sûr (jamais [object Object]).
+function asText(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.map(asText).filter(Boolean).join(' · ');
+  if (typeof v === 'object') {
+    // objet : concatène ses valeurs textuelles
+    return Object.values(v).map(asText).filter(Boolean).join(' — ');
+  }
+  return String(v);
 }
 
 module.exports = {
