@@ -347,12 +347,34 @@ function computeArchitecture(ventilationPiliers) {
 //        à affiner avec un candidat de test réel.
 // ═══════════════════════════════════════════════════════════════════════════
 function buildPayloadAppel0(candidat_id, sources, architecture) {
+  const socle = architecture.socle ? architecture.socle.pilier : null;
+
+  // ─── MATIÈRE DU FILTRE (doctrine : le filtre se DÉRIVE de ce que le candidat fait, pas du nom du pilier) ───
+  // On extrait, pour les réponses où le pilier socle GOUVERNE (cog_pilier_gouverne === socle), la matière
+  // qualitative déjà posée en étape 2 : verbatim brut + lecture experte + séquence + commentaire de
+  // gouvernance + résultat visé. C'est LÀ que se lit le « comment » récurrent du candidat (sa grille, sa
+  // règle, sa référence...). L'agent DÉRIVE le filtre de cette matière — il ne le devine pas depuis P_.
+  const norm = v => (v && typeof v === 'object' && 'name' in v) ? v.name : v; // singleSelect → string
+  const matiere_socle = (sources.responses || [])
+    .filter(r => norm(r.cog_pilier_gouverne) === socle)
+    .map(r => ({
+      id_question: norm(r.id_question) || '',
+      verbatim:    r.response_text || '',
+      lecture:     r.cog_comprend || '',            // reformulation experte de ce que fait le candidat
+      sequence:    r.cog_outils_mobilises || '',    // enchaînement des piliers
+      gouvernance: r.cog_gouverne_commentaire || '',// « Signature : ... », rôle des piliers
+      resultat:    r.cog_resultat_vise || '',
+    }))
+    .filter(m => m.verbatim || m.lecture || m.gouvernance);
+
   return {
     candidat: identiteAnonyme(sources),
+    pilier_socle: socle,
     distribution_sorties: sources.ventilationPiliers.map(p => ({
-      pilier: p.pilier_coeur, sorties: p.nb_reponses, coeur: p.nb_questions_coeur,
+      pilier: p.pilier_coeur, sorties: p.nb_reponses, coeur: p.nb_activations_coeur_total,
     })),
     architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
+    matiere_socle,  // ⭐ matière qualitative pour DÉRIVER le filtre cognitif (§02)
     glissements_precalcules: extractGlissements(sources.t1),
     boucles_top3: extractBouclesTop3(sources.t1, sources.responses),
     signaux_limbiques: extractSignaux(sources.t1),
