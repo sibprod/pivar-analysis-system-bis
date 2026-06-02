@@ -383,9 +383,48 @@ function buildPayloadAppelPilier(candidat_id, sources, architecture, pilierArch)
   const circuitsPilier = sources.inventaireCircuits.filter(c =>
     (c.pilier_owner === pilier) || (c.circuit_label || '').startsWith(pilier)
   );
+
+  // ─── CHIFFRES PRÉ-CALCULÉS PAR LE SERVICE (doctrine : l'agent DÉCLINE, ne recalcule RIEN) ───
+  // Source autoritaire : ETAPE1_T2_INVENTAIRE_CIRCUITS. Le service calcule ici les compteurs et
+  // les transmet PRÊTS À RÉDIGER. L'agent les RECOPIE tels quels, il ne refait aucune addition.
+  const counters = computePilierCounters(pilier, sources);
+
+  // Détail par circuit, chiffres déjà extraits (pas de calcul côté agent) :
+  const circuits_chiffres = circuitsPilier.map(c => ({
+    circuit_id:   c.circuit_id || c.circuit_label || '',
+    circuit_label:c.circuit_label || '',
+    nb_coeur:     Number(c.nb_coeur || 0),
+    nb_svc_P1:    Number(c.nb_svc_P1 || 0),
+    nb_svc_P2:    Number(c.nb_svc_P2 || 0),
+    nb_svc_P3:    Number(c.nb_svc_P3 || 0),
+    nb_svc_P4:    Number(c.nb_svc_P4 || 0),
+    nb_svc_P5:    Number(c.nb_svc_P5 || 0),
+    total_activations: Number(c.total_activations || 0),
+  }));
+
+  // Service au socle de CE pilier (depuis l'architecture déjà calculée — source unique) :
+  const pilierArchInfo = (architecture.ordered || []).find(p => p.pilier === pilier) || {};
+
   return {
     candidat: identiteAnonyme(sources),
     pilier_en_cours: { pilier, role: pilierArch.role, label: pilierArch.pilier_label },
+
+    // ⭐ CHIFFRES OFFICIELS — l'agent NE LES RECALCULE PAS, il les recopie dans la tétière et les synthèses.
+    compteurs_pilier: {
+      nb_activations:       counters.nb_activations,        // total (cœur + instrumental)
+      nb_circuits_actifs:   counters.nb_circuits_actifs,
+      nb_circuits_haut:     counters.nb_circuits_haut,
+      coeur_activations:    counters.coeur_activations,     // ce que le pilier fait quand il EST cœur
+      coeur_circuits:       counters.coeur_circuits,
+      instru_activations:   counters.instru_activations,    // ce qu'il fait au service des autres
+      instru_circuits:      counters.instru_circuits,
+      est_instrumental_pur: counters.est_instrumental_pur,  // 0 cœur mais sert les autres
+      est_inactif:          counters.est_inactif,           // ni cœur ni service → 0 légitime
+      svc_au_socle_total:   (pilierArchInfo.svc_au_socle_total != null ? pilierArchInfo.svc_au_socle_total : null),
+      vase_clos:            !!pilierArchInfo.vase_clos,      // a un cœur propre mais n'irrigue pas le socle
+    },
+    circuits_chiffres,  // détail par circuit, chiffres déjà extraits (à recopier, pas à recompter)
+
     ventilation_pilier: circuitsPilier,
     ventilation_inverse: sources.inventaireCircuits,  // pour les emprunts vers ce pilier
     circuits_haut_t2: sources.t2.filter(t => (t.circuit_id || '').startsWith(pilier)),
