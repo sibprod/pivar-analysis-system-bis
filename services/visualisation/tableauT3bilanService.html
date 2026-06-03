@@ -168,6 +168,21 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:
 .g-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#854d0e;margin-bottom:3px;}
 .g-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
 .seq-box{background:var(--paper2);border-radius:4px;padding:8px 12px;margin-top:5px;}
+/* B3 (v5.6) — détail du centre du soleil : aligné sur la typo du document (mêmes tailles que .ci-*/.v-*) */
+.scc-card{background:white;border:1px solid var(--role-socle-edge);border-left:3px solid var(--role-socle);border-radius:4px;padding:11px 15px;margin-bottom:8px;}
+.scc-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;}
+.scc-code{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--role-socle);}
+.scc-nom{font-size:13px;font-weight:500;color:var(--ink);margin-left:6px;}
+.scc-coeur{font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;}
+.scc-coeur strong{color:var(--role-socle);}
+.scc-verbatim{font-size:13px;font-style:italic;color:var(--muted);line-height:1.55;margin-top:4px;}
+.scc-source{font-family:var(--mono);font-size:10px;color:var(--muted);font-style:normal;background:var(--paper2);padding:1px 6px;border-radius:3px;margin-left:6px;}
+.scc-perso{font-size:12px;font-weight:300;color:#374151;line-height:1.65;margin-top:5px;}
+/* B-boucles (v5.6) — séquence technique + démonstration de chaque boucle §04 */
+.bcl-seq{background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;line-height:1.6;}
+.bcl-seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;}
+.bcl-demo{background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;}
+.bcl-demo-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;}
 .seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
 .seq-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
 .limb-section{background:var(--p4b);border:1px solid var(--p4e);border-radius:6px;padding:16px 18px;margin-bottom:16px;}
@@ -315,9 +330,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:
     Avant de lire votre bilan, voici le vocabulaire que nous utilisons. Votre <strong>profil-cognitif</strong> décrit comment fonctionne votre <strong>boîte à outils mentale</strong> : vous disposez de <strong>5 outils distincts</strong> (les piliers P1 à P5), et chaque outil a jusqu'à <strong>15 fonctionnalités</strong> (les circuits C1 à C15).
   </div>
 
-  <div style="background:#f9fafb;border-left:3px solid var(--ink);border-radius:4px;padding:14px 18px;margin-bottom:24px;font-size:13px;color:#374151;line-height:1.65;">
-    <strong>Comment lire les codes</strong> &nbsp;·&nbsp; Un code comme <code style="background:var(--ink);color:white;padding:2px 6px;border-radius:3px;font-family:var(--mono);font-size:11px;">P5C2</code> se lit <em>« outil 5, fonctionnalité 2 »</em> — ici : la <em>Préparation systématique des conditions d'exécution</em> dans l'outil <em>Mise en œuvre et exécution</em>.
-  </div>
+
 
   <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:12px;">
     Les 5 outils de votre boîte mentale
@@ -379,6 +392,9 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:
     <div><strong>Glissement cognitif</strong> &nbsp;·&nbsp; Quand une réponse part dans un autre outil que celui demandé par la question. Révèle votre filtre dominant.</div>
     <div><strong>Filtre cognitif</strong> &nbsp;·&nbsp; La pré-programmation automatique de votre outil de cœur — la forme sous laquelle toute situation se présente à vous avant tout traitement conscient.</div>
     <div><strong>Tandem</strong> &nbsp;·&nbsp; Couplage bidirectionnel entre votre socle et un autre outil (souvent P5). Signature de votre signature opérationnelle.</div>
+      <div style="background:#f9fafb;border-left:3px solid var(--ink);border-radius:4px;padding:14px 18px;margin-bottom:24px;font-size:13px;color:#374151;line-height:1.65;">
+    <strong>Comment lire les codes</strong> &nbsp;·&nbsp; Un code comme <code style="background:var(--ink);color:white;padding:2px 6px;border-radius:3px;font-family:var(--mono);font-size:11px;">P5C2</code> se lit <em>« outil 5, fonctionnalité 2 »</em> — ici : la <em>Préparation systématique des conditions d'exécution</em> dans l'outil <em>Mise en œuvre et exécution</em>.
+  </div>
   </div>
 </div>
 
@@ -619,66 +635,8 @@ body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:
     {{boucle_intro}}
   </p>
 
-  <!-- Boucle 1 -->
-  <div class="boucle-item">
-    <div class="bi-head">
-      <span class="bi-seq-label">{{boucle_1_label}}</span>
-      <span class="bi-scenario">{{boucle_1_scenario}}</span>
-    </div>
-    <div class="bi-body">
-      <div class="bi-reponse">{{boucle_1_reponse}}</div>
-      <div style="background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;">
-        <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;">Séquence technique</strong>
-        {{boucle_1_sequence}}
-      </div>
-      <div style="background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;">
-        <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;">En clair, ce que ça veut dire</strong>
-        {{boucle_1_labo}}
-      </div>
-    </div>
-  </div>
-
-  <!-- Boucle 2 -->
-  {{#if boucle_2_label}}
-  <div class="boucle-item">
-    <div class="bi-head">
-      <span class="bi-seq-label">{{boucle_2_label}}</span>
-      <span class="bi-scenario">{{boucle_2_scenario}}</span>
-    </div>
-    <div class="bi-body">
-      <div class="bi-reponse">{{boucle_2_reponse}}</div>
-      <div style="background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;">
-        <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;">Séquence technique</strong>
-        {{boucle_2_sequence}}
-      </div>
-      <div style="background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;">
-        <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;">En clair, ce que ça veut dire</strong>
-        {{boucle_2_labo}}
-      </div>
-    </div>
-  </div>
-  {{/if}}
-
-  <!-- Boucle 3 -->
-  {{#if boucle_3_label}}
-  <div class="boucle-item">
-    <div class="bi-head">
-      <span class="bi-seq-label">{{boucle_3_label}}</span>
-      <span class="bi-scenario">{{boucle_3_scenario}}</span>
-    </div>
-    <div class="bi-body">
-      <div class="bi-reponse">{{boucle_3_reponse}}</div>
-      <div style="background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;">
-        <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;">Séquence technique</strong>
-        {{boucle_3_sequence}}
-      </div>
-      <div style="background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;">
-        <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;">En clair, ce que ça veut dire</strong>
-        {{boucle_3_labo}}
-      </div>
-    </div>
-  </div>
-  {{/if}}
+  <!-- Boucles cognitives (v5.6) — liste illimitée, pré-rendue par le payload (renderBoucles) -->
+  {{{boucles_html}}}
 </div>
 
 
