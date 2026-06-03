@@ -554,11 +554,6 @@ module.exports = {
     tableau_note:           'fldKax0VwI4BhnLKV',  // tableau récap doctrine §2.12
     synth_factuelle:        'fldcGtODAh6b0vZs5',  // synthèse factuelle (élargie/détaillée)
     synth_interpretee:      'fldho6MPGr5J5QmPu',  // ⭐ "Ce que ça signifie pour vous" + § DRH
-    // v5.6 Lot D — colonnes VÉRIFICATEUR (corrections en surcharge ; original maintenu)
-    verif_pilier_mode:       'flduDBhd1fNO6jx9Z',
-    verif_synth_factuelle:   'fld97CHqsYXmzvsEj',
-    verif_synth_interpretee: 'fldqB1AkrgdaaEbnl',
-    verif_tableau_note:      'fldBhaF1059wTcOu2',
     liens_circuits:         'fldtZdnuftdhGx2mb'   // linked → ETAPE1_T3_CIRCUIT du pilier
   },
 
@@ -586,7 +581,14 @@ module.exports = {
     n2_verbatims:        'fldV3EBlHGUleiifK',  // manifestation candidat + séquence T1
     n3_nuance:           'fldSx0VOHYILowFSj',  // "Chez vous, ce circuit..."
     ordre_pilier:        'fldSK79cCYsuICAAy',  // number 1=socle, 2=str1, 3=str2, 4=fn1, 5=fn2
-    ordre_circuit:       'fld5SPJJXdv9Bo6vT'   // number — rang dans le pilier
+    ordre_circuit:       'fld5SPJJXdv9Bo6vT',  // number — rang dans le pilier
+    // ⭐ Ventilation (les colonnes existaient déjà ; leurs field IDs manquaient ici → en_svc jamais écrits).
+    en_svc_P1:           'fldoGZPSxM22pk82R',  // number — activations en service de P1
+    en_svc_P2:           'fldAgQzO8YgqbzUEe',  // number — en service de P2
+    en_svc_P3:           'fld56OTFNSTo7OGAE',  // number — en service de P3
+    en_svc_P4:           'fldJ76jeasA2KVmdY',  // number — en service de P4
+    en_svc_P5:           'fldqMhYYHMy7b2s1n',  // number — en service de P5
+    total_activations:   'fldnFNJm6GP0mAGNm'   // number — total = cœur + somme(en_svc)
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -681,16 +683,6 @@ module.exports = {
     boucle_3_reponse:          'fldQYTI8O0DrSW7o9',
     boucle_3_sequence:         'fld9viJ0nWwbR6O8V',
     boucle_3_labo:             'fldb6wCYgGUQ4Uahd',
-    // v5.6 — liste illimitée des boucles §04 au format JSON (remplace les colonnes plates boucle_1/2/3)
-    boucles_json:              'fldpqKcbU6KNVQhCF',
-    // v5.6 Lot D — colonnes VÉRIFICATEUR (corrections en surcharge ; original maintenu)
-    verif_filtre:              'fldfnxt1vq3VtlIpz',
-    verif_soleil:              'fldzwtQvLNbCueLpV',
-    verif_boucles:             'fldrTEo2LFQaAwZwd',
-    verif_synthese:            'fldweZHoK0IxMVrmp',
-    verif_pilier_socle_mode:   'fldWHMHUeEUNjqsDW',
-    verif_rapport:             'fldexc6OHEKSUh8pb',
-    verif_statut:              'fld9gPxIxyVdWDaXz',
 
     // ── §05 Signal limbique (15 champs : type + intro + 4×(q/corps/verbatim) + synthese) ──
     signal_type:               'fld4kDga5E9AcrE3V',
