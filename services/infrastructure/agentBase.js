@@ -238,16 +238,111 @@ function parseAgentOutput(content) {
         try {
           return recoverTruncatedJsonArray(content);
         } catch (e4) {
-          logger.error('Failed to parse agent JSON output', {
-            contentPreview: content.substring(0, 500),
-            contentLength:  content.length,
-            errors: [e1.message, e2.message, e3.message, e4.message]
-          });
-          throw new Error(`Cannot parse agent JSON output: ${e1.message}`);
+          // Tentative 5 : réparation des défauts de string courants (guillemets internes non échappés,
+          // sauts de ligne littéraux dans une valeur) puis reparse. Couvre le cas d'un JSON syntaxiquement
+          // cassé par le contenu rédactionnel (ex : un verbatim avec des guillemets). Additif : ne s'active
+          // que si tout le reste a échoué → aucune régression sur les réponses déjà valides.
+          try {
+            return repairAndParseJson(content);
+          } catch (e5) {
+            logger.error('Failed to parse agent JSON output', {
+              contentPreview: content.substring(0, 500),
+              contentLength:  content.length,
+              errors: [e1.message, e2.message, e3.message, e4.message, e5.message]
+            });
+            throw new Error(`Cannot parse agent JSON output: ${e1.message}`);
+          }
         }
       }
     }
   }
+}
+
+// ── Tentative 5 : réparation tolérante d'un JSON cassé par une string mal échappée ──
+// Stratégie : isoler la première structure { ... } ou [ ... ] (équilibrage de profondeur en ignorant
+// proprement les strings), puis réparer DANS les strings les défauts courants :
+//   - guillemets droits internes non échappés  → échappés
+//   - sauts de ligne / tab littéraux            → \n / \t
+// On reparse après réparation. Si ça échoue encore, on tente une extraction objet-par-objet top-level.
+function repairAndParseJson(content) {
+  // 1) Isoler la structure principale (du premier { ou [ jusqu'à son équilibrage, le plus loin possible).
+  let start = -1, open = '', close = '';
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '{' || content[i] === '[') { start = i; open = content[i]; close = open === '{' ? '}' : ']'; break; }
+  }
+  if (start === -1) throw new Error('repair: no JSON structure found');
+
+  // dernière occurrence du caractère de fermeture (la structure la plus englobante possible)
+  const end = content.lastIndexOf(close);
+  if (end <= start) throw new Error('repair: no closing char');
+  let raw = content.substring(start, end + 1);
+
+  // 2) Réparer les strings : on parcourt char par char, on suit l'état "dans une string" ;
+  //    à l'intérieur d'une string, un " non suivi d'un séparateur JSON ( : , } ] ) probable est un guillemet
+  //    interne à échapper ; un \n ou \t littéral est converti.
+  const repaired = repairJsonStrings(raw);
+
+  try {
+    return JSON.parse(repaired);
+  } catch (e) {
+    // 3) Dernier recours : récupérer les objets top-level un par un (objet OU array), version tolérante.
+    return recoverTopLevelObjects(repaired);
+  }
+}
+
+// Échappe les guillemets internes non structurels et neutralise les sauts de ligne littéraux dans les strings.
+function repairJsonStrings(s) {
+  let out = '';
+  let inString = false;
+  let escapeNext = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escapeNext) { out += c; escapeNext = false; continue; }
+    if (c === '\\') { out += c; escapeNext = true; continue; }
+    if (c === '"') {
+      if (!inString) { inString = true; out += c; continue; }
+      // on est dans une string et on rencontre un " : est-ce la fin de la string, ou un guillemet interne ?
+      // Regarder le prochain caractère non-espace : si c'est un séparateur JSON, c'est une vraie fin.
+      let j = i + 1;
+      while (j < s.length && (s[j] === ' ' || s[j] === '\n' || s[j] === '\r' || s[j] === '\t')) j++;
+      const next = s[j];
+      if (next === ':' || next === ',' || next === '}' || next === ']' || next === undefined) {
+        inString = false; out += c; continue;     // vraie fin de string
+      }
+      out += '\\"'; continue;                       // guillemet interne → échappé
+    }
+    if (inString && (c === '\n' || c === '\r')) { out += '\\n'; continue; }
+    if (inString && c === '\t') { out += '\\t'; continue; }
+    out += c;
+  }
+  return out;
+}
+
+// Récupère, à la racine, tous les objets {…} équilibrés (utile si la structure globale reste cassée).
+// Renvoie un objet fusionné si plusieurs objets nommés, sinon le premier objet/array exploitable.
+function recoverTopLevelObjects(s) {
+  const objects = [];
+  let depth = 0, inString = false, escapeNext = false, objStart = -1;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escapeNext) { escapeNext = false; continue; }
+    if (c === '\\' && inString) { escapeNext = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === '{') { if (depth === 0) objStart = i; depth++; }
+    else if (c === '}') {
+      depth--;
+      if (depth === 0 && objStart !== -1) {
+        const piece = s.substring(objStart, i + 1);
+        try { objects.push(JSON.parse(piece)); } catch (_) { /* ignore ce fragment */ }
+        objStart = -1;
+      }
+    }
+  }
+  if (objects.length === 0) throw new Error('repair: no recoverable top-level object');
+  if (objects.length === 1) return objects[0];
+  // plusieurs objets : fusion superficielle (le plus complet d'abord)
+  return Object.assign({}, ...objects);
 }
 
 function extractFirstJsonStructure(content) {
