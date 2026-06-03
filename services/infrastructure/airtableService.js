@@ -1654,14 +1654,18 @@ async function writeEtape1T3Piliers(candidat_id, rows) {
     // Création par lots de 10, en conservant les recordIds pour mapping pilier → recordId
     const pilierMap = new Map();
     for (let i = 0; i < rows.length; i += 10) {
-      const batch = rows.slice(i, i + 10).map(fields => ({ fields }));
+      const slice = rows.slice(i, i + 10);
+      const batch = slice.map(fields => ({ fields }));
       const created = await getBase()(t).create(batch, { typecast: true });
-      for (const rec of created) {
-        const pilier = rec.get(F.pilier);
-        // Airtable renvoie singleSelect comme {id, name} ou string brut
-        const pilierKey = typeof pilier === 'object' && pilier ? (pilier.name || pilier) : pilier;
+      // ⭐ FIX comptage : on associe la clé pilier depuis la ROW ENVOYÉE (qu'on connaît, row[F.pilier]),
+      // pas depuis rec.get() (qui peut ne pas renvoyer le champ après create → pilierMap vide / count:0).
+      // create() préserve l'ordre des records, donc created[j] correspond à slice[j].
+      created.forEach((rec, j) => {
+        const sent = slice[j] || {};
+        const rawPilier = sent[F.pilier];
+        const pilierKey = (rawPilier && typeof rawPilier === 'object') ? (rawPilier.name || null) : rawPilier;
         if (pilierKey) pilierMap.set(pilierKey, rec.id);
-      }
+      });
       if (i + 10 < rows.length) await sleep(200);
     }
     logger.info('ETAPE1_T3_PILIER written', { candidat_id, count: pilierMap.size });
