@@ -110,6 +110,16 @@ async function runAgentT3Bilan({ candidat_id, visiteur = null }) {
   });
   trackUsage(usages, costs, res0bis);
   const profilCognitif = res0bis.result; // { §02bis_profil_cognitif: {...} }
+  // LOG TEMPORAIRE (diagnostic soleil) — à retirer après analyse. Montre la structure réelle renvoyée.
+  logger.info('DEBUG res0bis structure', {
+    candidat_id,
+    topKeys: profilCognitif && typeof profilCognitif === 'object' ? Object.keys(profilCognitif) : typeof profilCognitif,
+    hasBilan: !!(profilCognitif && profilCognitif.bilan),
+    bilanKeys: (profilCognitif && profilCognitif.bilan && typeof profilCognitif.bilan === 'object') ? Object.keys(profilCognitif.bilan) : null,
+    has02bisRoot: !!(profilCognitif && profilCognitif['§02bis_profil_cognitif']),
+    has02bisInBilan: !!(profilCognitif && profilCognitif.bilan && profilCognitif.bilan['§02bis_profil_cognitif']),
+    rawPreview: (res0bis.raw || '').substring(0, 300),
+  });
 
   // ─── 5. APPELS 1-5 — un par pilier dans l'ordre des rôles ──────────────────
   const pilierResults = [];   // pour ETAPE1_T3_PILIER
