@@ -1,1831 +1,1097 @@
-// services/infrastructure/airtableService.js
-// Service Airtable v10.5 — Profil-Cognitif
+// services/etape1/agentT3BilanService.js
+// Agent Bilan — ÉTAPE 3 — Génération du bilan cognitif
+// Profil-Cognitif v11.0 (28/05/2026)
 //
-// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+// ⚠️ AVANT MODIFICATION : lire new-prompts/etape1/etape1_t3bilan.txt (prompt v5.3,
+//                        toutes les doctrines D1-D14, §2.8-2.14) + docs/ARCHITECTURE.
 //
-// Responsabilités :
-//   - VISITEUR : suivi candidat, statuts, backups, validation humaine, emails
-//   - RESPONSES : lecture seule (frontend candidat)
-//   - ETAPE1_T1, T2, T3, T4_BILAN : tables du pipeline
-//   - VERIFICATEUR_T1 : audit du vérificateur (Décision n°10)
-//   - REFERENTIEL_LEXIQUE : 15 termes doctrinaux, lus par tous les agents
+// ───────────────────────────────────────────────────────────────────────────
+// RÔLE
+// ───────────────────────────────────────────────────────────────────────────
+// Service UNIQUE de l'étape 3 (décision Isabelle 28/05 : 1 prompt / 1 service,
+// abandon de l'ancienne architecture à 6 sous-agents).
 //
-// PHASE D (2026-04-28) — v10 :
-//   - Déplacé dans services/infrastructure/ (Décision n°27)
-//   - Renommage corrections_certificateur → corrections_verificateur (Décision n°10)
-//   - +7 nouvelles fonctions (Décisions n°10, n°16, n°24, n°33)
+// Produit le bilan cognitif d'un candidat en rejouant le MÊME prompt
+// (etape1_t3bilan.txt) en 7 appels segmentés (cf. §3.3 du prompt) :
+//   Appel 0    → sections globales §01-§07 (sauf synthèses piliers) → ETAPE1_T3_BILAN
+//   Appel 0bis → §02bis profil cognitif (soleil)                     → ETAPE1_T3_BILAN
+//   Appels 1-5 → un par pilier (socle→str1→str2→fn1→fn2) :
+//                synth_factuelle + synth_interpretee + pilier_mode    → ETAPE1_T3_PILIER
+//                circuits[] du pilier                                 → ETAPE1_T3_CIRCUIT
 //
-// PHASE D-correction (2026-04-29) — v10.1 :
-//   - Ajout getReferentielPiliers (vérificateur T1 — bug 2 v10.1)
-//   - Ajout getCiviliteCandidat (vérificateur T1 — bug 2 v10.1)
+// Le service assemble les sorties JSON et écrit dans les 3 tables T3.
 //
-// PHASE v10.2b (2026-05-03) — relances par scénario :
-//   - Ajout deleteEtape1T1Scenario : suppression ciblée des 5 lignes d'un scénario
-//   - Ajout writeEtape1T1Scenario : création ciblée sans écraser les autres lignes
-//   - Constante SCENARIOS_VALIDES_T1 : liste canonique des 5 scénarios (Décision n°40)
-//   - Décision n°42 : 2 familles de statuts T1 (_SEUL et _DES_<SCENARIO>)
+// ───────────────────────────────────────────────────────────────────────────
+// SOURCES injectées dans chaque appel (cf. §3 du prompt) — toutes consolidées
+// depuis Airtable AVANT les appels (le prompt n'interroge jamais de DB) :
+//   - ETAPE1_T2_VENTILATION_PILIERS  (architecture moteur, socle, stats)
+//   - ETAPE1_T2_INVENTAIRE_CIRCUITS  (ventilation 7 valeurs/circuit — autoritaire)
+//   - ETAPE1_T2                       (noms catalogues, verbatims_viz, signal, cluster)
+//   - ETAPE1_T1                       (séquences, lecture_labo, glissements)
+//   - RESPONSES                       (verbatims bruts)
+//   - REFERENTIEL_PROFILS             (35 profils-types — cadrage pilier_mode, D8)
+//   - REFERENTIEL_CIRCUITS_CANDIDATS  (ADHOC promus — §2.13)
 //
-// PHASE v10.5 (2026-05-05) — affichage HTML interne :
-//   - Ajout getVisiteurInfoForVisualisation : récupère prénom + nom + civilité
-//     pour affichage HTML interne UNIQUEMENT (superviseur). Frontière de
-//     gouvernance préservée : les agents IA continuent de ne recevoir que la
-//     civilité (Décision n°4 — anonymisation absolue côté agents).
+// ⚠️ Anonymisation (Décision n°4) : on n'envoie JAMAIS le prénom à Claude.
+//    Le prénom/nom sont écrits dans T3_BILAN par le service, hors appel Claude.
 //
-// Historique :
-//   - LOT 21 (2026-04-27) : patchEtape1T1Rows pour patch ciblé sans destruction
+// PATTERN : aligné sur agentPromptEtape1Service / agentT1Service
+//   (agentBase.callAgent, injectLexique, parsing tolérant).
+// ───────────────────────────────────────────────────────────────────────────
 
 'use strict';
 
-const Airtable        = require('airtable');
-const airtableConfig  = require('../../config/airtable');
-const logger          = require('../../utils/logger');
+const agentBase       = require('../../infrastructure/agentBase');
+const airtableService = require('../../infrastructure/airtableService');
+const airtableConfig  = require('../../../config/airtable');
+const logger          = require('../../../utils/logger');
 
-// ─── Lazy initialization du base Airtable ─────────────────────────────────────
-let _base = null;
-function getBase() {
-  if (!_base) {
-    _base = new Airtable({ apiKey: airtableConfig.TOKEN }).base(airtableConfig.BASE_ID);
-  }
-  return _base;
-}
+const SERVICE_NAME = 'agent_t3_bilan';
+const PROMPT_PATH  = 'etape1/etape1_t3bilan.txt';
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// Ordre canonique des piliers par rôle (le service le calcule depuis T2_VENTILATION)
+const ROLE_ORDER = ['socle', 'structurant_1', 'structurant_2', 'fonctionnel_1', 'fonctionnel_2'];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HELPERS — nettoyage et normalisation
+// POINT D'ENTRÉE
 // ═══════════════════════════════════════════════════════════════════════════
-
-function deepCleanString(value) {
-  if (typeof value !== 'string') return value;
-  let cleaned = value;
-  while (cleaned.startsWith('"') && cleaned.endsWith('"') && cleaned.length > 1) {
-    cleaned = cleaned.slice(1, -1);
-  }
-  while (cleaned.startsWith("'") && cleaned.endsWith("'") && cleaned.length > 1) {
-    cleaned = cleaned.slice(1, -1);
-  }
-  return cleaned.trim();
-}
-
-function cleanFields(fields) {
-  const cleaned = {};
-  for (const [key, value] of Object.entries(fields)) {
-    if (typeof value === 'string') {
-      cleaned[key] = deepCleanString(value);
-    } else {
-      cleaned[key] = value;
-    }
-  }
-  return cleaned;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// VISITEUR
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function getVisiteur(candidate_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
-      .select({
-        filterByFormula: `{candidate_ID} = "${candidate_id}"`,
-        maxRecords: 1
-      })
-      .firstPage();
-
-    if (records.length === 0) {
-      logger.warn('Visiteur not found', { candidate_id });
-      return null;
-    }
-
-    return { id: records[0].id, ...records[0].fields };
-  } catch (error) {
-    logger.error('Failed to get visiteur', { candidate_id, error: error.message });
-    throw error;
-  }
-}
-
-async function updateVisiteur(candidate_id, fields) {
-  try {
-    const visiteur = await getVisiteur(candidate_id);
-    if (!visiteur) throw new Error(`Visiteur ${candidate_id} not found`);
-
-    await getBase()(airtableConfig.TABLES.VISITEUR).update([{
-      id: visiteur.id,
-      fields
-    }], { typecast: true });
-
-    logger.debug('Visiteur updated', { candidate_id, fields: Object.keys(fields) });
-  } catch (error) {
-    logger.error('Failed to update visiteur', { candidate_id, error: error.message });
-    throw error;
-  }
-}
-
-async function getVisiteursByStatus(filters = {}) {
-  try {
-    const conditions = [];
-
-    const statutValues = filters.statut_analyse_pivar || filters.statut_analyse || [];
-    if (statutValues.length > 0) {
-      conditions.push(
-        `OR(${statutValues.map(v => `{statut_analyse_pivar} = "${v}"`).join(', ')})`
-      );
-    }
-
-    if (filters.statut_test) {
-      conditions.push(`{statut_test} = "${filters.statut_test}"`);
-    }
-
-    if (filters.derniere_question_repondue) {
-      conditions.push(`{derniere_question_repondue} = ${filters.derniere_question_repondue}`);
-    }
-
-    const formula = conditions.length > 0 ? `AND(${conditions.join(', ')})` : '';
-
-    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
-      .select({ filterByFormula: formula || undefined })
-      .all();
-
-    const visiteurs = records.map(r => ({ id: r.id, ...r.fields }));
-    logger.debug('Visiteurs fetched by status', { count: visiteurs.length, filters });
-    return visiteurs;
-  } catch (error) {
-    logger.error('Failed to get visiteurs by status', { error: error.message });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RESPONSES — LECTURE SEULE (frontend candidat)
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function getResponses(session_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.RESPONSES)
-      .select({
-        filterByFormula: `{session_ID} = "${session_id}"`,
-        sort: [{ field: 'numero_global', direction: 'asc' }]
-      })
-      .all();
-
-    const responses = records.map(r => ({ airtable_id: r.id, ...r.fields }));
-    logger.debug('Responses fetched', { session_id, count: responses.length });
-    return responses;
-  } catch (error) {
-    logger.error('Failed to get responses', { session_id, error: error.message });
-    throw error;
-  }
-}
-
-const getResponsesBySession = getResponses;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ETAPE1_T1 — Analyse brute des 25 réponses
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function getEtape1T1(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T1)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'id_question', direction: 'asc' }]
-      })
-      .all();
-
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T1', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function writeEtape1T1(candidat_id, rows) {
-  try {
-    await deleteRowsByCandidatId(airtableConfig.TABLES.ETAPE1_T1, candidat_id);
-    await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T1, rows, candidat_id);
-    logger.info('ETAPE1_T1 written', { candidat_id, count: rows.length });
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T1', { candidat_id, error: error.message });
-    throw error;
-  }
-}
 
 /**
- * Patch ciblé sur des lignes ETAPE1_T1 existantes (sans delete+create)
- * Utilisé par le vérificateur T1 pour appliquer ses corrections (Mode 2).
+ * Génère le bilan complet d'un candidat (7 appels Claude + écriture 3 tables T3).
+ * @param {Object} params
+ * @param {string} params.candidat_id
+ * @param {Object} [params.visiteur]   — déjà lu par l'orchestrateur (prénom/nom/civilité)
+ * @returns {Promise<Object>} { success, candidat_id, nb_piliers, nb_circuits, totalCostUsd, totalElapsedMs }
  */
-async function patchEtape1T1Rows(candidat_id, patchPlan) {
-  if (!patchPlan || patchPlan.length === 0) {
-    logger.info('patchEtape1T1Rows — empty patch plan, nothing to do', { candidat_id });
-    return;
-  }
+async function runAgentT3Bilan({ candidat_id, visiteur = null }) {
+  const startTime = Date.now();
+  const usages = [];
+  const costs = [];
 
-  try {
-    const tableName = airtableConfig.TABLES.ETAPE1_T1;
-    const BATCH_SIZE = 10;
+  logger.info('Agent T3 Bilan — démarrage', { candidat_id });
 
-    const records = patchPlan.map(p => ({
-      id:     p.airtable_id,
-      fields: cleanFields(p.fields_to_patch)
-    }));
-
-    let totalUpdated = 0;
-    for (let i = 0; i < records.length; i += BATCH_SIZE) {
-      const batch = records.slice(i, i + BATCH_SIZE);
-      await getBase()(tableName).update(batch, { typecast: true });
-      totalUpdated += batch.length;
-      if (i + BATCH_SIZE < records.length) await sleep(200);
-    }
-
-    logger.info('ETAPE1_T1 patched by verificateur', {
-      candidat_id,
-      lignes_patchees: totalUpdated,
-      total_corrections_appliquees: patchPlan.reduce((sum, p) => sum + (p.nb_corrections || 0), 0)
-    });
-  } catch (error) {
-    logger.error('Failed to patch ETAPE1_T1', {
-      candidat_id,
-      error: error.message,
-      patchPlan_size: patchPlan.length
-    });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ETAPE1_T1 — updateTypesVerbatimCircuits — ⭐ v10.8 (refonte étape 2)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ v10.8 (21/05/2026) — Ajouté pour l'agent d'attribution (Phase 1 de
-// l'étape 2 refondue). Met à jour la colonne types_verbatim_circuits sur les
-// 25 lignes ETAPE1_T1 d'un candidat.
-//
-// Cette colonne contient l'attribution d'un circuit (officiel ou ad hoc)
-// à chaque entrée de types_verbatim. C'est la trace doctrinale qui garantit
-// l'exhaustivité de l'attribution geste par geste.
-//
-// Source primaire du nom de champ :
-//   - Champ Airtable ETAPE1_T1 = 'types_verbatim_circuits' (multilineText)
-//
-// @param {Array<{record_id: string, types_verbatim_circuits: string}>} updates
-// @returns {Promise<{updated: number}>}
-
-async function updateTypesVerbatimCircuits(updates) {
-  if (!updates || updates.length === 0) {
-    logger.info('updateTypesVerbatimCircuits — empty updates, nothing to do');
-    return { updated: 0 };
-  }
-
-  try {
-    const tableName = airtableConfig.TABLES.ETAPE1_T1;
-    const BATCH_SIZE = 10;
-
-    // Validation : chaque update doit avoir record_id et types_verbatim_circuits
-    for (const u of updates) {
-      if (!u.record_id) {
-        throw new Error('updateTypesVerbatimCircuits — record_id manquant');
-      }
-      if (typeof u.types_verbatim_circuits !== 'string') {
-        throw new Error(
-          `updateTypesVerbatimCircuits — types_verbatim_circuits non-string pour ${u.record_id}`
-        );
-      }
-    }
-
-    const records = updates.map(u => ({
-      id:     u.record_id,
-      fields: cleanFields({
-        types_verbatim_circuits: u.types_verbatim_circuits
-      })
-    }));
-
-    let totalUpdated = 0;
-    for (let i = 0; i < records.length; i += BATCH_SIZE) {
-      const batch = records.slice(i, i + BATCH_SIZE);
-      await getBase()(tableName).update(batch, { typecast: true });
-      totalUpdated += batch.length;
-      if (i + BATCH_SIZE < records.length) await sleep(200);
-    }
-
-    logger.info('ETAPE1_T1 types_verbatim_circuits updated', {
-      lignes_updated: totalUpdated
-    });
-
-    return { updated: totalUpdated };
-  } catch (error) {
-    logger.error('Failed to update types_verbatim_circuits', {
-      error:        error.message,
-      updates_size: updates.length
-    });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ETAPE1_T1 — ⭐ v10.2b (Décision n°42 — relances par scénario)
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Liste canonique des scénarios (Décision n°40 : 5 agents T1 distincts)
-const SCENARIOS_VALIDES_T1 = ['SOMMEIL', 'WEEKEND', 'ANIMAL_1', 'ANIMAL_2', 'PANNE'];
-
-/**
- * Supprime sélectivement les lignes ETAPE1_T1 d'un scénario donné.
- * Phase v10.2b — Décision n°42.
- *
- * Utilisé par l'orchestrateur Étape 1 dans les modes SCENARIO_ISOLÉ et SCENARIO_CASCADE,
- * et par le futur Mode 2 auto du vérificateur (Phase v10.2c).
- *
- * Doctrinalement : on supprime les 5 lignes attendues du scénario sans toucher
- * aux 20 autres lignes du candidat. Pour une suppression complète, utiliser
- * writeEtape1T1 (qui appelle deleteRowsByCandidatId en interne).
- *
- * Garde-fous :
- *   - Refuse si scenario_name n'est pas dans la liste canonique
- *   - Warning (sans refus) si nombre de lignes != 5 (cas d'usage normal = exactement 5)
- *
- * Source primaire des noms de champ :
- *   - Champ Airtable ETAPE1_T1 = 'candidat_id' (snake_case)
- *     → contrat v1.8 Section 3.2 + airtableService.getEtape1T1 ligne 174
- *
- * @param {string} candidat_id
- * @param {string} scenario_name  // SOMMEIL, WEEKEND, ANIMAL_1, ANIMAL_2, PANNE
- * @returns {Promise<{deleted: number, scenario: string}>}
- */
-async function deleteEtape1T1Scenario(candidat_id, scenario_name) {
-  if (!SCENARIOS_VALIDES_T1.includes(scenario_name)) {
+  // ─── 1. Charger toutes les sources Airtable (une seule fois) ───────────────
+  const sources = await loadAllSources(candidat_id, visiteur);
+  if (!sources.ventilationPiliers || sources.ventilationPiliers.length === 0) {
     throw new Error(
-      `deleteEtape1T1Scenario — scenario_name invalide: "${scenario_name}". ` +
-      `Attendu: ${SCENARIOS_VALIDES_T1.join(', ')}`
+      `Agent T3 Bilan — ETAPE1_T2_VENTILATION_PILIERS vide pour ${candidat_id}. ` +
+      `L'étape 2 (Phase 3) doit avoir tourné avant l'étape 3.`
     );
   }
 
-  try {
-    // 1. Lister les lignes du scénario pour ce candidat
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T1)
-      .select({
-        filterByFormula: `AND({candidat_id} = "${candidat_id}", {scenario} = "${scenario_name}")`,
-        fields: []
-      })
-      .all();
+  // ─── 2. Calculer l'architecture moteur (ordre des piliers par rôle) ────────
+  const architecture = computeArchitecture(sources.ventilationPiliers);
+  logger.info('Agent T3 Bilan — architecture moteur', {
+    candidat_id,
+    socle: architecture.socle?.pilier,
+    ordre: architecture.ordered.map(p => `${p.pilier}:${p.role}`).join(' → '),
+  });
 
-    if (records.length === 0) {
-      logger.warn('deleteEtape1T1Scenario — aucune ligne à supprimer', {
-        candidat_id, scenario_name
-      });
-      return { deleted: 0, scenario: scenario_name };
+  // ─── 3. APPEL 0 — sections globales §01-§07 ────────────────────────────────
+  const payload0 = buildPayloadAppel0(candidat_id, sources, architecture);
+  const res0 = await agentBase.callAgent({
+    serviceName: SERVICE_NAME,
+    promptPath:  PROMPT_PATH,
+    payload:     { ...payload0, _consigne: CONSIGNE_APPEL_0 },
+    injectLexique: true,
+    candidatId:  candidat_id,
+  });
+  trackUsage(usages, costs, res0);
+  const bilanGlobal = res0.result; // { candidat, bilan: {§01..§07} }
+
+  // ─── 4. APPEL 0bis — §02bis profil cognitif (soleil) ───────────────────────
+  const payload0bis = buildPayloadAppel0bis(candidat_id, sources, architecture);
+  const res0bis = await agentBase.callAgent({
+    serviceName: SERVICE_NAME,
+    promptPath:  PROMPT_PATH,
+    payload:     { ...payload0bis, _consigne: CONSIGNE_APPEL_0BIS },
+    injectLexique: true,
+    candidatId:  candidat_id,
+  });
+  trackUsage(usages, costs, res0bis);
+  const profilCognitif = res0bis.result; // { §02bis_profil_cognitif: {...} }
+
+  // ─── 5. APPELS 1-5 — un par pilier dans l'ordre des rôles ──────────────────
+  const pilierResults = [];   // pour ETAPE1_T3_PILIER
+  const circuitResults = [];  // pour ETAPE1_T3_CIRCUIT
+  for (let i = 0; i < architecture.ordered.length; i++) {
+    const pilierArch = architecture.ordered[i];
+    const payloadP = buildPayloadAppelPilier(candidat_id, sources, architecture, pilierArch);
+    const resP = await agentBase.callAgent({
+      serviceName: SERVICE_NAME,
+      promptPath:  PROMPT_PATH,
+      payload:     { ...payloadP, _consigne: consigneAppelPilier(pilierArch) },
+      injectLexique: true,
+      candidatId:  candidat_id,
+    });
+    trackUsage(usages, costs, resP);
+
+    // resP.result = { piliers_update: {...}, circuits: [...] }
+    pilierResults.push({ pilierArch, update: resP.result.piliers_update || {} });
+    for (const c of (resP.result.circuits || [])) {
+      circuitResults.push({ pilier: pilierArch.pilier, circuit: c });
     }
 
-    if (records.length !== 5) {
-      logger.warn('deleteEtape1T1Scenario — nombre de lignes inattendu (attendu: 5)', {
-        candidat_id, scenario_name, count: records.length
-      });
-    }
-
-    // 2. Suppression batch (max 10 IDs par destroy chez Airtable, ici toujours <= 5)
-    const idsToDelete = records.map(r => r.id);
-    await getBase()(airtableConfig.TABLES.ETAPE1_T1).destroy(idsToDelete);
-
-    logger.info('ETAPE1_T1 rows deleted for scenario', {
-      candidat_id,
-      scenario_name,
-      deleted: idsToDelete.length
-    });
-
-    return { deleted: idsToDelete.length, scenario: scenario_name };
-  } catch (error) {
-    logger.error('Failed to delete ETAPE1_T1 rows for scenario', {
-      candidat_id,
-      scenario_name,
-      error: error.message
-    });
-    throw error;
-  }
-}
-
-/**
- * Écrit des lignes ETAPE1_T1 SANS écraser les autres lignes du candidat.
- * Phase v10.2b — Décision n°42.
- *
- * Diffère de writeEtape1T1 : ne fait PAS deleteRowsByCandidatId préalable.
- * Le delete ciblé doit être fait en amont via deleteEtape1T1Scenario.
- *
- * Pattern d'usage attendu (orchestrateur SCENARIO_ISOLÉ / CASCADE) :
- *   1. await deleteEtape1T1Scenario(candidat_id, 'SOMMEIL')   // -5 lignes ciblées
- *   2. const { rows } = await runAgentT1ForScenario(...)      // produit 5 rows
- *   3. await writeEtape1T1Scenario(candidat_id, rows)         // +5 lignes (pas de delete)
- *
- * @param {string} candidat_id
- * @param {Array} rows  // typiquement 5 rows (1 scénario)
- * @returns {Promise<number>} nombre de lignes créées
- */
-async function writeEtape1T1Scenario(candidat_id, rows) {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    logger.warn('writeEtape1T1Scenario — aucune ligne à écrire', { candidat_id });
-    return 0;
-  }
-
-  if (rows.length !== 5) {
-    logger.warn('writeEtape1T1Scenario — nombre de lignes inattendu (attendu: 5)', {
-      candidat_id, count: rows.length
+    logger.info('Agent T3 Bilan — pilier traité', {
+      candidat_id, pilier: pilierArch.pilier, role: pilierArch.role,
+      nb_circuits: (resP.result.circuits || []).length,
     });
   }
 
+  // ─── 6. Mapper les résultats → lignes Airtable (field IDs) ─────────────────
+  // v11.1 (29/05) : mapping COMPLET architecture + §01-§07 + linked records
+  const bilanRow    = mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif, architecture, pilierResults);
+
+  // ─── 7. Écrire BILAN d'abord (on a besoin de son recordId pour les liens) ──
+  const bilanRecordId = await airtableService.upsertEtape1T3Bilan(candidat_id, bilanRow);
+
+  // ─── 8. Mapper et écrire PILIER avec bilan_link → recordId BILAN ──────────
+  const pilierRows  = pilierResults.map(pr =>
+    mapPilierToFields(candidat_id, pr, architecture, bilanRecordId, sources)
+  );
+  const pilierMap   = await airtableService.writeEtape1T3Piliers(candidat_id, pilierRows);
+  const nbP = pilierMap.size;
+
+  // ─── 9. Mapper et écrire CIRCUIT avec bilan_link + pilier_link ───────────
+  const circuitRows = circuitResults.map(cr => {
+    const pilierRecordId = pilierMap.get(cr.pilier) || null;
+    const ordrePilier    = architecture.ordered.findIndex(p => p.pilier === cr.pilier) + 1;
+    return mapCircuitToFields(candidat_id, cr, bilanRecordId, pilierRecordId, ordrePilier, sources);
+  });
+  const nbC = await airtableService.writeEtape1T3Circuits(candidat_id, circuitRows);
+
+  // ─── 10. VÉRIFICATEUR (Lot D) — relecture autonome + corrections en surcharge ──
+  // Appel séparé, MÊME prompt producteur + CONSIGNE_VERIF + le bilan produit. Écrit les colonnes verif_*
+  // (BILAN + PILIER). L'original reste intact ; la publication surchargera champ par champ.
   try {
-    const created = await createRowsInBatches(
-      airtableConfig.TABLES.ETAPE1_T1,
-      rows,
-      candidat_id
-    );
-    logger.info('ETAPE1_T1 scenario rows written (additive, no delete)', {
-      candidat_id,
-      count: created
-    });
-    return created;
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T1 scenario rows', {
-      candidat_id,
-      error: error.message
-    });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// VERIFICATEUR_T1 — ⭐ v10 (Décision n°10)
-// Audit du vérificateur T1 : 1 ligne par exécution
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Écrit une ligne d'audit dans VERIFICATEUR_T1 après chaque exécution du vérificateur
- * @param {string} candidat_id
- * @param {Object} auditData - {verdict_global, nb_lignes_verifiees, nb_violations_total, nb_critique, nb_doctrinale, nb_observation, violations_json, cost_usd, elapsed_ms}
- */
-async function writeVerificateurT1(candidat_id, auditData) {
-  try {
-    const fields = {
-      candidat_id,
-      verdict_global:        auditData.verdict_global || 'INDETERMINE',
-      nb_lignes_verifiees:   auditData.nb_lignes_verifiees || 0,
-      nb_violations_total:   auditData.nb_violations_total || 0,
-      nb_critique:           auditData.nb_critique || 0,
-      nb_doctrinale:         auditData.nb_doctrinale || 0,
-      nb_observation:        auditData.nb_observation || 0,
-      violations_json:       typeof auditData.violations_json === 'string'
-                                ? auditData.violations_json
-                                : JSON.stringify(auditData.violations_json || []),
-      cost_usd:              auditData.cost_usd || 0,
-      elapsed_ms:            auditData.elapsed_ms || 0,
-      timestamp:             new Date().toISOString()
+    const bilanProduit = {
+      global: bilanGlobal,                 // { bilan: §01-§07 }
+      profilCognitif: profilCognitif,      // { §02bis_profil_cognitif }
+      piliers: pilierResults.map(pr => ({  // modes + synthèses par pilier
+        pilier: pr.pilierArch.pilier,
+        role: pr.pilierArch.role,
+        update: pr.update,
+      })),
     };
-
-    await getBase()(airtableConfig.TABLES.VERIFICATEUR_T1).create([{
-      fields: cleanFields(fields)
-    }], { typecast: true });
-
-    logger.info('VERIFICATEUR_T1 audit written', {
-      candidat_id,
-      verdict: fields.verdict_global,
-      nb_violations: fields.nb_violations_total
+    const payloadVerif = buildPayloadVerif(candidat_id, sources, architecture, bilanProduit);
+    const resV = await agentBase.callAgent({
+      serviceName: SERVICE_NAME,
+      promptPath:  PROMPT_PATH,            // ⭐ MÊME prompt que le producteur (connaissance égale)
+      payload:     { ...payloadVerif, _consigne: CONSIGNE_VERIF },
+      injectLexique: true,
+      candidatId:  candidat_id,
     });
-  } catch (error) {
-    logger.error('Failed to write VERIFICATEUR_T1', { candidat_id, error: error.message });
-    // Non-bloquant : on log l'erreur mais on continue
+    trackUsage(usages, costs, resV);
+    await writeVerifResults(candidat_id, resV.result, bilanRecordId, pilierMap);
+    logger.info('Agent T3 Bilan — vérificateur terminé', {
+      candidat_id, statut: resV.result?.verif_statut || '(n/a)',
+    });
+  } catch (e) {
+    // Le vérificateur ne doit JAMAIS casser la production : si l'appel échoue, le bilan original publie.
+    logger.warn('Agent T3 Bilan — vérificateur échoué (bilan original conservé)', {
+      candidat_id, error: e.message,
+    });
+  }
+
+  const totalElapsedMs = Date.now() - startTime;
+  const totalCostUsd = costs.reduce((s, c) => s + c, 0);
+
+  logger.info('Agent T3 Bilan — terminé', {
+    candidat_id, nb_piliers: nbP, nb_circuits: nbC,
+    totalCostUsd: totalCostUsd.toFixed(4), totalElapsedMs,
+  });
+
+  return {
+    success: true,
+    candidat_id,
+    nb_piliers: nbP,
+    nb_circuits: nbC,
+    totalCostUsd,
+    totalElapsedMs,
+    usages,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VÉRIFICATEUR (Lot D) — écriture des résultats dans les colonnes verif_*
+// Démêle le JSON du vérificateur et écrit BILAN + PILIERS via airtableService.
+// ═══════════════════════════════════════════════════════════════════════════
+async function writeVerifResults(candidat_id, verifResult, bilanRecordId, pilierMap) {
+  if (!verifResult || typeof verifResult !== 'object') return;
+
+  // BILAN : champs de l'objet bilan + rapport + statut.
+  const bilanVerif = {};
+  const vb = verifResult.bilan || {};
+  for (const k of ['verif_filtre', 'verif_soleil', 'verif_boucles', 'verif_synthese', 'verif_pilier_socle_mode']) {
+    if (vb[k] != null && String(vb[k]).trim() !== '') {
+      // les blocs JSON (filtre/soleil/boucles) peuvent arriver en objet → stringifier pour la colonne texte
+      bilanVerif[k] = (typeof vb[k] === 'object') ? JSON.stringify(vb[k]) : vb[k];
+    }
+  }
+  if (verifResult.verif_rapport) bilanVerif.verif_rapport = verifResult.verif_rapport;
+  if (verifResult.verif_statut)  bilanVerif.verif_statut  = verifResult.verif_statut;
+  await airtableService.writeVerifBilan(bilanRecordId, bilanVerif);
+
+  // PILIERS : objet { P1: {...}, P2: {...} } → écriture par recordId via pilierMap.
+  if (verifResult.piliers && typeof verifResult.piliers === 'object') {
+    const piliersVerif = {};
+    for (const [pilier, champs] of Object.entries(verifResult.piliers)) {
+      if (!champs || typeof champs !== 'object') continue;
+      const row = {};
+      for (const k of ['verif_pilier_mode', 'verif_synth_factuelle', 'verif_synth_interpretee', 'verif_tableau_note']) {
+        if (champs[k] != null && String(champs[k]).trim() !== '') {
+          row[k] = (typeof champs[k] === 'object') ? JSON.stringify(champs[k]) : champs[k];
+        }
+      }
+      if (Object.keys(row).length > 0) piliersVerif[pilier] = row;
+    }
+    await airtableService.writeVerifPiliers(pilierMap, piliersVerif);
   }
 }
 
-/**
- * Récupère l'historique des vérifications T1 pour un candidat
- */
-async function getVerificateurT1History(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.VERIFICATEUR_T1)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'timestamp', direction: 'desc' }]
-      })
-      .all();
+// ═══════════════════════════════════════════════════════════════════════════
+// CHARGEMENT DES SOURCES
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadAllSources(candidat_id, visiteur) {
+  const [
+    ventilationPiliers, inventaireCircuits, t2, t1, responses,
+    referentielProfils, referentielCircuits, adhocCircuits, civilite,
+  ] = await Promise.all([
+    airtableService.getEtape1T2VentilationPiliers(candidat_id),
+    airtableService.getEtape1T2InventaireCircuits(candidat_id),
+    airtableService.getEtape1T2(candidat_id),
+    airtableService.getEtape1T1(candidat_id),
+    airtableService.getResponses(candidat_id),
+    airtableService.getReferentielProfils(),
+    airtableService.getReferentielCircuits(),
+    safeGetAdhoc(candidat_id),
+    airtableService.getCiviliteCandidat(candidat_id),
+  ]);
 
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get VERIFICATEUR_T1 history', { candidat_id, error: error.message });
+  return {
+    candidat_id,
+    visiteur,
+    civilite,
+    ventilationPiliers, inventaireCircuits, t2, t1, responses,
+    referentielProfils, referentielCircuits, adhocCircuits,
+  };
+}
+
+async function safeGetAdhoc(candidat_id) {
+  try {
+    // Filtre côté service : on ne garde que les ADHOC promus de ce candidat
+    const all = await airtableService.getCircuitsAdHocByStatut('PROMU_AUTO');
+    return (all || []).filter(a =>
+      (a.candidats_concernes || '').includes(candidat_id) ||
+      (Array.isArray(a.candidats_concernes) && a.candidats_concernes.includes(candidat_id))
+    );
+  } catch (e) {
+    logger.warn('Agent T3 Bilan — lecture ADHOC échouée (continue sans)', { candidat_id, error: e.message });
     return [];
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VALIDATION HUMAINE — ⭐ v10 (Décision n°16)
+// ARCHITECTURE MOTEUR — calcul de l'ordre des piliers (D2/D2bis)
+// Source autoritaire : nb_questions_coeur dans ETAPE1_T2_VENTILATION_PILIERS.
+// ⚠️ La table peut ne contenir que les piliers avec ≥ 1 cœur. On complète avec
+//    les piliers absents (0 cœur) en queue pour TOUJOURS avoir les 5 piliers.
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Polling : retourne tous les VISITEUR avec statut EN_ATTENTE_VALIDATION_HUMAINE
- * et avec une action déjà tranchée (validation_humaine_action != null)
- */
-async function getCandidatsEnAttenteValidation() {
-  try {
-    const formula = `AND(
-      {statut_analyse_pivar} = "EN_ATTENTE_VALIDATION_HUMAINE",
-      NOT({validation_humaine_action} = BLANK())
-    )`.replace(/\s+/g, ' ');
-
-    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
-      .select({ filterByFormula: formula })
-      .all();
-
-    return records.map(r => ({ id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get candidats en attente validation', { error: error.message });
-    return [];
+// ─── Parse "P5C13(4) · P5C1(3) · P5C15(3)" → { total, nbCircuits, occurrences:[4,3,3] } ──
+// DOCTRINE (Isabelle, 01/06) : le service au socle se lit dans ventilation_P{x}_instru de la
+// ligne du SOCLE. Le format porte les 3 dimensions du diagnostic en 3 phases.
+function parseServiceAuSocle(ventilationStr) {
+  if (!ventilationStr || typeof ventilationStr !== 'string' || ventilationStr.trim() === '') {
+    return { total: 0, nbCircuits: 0, occurrences: [] };
   }
-}
-
-/**
- * Applique l'action décidée par le superviseur sur le candidat
- * @param {string} candidat_id
- * @param {string} action - RELANCER_AGENT_T1 | RELANCER_VERIFICATEUR_T1 | ACCEPTER_TEL_QUEL | ABANDONNER
- * @param {string} motif - Motif libre de la décision
- */
-async function appliquerValidationHumaine(candidat_id, action, motif) {
-  try {
-    // Mapping action → nouveau statut
-    const statutMap = {
-      RELANCER_AGENT_T1:        'REPRENDRE_AGENT1',
-      RELANCER_VERIFICATEUR_T1: 'REPRENDRE_VERIFICATEUR1',
-      ACCEPTER_TEL_QUEL:        'en_cours',
-      ABANDONNER:               'ERREUR'
-    };
-
-    const nouveauStatut = statutMap[action];
-    if (!nouveauStatut) {
-      throw new Error(`Action validation humaine inconnue : ${action}`);
-    }
-
-    await updateVisiteur(candidat_id, {
-      validation_humaine_action: action,
-      validation_humaine_motif:  motif || '',
-      validation_humaine_date:   new Date().toISOString(),
-      statut_analyse_pivar:      nouveauStatut,
-      derniere_activite:         new Date().toISOString()
-    });
-
-    logger.info('Validation humaine appliquée', { candidat_id, action, nouveauStatut });
-  } catch (error) {
-    logger.error('Failed to appliquer validation humaine', { candidat_id, action, error: error.message });
-    throw error;
+  const occurrences = [];
+  // chaque terme "PxCy(n)" — on extrait le n entre parenthèses
+  for (const terme of ventilationStr.split('·')) {
+    const m = terme.match(/\((\d+)\)/);
+    if (m) occurrences.push(parseInt(m[1], 10));
   }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TENTATIVES MODE 4 — ⭐ v10 (Décision n°24)
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function incrementTentativesEtape1(candidat_id) {
-  try {
-    const visiteur = await getVisiteur(candidat_id);
-    const current = parseInt(visiteur?.nombre_tentatives_etape1 || 0, 10);
-    const newValue = current + 1;
-
-    await updateVisiteur(candidat_id, { nombre_tentatives_etape1: newValue });
-    logger.info('Tentatives etape1 incremented', { candidat_id, value: newValue });
-    return newValue;
-  } catch (error) {
-    logger.error('Failed to increment tentatives etape1', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function resetTentativesEtape1(candidat_id) {
-  try {
-    await updateVisiteur(candidat_id, { nombre_tentatives_etape1: 0 });
-    logger.debug('Tentatives etape1 reset to 0', { candidat_id });
-  } catch (error) {
-    logger.error('Failed to reset tentatives etape1', { candidat_id, error: error.message });
-    // Non-bloquant
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMMUNICATION CANDIDAT — ⭐ v10 (Décision n°33)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Polling : retourne les VISITEUR qui ont besoin d'un email
- * (à appeler par notificationCandidatService toutes les heures)
- */
-async function getCandidatsAEmailler() {
-  try {
-    // On veut les candidats avec date_T0 set (donc ayant terminé) et au moins un email manquant
-    const formula = `AND(
-      NOT({date_T0} = BLANK()),
-      OR(
-        {email_T0_envoye} = FALSE(),
-        {email_24h_envoye} = FALSE(),
-        {email_48h_envoye} = FALSE(),
-        {email_72h_envoye} = FALSE(),
-        AND({statut_analyse_pivar} = "terminé", {email_livraison_envoye} = FALSE())
-      )
-    )`.replace(/\s+/g, ' ');
-
-    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
-      .select({ filterByFormula: formula })
-      .all();
-
-    return records.map(r => ({ id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get candidats à emailler', { error: error.message });
-    return [];
-  }
+  occurrences.sort((a, b) => b - a); // décroissant pour le départage Phase 3
+  return {
+    total: occurrences.reduce((s, n) => s + n, 0),
+    nbCircuits: occurrences.length,
+    occurrences
+  };
 }
 
 /**
- * Marque qu'un email a été envoyé au candidat
- * @param {string} candidat_id
- * @param {string} type - 'T0' | '24h' | '48h' | '72h' | 'livraison'
+ * Calcule l'architecture moteur (ordre des piliers par rôle).
+ *
+ * DOCTRINE D'ARCHITECTURE (Isabelle, verrouillée 01/06) :
+ *   - Le SOCLE = pilier le plus souvent CŒUR (rang_par_frequence = 1 dans VENTILATION_PILIERS).
+ *   - Les 4 AUTRES piliers (str1/str2/fn1/fn2) sont classés par leur SERVICE AU SOCLE, lu dans la
+ *     colonne ventilation_P{x}_instru de la LIGNE DU SOCLE. L'absence de cœur d'un pilier NE LE
+ *     DISQUALIFIE PAS comme structurant (ex : P5 jamais cœur peut être le tandem n°1).
+ *   - Règle de tri en 3 PHASES en cascade (sur le service au socle) :
+ *       Phase 1 : nombre d'activations au service du socle (total) décroissant ;
+ *       Phase 2 : si égalité → nombre de circuits distincts décroissant ;
+ *       Phase 3 : si égalité → occurrences de chaque circuit (profil de répartition) décroissant.
+ *   - VASE CLOS = pilier à service-au-socle = 0 → classé dernier, flag vase_clos = true.
  */
-async function markerEmailCandidatEnvoye(candidat_id, type) {
-  try {
-    const fieldMap = {
-      'T0':        'email_T0_envoye',
-      '24h':       'email_24h_envoye',
-      '48h':       'email_48h_envoye',
-      '72h':       'email_72h_envoye',
-      'livraison': 'email_livraison_envoye'
-    };
-
-    const fieldName = fieldMap[type];
-    if (!fieldName) {
-      throw new Error(`Type d'email inconnu : ${type}`);
-    }
-
-    await updateVisiteur(candidat_id, { [fieldName]: true });
-    logger.info('Email candidat marqué envoyé', { candidat_id, type });
-  } catch (error) {
-    logger.error('Failed to marquer email candidat envoyé', { candidat_id, type, error: error.message });
-    throw error;
-  }
-}
-
-/**
- * Définit date_T0 quand le candidat termine ses 25 réponses
- */
-async function setDateT0(candidat_id) {
-  try {
-    await updateVisiteur(candidat_id, { date_T0: new Date().toISOString() });
-    logger.info('date_T0 set', { candidat_id });
-  } catch (error) {
-    logger.error('Failed to set date_T0', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ETAPE1_T2 / T3 / T4_BILAN
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function getEtape1T2(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'id_question', direction: 'asc' }]
-      })
-      .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T2', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function writeEtape1T2(candidat_id, rows) {
-  try {
-    await deleteRowsByCandidatId(airtableConfig.TABLES.ETAPE1_T2, candidat_id);
-    await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T2, rows, candidat_id);
-    logger.info('ETAPE1_T2 written', { candidat_id, count: rows.length });
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T2', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ⭐ v10.9 (22/05/2026) — Tables Phase 3 (visualisation persistée)
-//
-// Données dérivées calculées mécaniquement par agentT2_phase3_enrichissement_Service.
-// Pattern d'écriture identique à writeEtape1T2 : delete + create atomique par candidat_id.
-// Lues par les routes /visualiser/tableau2piliers et /visualiser/tableau2circuits.
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Lit les lignes ETAPE1_T2_VENTILATION_PILIERS pour un candidat.
- * Granularité : 1 ligne par (candidat × pilier_coeur), max 5 par candidat.
- * Tri : rang_par_frequence ASC (pilier le plus mobilisé en premier).
- *
- * @param {string} candidat_id
- * @returns {Promise<Array<{ airtable_id: string, ...fields }>>}
- */
-async function getEtape1T2VentilationPiliers(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_VENTILATION_PILIERS)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'rang_par_frequence', direction: 'asc' }]
-      })
-      .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T2_VENTILATION_PILIERS', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-/**
- * Écrit les lignes ETAPE1_T2_VENTILATION_PILIERS pour un candidat.
- * Pattern atomique : delete by candidat_id + create rows in batches.
- * Idempotent : rejouable sans risque (réécrit l'état complet).
- *
- * @param {string} candidat_id
- * @param {Array<Object>} rows  Lignes à créer (sans candidat_id qui est ajouté par createRowsInBatches)
- */
-async function writeEtape1T2VentilationPiliers(candidat_id, rows) {
-  try {
-    await deleteRowsByCandidatId(airtableConfig.TABLES.ETAPE1_T2_VENTILATION_PILIERS, candidat_id);
-    await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T2_VENTILATION_PILIERS, rows, candidat_id);
-    logger.info('ETAPE1_T2_VENTILATION_PILIERS written', { candidat_id, count: rows.length });
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T2_VENTILATION_PILIERS', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-/**
- * Lit les lignes ETAPE1_T2_INVENTAIRE_CIRCUITS pour un candidat.
- * Granularité : 1 ligne par (candidat × circuit distinct), ~30-60 par candidat.
- * Tri : pilier_owner ASC puis rang_dans_pilier ASC (P1 d'abord, top circuits en haut).
- *
- * @param {string} candidat_id
- * @returns {Promise<Array<{ airtable_id: string, ...fields }>>}
- */
-async function getEtape1T2InventaireCircuits(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_INVENTAIRE_CIRCUITS)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [
-          { field: 'pilier_owner',     direction: 'asc' },
-          { field: 'rang_dans_pilier', direction: 'asc' }
-        ]
-      })
-      .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T2_INVENTAIRE_CIRCUITS', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-/**
- * Écrit les lignes ETAPE1_T2_INVENTAIRE_CIRCUITS pour un candidat.
- * Pattern atomique : delete by candidat_id + create rows in batches.
- * Idempotent : rejouable sans risque (réécrit l'état complet).
- *
- * @param {string} candidat_id
- * @param {Array<Object>} rows
- */
-async function writeEtape1T2InventaireCircuits(candidat_id, rows) {
-  try {
-    await deleteRowsByCandidatId(airtableConfig.TABLES.ETAPE1_T2_INVENTAIRE_CIRCUITS, candidat_id);
-    await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T2_INVENTAIRE_CIRCUITS, rows, candidat_id);
-    logger.info('ETAPE1_T2_INVENTAIRE_CIRCUITS written', { candidat_id, count: rows.length });
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T2_INVENTAIRE_CIRCUITS', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function getEtape1T3(candidat_id, options = {}) {
-  try {
-    const conditions = [`{candidat_id} = "${candidat_id}"`];
-    if (options.pilier) conditions.push(`{pilier} = "${options.pilier}"`);
-
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3)
-      .select({
-        filterByFormula: conditions.length > 1 ? `AND(${conditions.join(', ')})` : conditions[0],
-        sort: [{ field: 'pilier', direction: 'asc' }, { field: 'circuit_id', direction: 'asc' }]
-      })
-      .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T3', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function writeEtape1T3(candidat_id, rows) {
-  try {
-    await deleteRowsByCandidatId(airtableConfig.TABLES.ETAPE1_T3, candidat_id);
-    await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T3, rows, candidat_id);
-    logger.info('ETAPE1_T3 written', { candidat_id, count: rows.length });
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T3', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function getEtape1T4Bilan(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T4_BILAN)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        maxRecords: 1
-      })
-      .firstPage();
-
-    if (records.length === 0) return null;
-    return { airtable_id: records[0].id, ...records[0].fields };
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T4_BILAN', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function upsertEtape1T4Bilan(candidat_id, fields) {
-  try {
-    const existing = await getEtape1T4Bilan(candidat_id);
-    const cleanedFields = cleanFields(fields);
-
-    if (existing) {
-      await getBase()(airtableConfig.TABLES.ETAPE1_T4_BILAN).update([{
-        id: existing.airtable_id,
-        fields: cleanedFields
-      }], { typecast: true });
-      logger.debug('ETAPE1_T4_BILAN updated', { candidat_id, fieldsCount: Object.keys(cleanedFields).length });
-    } else {
-      await getBase()(airtableConfig.TABLES.ETAPE1_T4_BILAN).create([{
-        fields: { candidat_id, ...cleanedFields }
-      }], { typecast: true });
-      logger.debug('ETAPE1_T4_BILAN created', { candidat_id, fieldsCount: Object.keys(cleanedFields).length });
-    }
-  } catch (error) {
-    logger.error('Failed to upsert ETAPE1_T4_BILAN', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_LEXIQUE — 15 termes doctrinaux
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function getReferentielLexique() {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_LEXIQUE)
-      .select({ sort: [{ field: 'ordre_affichage', direction: 'asc' }] })
-      .all();
-
-    const lexique = records.map(r => ({
-      id:                       r.fields.id,
-      terme:                    r.fields.terme,
-      definition:               r.fields.definition,
-      ordre_affichage:          r.fields.ordre_affichage,
-      categorie:                r.fields.categorie,
-      forme_grammaticale:       r.fields.forme_grammaticale || '',
-      precision_semantique:     r.fields.precision_semantique || '',
-      termes_interdits_associes: r.fields.termes_interdits_associes || '',
-      exemple_cecile:           r.fields.exemple_cecile || ''
-    }));
-
-    if (lexique.length !== 15) {
-      logger.warn('Lexique incomplet', { found: lexique.length, expected: 15 });
-    }
-
-    logger.debug('Référentiel lexique loaded', { count: lexique.length });
-    return lexique;
-  } catch (error) {
-    logger.error('Failed to load REFERENTIEL_LEXIQUE', { error: error.message });
-    throw error;
-  }
-}
-
-function formaterLexiquePourPrompt(lexique) {
-  const lignes = ['# 🔒 LEXIQUE DE RÉFÉRENCE (source : Airtable REFERENTIEL_LEXIQUE) — NON NÉGOCIABLE', ''];
-
-  for (const terme of lexique) {
-    lignes.push(`## ${terme.ordre_affichage}. ${terme.terme}`);
-    lignes.push(`**Définition** : ${terme.definition}`);
-    if (terme.forme_grammaticale) {
-      lignes.push(`**Forme grammaticale** : ${terme.forme_grammaticale}`);
-    }
-    if (terme.precision_semantique) {
-      lignes.push(`**Précision sémantique** : ${terme.precision_semantique}`);
-    }
-    if (terme.termes_interdits_associes) {
-      lignes.push(`**Termes interdits associés** : ${terme.termes_interdits_associes}`);
-    }
-    lignes.push('');
-  }
-
-  lignes.push('---');
-  lignes.push('**RÈGLE ABSOLUE** : utilise ces termes et leurs définitions mot pour mot. Toute reformulation est interdite.');
-
-  return lignes.join('\n');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_PILIERS — 5 entrées doctrinales (P1-P5)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ v10.1 (2026-04-29) — ajouté pour le vérificateur T1.
-// Le prompt verificateur1_t1.txt v1.1 attend referentiel_piliers dans son payload.
-// Pattern identique à getReferentielLexique.
-//
-// Le champ Airtable s'appelle 'regles_critiques' mais le prompt v1.1 le mentionne
-// comme 'pieges_avertissements'. On expose la donnée sous les DEUX noms pour
-// éviter toute ambiguïté côté agent (le prompt utilise les deux termes selon les
-// sections — section 3 du prompt parle de pieges_avertissements, le contrat v1.7
-// parle aussi de pieges_avertissements). À l'usage : agent doit chercher l'un ou
-// l'autre, les deux pointent vers le même contenu.
-
-async function getReferentielPiliers() {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_PILIERS)
-      .select({ sort: [{ field: 'pilier_code', direction: 'asc' }] })
-      .all();
-
-    const piliers = records.map(r => ({
-      pilier_code:               r.fields.pilier_code,
-      pilier_nom:                r.fields.pilier_nom,
-      pilier_intitule_court:     r.fields.pilier_intitule_court || '',
-      verbes_caracteristiques:   r.fields.verbes_caracteristiques || '',
-      ce_qu_est:                 r.fields.ce_qu_est || '',
-      ce_qu_on_peut_faire:       r.fields.ce_qu_on_peut_faire || '',
-      structure_interne:         r.fields.structure_interne || '',
-      nb_modes:                  r.fields.nb_modes || 0,
-      modes_liste:               r.fields.modes_liste || '',
-      // ⭐ Le champ Airtable est 'regles_critiques' mais on expose AUSSI
-      // sous le nom 'pieges_avertissements' utilisé dans le prompt v1.1.
-      regles_critiques:          r.fields.regles_critiques || '',
-      pieges_avertissements:     r.fields.regles_critiques || '',
-      illustrations_terrain:     r.fields.illustrations_terrain || '',
-      source_v36_section:        r.fields.source_v36_section || '',
-      version_doctrine:          r.fields.version_doctrine || ''
-    }));
-
-    if (piliers.length !== 5) {
-      logger.warn('Référentiel piliers incomplet', { found: piliers.length, expected: 5 });
-    }
-
-    logger.debug('Référentiel piliers loaded', { count: piliers.length });
-    return piliers;
-  } catch (error) {
-    logger.error('Failed to load REFERENTIEL_PILIERS', { error: error.message });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_CIRCUITS — 75 circuits officiels (étape 2)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ v10.7 (mai 2026) — Lecture du référentiel pour injection dans le payload
-// envoyé à l'agent étape 2 (circuits). Les 75 records ont été créés et 23 noms
-// ont été corrigés lors de la session du 20/05/2026.
-//
-// Schéma de la table :
-//   - pilier      : singleSelect (P1, P2, P3, P4, P5)
-//   - circuit_id  : singleLineText (C1 à C15)
-//   - circuit_nom : singleLineText (nom doctrinal court)
-//   - geste       : multilineText (description du geste cognitif)
-
-async function getReferentielCircuits() {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS)
-      .select({
-        sort: [
-          { field: 'pilier',     direction: 'asc' },
-          { field: 'circuit_id', direction: 'asc' }
-        ]
-      })
-      .all();
-
-    const circuits = records.map(r => ({
-      airtable_id: r.id,
-      pilier:      extractLookup(r.fields.pilier),
-      circuit_id:  r.fields.circuit_id,
-      circuit_nom: r.fields.circuit_nom,
-      geste:       r.fields.geste || null
-    }));
-
-    if (circuits.length !== 75) {
-      logger.warn('REFERENTIEL_CIRCUITS incomplet', {
-        found: circuits.length, expected: 75
-      });
-    }
-
-    logger.debug('REFERENTIEL_CIRCUITS loaded', { count: circuits.length });
-    return circuits;
-  } catch (error) {
-    logger.error('Failed to load REFERENTIEL_CIRCUITS', { error: error.message });
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_CIRCUITS_CANDIDATS — Bac de veille circuits ad hoc (étape 2)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ v10.7.1 (21/05/2026) — Refonte schéma + logique de promotion automatique
-//
-// Table créée le 20/05/2026 puis refondue le même soir (tblUDy7QTOzMMkhEK)
-// avec un schéma plus rigoureux distinguant les occurrences dans le pilier
-// principal vs dans d'autres piliers (transversalité).
-//
-// Mission : quand l'agent étape 2 ne trouve aucun circuit officiel pour
-// décrire un geste (PASSE 5), il crée un circuit ad hoc et l'écrit ici en
-// statut EN_ATTENTE. Promotion automatique selon doctrine ci-dessous.
-//
-// ─── SCHÉMA RÉEL (14 champs — confirmé via CSV export 21/05/2026) ─────────
-//   - nom_propose                       : singleLineText (primary)
-//   - pilier_principal                  : singleSelect P1/P2/P3/P4/P5
-//   - geste_propose                     : multilineText
-//   - occurrences_pilier_principal      : number (precision 0)
-//   - occurrences_autres_piliers        : number (precision 0)
-//   - candidats_concernes               : multilineText (1 candidat_id par ligne)
-//   - questions_concernees              : multilineText (1 "PXQYY SCENARIO - candidat_id" par ligne)
-//   - verbatim_source_premier           : multilineText (verbatim du 1er candidat détecté)
-//   - circuits_proches_envisages        : multilineText
-//   - statut                            : singleSelect
-//                                          EN_ATTENTE | PROMU_AUTO | PROMU_MANUEL | REJETE | FUSIONNE
-//   - circuit_officiel_apres_promotion  : singleLineText (ex "P3·C16" si promu)
-//   - date_premiere_detection           : dateTime (Europe/Paris)
-//   - date_derniere_mise_a_jour         : dateTime (Europe/Paris)
-//   - commentaire_validation            : multilineText (notes CTO)
-//
-// ─── DOCTRINE DE PROMOTION (validée 20/05/2026) ───────────────────────────
-//
-//   Cas A — Promotion automatique :
-//     Si occurrences_pilier_principal ≥ PROMOTION_THRESHOLD_SAME_PILLAR (3)
-//     → statut = PROMU_AUTO
-//     → c'est une signature cognitive structurante du pilier principal
-//     → bascule du statut + log. La création effective du record dans
-//       REFERENTIEL_CIRCUITS sous P{X}·C{16+} est faite manuellement par
-//       la CTO (choix du numéro libre + relecture nom officiel).
-//
-//   Cas B — Flag pour arbitrage humain :
-//     Si (occurrences_pilier_principal + occurrences_autres_piliers) ≥
-//        PROMOTION_THRESHOLD_MULTI_PILLAR (5)
-//     ET présent sur ≥ 2 piliers distincts
-//     → reste EN_ATTENTE (pas PROMU_AUTO car ambigu — quel pilier ?)
-//     → log warn pour signaler à la CTO qu'arbitrage manuel requis
-//     → la CTO décide du pilier de rattachement puis bascule manuellement
-//       en PROMU_MANUEL.
-//
-//   Cas C — Sous seuil : statut reste EN_ATTENTE, on attend d'autres
-//   candidats pour mûrir le compteur.
-
-// ─── Seuils doctrinaux de promotion ─────────────────────────────────────
-const PROMOTION_THRESHOLD_SAME_PILLAR  = 3;
-const PROMOTION_THRESHOLD_MULTI_PILLAR = 5;
-
-/**
- * Lit tous les circuits ad hoc filtrés par statut (par défaut EN_ATTENTE).
- *
- * Utilisé par agentT2Service en début de run pour injecter dans le payload
- * la liste des ad hoc déjà détectés — l'agent réutilise un nom existant si
- * le même geste réapparaît chez un nouveau candidat (anti-doublons).
- *
- * @param {string} statut  EN_ATTENTE | PROMU_AUTO | PROMU_MANUEL | REJETE | FUSIONNE
- * @returns {Promise<Array>}
- */
-async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS)
-      .select({
-        filterByFormula: `{statut} = "${statut}"`,
-        sort: [
-          { field: 'occurrences_pilier_principal', direction: 'desc' }
-        ]
-      })
-      .all();
-
-    const adHocs = records.map(r => ({
-      airtable_id:                       r.id,
-      nom_propose:                       r.fields.nom_propose,
-      pilier_principal:                  extractLookup(r.fields.pilier_principal),
-      geste_propose:                     r.fields.geste_propose || null,
-      occurrences_pilier_principal:      r.fields.occurrences_pilier_principal || 0,
-      occurrences_autres_piliers:        r.fields.occurrences_autres_piliers || 0,
-      candidats_concernes:               r.fields.candidats_concernes || '',
-      questions_concernees:              r.fields.questions_concernees || '',
-      verbatim_source_premier:           r.fields.verbatim_source_premier || null,
-      circuits_proches_envisages:        r.fields.circuits_proches_envisages || null,
-      statut:                            extractLookup(r.fields.statut),
-      circuit_officiel_apres_promotion:  r.fields.circuit_officiel_apres_promotion || null,
-      date_premiere_detection:           r.fields.date_premiere_detection || null,
-      date_derniere_mise_a_jour:         r.fields.date_derniere_mise_a_jour || null,
-      commentaire_validation:            r.fields.commentaire_validation || null
-    }));
-
-    logger.debug('Circuits ad hoc loaded', { statut, count: adHocs.length });
-    return adHocs;
-  } catch (error) {
-    logger.error('Failed to load REFERENTIEL_CIRCUITS_CANDIDATS', {
-      statut, error: error.message
-    });
-    throw error;
-  }
-}
-
-/**
- * Upsert d'un circuit ad hoc avec gestion automatique des compteurs par
- * pilier (principal vs autres) ET déclenchement automatique de la promotion
- * si seuils franchis.
- *
- *   - Si un ad hoc avec ce nom_propose existe déjà :
- *     • Si le pilier_courant == pilier_principal du record
- *       → occurrences_pilier_principal++
- *     • Sinon (transversalité)
- *       → occurrences_autres_piliers++
- *     • Ajout candidat_id à candidats_concernes (si pas déjà présent)
- *     • Ajout entrée "PXQYY SCENARIO - candidat_id" à questions_concernees
- *     • date_derniere_mise_a_jour = now
- *     • Check promotion (Cas A ou flag Cas B)
- *
- *   - Sinon (création) :
- *     • Crée avec pilier_principal = pilier_courant
- *     • occurrences_pilier_principal = 1, occurrences_autres_piliers = 0
- *     • statut = EN_ATTENTE
- *     • date_premiere_detection = now, date_derniere_mise_a_jour = now
- *
- * Match strict, case-sensitive sur nom_propose (les noms ad hoc sont produits
- * par Claude avec une convention stable).
- *
- * @param {Object}   args
- * @param {string}   args.candidat_id              candidat_id du candidat courant
- * @param {string}   args.nom_propose              nom du circuit ad hoc
- * @param {string}   args.pilier_courant           pilier du geste pour CE candidat (P1..P5)
- * @param {string}  [args.geste_propose]           description doctrinale du geste
- * @param {string}  [args.verbatim_source]         verbatim qui a justifié la création
- * @param {string}  [args.question_source]         question_id_protocole + scénario (ex "P2Q15 SOMMEIL")
- * @param {string}  [args.circuits_proches_envisages]
- *
- * @returns {Promise<{
- *   action: 'created'|'incremented_principal'|'incremented_autres'|'skipped',
- *   airtable_id: string,
- *   occurrences_pilier_principal: number,
- *   occurrences_autres_piliers: number,
- *   total: number,
- *   promotion_triggered: 'auto'|'flag_arbitrage'|null
- * }>}
- */
-async function upsertCircuitAdHoc({
-  candidat_id,
-  nom_propose,
-  pilier_courant,
-  geste_propose                = null,
-  verbatim_source              = null,
-  question_source              = null,
-  circuits_proches_envisages   = null
-}) {
-  if (!candidat_id || !nom_propose || !pilier_courant) {
-    throw new Error(
-      'upsertCircuitAdHoc — candidat_id, nom_propose et pilier_courant sont requis'
-    );
-  }
-
-  const nowIso = new Date().toISOString();
-
-  try {
-    // ─── 1. Chercher un ad hoc existant (match strict sur nom_propose) ──
-    const safeName = String(nom_propose).replace(/"/g, '\\"');
-
-    const existants = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS)
-      .select({
-        filterByFormula: `{nom_propose} = "${safeName}"`,
-        maxRecords: 1
-      })
-      .firstPage();
-
-    if (existants && existants.length > 0) {
-      // ─── Cas Incrément ────────────────────────────────────────────────
-      const existant = existants[0];
-      const pilierPrincipalRecord = extractLookup(existant.fields.pilier_principal);
-
-      const currentOccPrincipal = existant.fields.occurrences_pilier_principal || 0;
-      const currentOccAutres    = existant.fields.occurrences_autres_piliers   || 0;
-      const currentCandidats    = existant.fields.candidats_concernes || '';
-      const currentQuestions    = existant.fields.questions_concernees || '';
-      const currentStatut       = extractLookup(existant.fields.statut);
-
-      // Si déjà PROMU ou REJETE/FUSIONNE, on n'incrémente plus
-      if (['PROMU_AUTO', 'PROMU_MANUEL', 'REJETE', 'FUSIONNE'].includes(currentStatut)) {
-        logger.debug('Circuit ad hoc déjà finalisé — skip', {
-          nom_propose, statut: currentStatut, candidat_id
-        });
-        return {
-          action:                       'skipped',
-          airtable_id:                  existant.id,
-          occurrences_pilier_principal: currentOccPrincipal,
-          occurrences_autres_piliers:   currentOccAutres,
-          total:                        currentOccPrincipal + currentOccAutres,
-          promotion_triggered:          null
-        };
-      }
-
-      // Liste des candidats déjà connus
-      const candidatsList = currentCandidats
-        .split('\n')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-
-      // Si même candidat re-soumis sur le même ad hoc, no-op
-      if (candidatsList.includes(candidat_id)) {
-        logger.debug('Circuit ad hoc déjà connu pour ce candidat (skip)', {
-          nom_propose, candidat_id
-        });
-        return {
-          action:                       'skipped',
-          airtable_id:                  existant.id,
-          occurrences_pilier_principal: currentOccPrincipal,
-          occurrences_autres_piliers:   currentOccAutres,
-          total:                        currentOccPrincipal + currentOccAutres,
-          promotion_triggered:          null
-        };
-      }
-
-      // Détermine de quel compteur on incrémente
-      const isPilierPrincipal = (pilier_courant === pilierPrincipalRecord);
-      const newOccPrincipal   = isPilierPrincipal ? currentOccPrincipal + 1 : currentOccPrincipal;
-      const newOccAutres      = isPilierPrincipal ? currentOccAutres        : currentOccAutres + 1;
-      const total             = newOccPrincipal + newOccAutres;
-
-      // Mise à jour des listes
-      candidatsList.push(candidat_id);
-      const newCandidats = candidatsList.join('\n');
-
-      const questionEntry  = `${question_source || '?'} - ${candidat_id}`;
-      const newQuestions   = currentQuestions
-        ? `${currentQuestions}\n${questionEntry}`
-        : questionEntry;
-
-      // ─── Check promotion automatique (Cas A) ────────────────────────
-      let promotionTriggered = null;
-      let newStatut          = currentStatut;
-      let circuitOfficielTag = existant.fields.circuit_officiel_apres_promotion || null;
-
-      if (newOccPrincipal >= PROMOTION_THRESHOLD_SAME_PILLAR) {
-        // Cas A : promotion automatique
-        newStatut = 'PROMU_AUTO';
-        promotionTriggered = 'auto';
-        // circuit_officiel_apres_promotion reste vide — la CTO la remplit
-        // après création manuelle du C16+ dans REFERENTIEL_CIRCUITS
-        logger.warn('🎯 PROMOTION AUTOMATIQUE DÉCLENCHÉE (Cas A : ≥3 même pilier)', {
-          nom_propose,
-          pilier_principal:                  pilierPrincipalRecord,
-          occurrences_pilier_principal:      newOccPrincipal,
-          candidats_concernes_count:         candidatsList.length,
-          action_requise:                    'CTO doit créer le circuit officiel dans REFERENTIEL_CIRCUITS sous P{X}·C{16+}'
-        });
-      } else if (total >= PROMOTION_THRESHOLD_MULTI_PILLAR && newOccAutres > 0) {
-        // Cas B : flag arbitrage manuel (statut reste EN_ATTENTE)
-        promotionTriggered = 'flag_arbitrage';
-        logger.warn('⚠️ ARBITRAGE MANUEL REQUIS (Cas B : ≥5 total multi-piliers)', {
-          nom_propose,
-          pilier_principal:                  pilierPrincipalRecord,
-          occurrences_pilier_principal:      newOccPrincipal,
-          occurrences_autres_piliers:        newOccAutres,
-          total,
-          action_requise:                    'CTO doit décider du pilier de rattachement définitif et basculer manuellement en PROMU_MANUEL'
-        });
-      }
-
-      // Update
-      const updateFields = {
-        occurrences_pilier_principal: newOccPrincipal,
-        occurrences_autres_piliers:   newOccAutres,
-        candidats_concernes:          newCandidats,
-        questions_concernees:         newQuestions,
-        date_derniere_mise_a_jour:    nowIso
-      };
-      if (newStatut !== currentStatut) {
-        updateFields.statut = newStatut;
-      }
-
-      await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).update([
-        { id: existant.id, fields: updateFields }
-      ]);
-
-      logger.info('Circuit ad hoc incrémenté', {
-        nom_propose,
-        pilier_courant,
-        pilier_principal_record: pilierPrincipalRecord,
-        incremented:             isPilierPrincipal ? 'pilier_principal' : 'autres_piliers',
-        occurrences_pilier_principal: newOccPrincipal,
-        occurrences_autres_piliers:   newOccAutres,
-        total,
-        candidat_id,
-        statut: newStatut
-      });
-
-      return {
-        action:                       isPilierPrincipal ? 'incremented_principal' : 'incremented_autres',
-        airtable_id:                  existant.id,
-        occurrences_pilier_principal: newOccPrincipal,
-        occurrences_autres_piliers:   newOccAutres,
-        total,
-        promotion_triggered:          promotionTriggered
-      };
-    }
-
-    // ─── Cas Création (aucun record existant) ───────────────────────────
-    const questionEntry = `${question_source || '?'} - ${candidat_id}`;
-
-    const created = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).create([
-      {
-        fields: cleanFields({
-          nom_propose,
-          pilier_principal:              pilier_courant,
-          geste_propose,
-          occurrences_pilier_principal:  1,
-          occurrences_autres_piliers:    0,
-          candidats_concernes:           candidat_id,
-          questions_concernees:          questionEntry,
-          verbatim_source_premier:       verbatim_source,
-          circuits_proches_envisages,
-          statut:                        'EN_ATTENTE',
-          date_premiere_detection:       nowIso,
-          date_derniere_mise_a_jour:     nowIso
-        })
-      }
-    ]);
-
-    logger.info('Circuit ad hoc créé', {
-      nom_propose,
-      pilier_principal: pilier_courant,
-      candidat_id,
-      airtable_id: created[0].id
-    });
-
+function computeArchitecture(ventilationPiliers) {
+  const PILIERS_TOUS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+  const PILIER_LABELS = {
+    P1: "Collecte d'information",
+    P2: 'Tri et organisation',
+    P3: 'Analyse et diagnostic',
+    P4: 'Création de solutions',
+    P5: 'Mise en œuvre et exécution'
+  };
+
+  // ─── 1. SOCLE = pilier le plus souvent cœur (rang_par_frequence=1, sinon max nb_reponses) ──
+  const socleRow = [...ventilationPiliers].sort((a, b) => {
+    const ra = a.rang_par_frequence || 99;
+    const rb = b.rang_par_frequence || 99;
+    if (ra !== rb) return ra - rb;
+    return (b.nb_reponses || 0) - (a.nb_reponses || 0);
+  })[0];
+
+  if (!socleRow) return { ordered: [], socle: null };
+  const soclePilier = socleRow.pilier_coeur;
+
+  // ─── 2. SERVICE AU SOCLE : lire ventilation_P{x}_instru de la LIGNE DU SOCLE ──
+  // (le socle lui-même est exclu ; les 4 autres piliers sont classés par leur service au socle)
+  const autres = PILIERS_TOUS.filter(p => p !== soclePilier).map(p => {
+    const svc = parseServiceAuSocle(socleRow[`ventilation_${p}_instru`]);
     return {
-      action:                       'created',
-      airtable_id:                  created[0].id,
-      occurrences_pilier_principal: 1,
-      occurrences_autres_piliers:   0,
-      total:                        1,
-      promotion_triggered:          null
+      pilier: p,
+      pilier_label: PILIER_LABELS[p] || p,
+      svc_total: svc.total,
+      svc_nb_circuits: svc.nbCircuits,
+      svc_occurrences: svc.occurrences,
+      vase_clos: svc.total === 0
     };
-  } catch (error) {
-    logger.error('Failed to upsert circuit ad hoc', {
-      candidat_id, nom_propose, pilier_courant,
-      error: error.message
+  });
+
+  // ─── 3. TRI EN 3 PHASES (cascade) ──
+  autres.sort((a, b) => {
+    // Phase 1 : total d'activations au service du socle
+    if (b.svc_total !== a.svc_total) return b.svc_total - a.svc_total;
+    // Phase 2 : nombre de circuits distincts
+    if (b.svc_nb_circuits !== a.svc_nb_circuits) return b.svc_nb_circuits - a.svc_nb_circuits;
+    // Phase 3 : occurrences de chaque circuit (comparaison lexicographique décroissante)
+    const max = Math.max(a.svc_occurrences.length, b.svc_occurrences.length);
+    for (let i = 0; i < max; i++) {
+      const oa = a.svc_occurrences[i] || 0;
+      const ob = b.svc_occurrences[i] || 0;
+      if (ob !== oa) return ob - oa;
+    }
+    // Tie-break stable : ordre alphabétique du pilier
+    return a.pilier.localeCompare(b.pilier);
+  });
+
+  // ─── 4. Construire l'architecture : socle (rang 0) + 4 autres dans l'ordre du service ──
+  const socleLabel = socleRow.pilier_coeur_libelle || PILIER_LABELS[soclePilier] || soclePilier;
+  const ordered = [{
+    pilier: soclePilier,
+    pilier_label: socleLabel,
+    role: ROLE_ORDER[0], // 'socle'
+    svc_au_socle_total: null, // n/a pour le socle lui-même
+    vase_clos: false,
+    raw: socleRow
+  }];
+
+  autres.forEach((p, idx) => {
+    ordered.push({
+      pilier: p.pilier,
+      pilier_label: p.pilier_label,
+      role: ROLE_ORDER[idx + 1] || 'fonctionnel_2',
+      svc_au_socle_total: p.svc_total,
+      svc_au_socle_nb_circuits: p.svc_nb_circuits,
+      vase_clos: p.vase_clos,
+      raw: ventilationPiliers.find(v => v.pilier_coeur === p.pilier) || { pilier_coeur: p.pilier }
     });
-    throw error;
-  }
+  });
+
+  return { ordered, socle: ordered[0] };
 }
 
-// ─── Helper interne pour les nouvelles fonctions étape 2 ──────────────────
-// Extrait une valeur scalaire d'un champ Airtable qui peut être un array
-// (lookup) ou une string simple. ["P3"] → "P3" / "P3" → "P3" / null → null
-function extractLookup(value) {
-  if (value === null || value === undefined) return null;
-  if (Array.isArray(value)) return value.length > 0 ? String(value[0]) : null;
-  return String(value);
-}
-
-
 // ═══════════════════════════════════════════════════════════════════════════
-// VISITEUR — getCiviliteCandidat (Décision n°4 : anonymisation absolue)
+// CONSTRUCTION DES PAYLOADS (sections délimitées — cf. §3.2 du prompt)
+// NOTE : ces fonctions consolident les sources en texte structuré. Le détail
+//        exact du formatage suit le §3 du prompt. Versions initiales ci-dessous ;
+//        à affiner avec un candidat de test réel.
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ v10.1 (2026-04-29) — ajouté pour le vérificateur T1.
-// Le prompt verificateur1_t1.txt v1.1 attend civilite dans son payload.
-// Aucun prénom transmis — uniquement la civilité (Madame/Monsieur) pour les
-// accords grammaticaux dans les raisons doctrinales.
+function buildPayloadAppel0(candidat_id, sources, architecture) {
+  const socle = architecture.socle ? architecture.socle.pilier : null;
 
-async function getCiviliteCandidat(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
-      .select({
-        filterByFormula: `{${airtableConfig.VISITEUR_FIELDS.candidate_ID}} = "${candidat_id}"`,
-        fields: [airtableConfig.VISITEUR_FIELDS.civilite_candidat],
-        maxRecords: 1
+  // ─── MATIÈRE DU FILTRE (doctrine : le filtre se DÉRIVE de ce que le candidat fait, pas du nom du pilier) ───
+  // On extrait, pour les réponses où le pilier socle GOUVERNE (cog_pilier_gouverne === socle), la matière
+  // qualitative déjà posée en étape 2 : verbatim brut + lecture experte + séquence + commentaire de
+  // gouvernance + résultat visé. C'est LÀ que se lit le « comment » récurrent du candidat (sa grille, sa
+  // règle, sa référence...). L'agent DÉRIVE le filtre de cette matière — il ne le devine pas depuis P_.
+  const norm = v => (v && typeof v === 'object' && 'name' in v) ? v.name : v; // singleSelect → string
+  const matiere_socle = (sources.responses || [])
+    .filter(r => norm(r.cog_pilier_gouverne) === socle)
+    .map(r => ({
+      id_question: norm(r.id_question) || '',
+      verbatim:    r.response_text || '',
+      lecture:     r.cog_comprend || '',            // reformulation experte de ce que fait le candidat
+      sequence:    r.cog_outils_mobilises || '',    // enchaînement des piliers
+      gouvernance: r.cog_gouverne_commentaire || '',// « Signature : ... », rôle des piliers
+      resultat:    r.cog_resultat_vise || '',
+    }))
+    .filter(m => m.verbatim || m.lecture || m.gouvernance);
+
+  // ─── MATIÈRE D'ARBITRAGE DES STRUCTURANTS (D2ter) ───
+  // Le socle est connu (computeArchitecture, en amont). Pour que l'agent puisse POSER LA TENDANCE des
+  // structurants (quel pilier est le tandem) en lisant ce qui se joue AUTOUR du socle dans les boucles,
+  // on lui fournit, pour CHAQUE pilier non-socle, la liste des questions où ce pilier apparaît dans la
+  // séquence cognitive — avec la séquence (cog_outils_mobilises), la signature (cog_gouverne_commentaire)
+  // et le pilier qui gouverne la question. L'agent NE reçoit PAS de calcul/tri : il lit le fond et tranche
+  // (doctrine : le service expose la matière, l'agent applique D2ter — retour/omniprésence autour du socle).
+  const PILIERS_TOUS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+  const matiere_arbitrage = {};
+  for (const p of PILIERS_TOUS) {
+    if (p === socle) continue;
+    const occurrences = (sources.responses || [])
+      // on garde les réponses dont la séquence mentionne ce pilier (le pilier "joue" dans la boucle)
+      .filter(r => {
+        const seq = r.cog_outils_mobilises || '';
+        return typeof seq === 'string' && new RegExp(p).test(seq);
       })
-      .firstPage();
-
-    if (!records || records.length === 0) {
-      logger.warn('Candidat introuvable pour civilité', { candidat_id });
-      return null;
-    }
-
-    const civilite = records[0].fields[airtableConfig.VISITEUR_FIELDS.civilite_candidat] || null;
-    logger.debug('Civilité candidat lue', { candidat_id, civilite });
-    return civilite;
-  } catch (error) {
-    logger.error('Failed to read civilite_candidat', { candidat_id, error: error.message });
-    throw error;
+      .map(r => ({
+        id_question:      norm(r.id_question) || '',
+        pilier_gouverne:  norm(r.cog_pilier_gouverne) || '',  // qui gouverne CETTE question
+        sequence:         r.cog_outils_mobilises || '',        // l'enchaînement ordonné (= la boucle)
+        gouvernance:      r.cog_gouverne_commentaire || '',    // « Signature : ... » (rôle des piliers)
+      }))
+      .filter(m => m.sequence);
+    if (occurrences.length > 0) matiere_arbitrage[p] = occurrences;
   }
+
+  return {
+    candidat: identiteAnonyme(sources),
+    pilier_socle: socle,
+    distribution_sorties: sources.ventilationPiliers.map(p => ({
+      pilier: p.pilier_coeur, sorties: p.nb_reponses, coeur: p.nb_activations_coeur_total,
+    })),
+    architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
+    matiere_socle,  // ⭐ matière qualitative pour DÉRIVER le filtre cognitif (§02)
+    matiere_arbitrage,  // ⭐ (D2ter) boucles + signatures des piliers non-socle, pour POSER la tendance des structurants
+    glissements_precalcules: extractGlissements(sources.t1),
+    boucles_top3: extractBouclesTop3(sources.t1, sources.responses),
+    signaux_limbiques: extractSignaux(sources.t1),
+    tableau_t1_compact: sources.t1.map(compactT1Row),
+  };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// VISITEUR — getVisiteurInfoForVisualisation (v10.5 — affichage HTML interne)
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// ⭐ v10.5 (2026-05-05) — ajouté pour la visualisation HTML interne.
-//
-// Cette fonction récupère prénom + nom + civilité depuis la table VISITEUR
-// pour AFFICHAGE INTERNE UNIQUEMENT (page HTML de visualisation des analyses
-// par le superviseur). Elle ne doit PAS être utilisée dans les payloads
-// envoyés aux agents IA — la Décision n°4 d'anonymisation absolue reste
-// pleinement applicable côté agents (qui ne reçoivent que la civilité).
-//
-// Frontière de gouvernance :
-//   - Côté agents (T1, Vérificateur, T2, T3...) : civilité seulement
-//   - Côté visualisation interne (superviseur)   : prénom + nom + civilité
-//
-// Si le visiteur est introuvable ou le champ vide, retourne un objet avec
-// fallback ('?') pour que le HTML reste fonctionnel sans crasher.
-
-async function getVisiteurInfoForVisualisation(candidat_id) {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.VISITEUR)
-      .select({
-        filterByFormula: `{${airtableConfig.VISITEUR_FIELDS.candidate_ID}} = "${candidat_id}"`,
-        fields: [
-          airtableConfig.VISITEUR_FIELDS.candidate_ID,
-          airtableConfig.VISITEUR_FIELDS.Prenom,
-          airtableConfig.VISITEUR_FIELDS.Nom,
-          airtableConfig.VISITEUR_FIELDS.civilite_candidat
-        ],
-        maxRecords: 1
-      })
-      .firstPage();
-
-    if (!records || records.length === 0) {
-      logger.warn('Visiteur introuvable pour visualisation', { candidat_id });
-      return { prenom: '?', nom: '?', civilite: '?', candidate_ID: candidat_id };
-    }
-
-    const f = records[0].fields;
-    const info = {
-      candidate_ID: f[airtableConfig.VISITEUR_FIELDS.candidate_ID] || candidat_id,
-      prenom:       f[airtableConfig.VISITEUR_FIELDS.Prenom]            || '?',
-      nom:          f[airtableConfig.VISITEUR_FIELDS.Nom]               || '?',
-      civilite:     f[airtableConfig.VISITEUR_FIELDS.civilite_candidat] || '?'
-    };
-    logger.debug('Visiteur info lu pour visualisation', { candidat_id, prenom: info.prenom });
-    return info;
-  } catch (error) {
-    logger.error('Failed to read visiteur info for visualisation', { candidat_id, error: error.message });
-    return { prenom: '?', nom: '?', civilite: '?', candidate_ID: candidat_id };
-  }
+function buildPayloadAppel0bis(candidat_id, sources, architecture) {
+  return {
+    candidat: identiteAnonyme(sources),
+    // Architecture = SOURCE UNIQUE (computeArchitecture). Le Soleil DÉCLINE cet ordre, il ne le recalcule pas.
+    // On transmet le service au socle et le flag vase_clos pour que le §02bis soit cohérent avec le §01.
+    architecture_moteur: architecture.ordered.map(p => ({
+      pilier: p.pilier,
+      role: p.role,
+      svc_au_socle_total: (p.svc_au_socle_total != null ? p.svc_au_socle_total : null),
+      svc_au_socle_nb_circuits: (p.svc_au_socle_nb_circuits != null ? p.svc_au_socle_nb_circuits : null),
+      vase_clos: !!p.vase_clos,
+    })),
+    inventaire_circuits_complet: sources.inventaireCircuits,  // table complète (autoritaire)
+    referentiel_circuits: sources.referentielCircuits,
+    responses: sources.responses,
+  };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HELPERS INTERNES
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function deleteRowsByCandidatId(tableName, candidat_id) {
-  const records = await getBase()(tableName)
-    .select({
-      filterByFormula: `{candidat_id} = "${candidat_id}"`,
-      fields: []
-    })
-    .all();
-
-  if (records.length === 0) {
-    logger.debug('No existing rows to delete', { tableName, candidat_id });
-    return 0;
-  }
-
-  const ids = records.map(r => r.id);
-  for (let i = 0; i < ids.length; i += 10) {
-    const batch = ids.slice(i, i + 10);
-    await getBase()(tableName).destroy(batch);
-    if (i + 10 < ids.length) await sleep(200);
-  }
-
-  logger.debug('Rows deleted', { tableName, candidat_id, count: ids.length });
-  return ids.length;
+// VÉRIFICATEUR (Lot D) — payload de relecture : sources de l'appel global (filtre + arbitrage) + le BILAN PRODUIT.
+// On réutilise buildPayloadAppel0 (qui porte déjà matiere_socle + matiere_arbitrage + glissements) et on y
+// ajoute 'bilan_produit' = ce que l'agent a généré (global §01-07 + soleil §02bis + piliers/circuits).
+function buildPayloadVerif(candidat_id, sources, architecture, bilanProduit) {
+  const base = buildPayloadAppel0(candidat_id, sources, architecture);
+  return {
+    ...base,
+    architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
+    bilan_produit: bilanProduit,  // { global, profilCognitif, piliers:[{pilier, role, update}] }
+  };
 }
 
-async function createRowsInBatches(tableName, rows, candidat_id) {
-  if (!Array.isArray(rows) || rows.length === 0) {
-    logger.warn('No rows to create', { tableName, candidat_id });
-    return 0;
-  }
+function buildPayloadAppelPilier(candidat_id, sources, architecture, pilierArch) {
+  const pilier = pilierArch.pilier;
+  const circuitsPilier = sources.inventaireCircuits.filter(c =>
+    (c.pilier_owner === pilier) || (c.circuit_label || '').startsWith(pilier)
+  );
 
-  const records = rows.map(row => ({
-    fields: { candidat_id, ...cleanFields(row) }
+  // ─── CHIFFRES PRÉ-CALCULÉS PAR LE SERVICE (doctrine : l'agent DÉCLINE, ne recalcule RIEN) ───
+  // Source autoritaire : ETAPE1_T2_INVENTAIRE_CIRCUITS. Le service calcule ici les compteurs et
+  // les transmet PRÊTS À RÉDIGER. L'agent les RECOPIE tels quels, il ne refait aucune addition.
+  const counters = computePilierCounters(pilier, sources);
+
+  // Détail par circuit, chiffres déjà extraits (pas de calcul côté agent) :
+  const circuits_chiffres = circuitsPilier.map(c => ({
+    circuit_id:   c.circuit_id || c.circuit_label || '',
+    circuit_label:c.circuit_label || '',
+    nb_coeur:     Number(c.nb_coeur || 0),
+    nb_svc_P1:    Number(c.nb_svc_P1 || 0),
+    nb_svc_P2:    Number(c.nb_svc_P2 || 0),
+    nb_svc_P3:    Number(c.nb_svc_P3 || 0),
+    nb_svc_P4:    Number(c.nb_svc_P4 || 0),
+    nb_svc_P5:    Number(c.nb_svc_P5 || 0),
+    total_activations: Number(c.total_activations || 0),
   }));
 
-  let created = 0;
-  for (let i = 0; i < records.length; i += 10) {
-    const batch = records.slice(i, i + 10);
-    await getBase()(tableName).create(batch, { typecast: true });
-    created += batch.length;
-    if (i + 10 < records.length) await sleep(200);
-  }
+  // Service au socle de CE pilier (depuis l'architecture déjà calculée — source unique) :
+  const pilierArchInfo = (architecture.ordered || []).find(p => p.pilier === pilier) || {};
 
-  return created;
+  return {
+    candidat: identiteAnonyme(sources),
+    pilier_en_cours: { pilier, role: pilierArch.role, label: pilierArch.pilier_label },
+
+    // ⭐ CHIFFRES OFFICIELS — l'agent NE LES RECALCULE PAS, il les recopie dans la tétière et les synthèses.
+    compteurs_pilier: {
+      nb_activations:       counters.nb_activations,        // total (cœur + instrumental)
+      nb_circuits_actifs:   counters.nb_circuits_actifs,
+      nb_circuits_haut:     counters.nb_circuits_haut,
+      coeur_activations:    counters.coeur_activations,     // ce que le pilier fait quand il EST cœur
+      coeur_circuits:       counters.coeur_circuits,
+      instru_activations:   counters.instru_activations,    // ce qu'il fait au service des autres
+      instru_circuits:      counters.instru_circuits,
+      est_instrumental_pur: counters.est_instrumental_pur,  // 0 cœur mais sert les autres
+      est_inactif:          counters.est_inactif,           // ni cœur ni service → 0 légitime
+      svc_au_socle_total:   (pilierArchInfo.svc_au_socle_total != null ? pilierArchInfo.svc_au_socle_total : null),
+      vase_clos:            !!pilierArchInfo.vase_clos,      // a un cœur propre mais n'irrigue pas le socle
+    },
+    circuits_chiffres,  // détail par circuit, chiffres déjà extraits (à recopier, pas à recompter)
+
+    ventilation_pilier: circuitsPilier,
+    ventilation_inverse: sources.inventaireCircuits,  // pour les emprunts vers ce pilier
+    circuits_haut_t2: sources.t2.filter(t => (t.circuit_id || '').startsWith(pilier)),
+    verbatims_par_question: sources.responses,
+    referentiel_profils_pilier: sources.referentielProfils.filter(p => p.pilier === pilier),
+    adhoc_pilier: sources.adhocCircuits.filter(a => (a.pilier_principal || '') === pilier),
+  };
+}
+
+function identiteAnonyme(sources) {
+  // Anonymisation : civilité seulement, pas de prénom envoyé à Claude
+  return { candidat_id: sources.candidat_id, civilite: sources.civilite || 'Madame/Monsieur' };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EXPORTS
+// CONSIGNES FINALES PAR APPEL (ce que l'agent doit retourner — cf. §11 prompt)
 // ═══════════════════════════════════════════════════════════════════════════
+const CONSIGNE_APPEL_0 =
+  "Produis UNIQUEMENT l'objet JSON { candidat, bilan: { §01_vue_globale, " +
+  "§02_filtre_cognitif, §03_glissements, §04_boucle_cognitive, §05_signal_limbique, " +
+  "§06_couts, §07_signature } }. Pas de §02bis, pas de piliers[], pas de circuits[]. " +
+  "JSON pur, commence par { finit par }.";
+
+const CONSIGNE_APPEL_0BIS =
+  "Produis UNIQUEMENT l'objet JSON { bilan: { §02bis_profil_cognitif: {...} } } " +
+  "selon le §5.3bis du prompt (bloc1 socle + bloc2 satellites + tandem + conclusion_cycle). " +
+  "JSON pur.";
+
+function consigneAppelPilier(pilierArch) {
+  return (
+    `Produis UNIQUEMENT { piliers_update: { pilier: "${pilierArch.pilier}", ` +
+    `pilier_mode, synth_factuelle_coeur, synth_factuelle_elargie, synth_interpretee }, ` +
+    `circuits: [...] } pour le pilier ${pilierArch.pilier} (rôle ${pilierArch.role}). ` +
+    `Applique la doctrine PILIER_MODE (§2.11) et TABLEAU RÉCAP (§2.12). JSON pur.`
+  );
+}
+
+// ─── VÉRIFICATEUR (Lot D) — relecture autonome du bilan produit ──────────────
+// Le vérificateur reçoit LE MÊME PROMPT producteur (mêmes doctrines), les sources, et le BILAN PRODUIT.
+// Il relit l'INTÉGRALITÉ (connaissance égale) contre les consignes ET la vérité-terrain
+// (cog_gouverne_commentaire), corrige en CASCADE racine→feuilles, exige une PREUVE pour chaque correction,
+// respecte les invariants (socle fréquence cœur, chiffres, verbatims), et écrit ses corrections en SURCHARGE
+// (colonnes verif_*). Format de sortie cadré pour alimenter directement les colonnes.
+const CONSIGNE_VERIF =
+  "MODE VÉRIFICATEUR. Tu reçois CE MÊME PROMPT (mêmes doctrines), les SOURCES, et le BILAN DÉJÀ PRODUIT " +
+  "(champ 'bilan_produit'). On ne vérifie bien qu'à connaissance égale : relis TOUT le bilan et corrige ce " +
+  "qui ne respecte NI les consignes du prompt NI la vérité-terrain (les 'Signature :' de cog_gouverne_commentaire " +
+  "dans matiere_socle/matiere_arbitrage). " +
+  "ORDRE RACINE→FEUILLES (obligatoire) : (1) FILTRE ⇄ socle ; (2) RANG DES STRUCTURANTS/tandem ⇄ boucles+gouvernances " +
+  "(le tandem est le pilier vers lequel le candidat REVIENT, pas celui qui CLÔT) ; (3) si une racine change, propage " +
+  "aux feuilles : soleil, sections piliers, boucles §04, conclusion_cycle ; (4) cohérence finale soleil ⇄ synthèse. " +
+  "PREUVE OBLIGATOIRE : toute correction cite la gouvernance/consigne qui la justifie ; SANS preuve, tu NE corriges PAS " +
+  "(tu le signales dans le rapport). INVARIANTS INTOUCHABLES : socle (fréquence cœur), chiffres pré-calculés, verbatims exacts. " +
+  "Tu n'inventes rien : tu corriges vers ce que disent les sources. " +
+  "PRODUIS UNIQUEMENT cet objet JSON (n'émets une clé QUE si tu corriges ce champ, sinon OMETS-la) : " +
+  "{ bilan: { verif_filtre: \"<JSON string {filtre_label, filtre_preuve_1..5, filtre_lecture_candidat}>\", " +
+  "verif_soleil: \"<profil_cognitif_json corrigé>\", verif_boucles: \"<boucles_json corrigé>\", " +
+  "verif_synthese: \"<note_profil_global corrigé>\", verif_pilier_socle_mode: \"<mode socle corrigé>\" }, " +
+  "(NB : pour que la correction du mode socle s'affiche, reporte-la AUSSI dans piliers.<pilier socle>.verif_pilier_mode — " +
+  "c'est ce champ-là qui pilote l'affichage ; verif_pilier_socle_mode sert à la cohérence/permanence.) " +
+  "piliers: { P1: { verif_pilier_mode, verif_synth_factuelle, verif_synth_interpretee, verif_tableau_note }, ... }, " +
+  "verif_rapport: \"<rapport lisible : pour chaque contrôle C1-C4, statut + écarts + PREUVE citée>\", " +
+  "verif_statut: \"OK\" | \"CORRIGÉ\" | \"ECARTS_NON_PROUVES\" }. JSON pur, commence par { finit par }.";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐ v11.0 (28/05/2026) — ÉTAPE 3 : LE BILAN (3 tables T3)
-// Lecture/écriture de ETAPE1_T3_PILIER, ETAPE1_T3_CIRCUIT, ETAPE1_T3_BILAN.
-// Écrit par agentT3BilanService ; lu par /visualiser/t3_bilan/.
+// MAPPING JSON Claude → lignes Airtable (field IDs des 3 tables T3)
+// v11.1 (29/05/2026) — RÉÉCRITURE COMPLÈTE après audit des champs manquants
+// (cf. transcript 29/05 : 71/99 champs vides chez Véronique sur ancienne version)
 //
-// ⚠️ Noms de champs clés des 3 tables T3 (vérifiés via list_tables_for_base 28/05) :
-//    - ETAPE1_T3_PILIER  → clé candidat = "candidat_id"  (vérifié schéma Airtable)
-//    - ETAPE1_T3_CIRCUIT → clé candidat = "candidat_id"
-//    - ETAPE1_T3_BILAN   → clé candidat = "candidat_id"
-//
-// (À ne pas confondre avec VISITEUR qui utilise "candidate_ID" avec 'e' majuscule ID.)
-//
-// Ces helpers renvoient des objets aux CLÉS LISIBLES (remappées depuis les field
-// IDs via _mapByFieldIds), pour que les services consommateurs ignorent les fldXXX.
+// Conventions de lecture du JSON Claude (déduites du prompt v5.3 et de Rémi) :
+//   - Bilan global  : { bilan: { §01_vue_globale, §02_filtre_cognitif, §03_glissements,
+//                                §04_boucle_cognitive, §05_signal_limbique, §06_couts, §07_signature } }
+//   - Chaque section accepte deux formats (défensif) :
+//       a) clés FLAT directement dans la section (ex: gl.glissement_1_titre)
+//       b) sous-objets (ex: gl.glissement_1.titre, sl.signal.item1.q, sc.cout1.niveau)
+//   - L'architecture §01 vient du SERVICE (computeArchitecture), pas de Claude.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Remappe un record Airtable (fields indexés par field ID) → objet clés lisibles
-function _mapByFieldIds(record, fieldsMap) {
-  // v11.4 (30/05/2026) — Robustesse double : lit raw[fieldId] en priorité (mode
-  // returnFieldsByFieldId), avec fallback sur raw[cleLisible] si le SDK a été
-  // appelé sans cette option. Aligné sur la convention où nos clés lisibles
-  // correspondent au nom Airtable du champ.
-  const out = { airtable_id: record.id };
-  const raw = record.fields || {};
-  for (const [cleLisible, fieldId] of Object.entries(fieldsMap)) {
-    let v = raw[fieldId];
-    if (v === undefined) v = raw[cleLisible];
-    if (v && typeof v === 'object' && !Array.isArray(v) && v.name !== undefined) {
-      v = v.name; // singleSelect → .name
+// Helper : lecture défensive avec fallback sur sous-objet
+function pick(...vals) {
+  for (const v of vals) if (v !== undefined && v !== null && v !== '') return v;
+  return undefined;
+}
+
+// Helper : libellé du rôle pour pilier_role_label
+const ROLE_LABELS = {
+  socle:           '★ Pilier socle — Cœur de votre moteur',
+  structurant_1:   'Pilier structurant 1 — Mise en mouvement du socle',
+  structurant_2:   'Pilier structurant 2 — Soutien du moteur',
+  fonctionnel_1:   'Pilier fonctionnel 1',
+  fonctionnel_2:   'Pilier fonctionnel 2 — Sortie de cycle'
+};
+
+// Helper : compteurs d'un pilier depuis l'inventaire de circuits du candidat.
+//
+// RÈGLE TÉTIÈRES (Isabelle, 01/06) — un pilier se lit sur DEUX plans :
+//   1. CŒUR : ce qu'il fait quand il EST cœur (nb_coeur des circuits du pilier).
+//   2. INSTRUMENTAL : ce qu'il fait au service des AUTRES piliers (somme des nb_svc_P1..P5
+//      de ses circuits). Un pilier qui n'est JAMAIS cœur (ex : P5 chez Véronique) n'est PAS
+//      vide : il est instrumental. Afficher « 0 activations » pour lui est FAUX.
+//   3. Si ni cœur ni instrumental → 0 est alors JUSTE.
+//
+// On expose donc les deux plans séparément + un total, pour que la tétière puisse dire la vérité :
+//   - coeur_*        : activité en tant que cœur (sorties propres)
+//   - instru_*       : activité au service des autres (instrumental)
+//   - nb_activations / nb_circuits_actifs : TOTAL (cœur + instrumental) — ce que la tétière affiche
+//   - nb_circuits_haut : circuits HAUT en cœur (échelle cœur, inchangé)
+function computePilierCounters(pilier, sources) {
+  const circuits = (sources.inventaireCircuits || []).filter(c =>
+    (c.pilier_owner === pilier) || (c.circuit_label || '').startsWith(pilier)
+  );
+  let coeur_activations = 0, coeur_circuits = 0, nb_circuits_haut = 0;
+  let instru_activations = 0, instru_circuits = 0;
+  const SVC = ['nb_svc_P1', 'nb_svc_P2', 'nb_svc_P3', 'nb_svc_P4', 'nb_svc_P5'];
+
+  for (const c of circuits) {
+    const coeur = Number(c.nb_coeur || 0);
+    // somme du service rendu aux autres piliers (instrumental) par ce circuit
+    let svc = 0;
+    for (const k of SVC) svc += Number(c[k] || 0);
+
+    if (coeur > 0) {
+      coeur_activations += coeur;
+      coeur_circuits    += 1;
+      if (coeur >= 4) nb_circuits_haut += 1;
     }
-    out[cleLisible] = v !== undefined ? v : null;
+    if (svc > 0) {
+      instru_activations += svc;
+      instru_circuits    += 1;
+    }
+  }
+
+  const nb_activations     = coeur_activations + instru_activations;
+  const nb_circuits_actifs = coeur_circuits + instru_circuits;
+
+  return {
+    // total (ce que la tétière affiche par défaut)
+    nb_activations,
+    nb_circuits_actifs,
+    nb_circuits_haut,
+    // détail des deux plans (pour distinguer cœur vs instrumental dans la tétière)
+    coeur_activations,
+    coeur_circuits,
+    instru_activations,
+    instru_circuits,
+    // un pilier est purement instrumental s'il n'a aucun cœur mais sert les autres
+    est_instrumental_pur: (coeur_activations === 0 && instru_activations > 0),
+    // vraiment inactif (ni cœur ni service) → le 0 est alors juste
+    est_inactif: (coeur_activations === 0 && instru_activations === 0)
+  };
+}
+
+// Helper : signal limbique dominant du pilier (depuis T1)
+// v11.2 (29/05) FIX : les signaux limbiques sont dans T1.signal_limbique
+// (texte libre type "sérénité affichée · \"...\""), filtrés sur le pilier
+// du candidat (pilier_demande OU pilier_coeur = pilier ciblé).
+function computeSignalLabel(pilier, sources) {
+  const sigs = (sources.t1 || [])
+    .filter(r => (r.pilier_demande === pilier) || (r.pilier_coeur === pilier))
+    .map(r => (r.signal_limbique || '').trim())
+    .filter(s => s && s.toLowerCase() !== 'nulle' && s.toLowerCase() !== 'aucun');
+  if (sigs.length === 0) return 'NULLE';
+  // On extrait le type (avant le ·) pour la tétière compacte
+  const first = sigs[0];
+  const idx = first.indexOf('·');
+  return idx > 0 ? first.slice(0, idx).trim() : first;
+}
+
+function mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif, architecture, pilierResults) {
+  const F = airtableConfig.ETAPE1_T3_BILAN_FIELDS;
+  const b  = (bilanGlobal && bilanGlobal.bilan) || {};
+  const vg = b['§01_vue_globale']      || {};
+  const fc = b['§02_filtre_cognitif']  || {};
+  const gl = b['§03_glissements']      || {};
+  const bc = b['§04_boucle_cognitive'] || {};
+  const sl = b['§05_signal_limbique']  || {};
+  const sc = b['§06_couts']            || {};
+  const sg = b['§07_signature']        || {};
+
+  // pilierResults = [{ pilierArch: {...}, update: { pilier_mode, ... } }]
+  // → on récupère le mode du pilier socle pour le pousser dans T3_BILAN.pilier_socle_mode
+  const socleResult = (pilierResults || []).find(pr => pr.pilierArch?.role === 'socle');
+  const pilierSocleMode = socleResult?.update?.pilier_mode || '';
+
+  // Sous-objets pour le format imbriqué (signal items + coûts)
+  const si1 = sl.item1 || {}; const si2 = sl.item2 || {};
+  const si3 = sl.item3 || {}; const si4 = sl.item4 || {};
+  const cT1 = sc.cout1 || {}; const cT2 = sc.cout2 || {}; const cT3 = sc.cout3 || {};
+  const g1 = gl.glissement_1 || {}; const g2 = gl.glissement_2 || {};
+  const g3 = gl.glissement_3 || {}; const g4 = gl.glissement_4 || {};
+  const b1 = bc.boucle_1 || {}; const b2 = bc.boucle_2 || {}; const b3 = bc.boucle_3 || {};
+
+  const row = {};
+
+  // ── Identité ──
+  row[F.candidat_id]   = candidat_id;
+  if (sources.visiteur) {
+    row[F.prenom] = sources.visiteur.Prenom || sources.visiteur.prenom || '';
+    row[F.nom]    = sources.visiteur.Nom    || sources.visiteur.nom    || '';
+  }
+  row[F.civilite]      = sources.civilite || '';
+  row[F.version_bilan] = 'v2';
+
+  // ── §01 ARCHITECTURE (source : computeArchitecture, PAS Claude) ──
+  // Ordre : ordered[0]=socle, [1]=str1, [2]=str2, [3]=fn1, [4]=fn2 (5 piliers garantis)
+  const ord = architecture.ordered;
+  const pSocle = ord[0], pStr1 = ord[1], pStr2 = ord[2], pFn1 = ord[3], pFn2 = ord[4];
+  const sortiesParPilier = {};
+  for (const v of (sources.ventilationPiliers || [])) {
+    sortiesParPilier[v.pilier_coeur] = v.nb_reponses || 0;
+  }
+  if (pSocle) {
+    row[F.pilier_socle]       = pSocle.pilier;
+    row[F.pilier_socle_label] = pSocle.pilier_label;
+    row[F.pilier_socle_role]  = ROLE_LABELS[pSocle.role] || pSocle.role;
+    row[F.pilier_socle_mode]  = pilierSocleMode || pick(vg.pilier_socle_mode, '');
+  }
+  if (pStr1) {
+    row[F.pilier_str1]         = pStr1.pilier;
+    row[F.pilier_str1_label]   = pStr1.pilier_label;
+    row[F.pilier_str1_sorties] = sortiesParPilier[pStr1.pilier] || 0;
+  }
+  if (pStr2) {
+    row[F.pilier_str2]         = pStr2.pilier;
+    row[F.pilier_str2_label]   = pStr2.pilier_label;
+    row[F.pilier_str2_sorties] = sortiesParPilier[pStr2.pilier] || 0;
+  }
+  if (pFn1) {
+    row[F.pilier_fn1]          = pFn1.pilier;
+    row[F.pilier_fn1_label]    = pFn1.pilier_label;
+    row[F.pilier_fn1_sorties]  = sortiesParPilier[pFn1.pilier] || 0;
+  }
+  if (pFn2) {
+    row[F.pilier_fn2]          = pFn2.pilier;
+    row[F.pilier_fn2_label]    = pFn2.pilier_label;
+    row[F.pilier_fn2_sorties]  = sortiesParPilier[pFn2.pilier] || 0;
+  }
+  row[F.sorties_P1] = sortiesParPilier['P1'] || 0;
+  row[F.sorties_P2] = sortiesParPilier['P2'] || 0;
+  row[F.sorties_P3] = sortiesParPilier['P3'] || 0;
+  row[F.sorties_P4] = sortiesParPilier['P4'] || 0;
+  row[F.sorties_P5] = sortiesParPilier['P5'] || 0;
+  row[F.note_profil_global] = pick(vg.note_profil_global, vg.note, '');
+
+  // ── §02 FILTRE COGNITIF (7 champs) ──
+  row[F.filtre_label]            = pick(fc.filtre_label, fc.label, '');
+  row[F.filtre_preuve_1]         = pick(fc.filtre_preuve_1, fc.preuve_1, fc.preuves?.[0], '');
+  row[F.filtre_preuve_2]         = pick(fc.filtre_preuve_2, fc.preuve_2, fc.preuves?.[1], '');
+  row[F.filtre_preuve_3]         = pick(fc.filtre_preuve_3, fc.preuve_3, fc.preuves?.[2], '');
+  row[F.filtre_preuve_4]         = pick(fc.filtre_preuve_4, fc.preuve_4, fc.preuves?.[3], '');
+  row[F.filtre_preuve_5]         = pick(fc.filtre_preuve_5, fc.preuve_5, fc.preuves?.[4], '');
+  row[F.filtre_lecture_candidat] = pick(fc.filtre_lecture_candidat, fc.lecture_candidat, '');
+
+  // ── §03 GLISSEMENTS (14 champs) ──
+  row[F.glissement_intro]      = pick(gl.glissement_intro, gl.intro, '');
+  row[F.glissement_1_label]    = pick(gl.glissement_1_label, g1.label, '');
+  row[F.glissement_1_titre]    = pick(gl.glissement_1_titre, g1.titre, '');
+  row[F.glissement_1_corps]    = pick(gl.glissement_1_corps, g1.corps, '');
+  row[F.glissement_2_label]    = pick(gl.glissement_2_label, g2.label, '');
+  row[F.glissement_2_titre]    = pick(gl.glissement_2_titre, g2.titre, '');
+  row[F.glissement_2_corps]    = pick(gl.glissement_2_corps, g2.corps, '');
+  row[F.glissement_3_label]    = pick(gl.glissement_3_label, g3.label, '');
+  row[F.glissement_3_titre]    = pick(gl.glissement_3_titre, g3.titre, '');
+  row[F.glissement_3_corps]    = pick(gl.glissement_3_corps, g3.corps, '');
+  row[F.glissement_4_label]    = pick(gl.glissement_4_label, g4.label, '');
+  row[F.glissement_4_titre]    = pick(gl.glissement_4_titre, g4.titre, '');
+  row[F.glissement_4_corps]    = pick(gl.glissement_4_corps, g4.corps, '');
+  row[F.glissements_conclusion]= pick(gl.glissements_conclusion, gl.conclusion, '');
+
+  // ── §04 BOUCLES COGNITIVES (v5.6 : liste illimitée en JSON, remplace les colonnes plates) ──
+  row[F.boucle_intro] = pick(bc.boucle_intro, bc.intro, '');
+  // Format attendu (prompt v5.6) : bc.boucles = [{label, situation, reponse, sequence, demonstration}]
+  let bouclesArr = Array.isArray(bc.boucles) ? bc.boucles : null;
+  // Rétrocompat : si l'agent renvoie encore l'ancien format boucle_1/2/3, on le convertit en liste.
+  if (!bouclesArr) {
+    const legacy = [b1, b2, b3]
+      .map((b, i) => {
+        const idx = i + 1;
+        const label    = pick(bc[`boucle_${idx}_label`], b.label, '');
+        if (!label) return null;
+        return {
+          label,
+          situation:     pick(bc[`boucle_${idx}_scenario`], b.scenario, b.situation, ''),
+          reponse:       pick(bc[`boucle_${idx}_reponse`], b.reponse, ''),
+          sequence:      pick(bc[`boucle_${idx}_sequence`], b.sequence, ''),
+          demonstration: pick(bc[`boucle_${idx}_labo`], b.labo, b.demonstration, ''),
+        };
+      })
+      .filter(Boolean);
+    bouclesArr = legacy;
+  }
+  // Normaliser chaque boucle au schéma attendu par le rendu (clés stables).
+  bouclesArr = (bouclesArr || []).map(b => ({
+    label:         pick(b.label, ''),
+    situation:     pick(b.situation, b.scenario, ''),
+    reponse:       pick(b.reponse, ''),
+    sequence:      pick(b.sequence, ''),
+    demonstration: pick(b.demonstration, b.labo, ''),
+  }));
+  row[F.boucles_json] = JSON.stringify(bouclesArr);
+
+  // ── §05 SIGNAL LIMBIQUE (15 champs) ──
+  row[F.signal_type]            = pick(sl.signal_type, sl.type, '');
+  row[F.signal_intro]           = pick(sl.signal_intro, sl.intro, '');
+  row[F.signal_item1_q]         = pick(sl.signal_item1_q, si1.q, si1.question, '');
+  row[F.signal_item1_corps]     = pick(sl.signal_item1_corps, si1.corps, '');
+  row[F.signal_item1_verbatim]  = pick(sl.signal_item1_verbatim, si1.verbatim, '');
+  row[F.signal_item2_q]         = pick(sl.signal_item2_q, si2.q, si2.question, '');
+  row[F.signal_item2_corps]     = pick(sl.signal_item2_corps, si2.corps, '');
+  row[F.signal_item2_verbatim]  = pick(sl.signal_item2_verbatim, si2.verbatim, '');
+  row[F.signal_item3_q]         = pick(sl.signal_item3_q, si3.q, si3.question, '');
+  row[F.signal_item3_corps]     = pick(sl.signal_item3_corps, si3.corps, '');
+  row[F.signal_item3_verbatim]  = pick(sl.signal_item3_verbatim, si3.verbatim, '');
+  row[F.signal_item4_q]         = pick(sl.signal_item4_q, si4.q, si4.question, '');
+  row[F.signal_item4_corps]     = pick(sl.signal_item4_corps, si4.corps, '');
+  row[F.signal_item4_verbatim]  = pick(sl.signal_item4_verbatim, si4.verbatim, '');
+  row[F.signal_synthese]        = pick(sl.signal_synthese, sl.synthese, '');
+
+  // ── §06 COÛTS (12 champs) ──
+  row[F.cout1_niveau]   = pick(sc.cout1_niveau, cT1.niveau, '');
+  row[F.cout1_titre]    = pick(sc.cout1_titre,  cT1.titre,  '');
+  row[F.cout1_corps]    = pick(sc.cout1_corps,  cT1.corps,  '');
+  row[F.cout1_verbatim] = pick(sc.cout1_verbatim, cT1.verbatim, '');
+  row[F.cout2_niveau]   = pick(sc.cout2_niveau, cT2.niveau, '');
+  row[F.cout2_titre]    = pick(sc.cout2_titre,  cT2.titre,  '');
+  row[F.cout2_corps]    = pick(sc.cout2_corps,  cT2.corps,  '');
+  row[F.cout2_verbatim] = pick(sc.cout2_verbatim, cT2.verbatim, '');
+  row[F.cout3_niveau]   = pick(sc.cout3_niveau, cT3.niveau, '');
+  row[F.cout3_titre]    = pick(sc.cout3_titre,  cT3.titre,  '');
+  row[F.cout3_corps]    = pick(sc.cout3_corps,  cT3.corps,  '');
+  row[F.cout3_verbatim] = pick(sc.cout3_verbatim, cT3.verbatim, '');
+
+  // ── §07 SIGNATURE (6 champs) ──
+  row[F.sig_pilier_label]    = pick(sg.sig_pilier_label, sg.pilier_label, '');
+  row[F.sig_filtre_val]      = pick(sg.sig_filtre_val, sg.filtre_val, fc.filtre_label, '');
+  row[F.sig_finalite]        = pick(sg.sig_finalite, sg.finalite, '');
+  row[F.sig_resultat_ligne1] = pick(sg.sig_resultat_ligne1, sg.resultat_ligne1, sg.ligne1, '');
+  row[F.sig_resultat_ligne2] = pick(sg.sig_resultat_ligne2, sg.resultat_ligne2, sg.ligne2, '');
+  row[F.sig_recit]           = pick(sg.sig_recit, sg.recit, '');
+
+  // ── §02bis PROFIL COGNITIF (le Soleil) — stockage JSON en bloc (v6.1, 2026-06-01) ──
+  // profilCognitif = res0bis.result. Formes possibles :
+  //   { §02bis_profil_cognitif: {...} }  ou  { bilan: { §02bis_profil_cognitif: {...} } }
+  // On stocke l'objet §02bis sérialisé en un seul champ pour garantir l'intégrité (5 piliers
+  // toujours en perspective, pas de risque d'oubli d'une branche).
+  const soleil = (profilCognitif && (
+    (profilCognitif.bilan && profilCognitif.bilan['§02bis_profil_cognitif']) ||
+    profilCognitif['§02bis_profil_cognitif'] ||
+    profilCognitif
+  )) || null;
+  if (soleil && typeof soleil === 'object') {
+    row[F.profil_cognitif_json] = JSON.stringify(soleil);
+  }
+
+  return stripUndefined(row);
+}
+
+function mapPilierToFields(candidat_id, pilierResult, architecture, bilanRecordId, sources) {
+  const F  = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
+  const u  = pilierResult.update || {};
+  const pa = pilierResult.pilierArch;
+  const counters = computePilierCounters(pa.pilier, sources);
+  const signalLabel = computeSignalLabel(pa.pilier, sources);
+  // Tétière "Sortie X/25 · Signal Y · N activations · M circuits actifs · K HAUT"
+  const sorties = (sources.ventilationPiliers || []).find(v => v.pilier_coeur === pa.pilier);
+  const sortiesN = sorties ? (sorties.nb_reponses || 0) : 0;
+  // Tétière. RÈGLE (Isabelle 01/06) : un pilier instrumental pur (0 cœur mais sert les autres)
+  // ne doit JAMAIS afficher « 0 activations ». On dit alors son activité au service des autres.
+  let rappel;
+  if (counters.est_inactif) {
+    // Ni cœur ni service : le 0 est juste.
+    rappel = `Sortie 0/25 · Signal ${signalLabel} · pilier non activé`;
+  } else if (counters.est_instrumental_pur) {
+    // Jamais cœur, mais instrumental : on montre le service rendu aux autres piliers.
+    rappel = `Sortie ${sortiesN}/25 · Signal ${signalLabel} · ${counters.instru_activations} activations instrumentales (au service d'autres piliers) · ${counters.instru_circuits} circuits actifs`;
+  } else {
+    // Pilier avec cœur : on montre le total (cœur + instrumental) + les HAUT en cœur.
+    rappel = `Sortie ${sortiesN}/25 · Signal ${signalLabel} · ${counters.nb_activations} activations · ${counters.nb_circuits_actifs} circuits actifs · ${counters.nb_circuits_haut} HAUT`;
+  }
+
+  const row = {};
+  row[F.candidat_id]        = candidat_id;
+  row[F.cle_composite]      = `${candidat_id}_${pa.pilier}`;
+  row[F.pilier]             = pa.pilier;
+  row[F.pilier_label]       = pa.pilier_label || '';
+  row[F.role_pilier]        = pa.role;
+  row[F.pilier_role_label]  = ROLE_LABELS[pa.role] || pa.role;
+  row[F.pilier_mode]        = u.pilier_mode || '';
+  row[F.pilier_rappel]      = rappel;
+  row[F.nb_activations]     = counters.nb_activations;
+  row[F.nb_circuits_actifs] = counters.nb_circuits_actifs;
+  row[F.nb_circuits_haut]   = counters.nb_circuits_haut;
+  row[F.cluster_label]      = u.cluster_label || '';
+  row[F.cluster_detail]     = u.cluster_detail || (u.cluster_label ? '' : 'Aucun cluster détecté au seuil protocole.');
+  row[F.tableau_note]       = u.tableau_note || u.synth_factuelle_coeur || '';
+  row[F.synth_factuelle]    = u.synth_factuelle_elargie || u.synth_factuelle || '';
+  row[F.synth_interpretee]  = u.synth_interpretee || '';
+  if (bilanRecordId) row[F.bilan_link] = [bilanRecordId];
+  return stripUndefined(row);
+}
+
+function mapCircuitToFields(candidat_id, circuitResult, bilanRecordId, pilierRecordId, ordrePilier, sources) {
+  const F = airtableConfig.ETAPE1_T3_CIRCUIT_FIELDS;
+  const c = circuitResult.circuit || {};
+  const pilier = circuitResult.pilier;
+  const cid = c.circuit_id || (c.is_adhoc ? 'ADHOC' : '');
+  const row = {};
+  row[F.circuit_uid]      = `${candidat_id}_${pilier}_${cid}`;
+  row[F.candidat_id]      = candidat_id;
+  row[F.pilier]           = pilier;
+  row[F.circuit_id]       = cid;
+  row[F.circuit_nom]      = c.circuit_nom || '';
+  row[F.n1_definition]    = c.n1_definition || '';
+  row[F.n2_verbatims]     = c.n2_verbatims || '';
+  row[F.n3_nuance]        = c.n3_nuance || '';
+  row[F.circuit_niveau]   = c.circuit_niveau || '';
+  // 3 compteurs distincts : freq=total cœur, franches, nuancees
+  row[F.circuit_freq]      = (c.circuit_freq != null) ? c.circuit_freq
+                            : (c.circuit_freq_coeur != null) ? c.circuit_freq_coeur : 0;
+  row[F.circuit_franches]  = (c.circuit_franches != null) ? c.circuit_franches : 0;
+  row[F.circuit_nuancees]  = (c.circuit_nuancees != null) ? c.circuit_nuancees : 0;
+
+  // ── Ventilation par pilier (v6.1, 2026-06-01) — source autoritaire : T2_INVENTAIRE_CIRCUITS ──
+  // On retrouve le record d'inventaire de CE circuit (même pilier_owner + circuit_id) et on recopie
+  // ses nb_svc_P1..P5. "Plus c'est près de la source, mieux c'est" : la ventilation devient un attribut
+  // du circuit dans T3, requêtable pour le matching futur.
+  const inv = (sources && Array.isArray(sources.inventaireCircuits)) ? sources.inventaireCircuits : [];
+  const invRow = inv.find(ic => {
+    const owner = ic.pilier_owner || ic.pilier || '';
+    const icid  = ic.circuit_id || (ic.circuit_origine === 'AD_HOC' ? 'ADHOC' : '');
+    return owner === pilier && icid === cid;
+  }) || {};
+  row[F.en_svc_P1] = invRow.nb_svc_P1 != null ? invRow.nb_svc_P1 : 0;
+  row[F.en_svc_P2] = invRow.nb_svc_P2 != null ? invRow.nb_svc_P2 : 0;
+  row[F.en_svc_P3] = invRow.nb_svc_P3 != null ? invRow.nb_svc_P3 : 0;
+  row[F.en_svc_P4] = invRow.nb_svc_P4 != null ? invRow.nb_svc_P4 : 0;
+  row[F.en_svc_P5] = invRow.nb_svc_P5 != null ? invRow.nb_svc_P5 : 0;
+
+  row[F.circuit_cluster]   = c.circuit_cluster || c.cluster || '';
+  row[F.circuit_signal]    = c.circuit_signal || c.signal_limbique || 'NULLE';
+  if (c.rang_dans_pilier != null || c.ordre_circuit != null) {
+    row[F.ordre_circuit]   = c.ordre_circuit != null ? c.ordre_circuit : c.rang_dans_pilier;
+  }
+  if (ordrePilier) row[F.ordre_pilier] = ordrePilier;
+  if (bilanRecordId)  row[F.bilan_link]  = [bilanRecordId];
+  if (pilierRecordId) row[F.pilier_link] = [pilierRecordId];
+  return stripUndefined(row);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS d'extraction des sources (versions initiales — à affiner)
+// ═══════════════════════════════════════════════════════════════════════════
+function extractGlissements(t1) {
+  // Compte les patterns pilier_demande → pilier_gouverne ≠
+  const counts = {};
+  for (const r of t1 || []) {
+    const dem = r.pilier_demande || r.pilier_finalite;
+    const gouv = r.pilier_coeur;
+    if (dem && gouv && dem !== gouv) {
+      const k = `${dem}→${gouv}`;
+      counts[k] = (counts[k] || 0) + 1;
+    }
+  }
+  return Object.entries(counts)
+    .map(([pattern, count]) => ({ pattern, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function extractBouclesTop3(t1, responses) {
+  // Sélection naïve : 3 premières questions avec séquence riche. À affiner.
+  return (t1 || []).slice(0, 3).map(r => ({
+    id_question: r.id_question, scenario: r.scenario,
+    resume_geste: r.resume_geste || r.attribution_pilier_signal_brut || '',
+  }));
+}
+
+function extractSignaux(t1) {
+  // v11.2 (29/05) FIX CRITIQUE : les signaux limbiques sont stockés dans T1
+  // (champ signal_limbique, texte libre format "type · \"verbatim\"") et NON
+  // dans T2. L'ancienne version filtrait t.signal_limbique_detecte !== 'NULLE'
+  // sur T2 où ce champ n'existe pas → retournait toujours [] → l'agent recevait
+  // signaux_limbiques: [] → écrivait "NULLE" / "Aucun signal limbique documenté"
+  // même chez des candidats avec des signaux réels (cas Véronique 29/05).
+  return (t1 || [])
+    .filter(r => {
+      const s = (r.signal_limbique || '').trim();
+      return s && s.toLowerCase() !== 'nulle' && s.toLowerCase() !== 'aucun';
+    })
+    .map(r => {
+      const raw = (r.signal_limbique || '').trim();
+      // Format attendu : "type · \"verbatim\""  ex : "sérénité affichée · \"...\""
+      // On sépare type / verbatim si possible, sinon on passe le brut.
+      let type = raw, verbatim = '';
+      const idx = raw.indexOf('·');
+      if (idx > 0) {
+        type = raw.slice(0, idx).trim();
+        verbatim = raw.slice(idx + 1).trim().replace(/^["«»]+|["«»]+$/g, '').trim();
+      }
+      return {
+        id_question:   r.id_question || '',
+        scenario:      r.scenario || '',
+        pilier_demande:r.pilier_demande || '',
+        pilier_coeur:  r.pilier_coeur || '',
+        signal_type:   type,
+        signal_verbatim: verbatim,
+        signal_raw:    raw,
+        verbatim_candidat: r.verbatim_candidat || ''
+      };
+    });
+}
+
+function compactT1Row(r) {
+  return {
+    qid: r.id_question, pilier_q: r.pilier_demande, coeur: r.pilier_coeur,
+    scenario: r.scenario, resume: r.resume_geste || '',
+  };
+}
+
+function stripUndefined(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null && k !== 'undefined') out[k] = v;
   }
   return out;
 }
 
-// Delete par formule sur un champ clé arbitraire (T3_PILIER/T3_CIRCUIT/T3_BILAN utilisent tous "candidat_id")
-async function _deleteT3ByKeyField(tableName, keyFieldName, candidat_id) {
-  const records = await getBase()(tableName)
-    .select({ filterByFormula: `{${keyFieldName}} = "${candidat_id}"` })
-    .all();
-  if (records.length === 0) return 0;
-  const ids = records.map(r => r.id);
-  for (let i = 0; i < ids.length; i += 10) {
-    await getBase()(tableName).destroy(ids.slice(i, i + 10));
-    if (i + 10 < ids.length) await sleep(200);
-  }
-  return ids.length;
-}
-
-// Create par lots de 10 (rows = [{ fieldId: valeur, ... }])
-async function _createT3Batches(tableName, rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return 0;
-  const records = rows.map(fields => ({ fields }));
-  let created = 0;
-  for (let i = 0; i < records.length; i += 10) {
-    await getBase()(tableName).create(records.slice(i, i + 10), { typecast: true });
-    created += Math.min(10, records.length - i);
-    if (i + 10 < records.length) await sleep(200);
-  }
-  return created;
-}
-
-// ─── LECTURE ────────────────────────────────────────────────────────────────
-async function getEtape1T3Piliers(candidat_id) {
-  try {
-    const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_PILIER)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        returnFieldsByFieldId: true  // v11.4 : aligne le SDK sur _mapByFieldIds
-      })
-      .all();
-    return records.map(r => _mapByFieldIds(r, F));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T3_PILIER', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function getEtape1T3Circuits(candidat_id) {
-  try {
-    const F = airtableConfig.ETAPE1_T3_CIRCUIT_FIELDS;
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_CIRCUIT)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        returnFieldsByFieldId: true  // v11.4 : aligne le SDK sur _mapByFieldIds
-      })
-      .all();
-    return records.map(r => _mapByFieldIds(r, F));
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T3_CIRCUIT', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function getEtape1T3Bilan(candidat_id) {
-  try {
-    const F = airtableConfig.ETAPE1_T3_BILAN_FIELDS;
-    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_BILAN)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        maxRecords: 1,
-        returnFieldsByFieldId: true  // v11.4 : aligne le SDK sur _mapByFieldIds
-      })
-      .firstPage();
-    if (records.length === 0) return null;
-    return _mapByFieldIds(records[0], F);
-  } catch (error) {
-    logger.error('Failed to get ETAPE1_T3_BILAN', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-// ─── ÉCRITURE ─────────────────────────────────────────────────────────────────
-// rows = tableau d'objets { fieldId: valeur } (déjà mappés par agentT3BilanService)
-async function writeEtape1T3Piliers(candidat_id, rows) {
-  try {
-    const t = airtableConfig.TABLES.ETAPE1_T3_PILIER;
-    const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
-    await _deleteT3ByKeyField(t, 'candidat_id', candidat_id);
-    // Création par lots de 10, en conservant les recordIds pour mapping pilier → recordId
-    const pilierMap = new Map();
-    for (let i = 0; i < rows.length; i += 10) {
-      const batch = rows.slice(i, i + 10).map(fields => ({ fields }));
-      const created = await getBase()(t).create(batch, { typecast: true });
-      for (const rec of created) {
-        const pilier = rec.get(F.pilier);
-        // Airtable renvoie singleSelect comme {id, name} ou string brut
-        const pilierKey = typeof pilier === 'object' && pilier ? (pilier.name || pilier) : pilier;
-        if (pilierKey) pilierMap.set(pilierKey, rec.id);
-      }
-      if (i + 10 < rows.length) await sleep(200);
-    }
-    logger.info('ETAPE1_T3_PILIER written', { candidat_id, count: pilierMap.size });
-    return pilierMap;
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T3_PILIER', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-async function writeEtape1T3Circuits(candidat_id, rows) {
-  try {
-    const t = airtableConfig.TABLES.ETAPE1_T3_CIRCUIT;
-    await _deleteT3ByKeyField(t, 'candidat_id', candidat_id);
-    const n = await _createT3Batches(t, rows);
-    logger.info('ETAPE1_T3_CIRCUIT written', { candidat_id, count: n });
-    return n;
-  } catch (error) {
-    logger.error('Failed to write ETAPE1_T3_CIRCUIT', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-// BILAN = 1 ligne → upsert (update si existe, sinon create)
-async function upsertEtape1T3Bilan(candidat_id, fields) {
-  try {
-    const t = airtableConfig.TABLES.ETAPE1_T3_BILAN;
-    const existing = await getBase()(t)
-      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
-      .firstPage();
-    if (existing.length > 0) {
-      const updated = await getBase()(t).update(
-        [{ id: existing[0].id, fields }],
-        { typecast: true }
-      );
-      logger.info('ETAPE1_T3_BILAN updated', { candidat_id, recordId: existing[0].id });
-      return existing[0].id;
-    } else {
-      const created = await getBase()(t).create([{ fields }], { typecast: true });
-      const newId = created[0].id;
-      logger.info('ETAPE1_T3_BILAN created', { candidat_id, recordId: newId });
-      return newId;
-    }
-  } catch (error) {
-    logger.error('Failed to upsert ETAPE1_T3_BILAN', { candidat_id, error: error.message });
-    throw error;
-  }
-}
-
-// ─── REFERENTIEL_PROFILS — 35 profils-types (manquait dans le service) ────────
-// Doctrine PILIER_MODE (§2.8/§2.11) : cadrage de la formulation du mode par pilier.
-async function getReferentielProfils() {
-  try {
-    const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_PROFILS)
-      .select({
-        sort: [
-          { field: 'fldSVjfx7fiqmNdJc', direction: 'asc' },  // pilier
-          { field: 'fldT4KInNV3JdfS7A', direction: 'asc' }   // ordre
-        ]
-      })
-      .all();
-    return records.map(r => {
-      const f = r.fields || {};
-      const pilierRaw = f['fldSVjfx7fiqmNdJc'];
-      const pilier = (pilierRaw && typeof pilierRaw === 'object' && pilierRaw.name !== undefined)
-        ? pilierRaw.name : (pilierRaw || '');
-      return {
-        airtable_id: r.id,
-        nom:         f['fldGmwZVzaVNts203'] || '',
-        description: f['fldK84i0RPwiXCgYH'] || '',
-        pilier,
-        ordre:       f['fldT4KInNV3JdfS7A'] || 0,
-        version:     f['fldWPovkZEmVaAZXu'] || ''
-      };
-    });
-  } catch (error) {
-    logger.error('Failed to get REFERENTIEL_PROFILS', { error: error.message });
-    throw error;
-  }
+function trackUsage(usages, costs, res) {
+  if (res?.usage) usages.push(res.usage);
+  if (typeof res?.cost === 'number') costs.push(res.cost);
 }
 
 module.exports = {
-  // VISITEUR
-  getVisiteur,
-  updateVisiteur,
-  getVisiteursByStatus,
-
-  // RESPONSES (lecture seule)
-  getResponses,
-  getResponsesBySession,
-
-  // ETAPE1_T1
-  getEtape1T1,
-  writeEtape1T1,
-  patchEtape1T1Rows,
-  updateTypesVerbatimCircuits, // ⭐ v10.8 (refonte étape 2 phase 1 - attribution)
-  deleteEtape1T1Scenario,   // ⭐ v10.2b (Décision n°42)
-  writeEtape1T1Scenario,    // ⭐ v10.2b (Décision n°42)
-
-  // VERIFICATEUR_T1 — ⭐ v10
-  writeVerificateurT1,
-  getVerificateurT1History,
-
-  // VALIDATION HUMAINE — ⭐ v10
-  getCandidatsEnAttenteValidation,
-  appliquerValidationHumaine,
-
-  // TENTATIVES MODE 4 — ⭐ v10
-  incrementTentativesEtape1,
-  resetTentativesEtape1,
-
-  // COMMUNICATION CANDIDAT — ⭐ v10
-  getCandidatsAEmailler,
-  markerEmailCandidatEnvoye,
-  setDateT0,
-
-  // ETAPE1_T2
-  getEtape1T2,
-  writeEtape1T2,
-
-  // ⭐ v10.9 (22/05/2026) — Tables Phase 3 (visualisation persistée)
-  getEtape1T2VentilationPiliers,
-  writeEtape1T2VentilationPiliers,
-  getEtape1T2InventaireCircuits,
-  writeEtape1T2InventaireCircuits,
-
-  // ETAPE1_T3
-  getEtape1T3,
-  writeEtape1T3,
-
-  // ⭐ v11.0 (28/05/2026) — Étape 3 : le bilan (3 tables T3)
-  getEtape1T3Piliers,
-  getEtape1T3Circuits,
-  getEtape1T3Bilan,
-  writeEtape1T3Piliers,
-  writeEtape1T3Circuits,
-  upsertEtape1T3Bilan,
-
-  // REFERENTIEL_PROFILS — ⭐ v11.0 (doctrine PILIER_MODE §2.8)
-  getReferentielProfils,
-
-  // ETAPE1_T4_BILAN
-  getEtape1T4Bilan,
-  upsertEtape1T4Bilan,
-
-  // REFERENTIEL_LEXIQUE
-  getReferentielLexique,
-  formaterLexiquePourPrompt,
-
-  // REFERENTIEL_PILIERS — ⭐ v10.1 (vérificateur T1)
-  getReferentielPiliers,
-
-  // REFERENTIEL_CIRCUITS — ⭐ v10.7 (étape 2 refonte)
-  getReferentielCircuits,
-
-  // REFERENTIEL_CIRCUITS_CANDIDATS — ⭐ v10.7 (mission de veille étape 2)
-  getCircuitsAdHocByStatut,
-  upsertCircuitAdHoc,
-
-  // VISITEUR — civilité (anonymisation Décision n°4)
-  getCiviliteCandidat,
-  getVisiteurInfoForVisualisation,
-
-  // Helpers exportés
-  cleanFields,
-  deepCleanString
+  runAgentT3Bilan,
+  _internal: {
+    computeArchitecture, extractGlissements,
+    mapBilanToFields, mapPilierToFields, mapCircuitToFields,
+  },
 };
