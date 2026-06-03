@@ -160,6 +160,39 @@ async function runAgentT3Bilan({ candidat_id, visiteur = null }) {
   });
   const nbC = await airtableService.writeEtape1T3Circuits(candidat_id, circuitRows);
 
+  // ─── 10. VÉRIFICATEUR (Lot D) — relecture autonome + corrections en surcharge ──
+  // Appel séparé, MÊME prompt producteur + CONSIGNE_VERIF + le bilan produit. Écrit les colonnes verif_*
+  // (BILAN + PILIER). L'original reste intact ; la publication surchargera champ par champ.
+  try {
+    const bilanProduit = {
+      global: bilanGlobal,                 // { bilan: §01-§07 }
+      profilCognitif: profilCognitif,      // { §02bis_profil_cognitif }
+      piliers: pilierResults.map(pr => ({  // modes + synthèses par pilier
+        pilier: pr.pilierArch.pilier,
+        role: pr.pilierArch.role,
+        update: pr.update,
+      })),
+    };
+    const payloadVerif = buildPayloadVerif(candidat_id, sources, architecture, bilanProduit);
+    const resV = await agentBase.callAgent({
+      serviceName: SERVICE_NAME,
+      promptPath:  PROMPT_PATH,            // ⭐ MÊME prompt que le producteur (connaissance égale)
+      payload:     { ...payloadVerif, _consigne: CONSIGNE_VERIF },
+      injectLexique: true,
+      candidatId:  candidat_id,
+    });
+    trackUsage(usages, costs, resV);
+    await writeVerifResults(candidat_id, resV.result, bilanRecordId, pilierMap);
+    logger.info('Agent T3 Bilan — vérificateur terminé', {
+      candidat_id, statut: resV.result?.verif_statut || '(n/a)',
+    });
+  } catch (e) {
+    // Le vérificateur ne doit JAMAIS casser la production : si l'appel échoue, le bilan original publie.
+    logger.warn('Agent T3 Bilan — vérificateur échoué (bilan original conservé)', {
+      candidat_id, error: e.message,
+    });
+  }
+
   const totalElapsedMs = Date.now() - startTime;
   const totalCostUsd = costs.reduce((s, c) => s + c, 0);
 
@@ -177,6 +210,43 @@ async function runAgentT3Bilan({ candidat_id, visiteur = null }) {
     totalElapsedMs,
     usages,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VÉRIFICATEUR (Lot D) — écriture des résultats dans les colonnes verif_*
+// Démêle le JSON du vérificateur et écrit BILAN + PILIERS via airtableService.
+// ═══════════════════════════════════════════════════════════════════════════
+async function writeVerifResults(candidat_id, verifResult, bilanRecordId, pilierMap) {
+  if (!verifResult || typeof verifResult !== 'object') return;
+
+  // BILAN : champs de l'objet bilan + rapport + statut.
+  const bilanVerif = {};
+  const vb = verifResult.bilan || {};
+  for (const k of ['verif_filtre', 'verif_soleil', 'verif_boucles', 'verif_synthese', 'verif_pilier_socle_mode']) {
+    if (vb[k] != null && String(vb[k]).trim() !== '') {
+      // les blocs JSON (filtre/soleil/boucles) peuvent arriver en objet → stringifier pour la colonne texte
+      bilanVerif[k] = (typeof vb[k] === 'object') ? JSON.stringify(vb[k]) : vb[k];
+    }
+  }
+  if (verifResult.verif_rapport) bilanVerif.verif_rapport = verifResult.verif_rapport;
+  if (verifResult.verif_statut)  bilanVerif.verif_statut  = verifResult.verif_statut;
+  await airtableService.writeVerifBilan(bilanRecordId, bilanVerif);
+
+  // PILIERS : objet { P1: {...}, P2: {...} } → écriture par recordId via pilierMap.
+  if (verifResult.piliers && typeof verifResult.piliers === 'object') {
+    const piliersVerif = {};
+    for (const [pilier, champs] of Object.entries(verifResult.piliers)) {
+      if (!champs || typeof champs !== 'object') continue;
+      const row = {};
+      for (const k of ['verif_pilier_mode', 'verif_synth_factuelle', 'verif_synth_interpretee', 'verif_tableau_note']) {
+        if (champs[k] != null && String(champs[k]).trim() !== '') {
+          row[k] = (typeof champs[k] === 'object') ? JSON.stringify(champs[k]) : champs[k];
+        }
+      }
+      if (Object.keys(row).length > 0) piliersVerif[pilier] = row;
+    }
+    await airtableService.writeVerifPiliers(pilierMap, piliersVerif);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -367,6 +437,33 @@ function buildPayloadAppel0(candidat_id, sources, architecture) {
     }))
     .filter(m => m.verbatim || m.lecture || m.gouvernance);
 
+  // ─── MATIÈRE D'ARBITRAGE DES STRUCTURANTS (D2ter) ───
+  // Le socle est connu (computeArchitecture, en amont). Pour que l'agent puisse POSER LA TENDANCE des
+  // structurants (quel pilier est le tandem) en lisant ce qui se joue AUTOUR du socle dans les boucles,
+  // on lui fournit, pour CHAQUE pilier non-socle, la liste des questions où ce pilier apparaît dans la
+  // séquence cognitive — avec la séquence (cog_outils_mobilises), la signature (cog_gouverne_commentaire)
+  // et le pilier qui gouverne la question. L'agent NE reçoit PAS de calcul/tri : il lit le fond et tranche
+  // (doctrine : le service expose la matière, l'agent applique D2ter — retour/omniprésence autour du socle).
+  const PILIERS_TOUS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+  const matiere_arbitrage = {};
+  for (const p of PILIERS_TOUS) {
+    if (p === socle) continue;
+    const occurrences = (sources.responses || [])
+      // on garde les réponses dont la séquence mentionne ce pilier (le pilier "joue" dans la boucle)
+      .filter(r => {
+        const seq = r.cog_outils_mobilises || '';
+        return typeof seq === 'string' && new RegExp(p).test(seq);
+      })
+      .map(r => ({
+        id_question:      norm(r.id_question) || '',
+        pilier_gouverne:  norm(r.cog_pilier_gouverne) || '',  // qui gouverne CETTE question
+        sequence:         r.cog_outils_mobilises || '',        // l'enchaînement ordonné (= la boucle)
+        gouvernance:      r.cog_gouverne_commentaire || '',    // « Signature : ... » (rôle des piliers)
+      }))
+      .filter(m => m.sequence);
+    if (occurrences.length > 0) matiere_arbitrage[p] = occurrences;
+  }
+
   return {
     candidat: identiteAnonyme(sources),
     pilier_socle: socle,
@@ -375,6 +472,7 @@ function buildPayloadAppel0(candidat_id, sources, architecture) {
     })),
     architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
     matiere_socle,  // ⭐ matière qualitative pour DÉRIVER le filtre cognitif (§02)
+    matiere_arbitrage,  // ⭐ (D2ter) boucles + signatures des piliers non-socle, pour POSER la tendance des structurants
     glissements_precalcules: extractGlissements(sources.t1),
     boucles_top3: extractBouclesTop3(sources.t1, sources.responses),
     signaux_limbiques: extractSignaux(sources.t1),
@@ -397,6 +495,18 @@ function buildPayloadAppel0bis(candidat_id, sources, architecture) {
     inventaire_circuits_complet: sources.inventaireCircuits,  // table complète (autoritaire)
     referentiel_circuits: sources.referentielCircuits,
     responses: sources.responses,
+  };
+}
+
+// VÉRIFICATEUR (Lot D) — payload de relecture : sources de l'appel global (filtre + arbitrage) + le BILAN PRODUIT.
+// On réutilise buildPayloadAppel0 (qui porte déjà matiere_socle + matiere_arbitrage + glissements) et on y
+// ajoute 'bilan_produit' = ce que l'agent a généré (global §01-07 + soleil §02bis + piliers/circuits).
+function buildPayloadVerif(candidat_id, sources, architecture, bilanProduit) {
+  const base = buildPayloadAppel0(candidat_id, sources, architecture);
+  return {
+    ...base,
+    architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
+    bilan_produit: bilanProduit,  // { global, profilCognitif, piliers:[{pilier, role, update}] }
   };
 }
 
@@ -483,6 +593,33 @@ function consigneAppelPilier(pilierArch) {
     `Applique la doctrine PILIER_MODE (§2.11) et TABLEAU RÉCAP (§2.12). JSON pur.`
   );
 }
+
+// ─── VÉRIFICATEUR (Lot D) — relecture autonome du bilan produit ──────────────
+// Le vérificateur reçoit LE MÊME PROMPT producteur (mêmes doctrines), les sources, et le BILAN PRODUIT.
+// Il relit l'INTÉGRALITÉ (connaissance égale) contre les consignes ET la vérité-terrain
+// (cog_gouverne_commentaire), corrige en CASCADE racine→feuilles, exige une PREUVE pour chaque correction,
+// respecte les invariants (socle fréquence cœur, chiffres, verbatims), et écrit ses corrections en SURCHARGE
+// (colonnes verif_*). Format de sortie cadré pour alimenter directement les colonnes.
+const CONSIGNE_VERIF =
+  "MODE VÉRIFICATEUR. Tu reçois CE MÊME PROMPT (mêmes doctrines), les SOURCES, et le BILAN DÉJÀ PRODUIT " +
+  "(champ 'bilan_produit'). On ne vérifie bien qu'à connaissance égale : relis TOUT le bilan et corrige ce " +
+  "qui ne respecte NI les consignes du prompt NI la vérité-terrain (les 'Signature :' de cog_gouverne_commentaire " +
+  "dans matiere_socle/matiere_arbitrage). " +
+  "ORDRE RACINE→FEUILLES (obligatoire) : (1) FILTRE ⇄ socle ; (2) RANG DES STRUCTURANTS/tandem ⇄ boucles+gouvernances " +
+  "(le tandem est le pilier vers lequel le candidat REVIENT, pas celui qui CLÔT) ; (3) si une racine change, propage " +
+  "aux feuilles : soleil, sections piliers, boucles §04, conclusion_cycle ; (4) cohérence finale soleil ⇄ synthèse. " +
+  "PREUVE OBLIGATOIRE : toute correction cite la gouvernance/consigne qui la justifie ; SANS preuve, tu NE corriges PAS " +
+  "(tu le signales dans le rapport). INVARIANTS INTOUCHABLES : socle (fréquence cœur), chiffres pré-calculés, verbatims exacts. " +
+  "Tu n'inventes rien : tu corriges vers ce que disent les sources. " +
+  "PRODUIS UNIQUEMENT cet objet JSON (n'émets une clé QUE si tu corriges ce champ, sinon OMETS-la) : " +
+  "{ bilan: { verif_filtre: \"<JSON string {filtre_label, filtre_preuve_1..5, filtre_lecture_candidat}>\", " +
+  "verif_soleil: \"<profil_cognitif_json corrigé>\", verif_boucles: \"<boucles_json corrigé>\", " +
+  "verif_synthese: \"<note_profil_global corrigé>\", verif_pilier_socle_mode: \"<mode socle corrigé>\" }, " +
+  "(NB : pour que la correction du mode socle s'affiche, reporte-la AUSSI dans piliers.<pilier socle>.verif_pilier_mode — " +
+  "c'est ce champ-là qui pilote l'affichage ; verif_pilier_socle_mode sert à la cohérence/permanence.) " +
+  "piliers: { P1: { verif_pilier_mode, verif_synth_factuelle, verif_synth_interpretee, verif_tableau_note }, ... }, " +
+  "verif_rapport: \"<rapport lisible : pour chaque contrôle C1-C4, statut + écarts + PREUVE citée>\", " +
+  "verif_statut: \"OK\" | \"CORRIGÉ\" | \"ECARTS_NON_PROUVES\" }. JSON pur, commence par { finit par }.";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAPPING JSON Claude → lignes Airtable (field IDs des 3 tables T3)
@@ -689,23 +826,37 @@ function mapBilanToFields(candidat_id, sources, bilanGlobal, profilCognitif, arc
   row[F.glissement_4_corps]    = pick(gl.glissement_4_corps, g4.corps, '');
   row[F.glissements_conclusion]= pick(gl.glissements_conclusion, gl.conclusion, '');
 
-  // ── §04 BOUCLES COGNITIVES (16 champs) ──
-  row[F.boucle_intro]      = pick(bc.boucle_intro, bc.intro, '');
-  row[F.boucle_1_label]    = pick(bc.boucle_1_label, b1.label, '');
-  row[F.boucle_1_scenario] = pick(bc.boucle_1_scenario, b1.scenario, '');
-  row[F.boucle_1_reponse]  = pick(bc.boucle_1_reponse, b1.reponse, '');
-  row[F.boucle_1_sequence] = pick(bc.boucle_1_sequence, b1.sequence, '');
-  row[F.boucle_1_labo]     = pick(bc.boucle_1_labo, b1.labo, '');
-  row[F.boucle_2_label]    = pick(bc.boucle_2_label, b2.label, '');
-  row[F.boucle_2_scenario] = pick(bc.boucle_2_scenario, b2.scenario, '');
-  row[F.boucle_2_reponse]  = pick(bc.boucle_2_reponse, b2.reponse, '');
-  row[F.boucle_2_sequence] = pick(bc.boucle_2_sequence, b2.sequence, '');
-  row[F.boucle_2_labo]     = pick(bc.boucle_2_labo, b2.labo, '');
-  row[F.boucle_3_label]    = pick(bc.boucle_3_label, b3.label, '');
-  row[F.boucle_3_scenario] = pick(bc.boucle_3_scenario, b3.scenario, '');
-  row[F.boucle_3_reponse]  = pick(bc.boucle_3_reponse, b3.reponse, '');
-  row[F.boucle_3_sequence] = pick(bc.boucle_3_sequence, b3.sequence, '');
-  row[F.boucle_3_labo]     = pick(bc.boucle_3_labo, b3.labo, '');
+  // ── §04 BOUCLES COGNITIVES (v5.6 : liste illimitée en JSON, remplace les colonnes plates) ──
+  row[F.boucle_intro] = pick(bc.boucle_intro, bc.intro, '');
+  // Format attendu (prompt v5.6) : bc.boucles = [{label, situation, reponse, sequence, demonstration}]
+  let bouclesArr = Array.isArray(bc.boucles) ? bc.boucles : null;
+  // Rétrocompat : si l'agent renvoie encore l'ancien format boucle_1/2/3, on le convertit en liste.
+  if (!bouclesArr) {
+    const legacy = [b1, b2, b3]
+      .map((b, i) => {
+        const idx = i + 1;
+        const label    = pick(bc[`boucle_${idx}_label`], b.label, '');
+        if (!label) return null;
+        return {
+          label,
+          situation:     pick(bc[`boucle_${idx}_scenario`], b.scenario, b.situation, ''),
+          reponse:       pick(bc[`boucle_${idx}_reponse`], b.reponse, ''),
+          sequence:      pick(bc[`boucle_${idx}_sequence`], b.sequence, ''),
+          demonstration: pick(bc[`boucle_${idx}_labo`], b.labo, b.demonstration, ''),
+        };
+      })
+      .filter(Boolean);
+    bouclesArr = legacy;
+  }
+  // Normaliser chaque boucle au schéma attendu par le rendu (clés stables).
+  bouclesArr = (bouclesArr || []).map(b => ({
+    label:         pick(b.label, ''),
+    situation:     pick(b.situation, b.scenario, ''),
+    reponse:       pick(b.reponse, ''),
+    sequence:      pick(b.sequence, ''),
+    demonstration: pick(b.demonstration, b.labo, ''),
+  }));
+  row[F.boucles_json] = JSON.stringify(bouclesArr);
 
   // ── §05 SIGNAL LIMBIQUE (15 champs) ──
   row[F.signal_type]            = pick(sl.signal_type, sl.type, '');
