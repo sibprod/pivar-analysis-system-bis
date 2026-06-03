@@ -506,6 +506,8 @@ function buildPayloadVerif(candidat_id, sources, architecture, bilanProduit) {
   return {
     ...base,
     architecture_moteur: architecture.ordered.map(p => ({ pilier: p.pilier, role: p.role })),
+    inventaire_circuits_complet: sources.inventaireCircuits,  // matière pour RÉGÉNÉRER un pilier vide (C0)
+    referentiel_circuits: sources.referentielCircuits,        // noms catalogue exacts (pour libellés corrects)
     bilan_produit: bilanProduit,  // { global, profilCognitif, piliers:[{pilier, role, update}] }
   };
 }
@@ -605,6 +607,15 @@ const CONSIGNE_VERIF =
   "(champ 'bilan_produit'). On ne vérifie bien qu'à connaissance égale : relis TOUT le bilan et corrige ce " +
   "qui ne respecte NI les consignes du prompt NI la vérité-terrain (les 'Signature :' de cog_gouverne_commentaire " +
   "dans matiere_socle/matiere_arbitrage). " +
+  "⚠️ CONTRÔLE C0 — COMPLÉTUDE (À FAIRE EN TOUT PREMIER, AVANT TOUT LE RESTE) : pour CHAQUE pilier présent dans " +
+  "architecture_moteur (donc actif), vérifie dans bilan_produit.piliers que pilier_mode, synth_factuelle_coeur, " +
+  "synth_factuelle_elargie, synth_interpretee SONT REMPLIS, et que ses circuits sont présents. Tout champ VIDE " +
+  "ou manquant d'un pilier actif = ÉCART CRITIQUE. Tu DOIS alors RÉGÉNÉRER toi-même le contenu manquant à partir " +
+  "des sources (inventaire_circuits_complet pour les circuits/chiffres du pilier, referentiel_circuits pour les " +
+  "noms exacts, matiere_socle/matiere_arbitrage pour les gouvernances) — tu as le MÊME prompt, donc produis ce " +
+  "contenu comme l'aurait fait l'appel pilier — et écris-le dans piliers.<pilier>.verif_pilier_mode / " +
+  "verif_synth_factuelle / verif_synth_interpretee / verif_tableau_note. Si C0 déclenche une régénération, " +
+  "verif_statut = CORRIGÉ et le rapport le détaille (quel pilier était vide, quoi régénéré). " +
   "ORDRE RACINE→FEUILLES (obligatoire) : (1) FILTRE ⇄ socle ; (2) RANG DES STRUCTURANTS/tandem ⇄ boucles+gouvernances " +
   "(le tandem est le pilier vers lequel le candidat REVIENT, pas celui qui CLÔT) ; (3) si une racine change, propage " +
   "aux feuilles : soleil, sections piliers, boucles §04, conclusion_cycle ; (4) cohérence finale soleil ⇄ synthèse. " +
