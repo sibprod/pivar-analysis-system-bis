@@ -74,6 +74,52 @@ const ROLE_TO_SHORT = {
  * @param {string} candidat_id
  * @returns {Promise<Object|null>} payload prêt pour le template, ou null si pas de bilan.
  */
+// ── SURCHARGE VÉRIFICATEUR (Lot D) ──────────────────────────────────────────
+// Les colonnes verif_* contiennent les corrections du vérificateur (ou sont vides). Si une colonne est
+// remplie, elle remplace l'original DANS l'objet row, avant lecture. L'original reste en base (maintenu).
+// Helper : renvoie la valeur surchargée si non vide, sinon l'original.
+function _ov(verif, original) {
+  return (verif != null && String(verif).trim() !== '') ? verif : original;
+}
+
+function applyVerifOverridesBilan(b) {
+  if (!b) return;
+  // Blocs "1 champ" → surcharge directe.
+  b.note_profil_global   = _ov(b.verif_synthese, b.note_profil_global);
+  b.profil_cognitif_json = _ov(b.verif_soleil,   b.profil_cognitif_json);
+  b.boucles_json         = _ov(b.verif_boucles,  b.boucles_json);
+  b.pilier_socle_mode    = _ov(b.verif_pilier_socle_mode, b.pilier_socle_mode);
+
+  // §02 FILTRE — stocké en bloc dans verif_filtre. Si rempli, il porte le §02 corrigé.
+  // Format attendu : JSON { filtre_label, filtre_preuve_1..5, filtre_lecture_candidat }.
+  // Tolérance : si verif_filtre n'est pas un JSON valide, on l'ignore (on garde l'original) — la
+  // correction non interprétable ne doit pas casser l'affichage (sera signalée dans verif_rapport).
+  if (b.verif_filtre != null && String(b.verif_filtre).trim() !== '') {
+    try {
+      const f = JSON.parse(b.verif_filtre);
+      if (f && typeof f === 'object') {
+        if (f.filtre_label != null)            b.filtre_label = f.filtre_label;
+        if (f.filtre_preuve_1 != null)         b.filtre_preuve_1 = f.filtre_preuve_1;
+        if (f.filtre_preuve_2 != null)         b.filtre_preuve_2 = f.filtre_preuve_2;
+        if (f.filtre_preuve_3 != null)         b.filtre_preuve_3 = f.filtre_preuve_3;
+        if (f.filtre_preuve_4 != null)         b.filtre_preuve_4 = f.filtre_preuve_4;
+        if (f.filtre_preuve_5 != null)         b.filtre_preuve_5 = f.filtre_preuve_5;
+        if (f.filtre_lecture_candidat != null) b.filtre_lecture_candidat = f.filtre_lecture_candidat;
+      }
+    } catch (e) {
+      logger.warn('T3 Visu — verif_filtre non-JSON, ignoré (original conservé)', { err: e.message });
+    }
+  }
+}
+
+function applyVerifOverridesPilier(p) {
+  if (!p) return;
+  p.pilier_mode       = _ov(p.verif_pilier_mode,       p.pilier_mode);
+  p.synth_factuelle   = _ov(p.verif_synth_factuelle,   p.synth_factuelle);
+  p.synth_interpretee = _ov(p.verif_synth_interpretee, p.synth_interpretee);
+  p.tableau_note      = _ov(p.verif_tableau_note,      p.tableau_note);
+}
+
 async function buildPayload(candidat_id) {
   logger.info('T3 Visu — assemblage payload', { candidat_id });
 
@@ -92,6 +138,14 @@ async function buildPayload(candidat_id) {
     logger.warn('T3 Visu — aucun pilier T3 trouvé', { candidat_id });
     return null;
   }
+
+  // ─── 1bis. SURCHARGE VÉRIFICATEUR (Lot D) ──────────────────────────────────
+  // Principe : si une colonne verif_* est remplie, sa valeur PREND LE PAS sur l'original
+  // (qui reste maintenu en base). On applique la surcharge SUR bilanRow / pilierRows AVANT toute
+  // lecture, de sorte que le reste du payload — et donc le TEMPLATE — ne change PAS de placeholder :
+  // il lit toujours bilanRow.filtre_label, etc., simplement la valeur a pu être surchargée ici.
+  applyVerifOverridesBilan(bilanRow);
+  for (const pr of pilierRows) applyVerifOverridesPilier(pr);
 
   // ─── 2. Indexer les circuits par pilier (code P1..P5) ──────────────────────
   const circuitsParPilier = {};
@@ -178,23 +232,9 @@ async function buildPayload(candidat_id) {
     glissement_4_corps:      bilanRow.glissement_4_corps || '',
     glissements_conclusion:  bilanRow.glissements_conclusion || '',
 
-    // §04 boucles
+    // §04 boucles (v5.6 : liste illimitée lue depuis boucles_json, rendue en HTML)
     boucle_intro:     bilanRow.boucle_intro || '',
-    boucle_1_label:   bilanRow.boucle_1_label || '',
-    boucle_1_scenario:bilanRow.boucle_1_scenario || '',
-    boucle_1_reponse: bilanRow.boucle_1_reponse || '',
-    boucle_1_sequence:bilanRow.boucle_1_sequence || '',
-    boucle_1_labo:    bilanRow.boucle_1_labo || '',
-    boucle_2_label:   bilanRow.boucle_2_label || '',
-    boucle_2_scenario:bilanRow.boucle_2_scenario || '',
-    boucle_2_reponse: bilanRow.boucle_2_reponse || '',
-    boucle_2_sequence:bilanRow.boucle_2_sequence || '',
-    boucle_2_labo:    bilanRow.boucle_2_labo || '',
-    boucle_3_label:   bilanRow.boucle_3_label || '',
-    boucle_3_scenario:bilanRow.boucle_3_scenario || '',
-    boucle_3_reponse: bilanRow.boucle_3_reponse || '',
-    boucle_3_sequence:bilanRow.boucle_3_sequence || '',
-    boucle_3_labo:    bilanRow.boucle_3_labo || '',
+    boucles_html:     renderBoucles(parseBouclesJson(bilanRow.boucles_json)),
 
     // §05 signal limbique (15 champs)
     signal_intro:          bilanRow.signal_intro || '',
@@ -264,6 +304,14 @@ function buildPilierBlock(pr, circuits) {
 
   // Normaliser chaque circuit pour le template
   const circuitsNorm = circuits.map(c => normalizeCircuit(c, pr.pilier));
+
+  // B1 (v5.6) — tri par occurrence CŒUR DÉCROISSANTE (le plus activé d'abord).
+  // S'applique au tableau récap (via buildCircuitsGroupes) ET aux zones HAUT/MOYEN/FAIBLE,
+  // qui dérivent toutes de circuitsNorm. Départage à fréquence cœur égale par total décroissant.
+  circuitsNorm.sort((a, b) =>
+    (b.circuit_freq_coeur - a.circuit_freq_coeur) ||
+    (b.circuit_freq_total - a.circuit_freq_total)
+  );
 
   // Regrouper par niveau d'usage (§2.12) sur l'échelle CŒUR
   const groupes = buildCircuitsGroupes(circuitsNorm);
@@ -468,7 +516,7 @@ const BRANCHE_ROLE_ORDER = ['str1', 'str2', 'fn1', 'fn2'];
 function renderSatellite(sat, roleCss) {
   const coeur = sat.coeur_natif != null ? sat.coeur_natif : (sat.coeur != null ? sat.coeur : 0);
   const enSvc = sat.en_svc_socle != null ? sat.en_svc_socle : 0;
-  const vb  = sat.verbatim_emblematique || sat.verbatim || '';
+  const vb  = (sat.verbatim_emblematique || sat.verbatim || '').replace(/^[«»"'\s]+|[«»"'\s]+$/g, '');
   const src = sat.verbatim_source || '';
   const perso = sat.personnalisation || '';
   return ''
@@ -498,21 +546,55 @@ function renderBranche(br, roleCss, roleLabel) {
 }
 
 // Rend la liste des circuits cœur du centre (zone haute) — un bloc par circuit
+// ── §04 BOUCLES (v5.6) — liste illimitée parsée depuis boucles_json + rendue en HTML ──
+function parseBouclesJson(jsonStr) {
+  if (!jsonStr) return [];
+  try {
+    const arr = JSON.parse(jsonStr);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function renderBoucles(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return '';
+  return arr.map(b => {
+    const label = b.label || '';
+    const situation = b.situation || b.scenario || '';
+    const reponse = (b.reponse || '').replace(/^[«»"'\s]+|[«»"'\s]+$/g, '');
+    const sequence = b.sequence || '';
+    const demo = b.demonstration || b.labo || '';
+    return ''
+      + `<div class="boucle-item">`
+      +   `<div class="bi-head">`
+      +     (label ? `<span class="bi-seq-label">${esc(label)}</span>` : '')
+      +     (situation ? `<span class="bi-scenario">${esc(situation)}</span>` : '')
+      +   `</div>`
+      +   `<div class="bi-body">`
+      +     (reponse ? `<div class="bi-reponse">« ${esc(reponse)} »</div>` : '')
+      +     (sequence ? `<div class="bcl-seq"><strong class="bcl-seq-lbl">Séquence</strong>${esc(sequence)}</div>` : '')
+      +     (demo ? `<div class="bcl-demo"><strong class="bcl-demo-lbl">Ce que cette boucle démontre</strong>${esc(demo)}</div>` : '')
+      +   `</div>`
+      + `</div>`;
+  }).join('');
+}
+
 function renderCentreCircuits(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return '';
   return arr.map(c => {
     const coeur = c.coeur != null ? c.coeur : 0;
-    const vb = c.verbatim_emblematique || c.verbatim || '';
+    const vb = (c.verbatim_emblematique || c.verbatim || '').replace(/^[«»"'\s]+|[«»"'\s]+$/g, '');
     const src = c.verbatim_source || '';
     const perso = c.personnalisation || '';
     return ''
-      + `<div style="background:white;border:1px solid var(--role-socle-edge);border-left:3px solid var(--role-socle);border-radius:4px;padding:10px 12px;margin-bottom:8px;">`
-      +   `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;">`
-      +     `<div><strong style="font-family:var(--mono);font-size:11px;color:var(--role-socle);">${esc(c.code)}</strong> &nbsp;<span style="font-size:12px;color:var(--ink);font-weight:500;">${esc(c.nom_catalogue)}</span></div>`
-      +     `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">cœur <strong style="color:var(--role-socle);">${esc(coeur)}</strong></div>`
+      + `<div class="scc-card">`
+      +   `<div class="scc-head">`
+      +     `<div><strong class="scc-code">${esc(c.code)}</strong><span class="scc-nom">${esc(c.nom_catalogue)}</span></div>`
+      +     `<div class="scc-coeur">cœur <strong>${esc(coeur)}</strong></div>`
       +   `</div>`
-      +   (vb ? `<div style="font-size:11px;color:#4b5563;font-style:italic;line-height:1.5;margin-top:3px;">« ${esc(vb)} »<span style="font-family:var(--mono);font-size:9px;color:var(--muted);font-style:normal;"> — ${esc(src)}</span></div>` : '')
-      +   (perso ? `<div style="font-size:11px;color:#374151;line-height:1.55;margin-top:3px;">${esc(perso)}</div>` : '')
+      +   (vb ? `<div class="scc-verbatim">« ${esc(vb)} »${src ? `<span class="scc-source">${esc(src)}</span>` : ''}</div>` : '')
+      +   (perso ? `<div class="scc-perso">${esc(perso)}</div>` : '')
       + `</div>`;
   }).join('');
 }
