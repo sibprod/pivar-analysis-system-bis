@@ -554,6 +554,11 @@ module.exports = {
     tableau_note:           'fldKax0VwI4BhnLKV',  // tableau récap doctrine §2.12
     synth_factuelle:        'fldcGtODAh6b0vZs5',  // synthèse factuelle (élargie/détaillée)
     synth_interpretee:      'fldho6MPGr5J5QmPu',  // ⭐ "Ce que ça signifie pour vous" + § DRH
+    // v5.6 Lot D — colonnes VÉRIFICATEUR (corrections en surcharge ; original maintenu)
+    verif_pilier_mode:       'flduDBhd1fNO6jx9Z',
+    verif_synth_factuelle:   'fld97CHqsYXmzvsEj',
+    verif_synth_interpretee: 'fldqB1AkrgdaaEbnl',
+    verif_tableau_note:      'fldBhaF1059wTcOu2',
     liens_circuits:         'fldtZdnuftdhGx2mb'   // linked → ETAPE1_T3_CIRCUIT du pilier
   },
 
@@ -574,12 +579,6 @@ module.exports = {
     circuit_freq:        'fldrM33rxdYnJ39vz',  // number — nb total d'activations cœur
     circuit_franches:    'fldwfbNZ0DKsdXray',  // number — nb activations franches
     circuit_nuancees:    'fldDnY9fRw3g62C6o',  // number — nb activations nuancées
-    // ── Ventilation par pilier (créés 2026-06-01) — source ETAPE1_T2_INVENTAIRE_CIRCUITS ──
-    en_svc_P1:           'fldoGZPSxM22pk82R',  // number — nb de fois en service de P1
-    en_svc_P2:           'fldAgQzO8YgqbzUEe',  // number — nb de fois en service de P2
-    en_svc_P3:           'fld56OTFNSTo7OGAE',  // number — nb de fois en service de P3
-    en_svc_P4:           'fldJ76jeasA2KVmdY',  // number — nb de fois en service de P4
-    en_svc_P5:           'fldqMhYYHMy7b2s1n',  // number — nb de fois en service de P5
     circuit_cluster:     'fldGzHp6ZFEsiIERf',  // "C4+C7" (vide si aucun)
     circuit_signal:      'fldVsySoS1k0yFHgx',  // singleSelect NULLE/FAIBLE positif/...
     circuit_niveau:      'fld0LTPI1KfAVHRqI',  // singleSelect HAUT/MOYEN/FAIBLE
@@ -682,6 +681,16 @@ module.exports = {
     boucle_3_reponse:          'fldQYTI8O0DrSW7o9',
     boucle_3_sequence:         'fld9viJ0nWwbR6O8V',
     boucle_3_labo:             'fldb6wCYgGUQ4Uahd',
+    // v5.6 — liste illimitée des boucles §04 au format JSON (remplace les colonnes plates boucle_1/2/3)
+    boucles_json:              'fldpqKcbU6KNVQhCF',
+    // v5.6 Lot D — colonnes VÉRIFICATEUR (corrections en surcharge ; original maintenu)
+    verif_filtre:              'fldfnxt1vq3VtlIpz',
+    verif_soleil:              'fldzwtQvLNbCueLpV',
+    verif_boucles:             'fldrTEo2LFQaAwZwd',
+    verif_synthese:            'fldweZHoK0IxMVrmp',
+    verif_pilier_socle_mode:   'fldWHMHUeEUNjqsDW',
+    verif_rapport:             'fldexc6OHEKSUh8pb',
+    verif_statut:              'fld9gPxIxyVdWDaXz',
 
     // ── §05 Signal limbique (15 champs : type + intro + 4×(q/corps/verbatim) + synthese) ──
     signal_type:               'fld4kDga5E9AcrE3V',
@@ -721,9 +730,6 @@ module.exports = {
     sig_resultat_ligne1:       'fldR2LjSEpCvbS0Uy',
     sig_resultat_ligne2:       'fldYlaGZTAewseLgK',
     sig_recit:                 'fldiGDaUJ4cO0c0zI',
-
-    // ── §02bis Profil cognitif (le Soleil) — objet JSON complet (créé 2026-06-01) ──
-    profil_cognitif_json:      'fldqZRT8LeETc2fx8',
 
     // ── Linked records ──
     liens_piliers:             'fld0i2Xr5A07KJZOC',  // linked → 5 ETAPE1_T3_PILIER
