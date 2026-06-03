@@ -1015,6 +1015,14 @@ function mapCircuitToFields(candidat_id, circuitResult, bilanRecordId, pilierRec
   row[F.en_svc_P3] = invRow.nb_svc_P3 != null ? invRow.nb_svc_P3 : 0;
   row[F.en_svc_P4] = invRow.nb_svc_P4 != null ? invRow.nb_svc_P4 : 0;
   row[F.en_svc_P5] = invRow.nb_svc_P5 != null ? invRow.nb_svc_P5 : 0;
+  // Total des mobilisations = cœur + somme des en-svc. On recopie la valeur autoritaire de l'inventaire
+  // (total_activations) si présente ; sinon on la recalcule à partir du cœur + en-svc.
+  const coeurVal = (invRow.nb_coeur != null) ? invRow.nb_coeur
+                  : (row[F.circuit_freq] != null ? row[F.circuit_freq] : 0);
+  const sommeSvc = (row[F.en_svc_P1] || 0) + (row[F.en_svc_P2] || 0) + (row[F.en_svc_P3] || 0)
+                 + (row[F.en_svc_P4] || 0) + (row[F.en_svc_P5] || 0);
+  row[F.total_activations] = (invRow.total_activations != null) ? invRow.total_activations
+                            : (coeurVal + sommeSvc);
 
   row[F.circuit_cluster]   = c.circuit_cluster || c.cluster || '';
   row[F.circuit_signal]    = c.circuit_signal || c.signal_limbique || 'NULLE';
