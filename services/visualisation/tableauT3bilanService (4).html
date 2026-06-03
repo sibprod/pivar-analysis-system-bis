@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE BILAN PROFIL-COGNITIF · v5.5 · 27 mai 2026 · Projet Sib Prod
+  v5.5 : tableau récap pilier regroupé par catégorie d'usage (HAUT/MOYEN/FAIBLE/instrumental/ADHOC)
+         avec sous-titres explicatifs et badge AD-HOC pour circuits promus.
+         Boucle {{#each circuits_groupes}} remplace {{#each circuits_tous}}.
+  v5.4 : architecture section pilier en 4 blocs · soleil refondu · couleurs par rôle.
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilan Cognitif v1 — Monsieur Rémi Dumas</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1a1a18;--paper:#faf8f3;--paper2:#f0ece0;--rule:#d8d0bc;--rl:#e8e2d4;
+  --p1:#2563eb;--p1b:#eff6ff;--p1e:#bfdbfe;
+  --p2:#7c3aed;--p2b:#f5f3ff;--p2e:#ddd6fe;
+  --p3:#059669;--p3b:#ecfdf5;--p3e:#a7f3d0;
+  --p4:#d97706;--p4b:#fffbeb;--p4e:#fde68a;
+  --p5:#dc2626;--p5b:#fef2f2;--p5e:#fecaca;
+  /* COULEURS PAR RÔLE (v5.2) — la couleur dépend du rôle, pas du code pilier */
+  --role-socle:#dc2626;--role-socle-bg:#fef2f2;--role-socle-edge:#fecaca;        /* ROUGE */
+  --role-str1:#ea580c;--role-str1-bg:#fff7ed;--role-str1-edge:#fed7aa;           /* ORANGE */
+  --role-str2:#ca8a04;--role-str2-bg:#fefce8;--role-str2-edge:#fde68a;           /* JAUNE doré */
+  --role-fn1:#16a34a;--role-fn1-bg:#f0fdf4;--role-fn1-edge:#bbf7d0;              /* VERT */
+  --role-fn2:#84cc16;--role-fn2-bg:#f7fee7;--role-fn2-edge:#d9f99d;              /* VERT PÂLE */
+  --sans:'DM Sans',sans-serif;--serif:'Playfair Display',serif;--mono:'DM Mono',monospace;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.75;max-width:900px;margin:0 auto;}
+
+/* CHAPITRE DIVIDERS (v5.2) — séparateurs entre les chapitres du bilan */
+.chapitre-divider{padding:32px 64px 28px;border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);background:linear-gradient(180deg, var(--paper2) 0%, var(--paper) 100%);text-align:center;margin-top:24px;}
+.chapitre-divider .chapitre-tag{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin-bottom:8px;font-weight:600;}
+.chapitre-divider .chapitre-titre{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--ink);line-height:1.3;margin-bottom:6px;}
+.chapitre-divider .chapitre-soustitre{font-size:13px;font-style:italic;color:var(--muted);line-height:1.5;}
+.chapitre-divider.chapitre-final{background:linear-gradient(180deg, var(--ink) 0%, #2a2a28 100%);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);}
+.chapitre-divider.chapitre-final .chapitre-tag{color:rgba(255,255,255,.6);}
+.chapitre-divider.chapitre-final .chapitre-titre{color:white;}
+.chapitre-divider.chapitre-final .chapitre-soustitre{color:rgba(255,255,255,.7);}
+
+/* CLASSES PAR RÔLE (v5.2) — utilisables sur badges, cellules, blocs */
+.role-socle{--c:var(--role-socle);--cb:var(--role-socle-bg);--ce:var(--role-socle-edge);}
+.role-str1{--c:var(--role-str1);--cb:var(--role-str1-bg);--ce:var(--role-str1-edge);}
+.role-str2{--c:var(--role-str2);--cb:var(--role-str2-bg);--ce:var(--role-str2-edge);}
+.role-fn1{--c:var(--role-fn1);--cb:var(--role-fn1-bg);--ce:var(--role-fn1-edge);}
+.role-fn2{--c:var(--role-fn2);--cb:var(--role-fn2-bg);--ce:var(--role-fn2-edge);}
+.role-badge{background:var(--c);color:white;font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;display:inline-block;}
+.role-cell{background:var(--cb);border:1px solid var(--ce);}
+.role-text{color:var(--c);}
+.cover{padding:56px 64px 40px;border-bottom:3px solid var(--ink);position:relative;}
+.cover::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.cover-tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.cover-nom{font-family:var(--serif);font-size:46px;font-weight:700;line-height:1.05;margin-bottom:6px;}
+.cover-titre{font-family:var(--serif);font-size:17px;font-style:italic;color:var(--muted);margin-bottom:28px;}
+.sig-box{border:2px solid var(--ink);padding:18px 24px;background:white;margin-bottom:24px;display:inline-block;}
+.sig-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px;}
+.sig-val{font-family:var(--serif);font-size:20px;font-style:italic;}
+.cover-meta{display:flex;gap:28px;flex-wrap:wrap;}
+.cm{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.cm strong{color:var(--ink);display:block;margin-bottom:1px;}
+.toc{padding:20px 64px;background:var(--paper2);border-bottom:1px solid var(--rule);}
+.toc-title{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;}
+.toc-items{display:flex;flex-wrap:wrap;gap:5px;}
+.toc-item{font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:10px;cursor:pointer;background:white;transition:all .15s;}
+.toc-item:hover{background:var(--ink);color:white;border-color:var(--ink);}
+.section{padding:36px 64px;border-bottom:1px solid var(--rule);}
+.s-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:3px;}
+.s-title{font-family:var(--serif);font-size:25px;font-weight:700;margin-bottom:18px;line-height:1.2;}
+.moteur{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.m-row{display:grid;grid-template-columns:52px 1fr 80px 72px;gap:0;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.m-badge{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;}
+.m-badge.p1{background:var(--p1);}.m-badge.p2{background:var(--p2);}.m-badge.p3{background:var(--p3);}.m-badge.p4{background:var(--p4);}.m-badge.p5{background:var(--p5);}
+/* COULEURS PAR RÔLE v5.2 — ces classes prennent le pas sur p1..p5 quand présentes */
+.m-badge.role-socle{background:var(--role-socle);}
+.m-badge.role-str1{background:var(--role-str1);}
+.m-badge.role-str2{background:var(--role-str2);}
+.m-badge.role-fn1{background:var(--role-fn1);}
+.m-badge.role-fn2{background:var(--role-fn2);}
+.m-body{padding:9px 13px;background:white;}
+.m-nom{font-size:13px;font-weight:500;}
+.m-mode{font-size:11px;font-style:italic;color:var(--muted);}
+.m-role{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:9px;font-weight:500;text-align:center;border-left:1px solid var(--rule);}
+.m-role.socle{background:var(--role-socle-bg);color:var(--role-socle);}
+.m-role.str1{background:var(--role-str1-bg);color:var(--role-str1);}
+.m-role.str2{background:var(--role-str2-bg);color:var(--role-str2);}
+.m-role.fn1{background:var(--role-fn1-bg);color:var(--role-fn1);}
+.m-role.fn2{background:var(--role-fn2-bg);color:var(--role-fn2);}
+.m-role.str{background:#e0f2fe;color:#0c4a6e;}
+.m-role.fn{background:var(--paper2);color:#374151;}
+.m-stat{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:11px;font-weight:500;border-left:1px solid var(--rule);background:var(--paper2);}
+.flow-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:16px 0;}
+.flow-cell{border-radius:5px;padding:10px 8px;text-align:center;border:1px solid;}
+.flow-cell.p1{background:var(--p1b);border-color:var(--p1e);}
+.flow-cell.p2{background:var(--p2b);border-color:var(--p2e);}
+.flow-cell.p3{background:var(--p3b);border-color:var(--p3e);}
+.flow-cell.p4{background:var(--p4b);border-color:var(--p4e);}
+.flow-cell.p5{background:var(--p5b);border-color:var(--p5e);}
+.flow-cell.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle-edge);}
+.flow-cell.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1-edge);}
+.flow-cell.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2-edge);}
+.flow-cell.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1-edge);}
+.flow-cell.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2-edge);}
+.fc-id{font-family:var(--mono);font-size:18px;font-weight:700;}
+.fc-id.p1{color:var(--p1);}.fc-id.p2{color:var(--p2);}.fc-id.p3{color:var(--p3);}.fc-id.p4{color:var(--p4);}.fc-id.p5{color:var(--p5);}
+.fc-id.role-socle{color:var(--role-socle);}
+.fc-id.role-str1{color:var(--role-str1);}
+.fc-id.role-str2{color:var(--role-str2);}
+.fc-id.role-fn1{color:var(--role-fn1);}
+.fc-id.role-fn2{color:var(--role-fn2);}
+.fc-n{font-family:var(--mono);font-size:14px;font-weight:700;display:block;margin:2px 0;}
+.fc-pct{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.fc-lbl{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.3;}
+.filtre-def{background:#fef9e7;border:1px solid #fde68a;border-left:3px solid #f59e0b;padding:13px 16px;border-radius:0 4px 4px 0;margin-bottom:14px;}
+.fd-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#92400e;margin-bottom:4px;}
+.fd-txt{font-size:13px;color:#374151;font-weight:300;line-height:1.65;}
+.filtre-box{background:var(--p4b);border:2px solid var(--p4e);border-radius:6px;padding:18px 22px;margin-bottom:14px;}
+.f-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--p4);margin-bottom:5px;}
+.f-val{font-family:var(--serif);font-size:21px;font-style:italic;color:var(--ink);margin-bottom:10px;line-height:1.3;}
+.f-preuve{display:flex;gap:9px;margin-bottom:7px;font-size:13px;font-weight:300;color:#374151;}
+.fp-num{font-family:var(--mono);font-size:11px;color:var(--p4);font-weight:500;flex-shrink:0;margin-top:1px;}
+.f-cand{font-size:14px;color:var(--ink);line-height:1.8;border-left:3px solid var(--p4e);padding-left:13px;font-style:italic;}
+.ph{display:grid;grid-template-columns:68px 1fr 155px;gap:0;border-radius:7px;overflow:hidden;margin-bottom:18px;border:1px solid var(--rule);}
+.ph-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px;}
+.ph-badge.p1{background:var(--p1);}.ph-badge.p2{background:var(--p2);}.ph-badge.p3{background:var(--p3);}.ph-badge.p4{background:var(--p4);}.ph-badge.p5{background:var(--p5);}
+.ph-id{font-family:var(--mono);font-size:20px;font-weight:700;color:white;}
+.ph-star{font-size:13px;color:rgba(255,255,255,.75);}
+.ph-body{padding:13px 17px;background:white;}
+.ph-nom{font-family:var(--serif);font-size:17px;font-weight:700;margin-bottom:3px;}
+.ph-rb{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 9px;border-radius:9px;margin-bottom:4px;}
+.ph-rb.socle{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.ph-rb.str{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;}
+.ph-rb.fn{background:#f3f4f6;color:#374151;border:1px solid #d1d5db;}
+.ph-rb.res{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.ph-rappel{font-size:11px;color:var(--muted);font-style:italic;}
+.ph-mode{padding:13px 14px;background:var(--paper2);border-left:1px solid var(--rule);display:flex;flex-direction:column;justify-content:center;}
+.ph-mlbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.ph-mval{font-family:var(--serif);font-size:13px;font-style:italic;line-height:1.4;}
+.circuit{margin-bottom:22px;border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.c-head{display:grid;grid-template-columns:auto auto 1fr auto;gap:9px;align-items:center;padding:11px 15px;border-bottom:1px solid var(--rule);}
+.c-head.p1{background:var(--p1b);}.c-head.p2{background:var(--p2b);}.c-head.p3{background:var(--p3b);}.c-head.p4{background:var(--p4b);}.c-head.p5{background:var(--p5b);}.c-head.adhoc{background:#fef3c7;}
+.ci-id{font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;color:white;}
+.ci-id.p1{background:var(--p1);}.ci-id.p2{background:var(--p2);}.ci-id.p3{background:var(--p3);}.ci-id.p4{background:var(--p4);}.ci-id.p5{background:var(--p5);}.ci-id.adhoc{background:#92400e;}
+.ci-freq{font-family:var(--mono);font-size:14px;font-weight:700;}
+.ci-freq.p1{color:var(--p1);}.ci-freq.p2{color:var(--p2);}.ci-freq.p3{color:var(--p3);}.ci-freq.p4{color:var(--p4);}.ci-freq.p5{color:var(--p5);}
+.ci-nom{font-size:13px;font-weight:500;}
+.ci-cluster{font-family:var(--mono);font-size:10px;background:rgba(0,0,0,.06);padding:2px 7px;border-radius:3px;color:var(--muted);white-space:nowrap;}
+.c-body{padding:0;background:white;}
+.niveau{padding:13px 16px;border-bottom:1px solid var(--rl);}
+.niveau:last-child{border-bottom:none;}
+.n-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.n-lbl::after{content:'';flex:1;height:1px;background:var(--rl);}
+.n1-lbl{color:var(--p4);}.n2-lbl{color:#7c3aed;}.n3-lbl{color:#0c4a6e;}.n4-lbl{color:#059669;}
+.n-txt{font-size:13px;font-weight:300;color:#2a2a26;line-height:1.7;}
+.vblock{margin-top:6px;display:flex;flex-direction:column;gap:5px;}
+.vligne{display:flex;gap:7px;align-items:flex-start;}
+.v-q{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--paper2);padding:1px 6px;border-radius:3px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.v-txt{font-style:italic;color:var(--muted);font-size:13px;line-height:1.55;}
+.v-seq{font-size:11px;color:#374151;font-weight:300;margin-top:3px;padding:5px 8px;background:var(--paper2);border-radius:3px;line-height:1.5;}
+.v-resume{font-size:12px;color:var(--p4);font-weight:500;margin-top:3px;font-style:italic;}
+.v-objectif{font-size:12px;color:#0c4a6e;font-weight:300;margin-top:3px;}
+.nuance{font-size:12px;font-weight:300;color:#374151;line-height:1.65;border-left:2px solid var(--rule);padding-left:9px;font-style:italic;margin-top:4px;}
+.nuance-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);margin-top:4px;}
+.glissement{background:#fefce8;border:1px solid #fde047;border-left:3px solid #eab308;padding:9px 13px;margin-top:8px;border-radius:0 4px 4px 0;}
+.g-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#854d0e;margin-bottom:3px;}
+.g-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.seq-box{background:var(--paper2);border-radius:4px;padding:8px 12px;margin-top:5px;}
+.seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.seq-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.limb-section{background:var(--p4b);border:1px solid var(--p4e);border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.limb-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.limb-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--p4);color:white;}
+.limb-items{display:flex;flex-direction:column;gap:8px;}
+.li{display:grid;grid-template-columns:56px 1fr;gap:9px;align-items:start;}
+.li-q{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:center;}
+.li-content{font-size:12px;font-weight:300;color:#374151;line-height:1.55;}
+.li-v{font-style:italic;color:#92400e;margin-top:2px;font-size:12px;}
+.boucle-item{margin-bottom:14px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.bi-head{padding:9px 13px;display:flex;align-items:center;gap:9px;background:var(--paper2);}
+.bi-seq-label{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink);}
+.bi-scenario{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:9px;background:var(--ink);color:white;}
+.bi-body{padding:11px 13px;background:white;}
+.bi-reponse{font-size:12px;font-style:italic;color:var(--muted);line-height:1.6;margin-bottom:5px;border-left:2px solid var(--rule);padding-left:7px;}
+.bi-seq-detail{font-size:12px;font-weight:300;color:#374151;line-height:1.6;background:var(--paper2);padding:6px 10px;border-radius:3px;margin-bottom:5px;}
+.bi-labo{font-size:12px;font-weight:300;color:#374151;line-height:1.6;}
+.cout-item{margin-bottom:12px;border:1px solid var(--rule);border-left:3px solid;padding:12px 15px;border-radius:0 5px 5px 0;background:white;}
+.cout-item.fort{border-left-color:#dc2626;}
+.cout-item.moyen{border-left-color:#d97706;}
+.cout-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.cout-titre{font-size:13px;font-weight:500;margin-bottom:4px;}
+.cout-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.cout-v{font-size:12px;font-style:italic;color:var(--muted);margin-top:4px;}
+.gliss-transversal{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.gt-title{font-family:var(--serif);font-size:16px;font-weight:700;margin-bottom:10px;}
+.gt-items{display:flex;flex-direction:column;gap:8px;}
+.gt-item{display:grid;grid-template-columns:56px 1fr;gap:9px;font-size:13px;}
+.gt-q{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:center;align-self:start;margin-top:2px;}
+.gt-txt{font-weight:300;color:#374151;line-height:1.6;}
+.signature-finale{border:3px solid var(--ink);padding:30px 38px;margin:36px 0;position:relative;background:white;}
+.sf-stripe{position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.sf-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:12px;}
+.sf-eq{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center;text-align:center;}
+.sf-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px;}
+.sf-val{font-family:var(--serif);font-size:14px;font-style:italic;line-height:1.5;}
+.sf-val strong{font-style:normal;font-size:13px;display:block;margin-bottom:2px;}
+.sf-op{font-family:var(--serif);font-size:30px;color:var(--rule);}
+.sf-result{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.4;}
+.sf-recit{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);font-size:14px;font-weight:300;color:var(--ink);line-height:1.85;font-style:italic;}
+.v2-note{background:var(--p4b);border:1px solid var(--p4e);border-left:3px solid var(--p4);padding:12px 16px;margin-bottom:20px;border-radius:0 4px 4px 0;}
+.v2-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--p4);margin-bottom:4px;}
+.v2-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.6;}
+.circuits-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+.circuits-table thead tr{background:var(--ink);}
+.circuits-table thead th{color:white;padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;}
+.circuits-table thead th.num{text-align:center;width:60px;}
+.circuits-table tbody tr{border-bottom:1px solid var(--rl);}
+.circuits-table tbody tr:nth-child(even){background:var(--paper2);}
+.circuits-table tbody tr:last-child{border-bottom:none;}
+.circuits-table td{padding:7px 10px;vertical-align:middle;}
+.circuits-table td.nom-c{font-size:12px;font-weight:400;color:var(--ink);}
+.circuits-table td.num-c{text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;}
+.circuits-table td.num-c.haut{color:var(--p4);}
+.circuits-table td.num-c.moyen{color:var(--muted);}
+.niveau-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:2px;font-weight:500;}
+.nb-haut{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.nb-moyen{background:#fef3c7;color:#92400e;border:1px solid var(--p4e);}
+.nb-bas{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;}
+.signal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;}
+.sd-faible{background:var(--p4);}
+.sd-nulle{background:#d1d5db;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}.sp-icon.p2{background:var(--p2);}.sp-icon.p3{background:var(--p3);}.sp-icon.p4{background:var(--p4);}.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.sp-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.sp-col-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-factuel{font-size:13px;font-weight:300;color:#374151;line-height:1.7;}
+.sp-interprete{font-size:13px;font-weight:300;color:var(--ink);line-height:1.7;font-style:italic;}
+.sp-bullet{display:flex;gap:7px;margin-bottom:5px;align-items:flex-start;}
+.sp-bull{flex-shrink:0;margin-top:3px;font-size:11px;}
+.sp-bull.p1{color:var(--p1);}.sp-bull.p2{color:var(--p2);}.sp-bull.p3{color:var(--p3);}.sp-bull.p4{color:var(--p4);}.sp-bull.p5{color:var(--p5);}
+.sp-key{display:inline;font-weight:500;color:var(--ink);}
+.sp-cluster{background:rgba(0,0,0,.04);border-radius:4px;padding:8px 10px;margin-top:8px;font-size:12px;font-weight:300;color:#374151;line-height:1.55;}
+.sp-cluster-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:3px;}
+
+/* Blocs techniques 1, 2, 3 — sobres, fond clair */
+.sp-tech-block{background:#f7f7f5;border-left:3px solid var(--rl);border-radius:0 4px 4px 0;padding:12px 16px;margin-top:10px;}
+.sp-tech-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:6px;}
+.sp-tech-content{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.sp-tech-content strong{color:var(--ink);font-weight:600;}
+
+/* Bloc 4 INTERPRÉTÉ — visuellement DISTINCT, fond de couleur du rôle */
+.sp-interprete-block{border-radius:6px;padding:18px 22px;margin-top:16px;border:1.5px solid;}
+.sp-interprete-block.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle);color:var(--role-socle);}
+.sp-interprete-block.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1);color:var(--role-str1);}
+.sp-interprete-block.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2);color:var(--role-str2);}
+.sp-interprete-block.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1);color:var(--role-fn1);}
+.sp-interprete-block.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2);color:var(--role-fn2);}
+.sp-interprete-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;}
+.sp-interprete-content{font-size:14px;font-weight:400;color:var(--ink);line-height:1.75;}
+.sp-interprete-content strong{font-weight:600;}
+.sp-interprete-content em{font-style:italic;color:#4b5563;}
+.footer{padding:14px 64px;font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--rule);flex-wrap:wrap;gap:4px;}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-tag">Profil Cognitif · {{version_bilan}} · Projet Sib Prod</div>
+  <div class="cover-nom">{{civilite}}<br>{{prenom}} {{nom}}</div>
+  <div class="cover-titre">Portrait cognitif sur mesure — lecture intégrale du protocole</div>
+  <div class="cover-meta">
+    <div class="cm"><strong>Pilier socle</strong>{{pilier_socle_label}} ({{pilier_socle}})</div>
+    <div class="cm"><strong>Filtre dominant</strong>« {{filtre_label}} »</div>
+    <div class="cm"><strong>Signal limbique</strong>{{signal_type}}</div>
+  </div>
+</div>
+
+<div class="toc">
+  <div class="toc-title">Sommaire</div>
+  <div class="toc-items">
+    <div class="toc-item" onclick="document.getElementById('lexique').scrollIntoView({behavior:'smooth'})">Lexique — la boîte à outils</div>
+    <div class="toc-item" onclick="document.getElementById('moteur').scrollIntoView({behavior:'smooth'})">Vue globale</div>
+    <div class="toc-item" onclick="document.getElementById('filtre').scrollIntoView({behavior:'smooth'})">Filtre cognitif</div>
+    <div class="toc-item" onclick="document.getElementById('glissements').scrollIntoView({behavior:'smooth'})">Glissements cognitifs</div>
+    <div class="toc-item" onclick="document.getElementById('boucle').scrollIntoView({behavior:'smooth'})">Boucle cognitive</div>
+    <div class="toc-item" onclick="document.getElementById('signal').scrollIntoView({behavior:'smooth'})">Signal limbique</div>
+    <div class="toc-item" onclick="document.getElementById('cout').scrollIntoView({behavior:'smooth'})">Zones de coût</div>
+    <div class="toc-item" onclick="document.getElementById('p4').scrollIntoView({behavior:'smooth'})">Outil P4 Création ★</div>
+    <div class="toc-item" onclick="document.getElementById('p5').scrollIntoView({behavior:'smooth'})">Outil P5 Exécution</div>
+    <div class="toc-item" onclick="document.getElementById('p1').scrollIntoView({behavior:'smooth'})">Outil P1 Collecte</div>
+    <div class="toc-item" onclick="document.getElementById('p2').scrollIntoView({behavior:'smooth'})">Outil P2 Tri</div>
+    <div class="toc-item" onclick="document.getElementById('p3').scrollIntoView({behavior:'smooth'})">Outil P3 Analyse</div>
+    <div class="toc-item" onclick="document.getElementById('profil-cognitif').scrollIntoView({behavior:'smooth'})">Profil cognitif (soleil)</div>
+    <div class="toc-item" onclick="document.getElementById('signature').scrollIntoView({behavior:'smooth'})">Signature cognitive</div>
+  </div>
+</div>
+
+<!-- §00 LEXIQUE — La boîte à outils cognitive (v5.1) -->
+<div class="section" id="lexique">
+  <div class="s-label">§ 00</div>
+  <div class="s-title">Lexique — Votre boîte à outils cognitive</div>
+
+  <div style="font-size:14px;font-weight:300;color:#374151;line-height:1.7;margin-bottom:24px;">
+    Avant de lire votre bilan, voici le vocabulaire que nous utilisons. Votre <strong>profil-cognitif</strong> décrit comment fonctionne votre <strong>boîte à outils mentale</strong> : vous disposez de <strong>5 outils distincts</strong> (les piliers P1 à P5), et chaque outil a jusqu'à <strong>15 fonctionnalités</strong> (les circuits C1 à C15).
+  </div>
+
+  <div style="background:#f9fafb;border-left:3px solid var(--ink);border-radius:4px;padding:14px 18px;margin-bottom:24px;font-size:13px;color:#374151;line-height:1.65;">
+    <strong>Comment lire les codes</strong> &nbsp;·&nbsp; Un code comme <code style="background:var(--ink);color:white;padding:2px 6px;border-radius:3px;font-family:var(--mono);font-size:11px;">P5C2</code> se lit <em>« outil 5, fonctionnalité 2 »</em> — ici : la <em>Préparation systématique des conditions d'exécution</em> dans l'outil <em>Mise en œuvre et exécution</em>.
+  </div>
+
+  <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:12px;">
+    Les 5 outils de votre boîte mentale
+  </div>
+
+  <table class="circuits-table" style="margin-bottom:24px;">
+    <thead>
+      <tr>
+        <th style="width:60px;">Code</th>
+        <th style="width:180px;">Outil</th>
+        <th>Ce que fait cet outil</th>
+        <th>Verbes signatures à reconnaître</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num-c"><strong style="color:var(--p1);">P1</strong></td>
+        <td class="nom-c"><strong>Collecte d'information</strong></td>
+        <td>Va chercher l'information auprès d'une source</td>
+        <td style="font-style:italic;color:var(--muted);font-size:12px;">chercher · explorer · contacter · interroger · consulter · appeler</td>
+      </tr>
+      <tr>
+        <td class="num-c"><strong style="color:var(--p2);">P2</strong></td>
+        <td class="nom-c"><strong>Tri et organisation</strong></td>
+        <td>Structure et organise l'information</td>
+        <td style="font-style:italic;color:var(--muted);font-size:12px;">trier · classer · ranger · catégoriser · structurer · noter · organiser</td>
+      </tr>
+      <tr>
+        <td class="num-c"><strong style="color:var(--p3);">P3</strong></td>
+        <td class="nom-c"><strong>Analyse et diagnostic</strong></td>
+        <td>Évalue, comprend, diagnostique</td>
+        <td style="font-style:italic;color:var(--muted);font-size:12px;">analyser · évaluer · comprendre · diagnostiquer · raisonner · identifier</td>
+      </tr>
+      <tr>
+        <td class="num-c"><strong style="color:var(--p4);">P4</strong></td>
+        <td class="nom-c"><strong>Création de solutions</strong></td>
+        <td>Conçoit des options, construit des scénarios</td>
+        <td style="font-style:italic;color:var(--muted);font-size:12px;">imaginer · concevoir · créer · planifier · combiner · envisager</td>
+      </tr>
+      <tr>
+        <td class="num-c"><strong style="color:var(--p5);">P5</strong></td>
+        <td class="nom-c"><strong>Mise en œuvre et exécution</strong></td>
+        <td>Fait, met en œuvre, délègue, coordonne</td>
+        <td style="font-style:italic;color:var(--muted);font-size:12px;">faire · agir · exécuter · coordonner · déléguer · mettre en place</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-bottom:12px;">
+    Notions techniques utilisées dans le bilan
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;font-size:12px;line-height:1.6;color:#374151;">
+    <div><strong>Pilier socle</strong> &nbsp;·&nbsp; Votre outil d'élection — celui que votre cerveau mobilise spontanément, quelle que soit la nature de la question posée.</div>
+    <div><strong>Circuit cœur</strong> &nbsp;·&nbsp; Une fonctionnalité activée nativement dans son outil d'appartenance. Échelle : HAUT (≥ 4 mobilisations) · MOYEN (2-3) · FAIBLE (1).</div>
+    <div><strong>Circuit instrumental</strong> &nbsp;·&nbsp; Une fonctionnalité d'un outil qui s'invite dans un autre outil pour le servir. Ex : un circuit de P1 qui sert P4 — la collecte vient nourrir la création.</div>
+    <div><strong>Cluster</strong> &nbsp;·&nbsp; Deux fonctionnalités qui s'activent systématiquement ensemble. Signature couplée du candidat (ex C4+C9).</div>
+    <div><strong>Signal limbique</strong> &nbsp;·&nbsp; Marqueur affectif détecté dans vos verbatims. FORTE / FAIBLE positif / FAIBLE négatif / NULLE.</div>
+    <div><strong>Glissement cognitif</strong> &nbsp;·&nbsp; Quand une réponse part dans un autre outil que celui demandé par la question. Révèle votre filtre dominant.</div>
+    <div><strong>Filtre cognitif</strong> &nbsp;·&nbsp; La pré-programmation automatique de votre outil de cœur — la forme sous laquelle toute situation se présente à vous avant tout traitement conscient.</div>
+    <div><strong>Tandem</strong> &nbsp;·&nbsp; Couplage bidirectionnel entre votre socle et un autre outil (souvent P5). Signature de votre signature opérationnelle.</div>
+  </div>
+</div>
+
+<!-- §01 VUE GLOBALE -->
+<div class="section" id="moteur">
+  <div class="s-label">§ 01</div>
+  <div class="s-title">Vue globale — Architecture du moteur</div>
+
+  <div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:18px;font-style:italic;">
+    Vos 5 outils mentaux, dans l'ordre d'importance pour votre moteur cognitif. Chaque outil est présenté ici avec son en-tête complet (nom, rôle, mode propre, chiffres-clés). Les mêmes en-têtes ouvrent chaque section détaillée dans le Chapitre I.
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px;">
+    {{#each piliers}}
+    <div class="ph">
+      <div class="ph-badge {{pilier_lower}}">
+        <div class="ph-id">{{pilier}}</div>
+        {{#if is_socle}}<div class="ph-star">★ Socle</div>{{/if}}
+      </div>
+      <div class="ph-body">
+        <div class="ph-nom">{{pilier_label}}</div>
+        <div class="ph-rb {{role_class}}">{{pilier_role_label}}</div>
+        <div class="ph-rappel">{{pilier_rappel}}</div>
+      </div>
+      <div class="ph-mode">
+        <div class="ph-mlbl">Mode retenu</div>
+        <div class="ph-mval">{{pilier_mode}}</div>
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CHAPITRE — LES 5 OUTILS DÉTAILLÉS (dans l'ordre socle → amont(str1) → aval(str2) → fonctionnels(fn1,fn2))  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre I</div>
+  <div class="chapitre-titre">Les 5 outils de votre boîte mentale</div>
+  <div class="chapitre-soustitre">Dans l'ordre d'importance pour votre moteur cognitif</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION PILIERS — Boucle sur les 5 piliers dans l'ordre :              -->
+<!-- socle → amont → aval → fonctionnels  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+{{#each piliers}}
+<!-- Pilier {{pilier}} — {{pilier_role_label}} -->
+<div class="section" id="{{pilier_lower}}">
+  <!-- ── 1. EN-TÊTE DU PILIER ── -->
+  <div class="ph">
+    <div class="ph-badge {{pilier_lower}}">
+      <div class="ph-id">{{pilier}}</div>
+      {{#if is_socle}}<div class="ph-star">★ Socle</div>{{/if}}
+    </div>
+    <div class="ph-body">
+      <div class="ph-nom">{{pilier_label}}</div>
+      <div class="ph-rb {{role_class}}">{{pilier_role_label}}</div>
+      <div class="ph-rappel">{{pilier_rappel}}</div>
+    </div>
+    <div class="ph-mode">
+      <div class="ph-mlbl">Mode retenu</div>
+      <div class="ph-mval">{{pilier_mode}}</div>
+    </div>
+  </div>
+
+  <!-- ── 2. TABLEAU RÉCAPITULATIF (vue d'ensemble AVANT le détail) — v5.5 regroupements ── -->
+  <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">
+    Tous les circuits actifs de ce pilier — ventilation cœur + en service des autres piliers
+  </div>
+  <table class="circuits-table">
+    <thead>
+      <tr>
+        <th>Fonctionnalité</th>
+        <th class="num">Niveau d'usage</th>
+        <th class="num">Activations cœur</th>
+        <th class="num" title="En service de l'outil P1 Collecte">en svc P1</th>
+        <th class="num" title="En service de l'outil P2 Tri">en svc P2</th>
+        <th class="num" title="En service de l'outil P3 Analyse">en svc P3</th>
+        <th class="num" title="En service de l'outil P4 Création">en svc P4</th>
+        <th class="num" title="En service de l'outil P5 Exécution">en svc P5</th>
+        <th class="num">Total mobilisations</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each circuits_groupes}}
+      <tr class="circuits-group-header">
+        <td colspan="9" style="background:var(--paper3, #f3f4f6);font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink);font-weight:700;padding:8px 10px;border-top:1px solid var(--rl);">
+          ▸ {{groupe_label}} <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;font-size:10px;margin-left:8px;">— {{groupe_explication}}</span>
+        </td>
+      </tr>
+      {{#each circuits}}
+      <tr>
+        <td class="nom-c">
+          <strong style="font-family:var(--mono);">{{code_complet}}</strong> — {{circuit_nom}}{{#if is_adhoc}} <span style="display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;color:#7c2d12;background:#fed7aa;padding:1px 6px;border-radius:3px;margin-left:6px;letter-spacing:.06em;" title="Circuit ad-hoc créé pour ce candidat (verbatim original)">AD-HOC</span>{{/if}}
+        </td>
+        <td class="num-c {{niveau_lower}}"><span class="niveau-badge nb-{{niveau_lower}}">{{circuit_niveau}}</span></td>
+        <td class="num-c {{niveau_lower}}"><strong>{{circuit_freq_coeur}}</strong></td>
+        <td class="num-c">{{#if ven_p1}}{{ven_p1}}{{else}}·{{/if}}</td>
+        <td class="num-c">{{#if ven_p2}}{{ven_p2}}{{else}}·{{/if}}</td>
+        <td class="num-c">{{#if ven_p3}}{{ven_p3}}{{else}}·{{/if}}</td>
+        <td class="num-c">{{#if ven_p4}}{{ven_p4}}{{else}}·{{/if}}</td>
+        <td class="num-c">{{#if ven_p5}}{{ven_p5}}{{else}}·{{/if}}</td>
+        <td class="num-c"><strong>{{circuit_freq_total}}</strong></td>
+      </tr>
+      {{/each}}
+      {{/each}}
+    </tbody>
+  </table>
+  <div style="font-size:11px;color:var(--muted);margin-top:5px;margin-bottom:18px;font-style:italic;">
+    {{nb_activations_coeur}} activations cœur · {{nb_activations_total}} activations totales · {{nb_circuits_actifs}} circuits actifs sur 15 · {{nb_circuits_haut_coeur}} HAUT cœur · {{nb_circuits_moyen_coeur}} MOYEN cœur{{#if cluster_label}} · Cluster {{cluster_label}}{{/if}} · Signal {{signal_label}}
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-bottom:18px;font-style:italic;">
+    <strong>Échelle d'usage cœur</strong> : HAUT ≥ 4 mobilisations · MOYEN 2-3 · FAIBLE 1 (profil pur de l'outil) — Les colonnes « en svc P_ » montrent les fois où cette fonctionnalité est venue <em>en service d'un autre outil</em> (sa vie au-delà de son outil natif). Le total des mobilisations sert la vue systémique du <a href="#profil-cognitif" style="color:var(--ink);">profil cognitif (soleil)</a>. Les fonctionnalités marquées <span style="display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;color:#7c2d12;background:#fed7aa;padding:1px 5px;border-radius:3px;letter-spacing:.06em;">AD-HOC</span> sont des gestes cognitifs détectés chez ce candidat et promus au catalogue.
+  </div>
+
+  <!-- ── 3. SYNTHÈSE DU PILIER (factuelle cœur + factuelle élargie + interprétée) — v5 ── -->
+  <div class="synthese-pilier {{pilier_lower}}">
+    <div class="sp-header">
+      <div class="sp-icon {{pilier_lower}}">{{pilier}}</div>
+      <div>
+        <div class="sp-title">{{pilier_label}} — Synthèse du pilier</div>
+        <div class="sp-subtitle">Analyse technique en 3 blocs, puis ce que ça signifie pour vous</div>
+      </div>
+    </div>
+
+    <!-- BLOCS TECHNIQUES (1, 2, 3) — analyse factuelle -->
+    <div class="sp-tech-block">
+      <div class="sp-tech-label">▸ Bloc 1 — Profil pur (cœur de l'outil)</div>
+      <div class="sp-tech-content">{{{synth_factuelle_coeur_html}}}</div>
+    </div>
+
+    <div class="sp-tech-block">
+      <div class="sp-tech-label">▸ Bloc 2 — Profil élargi (débordements & emprunts)</div>
+      <div class="sp-tech-content">{{{synth_factuelle_elargie_html}}}</div>
+    </div>
+
+    {{#if cluster_label}}
+    <div class="sp-tech-block">
+      <div class="sp-tech-label">▸ Bloc 3 — Cluster observé</div>
+      <div class="sp-tech-content"><strong>{{cluster_label}}</strong> — {{cluster_detail}}</div>
+    </div>
+    {{/if}}
+
+    <!-- BLOC 4 — INTERPRÉTÉ — visuellement DISTINCT (variante colorée différente) -->
+    <div class="sp-interprete-block role-{{pilier_role}}">
+      <div class="sp-interprete-label">
+        <span style="font-size:16px;margin-right:6px;">●</span> Bloc 4 — Ce que ça signifie pour vous
+      </div>
+      <div class="sp-interprete-content">{{{synth_interpretee_html}}}</div>
+    </div>
+
+    {{#if note_doc_ouverte}}
+    <div class="sp-cluster" style="background:#fef3c7;border-left:3px solid #d97706;">
+      <span class="sp-cluster-lbl" style="color:#92400e;">Note doctrinale ouverte</span>
+      {{note_doc_ouverte}}
+    </div>
+    {{/if}}
+  </div>
+
+  <!-- ── 4. DÉTAIL DE TOUS LES CIRCUITS ACTIFS (HAUT + MOYEN + FAIBLE) ── -->
+  <!-- Doctrine #1 : tous les circuits actifs définissent le candidat, on ne filtre pas -->
+
+  {{#if has_circuits_haut}}
+  <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--c, var(--ink));font-weight:700;margin-top:28px;margin-bottom:12px;border-bottom:1px solid var(--ce, var(--rl));padding-bottom:6px;" class="{{role_color_class}}">
+    ▸ Fonctionnalités à HAUT niveau d'usage (cœur ≥ 4) — vos gestes natifs dominants
+  </div>
+  {{#each circuits_haut}}
+  <div class="circuit-mini" style="background:white;border:1px solid var(--rl);border-left:4px solid var(--{{pilier_lower}});border-radius:5px;padding:12px 16px;margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:12px;">
+      <div><strong style="font-family:var(--mono);font-size:12px;color:var(--{{pilier_lower}});">{{code_complet}}</strong> &nbsp;·&nbsp; <span style="font-size:13px;color:var(--ink);font-weight:500;">{{circuit_nom}}</span></div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;">cœur <strong style="color:var(--{{pilier_lower}});">{{circuit_freq_coeur}}</strong>{{#if circuit_deborde}} · total {{circuit_freq_total}}{{/if}}</div>
+    </div>
+    {{#if verbatim_emblematique}}<div style="font-size:12px;color:var(--ink);font-style:italic;background:#fafafa;border-left:2px solid var(--rl);padding:6px 10px;margin:6px 0;line-height:1.55;">« {{verbatim_emblematique}} »<span style="display:block;font-family:var(--mono);font-size:9px;color:var(--muted);font-style:normal;margin-top:2px;">{{verbatim_source}}</span></div>{{/if}}
+    {{#if personnalisation}}<div style="font-size:12px;color:#374151;line-height:1.6;margin-top:4px;">{{personnalisation}}</div>{{/if}}
+  </div>
+  {{/each}}
+  {{/if}}
+
+  {{#if has_circuits_moyen}}
+  <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--c, var(--ink));font-weight:700;margin-top:24px;margin-bottom:12px;border-bottom:1px solid var(--ce, var(--rl));padding-bottom:6px;opacity:.85;" class="{{role_color_class}}">
+    ▸ Fonctionnalités à niveau MOYEN d'usage (cœur 2-3) — vos gestes secondaires
+  </div>
+  {{#each circuits_moyen}}
+  <div class="circuit-mini" style="background:white;border:1px solid var(--rl);border-left:3px solid var(--{{pilier_lower}});border-radius:5px;padding:10px 14px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:12px;">
+      <div><strong style="font-family:var(--mono);font-size:11px;color:var(--{{pilier_lower}});">{{code_complet}}</strong> &nbsp;·&nbsp; <span style="font-size:12px;color:var(--ink);">{{circuit_nom}}</span></div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;">cœur <strong style="color:var(--{{pilier_lower}});">{{circuit_freq_coeur}}</strong>{{#if circuit_deborde}} · total {{circuit_freq_total}}{{/if}}</div>
+    </div>
+    {{#if verbatim_emblematique}}<div style="font-size:11px;color:var(--ink);font-style:italic;color:#4b5563;line-height:1.5;margin-top:3px;">« {{verbatim_emblematique}} » <span style="font-family:var(--mono);font-size:9px;color:var(--muted);font-style:normal;">— {{verbatim_source}}</span></div>{{/if}}
+    {{#if personnalisation}}<div style="font-size:11px;color:#4b5563;line-height:1.55;margin-top:3px;">{{personnalisation}}</div>{{/if}}
+  </div>
+  {{/each}}
+  {{/if}}
+
+  {{#if has_circuits_faible}}
+  <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;margin-top:20px;margin-bottom:10px;border-bottom:1px solid var(--rl);padding-bottom:6px;">
+    ▸ Fonctionnalités à niveau FAIBLE d'usage (cœur 1) — vos gestes ponctuels
+  </div>
+  <div style="background:#fafafa;border:1px solid var(--rl);border-radius:5px;padding:12px 14px;margin-bottom:8px;font-size:11px;line-height:1.7;color:#4b5563;">
+    {{#each circuits_faible}}
+    <span style="display:inline-block;margin-right:14px;margin-bottom:4px;"><strong style="font-family:var(--mono);font-size:10px;color:var(--{{pilier_lower}});">{{code_complet}}</strong> {{circuit_nom}} <span style="color:var(--muted);">(cœur {{circuit_freq_coeur}})</span></span>
+    {{/each}}
+  </div>
+  {{/if}}
+
+</div>
+{{/each}}
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CHAPITRE — BOUCLE COGNITIVE                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre II</div>
+  <div class="chapitre-titre">Votre boucle cognitive en action</div>
+  <div class="chapitre-soustitre">Comment vos outils s'enchaînent sur des situations concrètes</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- §04 BOUCLE COGNITIVE                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="section" id="boucle">
+  <div class="s-label">§ 04</div>
+  <div class="s-title">Boucle cognitive — votre mécanique en mouvement</div>
+
+  <!-- Intro métaphore outils -->
+  <div style="background:#f7f7f5;border-left:3px solid var(--ink);border-radius:0 4px 4px 0;padding:14px 18px;margin-bottom:18px;font-size:13px;color:#374151;line-height:1.7;">
+    <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:6px;">Comment lire ce chapitre</strong>
+    Imaginez votre cerveau comme un atelier avec vos 5 outils sur l'établi. Quand une situation se présente, vous prenez un premier outil, puis un autre, puis encore un autre — c'est l'enchaînement qu'on appelle votre <strong>boucle cognitive</strong>. Voici 3 situations concrètes du test où l'on voit votre enchaînement à l'œuvre.
+  </div>
+
+  <p style="font-size:13px;font-weight:300;color:#374151;line-height:1.7;margin-bottom:8px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl);padding:8px 12px;">
+    <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;font-style:normal;margin-bottom:4px;">Note technique</strong>
+    {{boucle_intro}}
+  </p>
+
+  <!-- Boucle 1 -->
+  <div class="boucle-item">
+    <div class="bi-head">
+      <span class="bi-seq-label">{{boucle_1_label}}</span>
+      <span class="bi-scenario">{{boucle_1_scenario}}</span>
+    </div>
+    <div class="bi-body">
+      <div class="bi-reponse">{{boucle_1_reponse}}</div>
+      <div style="background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;">
+        <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;">Séquence technique</strong>
+        {{boucle_1_sequence}}
+      </div>
+      <div style="background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;">
+        <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;">En clair, ce que ça veut dire</strong>
+        {{boucle_1_labo}}
+      </div>
+    </div>
+  </div>
+
+  <!-- Boucle 2 -->
+  {{#if boucle_2_label}}
+  <div class="boucle-item">
+    <div class="bi-head">
+      <span class="bi-seq-label">{{boucle_2_label}}</span>
+      <span class="bi-scenario">{{boucle_2_scenario}}</span>
+    </div>
+    <div class="bi-body">
+      <div class="bi-reponse">{{boucle_2_reponse}}</div>
+      <div style="background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;">
+        <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;">Séquence technique</strong>
+        {{boucle_2_sequence}}
+      </div>
+      <div style="background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;">
+        <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;">En clair, ce que ça veut dire</strong>
+        {{boucle_2_labo}}
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- Boucle 3 -->
+  {{#if boucle_3_label}}
+  <div class="boucle-item">
+    <div class="bi-head">
+      <span class="bi-seq-label">{{boucle_3_label}}</span>
+      <span class="bi-scenario">{{boucle_3_scenario}}</span>
+    </div>
+    <div class="bi-body">
+      <div class="bi-reponse">{{boucle_3_reponse}}</div>
+      <div style="background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;">
+        <strong style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;">Séquence technique</strong>
+        {{boucle_3_sequence}}
+      </div>
+      <div style="background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;">
+        <strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;">En clair, ce que ça veut dire</strong>
+        {{boucle_3_labo}}
+      </div>
+    </div>
+  </div>
+  {{/if}}
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CHAPITRE — SIGNAL LIMBIQUE + ZONES DE COÛT COGNITIF                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre III</div>
+  <div class="chapitre-titre">Marqueurs affectifs et zones de coût</div>
+  <div class="chapitre-soustitre">Ce que ressent votre cerveau pendant qu'il fonctionne</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- §05 SIGNAL LIMBIQUE                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="section" id="signal">
+  <div class="s-label">§ 05</div>
+  <div class="s-title">Signal limbique — charge affective du moteur</div>
+
+  <p style="font-size:13px;font-weight:300;color:#374151;line-height:1.7;margin-bottom:14px;">{{signal_intro}}</p>
+
+  <div class="limb-section">
+    <div class="limb-header">
+      <span style="font-size:20px;">✦</span>
+      <span style="font-family:var(--serif);font-size:16px;font-weight:700;">Signal limbique {{signal_type}}</span>
+      <span class="limb-badge">{{signal_type}}</span>
+    </div>
+    <div class="limb-items">
+      <!-- Item 1 -->
+      <div class="li">
+        <div class="li-q">{{signal_item1_q}}</div>
+        <div>
+          <div class="li-content">{{signal_item1_corps}}</div>
+          <div class="li-v">{{signal_item1_verbatim}}</div>
+        </div>
+      </div>
+
+      <!-- Item 2 -->
+      {{#if signal_item2_q}}
+      <div class="li">
+        <div class="li-q">{{signal_item2_q}}</div>
+        <div>
+          <div class="li-content">{{signal_item2_corps}}</div>
+          <div class="li-v">{{signal_item2_verbatim}}</div>
+        </div>
+      </div>
+      {{/if}}
+
+      <!-- Item 3 -->
+      {{#if signal_item3_q}}
+      <div class="li">
+        <div class="li-q">{{signal_item3_q}}</div>
+        <div>
+          <div class="li-content">{{signal_item3_corps}}</div>
+          <div class="li-v">{{signal_item3_verbatim}}</div>
+        </div>
+      </div>
+      {{/if}}
+
+      <!-- Item 4 -->
+      {{#if signal_item4_q}}
+      <div class="li">
+        <div class="li-q">{{signal_item4_q}}</div>
+        <div>
+          <div class="li-content">{{signal_item4_corps}}</div>
+          <div class="li-v">{{signal_item4_verbatim}}</div>
+        </div>
+      </div>
+      {{/if}}
+    </div>
+  </div>
+
+  <div style="background:var(--{{piliers_dict.socle.pilier_css}}b);border:1px solid var(--{{piliers_dict.socle.pilier_css}}e);border-radius:5px;padding:12px 16px;margin-top:8px;">
+    <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--{{piliers_dict.socle.pilier_css}});margin-bottom:5px;">Lecture transversale — ce que le signal révèle de votre moteur</div>
+    <div style="font-size:13px;font-weight:300;color:#374151;line-height:1.7;">{{signal_synthese}}</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- §06 ZONES DE COÛT                                                       -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="section" id="cout">
+  <div class="s-label">§ 06</div>
+  <div class="s-title">Zones de coût cognitif détectées dans le test</div>
+
+  <!-- Coût 1 -->
+  <div class="cout-item {{cout1_niveau_css}}">
+    <div class="cout-lbl">Zone de coût {{cout1_niveau}}</div>
+    <div class="cout-titre">{{cout1_titre}}</div>
+    <div class="cout-txt">{{cout1_corps}}</div>
+    {{#if cout1_verbatim}}<div class="cout-v">{{cout1_verbatim}}</div>{{/if}}
+  </div>
+
+  <!-- Coût 2 -->
+  {{#if cout2_titre}}
+  <div class="cout-item {{cout2_niveau_css}}">
+    <div class="cout-lbl">Zone de coût {{cout2_niveau}}</div>
+    <div class="cout-titre">{{cout2_titre}}</div>
+    <div class="cout-txt">{{cout2_corps}}</div>
+    {{#if cout2_verbatim}}<div class="cout-v">{{cout2_verbatim}}</div>{{/if}}
+  </div>
+  {{/if}}
+
+  <!-- Coût 3 -->
+  {{#if cout3_titre}}
+  <div class="cout-item {{cout3_niveau_css}}">
+    <div class="cout-lbl">Zone de coût {{cout3_niveau}}</div>
+    <div class="cout-titre">{{cout3_titre}}</div>
+    <div class="cout-txt">{{cout3_corps}}</div>
+    {{#if cout3_verbatim}}<div class="cout-v">{{cout3_verbatim}}</div>{{/if}}
+  </div>
+  {{/if}}
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CHAPITRE — LA RÉVÉLATION : FILTRE + GLISSEMENTS + SOLEIL + SIGNATURE    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="chapitre-divider chapitre-final">
+  <div class="chapitre-tag">Chapitre IV — La révélation</div>
+  <div class="chapitre-titre">Votre filtre, vos glissements, votre soleil cognitif</div>
+  <div class="chapitre-soustitre">Tout ce que vous avez lu jusqu'ici converge vers ce chapitre final</div>
+</div>
+
+<!-- §02 FILTRE COGNITIF -->
+<div class="section" id="filtre">
+  <div class="s-label">§ 02</div>
+  <div class="s-title">Filtre cognitif</div>
+
+  <div class="filtre-def">
+    <div class="fd-lbl">Qu'est-ce qu'un filtre cognitif ?</div>
+    <div class="fd-txt">Le filtre cognitif est la <strong>pré-programmation de votre outil de cœur</strong>. Reprenons la métaphore : parmi vos 5 outils mentaux, l'un d'eux est votre outil d'élection — celui que votre cerveau prend automatiquement, quelle que soit la situation. Le filtre est la <strong>forme particulière</strong> sous laquelle toute situation vous apparaît d'emblée, avant tout traitement conscient. Ce n'est pas une méthode choisie : c'est l'opération automatique que votre cerveau effectue en premier.</div>
+  </div>
+
+  <!-- Les 5 preuves chiffrées — AVANT la révélation -->
+  <div class="filtre-box">
+    <div class="f-lbl">Les 5 preuves observées dans votre test</div>
+    <div class="f-preuve"><span class="fp-num">1</span><span>{{filtre_preuve_1}}</span></div>
+    <div class="f-preuve"><span class="fp-num">2</span><span>{{filtre_preuve_2}}</span></div>
+    <div class="f-preuve"><span class="fp-num">3</span><span>{{filtre_preuve_3}}</span></div>
+    <div class="f-preuve"><span class="fp-num">4</span><span>{{filtre_preuve_4}}</span></div>
+    <div class="f-preuve"><span class="fp-num">5</span><span>{{filtre_preuve_5}}</span></div>
+  </div>
+
+  <!-- ── RÉVÉLATION DU FILTRE — À LA FIN, APRÈS LES PREUVES ── -->
+  <div style="margin-top:24px;background:var(--ink);color:white;border-radius:6px;padding:22px 26px;text-align:center;">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:rgba(255,255,255,.7);margin-bottom:10px;">Votre filtre cognitif — révélation</div>
+    <div style="font-family:var(--serif);font-size:22px;font-weight:500;line-height:1.4;margin-bottom:14px;">« {{filtre_label}} »</div>
+    <div style="font-size:13px;font-weight:300;line-height:1.7;color:rgba(255,255,255,.92);text-align:left;">{{filtre_lecture_candidat}}</div>
+  </div>
+</div>
+
+
+<!-- §03 GLISSEMENTS -->
+<div class="section" id="glissements">
+  <div class="s-label">§ 03</div>
+  <div class="s-title">Glissements cognitifs — le filtre en action</div>
+
+  <p style="font-size:13px;font-weight:300;color:#374151;line-height:1.7;margin-bottom:16px;">{{glissement_intro}}</p>
+
+  <div class="gliss-transversal">
+    <div class="gt-title">Les patterns de glissement les plus révélateurs</div>
+    <div class="gt-items">
+      <div class="gt-item">
+        <div class="gt-q">{{glissement_1_label_html}}</div>
+        <div class="gt-txt"><strong>{{glissement_1_titre}}</strong> {{glissement_1_corps}}</div>
+      </div>
+      {{#if glissement_2_label}}
+      <div class="gt-item">
+        <div class="gt-q">{{glissement_2_label_html}}</div>
+        <div class="gt-txt"><strong>{{glissement_2_titre}}</strong> {{glissement_2_corps}}</div>
+      </div>
+      {{/if}}
+      {{#if glissement_3_label}}
+      <div class="gt-item">
+        <div class="gt-q">{{glissement_3_label_html}}</div>
+        <div class="gt-txt"><strong>{{glissement_3_titre}}</strong> {{glissement_3_corps}}</div>
+      </div>
+      {{/if}}
+      {{#if glissement_4_label}}
+      <div class="gt-item">
+        <div class="gt-q">{{glissement_4_label_html}}</div>
+        <div class="gt-txt"><strong>{{glissement_4_titre}}</strong> {{glissement_4_corps}}</div>
+      </div>
+      {{/if}}
+    </div>
+  </div>
+
+  <div style="font-size:13px;font-weight:300;color:#374151;line-height:1.75;background:var(--{{piliers_dict.socle.pilier_css}}b);border:1px solid var(--{{piliers_dict.socle.pilier_css}}e);border-radius:5px;padding:13px 17px;">
+    <strong style="display:block;margin-bottom:5px;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--{{piliers_dict.socle.pilier_css}});">Ce que les glissements révèlent de vous</strong>
+    {{glissements_conclusion}}
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- §02bis PROFIL COGNITIF — Le SOLEIL (v5.1)                              -->
+<!-- Placé APRÈS les 5 outils détaillés, AVANT la signature finale          -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="section" id="profil-cognitif">
+  <div class="s-label">§ 02 bis</div>
+  <div class="s-title">Profil cognitif — Le soleil de votre moteur</div>
+
+  <!-- ── 1. INTRO MÉTAPHORE OUTILS PERSONNALISÉE ── -->
+  <div style="background:var(--role-socle-bg);border-left:4px solid var(--role-socle);border-radius:0 6px 6px 0;padding:16px 20px;margin-bottom:20px;">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--role-socle);font-weight:700;margin-bottom:8px;">Comment lire votre soleil</div>
+    <div style="font-size:13px;color:#374151;line-height:1.7;">{{profil_intro}}</div>
+  </div>
+
+  <!-- ── 2. PROFIL GLOBAL — architecture observée (TEXTE TECHNIQUE déplacé de §01) ── -->
+  <div style="background:#f7f7f5;border-left:3px solid var(--ink);border-radius:0 4px 4px 0;padding:12px 16px;margin-bottom:24px;">
+    <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px;">Profil global — architecture observée</div>
+    <div style="font-size:12px;font-weight:300;color:#374151;line-height:1.65;">{{note_profil_global}}</div>
+  </div>
+
+  <!-- ═══ LE SOLEIL — vue en couronne ═══ -->
+  <div style="margin-top:24px;margin-bottom:32px;">
+
+    <!-- ☉ CENTRE — Outil de cœur (SOCLE) -->
+    <div style="background:linear-gradient(180deg, var(--role-socle-bg) 0%, white 100%);border:2.5px solid var(--role-socle);border-radius:10px;padding:22px 26px;margin-bottom:18px;box-shadow:0 4px 14px rgba(220,38,38,.12);">
+      <div style="text-align:center;margin-bottom:14px;">
+        <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--role-socle);font-weight:700;margin-bottom:4px;">☉ Centre du soleil — votre outil de cœur</div>
+        <div style="font-family:var(--serif);font-size:22px;font-weight:600;color:var(--ink);">{{socle_code}} · {{pilier_socle_label}}</div>
+        <div style="font-size:12px;color:var(--role-socle);font-style:italic;margin-top:4px;">★ Pilier socle — celui qui gouverne votre moteur avec son filtre « {{filtre_label}} »</div>
+      </div>
+
+      <!-- Zone HAUTE : fonctionnalités cœur -->
+      <div style="background:white;border:1px solid var(--role-socle-edge);border-radius:6px;padding:14px 16px;margin-bottom:10px;">
+        <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);font-weight:600;margin-bottom:8px;">▲ Zone haute — Fonctionnalités cœur (ce que vous faites nativement)</div>
+        <div>{{{profil_centre_coeur_html}}}</div>
+      </div>
+
+      <!-- Zone BASSE : fonctionnalités instrumentales (sortants) -->
+      <div style="background:white;border:1px solid var(--role-socle-edge);border-radius:6px;padding:14px 16px;">
+        <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);font-weight:600;margin-bottom:8px;">▼ Zone basse — Fonctionnalités sortantes (qui s'invitent dans d'autres outils)</div>
+        <div>{{{profil_centre_sortants_html}}}</div>
+      </div>
+    </div>
+
+    <!-- ☀ LES BRANCHES — amont (str1) → aval (str2) → fonctionnels (fn1, fn2) -->
+    <div style="text-align:center;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin:18px 0 12px;font-weight:600;">☀ Les branches — les outils qui alimentent et prolongent votre centre</div>
+
+    <!-- Branche AMONT (str1) — ce qui alimente le socle (vide si socle autonome) -->
+    <div>{{{profil_branche_tandem_html}}}</div>
+
+    <!-- Branche AVAL (str2) — ce par quoi le socle conclut et agit -->
+    <div>{{{profil_branche_str2_html}}}</div>
+
+    <!-- Branche FONCTIONNEL (fn1) -->
+    <div>{{{profil_branche_fn1_html}}}</div>
+
+    <!-- Branche FONCTIONNEL (fn2) -->
+    <div>{{{profil_branche_fn2_html}}}</div>
+  </div>
+
+  <!-- ── LÉGENDE DU SOLEIL ── -->
+  <div style="background:#f9fafb;border-left:3px solid var(--ink);border-radius:4px;padding:12px 16px;margin-top:20px;font-size:12px;color:#374151;line-height:1.6;">
+    <strong>Lecture du soleil</strong> &nbsp;·&nbsp; Le <strong>centre</strong> est votre outil de cœur ({{socle_code}} {{pilier_socle_label}}), divisé en deux : en haut vos <em>fonctionnalités cœur</em> (ce que vous faites nativement), en bas les <em>sortants</em> (les fonctionnalités de votre cœur qui s'invitent dans d'autres outils). Les <strong>branches</strong> sont les autres outils : ce qui <em>alimente</em> votre centre en amont, ce par quoi il <em>conclut et agit</em> en aval, et les outils fonctionnels mobilisés ponctuellement.
+  </div>
+
+  <!-- ── DÉTAIL DES CIRCUITS CŒUR DU SOCLE EN MOTS ── -->
+  <div style="margin-top:32px;">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--role-socle);font-weight:600;margin-bottom:12px;">
+      ☉ Le détail du centre — vos fonctionnalités cœur en mots
+    </div>
+
+    {{#if profil_bloc1_circuits_haut.length}}
+    <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:14px;margin-bottom:6px;">Niveau HAUT (cœur ≥ 4)</div>
+    {{#each profil_bloc1_circuits_haut}}
+    <div class="circuit" style="border-left:3px solid var(--role-socle);">
+      <div class="c-head">
+        <div class="c-code">{{code}}</div>
+        <div class="c-nom">{{nom_catalogue}}</div>
+        <div class="c-stats">cœur <strong>{{coeur}}</strong>{{#if total_si_different}} · total {{total}}{{/if}}</div>
+      </div>
+      {{#if verbatim_emblematique}}<div class="verbatim">« {{verbatim_emblematique}} »<div class="vb-src">{{verbatim_source}}</div></div>{{/if}}
+      {{#if personnalisation}}<div class="nuance">{{personnalisation}}</div>{{/if}}
+    </div>
+    {{/each}}
+    {{/if}}
+
+    {{#if profil_bloc1_circuits_moyen.length}}
+    <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:18px;margin-bottom:6px;">Niveau MOYEN (cœur 2-3)</div>
+    {{#each profil_bloc1_circuits_moyen}}
+    <div class="circuit" style="border-left:3px solid var(--role-socle);">
+      <div class="c-head">
+        <div class="c-code">{{code}}</div>
+        <div class="c-nom">{{nom_catalogue}}</div>
+        <div class="c-stats">cœur <strong>{{coeur}}</strong>{{#if total_si_different}} · total {{total}}{{/if}}</div>
+      </div>
+      {{#if verbatim_emblematique}}<div class="verbatim">« {{verbatim_emblematique}} »<div class="vb-src">{{verbatim_source}}</div></div>{{/if}}
+      {{#if personnalisation}}<div class="nuance">{{personnalisation}}</div>{{/if}}
+    </div>
+    {{/each}}
+    {{/if}}
+  </div>
+
+  <!-- ── TANDEM SOCLE ↔ P5 ── -->
+  {{#if profil_tandem}}
+  <div style="margin-top:32px;background:var(--role-str1-bg);border:1px solid var(--role-str1);border-radius:6px;padding:18px 20px;">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--role-str1);font-weight:600;margin-bottom:8px;">
+      Tandem {{socle_code}} ↔ P5 — votre signature opérationnelle
+    </div>
+    <div style="font-size:14px;font-weight:500;color:var(--ink);line-height:1.6;margin-bottom:10px;">{{profil_tandem.label}}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+      <strong>{{socle_code}} → P5</strong> : {{profil_tandem.socle_vers_p5_count}} activation{{#if profil_tandem.socle_vers_p5_plural}}s{{/if}}
+      &nbsp;·&nbsp;
+      <strong>P5 → {{socle_code}}</strong> : {{profil_tandem.p5_vers_socle_count}} activation{{#if profil_tandem.p5_vers_socle_plural}}s{{/if}}
+    </div>
+    <div style="font-size:13px;font-weight:300;color:#374151;line-height:1.75;margin-bottom:12px;">{{profil_tandem.asymetrie_lecture}}</div>
+    {{#if profil_tandem.circuit_pont_socle_vers_p5}}
+    <div style="background:white;border:1px solid var(--role-str1-edge);border-radius:4px;padding:10px 14px;font-size:12px;">
+      <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;">Circuit-pont {{socle_code}} → P5</div>
+      <div><strong>{{profil_tandem.circuit_pont_socle_vers_p5.code}}</strong> — {{profil_tandem.circuit_pont_socle_vers_p5.nom_catalogue}}</div>
+      <div style="font-style:italic;color:var(--muted);margin-top:4px;">« {{profil_tandem.circuit_pont_socle_vers_p5.verbatim}} »</div>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  <!-- ── COMMENT VOUS FONCTIONNEZ — Synthèse boucle cognitive ── -->
+  <div style="margin-top:24px;background:var(--ink);color:white;border-radius:6px;padding:22px 26px;">
+    <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.7);margin-bottom:10px;">Comment vous fonctionnez naturellement quand il s'agit de prendre une décision pour agir concrètement à votre façon</div>
+    <div style="font-size:15px;font-weight:300;line-height:1.75;">{{profil_conclusion_cycle}}</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- §07 SIGNATURE FINALE                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<div class="section" id="signature">
+  <div class="s-label">§ 07</div>
+  <div class="s-title">Signature cognitive</div>
+
+  <div class="signature-finale">
+    <div class="sf-stripe"></div>
+    <div class="sf-label">Votre signature cognitive — {{civilite}} {{prenom}} {{nom}}</div>
+    <div class="sf-eq">
+      <div>
+        <div class="sf-lbl">Pilier socle</div>
+        <div class="sf-val"><strong>{{sig_pilier_label}}</strong>filtre : « {{sig_filtre_val}} »</div>
+      </div>
+      <div class="sf-op">+</div>
+      <div>
+        <div class="sf-lbl">Finalité</div>
+        <div class="sf-val">« {{sig_finalite}} »</div>
+      </div>
+      <div class="sf-op">=</div>
+      <div>
+        <div class="sf-lbl">Votre signature</div>
+        <div class="sf-result">{{sig_resultat_ligne1}}<br>{{sig_resultat_ligne2}}</div>
+      </div>
+    </div>
+    <div class="sf-recit">{{{sig_recit_html}}}</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Bilan cognitif {{version_bilan}} · {{civilite}} {{prenom}} {{nom}} · Projet Sib Prod</span>
+  <span>Sources : ETAPE1_T1 + RESPONSES + ETAPE1_T2 + ETAPE1_T2_VENTILATION_PILIERS + ETAPE1_T2_INVENTAIRE_CIRCUITS</span>
+</div>
+
+</body>
+</html>
