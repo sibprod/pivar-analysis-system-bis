@@ -1,0 +1,459 @@
+// services/infrastructure/agentBase.js
+// Service de base mutualisé pour les agents Profil-Cognitif v10.0
+//
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (Règle 4 : modification très critique)
+//
+// Ce service factorise tout ce qui est commun aux agents :
+//   - Chargement du prompt système depuis le disque (avec cache mémoire)
+//   - Préparation du payload utilisateur (JSON sérialisé)
+//   - Injection du lexique (pour les agents qui en ont besoin)
+//   - Appel Claude via claudeService
+//   - Parsing JSON tolérant (4 niveaux de fallback)
+//   - Logging structuré
+//
+// Structure des prompts dans new-prompts/ (Décision n°27) :
+//   new-prompts/
+//     ├── etape1/
+//     │   ├── etape1_t1.txt
+//     │   ├── etape1_t2.txt
+//     │   └── etape1_t3/
+//     │       ├── AGENT_1_ARCHITECTURE.md
+//     │       ├── AGENT_2_CIRCUITS.md
+//     │       └── ...
+//     └── partages/
+//         ├── PROMPT_BLOCS_LEXIQUE.md
+//         └── PROMPT_CERTIFICATEUR.md
+//
+// PHASE D (2026-04-28) — v10 :
+//   - Déplacé dans services/infrastructure/ (Décision n°27)
+//   - PROMPTS_ROOT corrigé : 2 niveaux remontants depuis infrastructure/ (CRITIQUE)
+//   - Logger require chemin mis à jour (../../utils/logger)
+
+'use strict';
+
+const fs              = require('fs');
+const path            = require('path');
+const claudeService   = require('./claudeService');
+const airtableService = require('./airtableService');
+const logger          = require('../../utils/logger');
+
+// ─── Dossier racine des prompts ───────────────────────────────────────────────
+// ⚠️ CRITIQUE v10 : depuis services/infrastructure/, on remonte 2 niveaux pour atteindre la racine
+const PROMPTS_ROOT = path.join(__dirname, '..', '..', 'new-prompts');
+
+// ─── Cache des prompts en mémoire ─────────────────────────────────────────────
+// Les prompts sont chargés une seule fois au démarrage et réutilisés
+// (économise les I/O disque et le hash de cache pour le prompt caching Claude)
+const _promptCache = {};
+
+/**
+ * Charge un prompt depuis le disque (avec cache mémoire)
+ * @param {string} relativePath - Chemin relatif depuis new-prompts/
+ *                                Exemples :
+ *                                  - 'etape1/etape1_t1.txt'
+ *                                  - 'etape1/verificateur1_t1.txt'
+ *                                  - 'etape1/etape1_t4/AGENT_1_ARCHITECTURE.md'
+ *                                  - 'partages/PROMPT_CERTIFICATEUR.md'
+ * @returns {string} Contenu du prompt
+ */
+function loadPrompt(relativePath) {
+  if (_promptCache[relativePath]) {
+    return _promptCache[relativePath];
+  }
+
+  const promptPath = path.join(PROMPTS_ROOT, relativePath);
+
+  try {
+    const content = fs.readFileSync(promptPath, 'utf-8');
+    _promptCache[relativePath] = content;
+    logger.debug('Prompt loaded', { relativePath, length: content.length });
+    return content;
+  } catch (error) {
+    logger.error('Failed to load prompt', { relativePath, error: error.message });
+    throw new Error(`Prompt file not found: new-prompts/${relativePath}`);
+  }
+}
+
+/**
+ * Vérifie si un fichier prompt existe (pour la détection auto des vérificateurs — Décision n°32)
+ * @param {string} relativePath - Chemin relatif depuis new-prompts/
+ * @returns {boolean}
+ */
+function promptExists(relativePath) {
+  const promptPath = path.join(PROMPTS_ROOT, relativePath);
+  return fs.existsSync(promptPath);
+}
+
+// ─── Cache du lexique (chargé une fois par exécution de pipeline) ─────────────
+let _lexiqueCache = null;
+
+/**
+ * Récupère et formate le lexique depuis Airtable
+ * @param {boolean} forceReload - Force le rechargement depuis Airtable
+ * @returns {Promise<{lexique: Array, lexique_formate: string}>}
+ */
+async function loadLexique(forceReload = false) {
+  if (_lexiqueCache && !forceReload) {
+    return _lexiqueCache;
+  }
+
+  logger.debug('Loading REFERENTIEL_LEXIQUE from Airtable');
+  const lexique = await airtableService.getReferentielLexique();
+  const lexique_formate = airtableService.formaterLexiquePourPrompt(lexique);
+
+  _lexiqueCache = { lexique, lexique_formate };
+  return _lexiqueCache;
+}
+
+/**
+ * Réinitialise le cache du lexique (à appeler après chaque candidat
+ * pour avoir la version la plus à jour si le lexique a été modifié)
+ */
+function resetLexiqueCache() {
+  _lexiqueCache = null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APPEL D'UN AGENT — Méthode mutualisée
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Appelle un agent Claude avec gestion complète :
+ *   - Charge le prompt système
+ *   - Sérialise le payload en JSON
+ *   - Optionnellement injecte le lexique
+ *   - Appelle Claude
+ *   - Parse la sortie JSON
+ *   - Log les métriques (tokens, coût)
+ *
+ * @param {Object} params
+ * @param {string} params.serviceName       - Nom du service (clé MAX_TOKENS, ex: 'agent_t1')
+ * @param {string} params.promptPath        - Chemin relatif depuis new-prompts/
+ *                                            (ex: 'etape1/etape1_t1.txt' ou 'etape1/etape1_t4/AGENT_1_ARCHITECTURE.md')
+ * @param {Object} params.payload           - Données spécifiques à l'agent (sera sérialisé en JSON)
+ * @param {boolean} [params.injectLexique]  - Si true, ajoute lexique_reference au payload
+ * @param {string} [params.candidatId]      - Pour logging
+ * @returns {Promise<{result: Object, usage: Object, cost: number, raw: string}>}
+ */
+async function callAgent({
+  serviceName,
+  promptPath,
+  payload,
+  injectLexique = false,
+  candidatId = null
+}) {
+  const startTime = Date.now();
+
+  try {
+    // 1. Charger le prompt
+    const systemPrompt = loadPrompt(promptPath);
+
+    // 2. Préparer le payload
+    let finalPayload = payload;
+    if (injectLexique) {
+      const { lexique_formate } = await loadLexique();
+      finalPayload = { ...payload, lexique_reference: lexique_formate };
+    }
+
+    // 3. Sérialiser le payload en JSON pour le user message
+    const userMessage = JSON.stringify(finalPayload, null, 2);
+
+    logger.info('Calling agent', {
+      serviceName,
+      candidatId,
+      payloadSize: userMessage.length,
+      promptSize:  systemPrompt.length,
+      injectLexique
+    });
+
+    // 4. Appel Claude via claudeService
+    const response = await claudeService.callClaude({
+      systemPrompt,
+      userPrompt: userMessage,
+      service:    serviceName
+    });
+
+    // 5. Parser le JSON de sortie
+    const result = parseAgentOutput(response.content);
+
+    const elapsedMs = Date.now() - startTime;
+
+    logger.info('Agent completed', {
+      serviceName,
+      candidatId,
+      elapsedMs,
+      outputTokens: response.usage.output_tokens,
+      cost_usd:     response.cost.toFixed(4),
+      hasThinking:  !!response.thinking
+    });
+
+    return {
+      result,
+      usage:    response.usage,
+      cost:     response.cost,
+      raw:      response.content,
+      thinking: response.thinking || null,
+      elapsedMs
+    };
+
+  } catch (error) {
+    const elapsedMs = Date.now() - startTime;
+    logger.error('Agent call failed', {
+      serviceName,
+      candidatId,
+      elapsedMs,
+      error: error.message
+    });
+    throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PARSING JSON DE SORTIE — Tolérant aux formats variés (4 niveaux)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function parseAgentOutput(content) {
+  if (!content || typeof content !== 'string') {
+    throw new Error('Empty or invalid content');
+  }
+
+  // Tentative 1 : parsing direct via claudeService.parseClaudeJSON
+  try {
+    return claudeService.parseClaudeJSON(content);
+  } catch (e1) {
+    // Tentative 2 : extraire le JSON d'un bloc ```json ... ``` ou ``` ... ```
+    try {
+      const fenceRegex = /```(?:json)?\s*\n?([\s\S]*?)\n?```/;
+      const match = content.match(fenceRegex);
+      if (match && match[1]) {
+        return JSON.parse(match[1].trim());
+      }
+      throw new Error('No fenced JSON block found');
+    } catch (e2) {
+      // Tentative 3 : extraction structurelle
+      try {
+        return extractFirstJsonStructure(content);
+      } catch (e3) {
+        // Tentative 4 : RÉPARATION des défauts de string courants (guillemets internes non échappés,
+        // sauts de ligne littéraux) puis reparse COMPLET. Couvre le cas d'un JSON cassé par le contenu
+        // rédactionnel (verbatim avec guillemets). PLACÉE AVANT la récupération partielle d'array car elle
+        // récupère la STRUCTURE COMPLÈTE (objet piliers_update inclus), là où la récupération d'array ne
+        // ramènerait que des fragments. Additif : ne s'active que si T1-T3 ont échoué.
+        try {
+          return repairAndParseJson(content);
+        } catch (e4) {
+          // Tentative 5 (DERNIER RECOURS) : récupération des objets d'un array tronqué (fragments partiels).
+          try {
+            return recoverTruncatedJsonArray(content);
+          } catch (e5) {
+            logger.error('Failed to parse agent JSON output', {
+              contentPreview: content.substring(0, 500),
+              contentLength:  content.length,
+              errors: [e1.message, e2.message, e3.message, e4.message, e5.message]
+            });
+            throw new Error(`Cannot parse agent JSON output: ${e1.message}`);
+          }
+        }
+      }
+    }
+  }
+}
+
+// ── Tentative 5 : réparation tolérante d'un JSON cassé par une string mal échappée ──
+// Stratégie : isoler la première structure { ... } ou [ ... ] (équilibrage de profondeur en ignorant
+// proprement les strings), puis réparer DANS les strings les défauts courants :
+//   - guillemets droits internes non échappés  → échappés
+//   - sauts de ligne / tab littéraux            → \n / \t
+// On reparse après réparation. Si ça échoue encore, on tente une extraction objet-par-objet top-level.
+function repairAndParseJson(content) {
+  // 1) Isoler la structure principale (du premier { ou [ jusqu'à son équilibrage, le plus loin possible).
+  let start = -1, open = '', close = '';
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '{' || content[i] === '[') { start = i; open = content[i]; close = open === '{' ? '}' : ']'; break; }
+  }
+  if (start === -1) throw new Error('repair: no JSON structure found');
+
+  // dernière occurrence du caractère de fermeture (la structure la plus englobante possible)
+  const end = content.lastIndexOf(close);
+  if (end <= start) throw new Error('repair: no closing char');
+  let raw = content.substring(start, end + 1);
+
+  // 2) Réparer les strings : on parcourt char par char, on suit l'état "dans une string" ;
+  //    à l'intérieur d'une string, un " non suivi d'un séparateur JSON ( : , } ] ) probable est un guillemet
+  //    interne à échapper ; un \n ou \t littéral est converti.
+  const repaired = repairJsonStrings(raw);
+
+  try {
+    return JSON.parse(repaired);
+  } catch (e) {
+    // 3) Dernier recours : récupérer les objets top-level un par un (objet OU array), version tolérante.
+    return recoverTopLevelObjects(repaired);
+  }
+}
+
+// Échappe les guillemets internes non structurels et neutralise les sauts de ligne littéraux dans les strings.
+function repairJsonStrings(s) {
+  let out = '';
+  let inString = false;
+  let escapeNext = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escapeNext) { out += c; escapeNext = false; continue; }
+    if (c === '\\') { out += c; escapeNext = true; continue; }
+    if (c === '"') {
+      if (!inString) { inString = true; out += c; continue; }
+      // on est dans une string et on rencontre un " : est-ce la fin de la string, ou un guillemet interne ?
+      // Regarder le prochain caractère non-espace : si c'est un séparateur JSON, c'est une vraie fin.
+      let j = i + 1;
+      while (j < s.length && (s[j] === ' ' || s[j] === '\n' || s[j] === '\r' || s[j] === '\t')) j++;
+      const next = s[j];
+      if (next === ':' || next === ',' || next === '}' || next === ']' || next === undefined) {
+        inString = false; out += c; continue;     // vraie fin de string
+      }
+      out += '\\"'; continue;                       // guillemet interne → échappé
+    }
+    if (inString && (c === '\n' || c === '\r')) { out += '\\n'; continue; }
+    if (inString && c === '\t') { out += '\\t'; continue; }
+    out += c;
+  }
+  return out;
+}
+
+// Récupère, à la racine, tous les objets {…} équilibrés (utile si la structure globale reste cassée).
+// Renvoie un objet fusionné si plusieurs objets nommés, sinon le premier objet/array exploitable.
+function recoverTopLevelObjects(s) {
+  const objects = [];
+  let depth = 0, inString = false, escapeNext = false, objStart = -1;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escapeNext) { escapeNext = false; continue; }
+    if (c === '\\' && inString) { escapeNext = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === '{') { if (depth === 0) objStart = i; depth++; }
+    else if (c === '}') {
+      depth--;
+      if (depth === 0 && objStart !== -1) {
+        const piece = s.substring(objStart, i + 1);
+        try { objects.push(JSON.parse(piece)); } catch (_) { /* ignore ce fragment */ }
+        objStart = -1;
+      }
+    }
+  }
+  if (objects.length === 0) throw new Error('repair: no recoverable top-level object');
+  if (objects.length === 1) return objects[0];
+  // plusieurs objets : fusion superficielle (le plus complet d'abord)
+  return Object.assign({}, ...objects);
+}
+
+function extractFirstJsonStructure(content) {
+  let startIdx = -1;
+  let openChar = '';
+  let closeChar = '';
+
+  for (let i = 0; i < content.length; i++) {
+    const c = content[i];
+    if (c === '[' || c === '{') {
+      startIdx = i;
+      openChar = c;
+      closeChar = (c === '[') ? ']' : '}';
+      break;
+    }
+  }
+
+  if (startIdx === -1) {
+    throw new Error('No JSON structure ([ or {) found in content');
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = startIdx; i < content.length; i++) {
+    const c = content[i];
+
+    if (escapeNext) { escapeNext = false; continue; }
+    if (c === '\\' && inString) { escapeNext = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+
+    if (c === openChar)  depth++;
+    if (c === closeChar) {
+      depth--;
+      if (depth === 0) {
+        const extracted = content.substring(startIdx, i + 1);
+        return JSON.parse(extracted);
+      }
+    }
+  }
+
+  throw new Error(`Unbalanced ${openChar}${closeChar} in JSON structure`);
+}
+
+function recoverTruncatedJsonArray(content) {
+  const startIdx = content.indexOf('[');
+  if (startIdx === -1) {
+    throw new Error('No array start [ found for recovery');
+  }
+
+  const recovered = [];
+  let i = startIdx + 1;
+  let inString = false;
+  let escapeNext = false;
+  let depth = 0;
+  let objectStart = -1;
+
+  while (i < content.length) {
+    const c = content[i];
+
+    if (escapeNext) { escapeNext = false; i++; continue; }
+    if (c === '\\' && inString) { escapeNext = true; i++; continue; }
+    if (c === '"') { inString = !inString; i++; continue; }
+    if (inString) { i++; continue; }
+
+    if (c === '{') {
+      if (depth === 0) objectStart = i;
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0 && objectStart !== -1) {
+        const objStr = content.substring(objectStart, i + 1);
+        try {
+          recovered.push(JSON.parse(objStr));
+        } catch (parseErr) {
+          logger.warn('Skipping malformed object during recovery', {
+            preview: objStr.substring(0, 100)
+          });
+        }
+        objectStart = -1;
+      }
+    } else if (c === ']' && depth === 0) {
+      break;
+    }
+    i++;
+  }
+
+  if (recovered.length === 0) {
+    throw new Error('Recovery yielded no objects');
+  }
+
+  logger.warn('Recovered partial JSON from truncated output', {
+    objectsRecovered: recovered.length
+  });
+
+  return recovered;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+module.exports = {
+  callAgent,
+  loadPrompt,
+  promptExists,         // ⭐ v10 — détection auto des vérificateurs (Décision n°32)
+  loadLexique,
+  resetLexiqueCache,
+  parseAgentOutput,
+  PROMPTS_ROOT
+};
