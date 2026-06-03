@@ -234,16 +234,17 @@ function parseAgentOutput(content) {
       try {
         return extractFirstJsonStructure(content);
       } catch (e3) {
-        // Tentative 4 : récupération array tronqué
+        // Tentative 4 : RÉPARATION des défauts de string courants (guillemets internes non échappés,
+        // sauts de ligne littéraux) puis reparse COMPLET. Couvre le cas d'un JSON cassé par le contenu
+        // rédactionnel (verbatim avec guillemets). PLACÉE AVANT la récupération partielle d'array car elle
+        // récupère la STRUCTURE COMPLÈTE (objet piliers_update inclus), là où la récupération d'array ne
+        // ramènerait que des fragments. Additif : ne s'active que si T1-T3 ont échoué.
         try {
-          return recoverTruncatedJsonArray(content);
+          return repairAndParseJson(content);
         } catch (e4) {
-          // Tentative 5 : réparation des défauts de string courants (guillemets internes non échappés,
-          // sauts de ligne littéraux dans une valeur) puis reparse. Couvre le cas d'un JSON syntaxiquement
-          // cassé par le contenu rédactionnel (ex : un verbatim avec des guillemets). Additif : ne s'active
-          // que si tout le reste a échoué → aucune régression sur les réponses déjà valides.
+          // Tentative 5 (DERNIER RECOURS) : récupération des objets d'un array tronqué (fragments partiels).
           try {
-            return repairAndParseJson(content);
+            return recoverTruncatedJsonArray(content);
           } catch (e5) {
             logger.error('Failed to parse agent JSON output', {
               contentPreview: content.substring(0, 500),
