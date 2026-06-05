@@ -1,4 +1,4 @@
-// services/agents/etape2/agentT5A.js
+// services/etape2/agentT5A.js
 // Agent T5A — Codage des 4 excellences cognitives, réponse par réponse (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -15,9 +15,9 @@
 
 'use strict';
 
-const agentBase       = require('../../infrastructure/agentBase');
-const airtableService = require('../../infrastructure/airtableService');
-const logger          = require('../../../utils/logger');
+const agentBase       = require('../infrastructure/agentBase');
+const airtableService = require('../infrastructure/airtableService');
+const logger          = require('../../utils/logger');
 
 const PROMPT_PATH  = 'etape2/AGENT_T5A_prompt.md';
 const SERVICE_NAME = 'agent_t5a';
