@@ -904,4 +904,81 @@ router.get('/visualiser/t4/:candidat_id', async (req, res) => {
 });
 */
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ v11.7 (05/06/2026) — BILAN DYNAMIQUE DES 4 EXCELLENCES
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Deux routes complémentaires :
+//   - GET /api/bilan/:candidat_id            → JSON consolidé (T5B + T5C)
+//   - GET /visualiser/bilan/:candidat_id     → sert la page HTML autonome
+//     services/visualisation/bilan_4excellences.html (qui fetch l'API ci-dessus).
+//
+// La page lit les verbatims-preuves bruts depuis T5B (champ verbatims_preuves) :
+// aucune reformulation, aucune sélection côté serveur.
+
+function _isValidCandidatId(id) {
+  return id && id.length >= 5 && id.length <= 100;
+}
+
+router.get('/api/bilan/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  const startTime = Date.now();
+
+  if (!_isValidCandidatId(candidat_id)) {
+    return res.status(400).json({ error: 'Identifiant candidat invalide', candidat_id });
+  }
+
+  logger.info('Bilan 4 excellences — API JSON', { candidat_id });
+  try {
+    const payload = await airtableService.getBilanExcellences(candidat_id);
+    if (!payload) {
+      return res.status(404).json({
+        error: 'Aucun bilan trouvé pour ce candidat (étape 2/3 non exécutée ?)',
+        candidat_id
+      });
+    }
+    logger.info('Bilan 4 excellences — JSON renvoyé', {
+      candidat_id,
+      nb_excellences: (payload.excellences || []).length,
+      elapsedMs: Date.now() - startTime
+    });
+    return res.json(payload);
+  } catch (error) {
+    logger.error('Bilan 4 excellences — erreur assemblage', { candidat_id, error: error.message });
+    return res.status(500).json({ error: error.message, candidat_id });
+  }
+});
+
+router.get('/visualiser/bilan/:candidat_id', (req, res) => {
+  const candidat_id = req.params.candidat_id;
+
+  if (!_isValidCandidatId(candidat_id)) {
+    return res.status(400).type('html').send(
+      '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+      '<h1>Identifiant candidat invalide</h1>' +
+      '<p>Format attendu : <code>pivar_1762094675215_77bg53iz0</code></p>' +
+      '</body></html>'
+    );
+  }
+
+  logger.info('Bilan 4 excellences — mode HTML', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'etape2_bilan4excellences.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err) {
+      logger.error('Bilan 4 excellences — erreur sendFile', {
+        candidat_id, error: err.message, path: htmlPath
+      });
+      if (!res.headersSent) {
+        res.status(500).type('html').send(
+          '<html><body style="font-family:sans-serif;padding:40px;text-align:center;">' +
+          '<h1>Erreur de chargement du bilan</h1>' +
+          '<p>Erreur : ' + (err.message || 'inconnue') + '</p>' +
+          '<p style="color:#888;font-size:11px;">Chemin testé : ' + htmlPath + '</p>' +
+          '</body></html>'
+        );
+      }
+    }
+  });
+});
+
 module.exports = router;
