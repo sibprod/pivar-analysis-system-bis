@@ -1,4 +1,4 @@
-// services/agents/etape2/agentT5BC.js
+// services/etape2/agentT5BC.js
 // Agent T5BC — Synthèse des excellences + verdicts des deux faces (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -17,9 +17,9 @@
 
 'use strict';
 
-const agentBase       = require('../../infrastructure/agentBase');
-const airtableService = require('../../infrastructure/airtableService');
-const logger          = require('../../../utils/logger');
+const agentBase       = require('../infrastructure/agentBase');
+const airtableService = require('../infrastructure/airtableService');
+const logger          = require('../../utils/logger');
 
 const PROMPT_PATH  = 'etape2/AGENT_T5BC_prompt.md';
 const SERVICE_NAME = 'agent_t5bc';
