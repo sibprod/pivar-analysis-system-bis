@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Les 4 excellences cognitives</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  /* une couleur par excellence */
+  --ant:#3a6ea5; --ant-bg:#dde9f5; --ant-tx:#1d4e7e;
+  --dec:#7a3b2e; --dec-bg:#f3ddd6; --dec-tx:#5e2c22;
+  --met:#4a7c6f; --met-bg:#d8ece6; --met-tx:#2f574d;
+  --vue:#9a7a2e; --vue-bg:#f1e6c8; --vue-tx:#6f581c;
+  /* niveaux */
+  --e:#2f7d4f; --e-bg:#dff0e4;
+  --m:#9a7a16; --m-bg:#fbf0d8;
+  --f:#cf7a33; --f-bg:#f6e2d5;
+  --n:#6b6557; --n-bg:#eee9df;
+  --na:#6b6557;--na-bg:#e8e2d6;
+  --text:#2C2C2A;--text2:#5F5E5A;--text3:#888780;
+  --bg:#f5f3ee;--white:#fff;--border:#dddad2;--accent:#7a3b2e;
+}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+
+/* ── LOADING / ERROR ── */
+#loading,#error{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:12px;font-size:14px;color:var(--text2);}
+#loading .spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--text2);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#error{color:#791F1F;}
+#error .err-title{font-size:16px;font-weight:500;}
+#error .err-msg{font-size:12px;color:var(--text3);}
+
+/* ── HEADER ── */
+header{background:var(--white);border-bottom:1px solid var(--border);padding:.9rem 1.5rem;position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;}
+header h1{font-family:Georgia,serif;font-size:17px;font-weight:normal;}
+.badge{font-size:10px;background:var(--met-bg);color:var(--met-tx);border-radius:4px;padding:2px 8px;font-weight:600;}
+.meta{font-size:11px;color:var(--text3);}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;}
+.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);}
+.ld{width:10px;height:10px;border-radius:3px;}
+
+/* ── AGRÉGAT (T5B) ── */
+.agg-wrap{padding:1rem 1.5rem .25rem;}
+.agg-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.6rem;}
+.agg{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;}
+.acard{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:13px 14px;border-top:3px solid var(--border);}
+.acard.ant{border-top-color:var(--ant);} .acard.dec{border-top-color:var(--dec);} .acard.met{border-top-color:var(--met);} .acard.vue{border-top-color:var(--vue);}
+.atag{display:inline-block;font-weight:700;font-size:11px;color:#fff;padding:3px 9px;border-radius:4px;}
+.atag.ant{background:var(--ant);} .atag.dec{background:var(--dec);} .atag.met{background:var(--met);} .atag.vue{background:var(--vue);}
+.areg{font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-top:10px;}
+.aval{font-size:13px;margin-top:2px;font-weight:600;}
+.acounts{font-size:10.5px;color:var(--text2);margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;}
+.adens{margin-top:9px;font-size:11px;color:var(--text2);border-top:1px dashed var(--border);padding-top:8px;line-height:1.5;}
+.asynth{font-size:11.5px;color:var(--text2);margin-top:8px;line-height:1.5;}
+
+/* ── FILTERS ── */
+.filters{background:var(--white);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:.4rem 1.5rem;display:flex;gap:5px;flex-wrap:wrap;align-items:center;position:sticky;top:52px;z-index:190;margin-top:1rem;}
+.filters label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px;}
+.sep{color:var(--border);margin:0 4px;}
+.fb{border:1px solid var(--border);background:transparent;border-radius:4px;padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--text2);font-family:inherit;transition:all .1s;}
+.fb:hover{border-color:var(--text2);color:var(--text);}
+.fb.on{background:var(--text);color:var(--white);border-color:var(--text);}
+
+/* ── TABLE ── */
+.tbl-wrap{padding:1rem 1.5rem 2rem;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+thead tr{background:#eceae4;}
+th{text-align:left;padding:6px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:8px;border-bottom:1px solid #edeae4;vertical-align:top;line-height:1.45;}
+tr:last-child td{border-bottom:none;}
+tr.hidden{display:none;}
+tr:not(.hidden):hover td{background:#faf8f3;}
+.qid{font-size:12px;font-weight:700;}
+.sc-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:1px 5px;display:inline-block;white-space:nowrap;}
+.resp{font-size:12px;color:var(--text);line-height:1.5;min-width:230px;}
+
+/* cellule excellence */
+.exc{min-width:200px;}
+.exc-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.lvl{font-size:9px;font-weight:700;padding:2px 7px;border-radius:11px;white-space:nowrap;}
+.lvl.e{background:var(--e-bg);color:var(--e);} .lvl.m{background:var(--m-bg);color:var(--m);}
+.lvl.f{background:var(--f-bg);color:var(--f);} .lvl.n{background:var(--n-bg);color:var(--n);} .lvl.na{background:var(--na-bg);color:var(--na);}
+.exc .vb{font-size:11px;font-style:italic;color:var(--text);margin-bottom:3px;line-height:1.4;}
+.exc .mf{font-size:10.5px;color:var(--text2);line-height:1.4;}
+.exc .cx{font-size:10px;color:var(--text3);line-height:1.4;margin-top:3px;}
+.exc small.lab{display:block;font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);font-weight:700;font-style:normal;margin-bottom:1px;}
+details summary{cursor:pointer;font-size:9.5px;color:var(--met-tx);margin-top:3px;list-style:none;}
+details summary::before{content:'▶ ';font-size:8px;}
+details[open] summary::before{content:'▼ ';}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <span>Chargement de l'analyse…</span>
+</div>
+
+<!-- ERROR -->
+<div id="error" style="display:none">
+  <div class="err-title">Impossible de charger l'analyse</div>
+  <div class="err-msg" id="err-detail"></div>
+</div>
+
+<!-- MAIN -->
+<div id="app" style="display:none">
+
+<header>
+  <h1 id="hdr-title">Les 4 excellences cognitives</h1>
+  <span class="badge">Étape 2</span>
+  <span class="meta" id="hdr-meta"></span>
+  <div class="legend">
+    <div class="leg"><div class="ld" style="background:var(--ant)"></div>Anticipation</div>
+    <div class="leg"><div class="ld" style="background:var(--dec)"></div>Décentration</div>
+    <div class="leg"><div class="ld" style="background:var(--met)"></div>Méta-cognition</div>
+    <div class="leg"><div class="ld" style="background:var(--vue)"></div>Vue systémique</div>
+  </div>
+</header>
+
+<!-- AGRÉGAT par capacité (table T5B si disponible) -->
+<div class="agg-wrap" id="agg-wrap" style="display:none">
+  <div class="agg-title">Vue d'ensemble par capacité</div>
+  <div class="agg" id="agg"></div>
+</div>
+
+<!-- FILTRES -->
+<div class="filters">
+  <label>Scénario</label>
+  <button class="fb on" onclick="filt(this,'sc','all')">Tous</button>
+  <button class="fb" onclick="filt(this,'sc','SOMMEIL')">Sommeil</button>
+  <button class="fb" onclick="filt(this,'sc','WEEKEND')">Week-end</button>
+  <button class="fb" onclick="filt(this,'sc','ANIMAL_1')">Animal 1</button>
+  <button class="fb" onclick="filt(this,'sc','ANIMAL_2')">Animal 2</button>
+  <button class="fb" onclick="filt(this,'sc','PANNE')">Panne</button>
+</div>
+
+<!-- TABLE 25 réponses -->
+<div class="tbl-wrap">
+<table>
+<thead><tr>
+  <th>Q</th>
+  <th>Scénario</th>
+  <th>Réponse</th>
+  <th style="min-width:200px"><span style="color:var(--ant)">●</span> Anticipation spontanée</th>
+  <th style="min-width:200px"><span style="color:var(--dec)">●</span> Décentration cognitive</th>
+  <th style="min-width:200px"><span style="color:var(--met)">●</span> Méta-cognition</th>
+  <th style="min-width:200px"><span style="color:var(--vue)">●</span> Vue systémique</th>
+</tr></thead>
+<tbody id="TB"></tbody>
+</table>
+</div>
+
+</div><!-- #app -->
+
+<script>
+/* ===================================================================
+   CONFIG — la seule chose à ajuster si l'URL d'API change un jour
+   =================================================================== */
+const API_BASE = "https://pivar-analysis-system-bis.onrender.com";
+const API_ROUTE = "/visualiser/etape2_1responsepour4excellences/"; // + candidate_ID
+
+/* libellés + classes d'affichage */
+const scL={SOMMEIL:'Sommeil',WEEKEND:'Week-end',ANIMAL_1:'Animal 1',ANIMAL_2:'Animal 2',ANIMAL:'Animal',PANNE:'Panne'};
+const EXC=[
+  {key:'anticipation', tag:'ant', nom:'Anticipation spontanée'},
+  {key:'decentration', tag:'dec', nom:'Décentration cognitive'},
+  {key:'metacognition',tag:'met', nom:'Méta-cognition'},
+  {key:'vue_systemique',tag:'vue',nom:'Vue systémique'}
+];
+function esc(s){return(s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* un champ Airtable peut arriver en texte "NULLE" ou en objet {name:"NULLE"} : on normalise */
+function val(x){
+  if(x==null) return '';
+  if(typeof x==='object') return x.name||x.value||x.text||'';
+  return String(x);
+}
+/* classe CSS d'un niveau */
+function lvlClass(niv){
+  const n=(niv||'').toUpperCase();
+  if(n.startsWith('ÉLEV')||n.startsWith('ELEV')) return 'e';
+  if(n.startsWith('MOY')) return 'm';
+  if(n.startsWith('FAIB')) return 'f';
+  if(n.startsWith('NON')) return 'na';
+  return 'n';
+}
+function lvlLabel(niv){
+  const n=(niv||'').toUpperCase();
+  if(n.startsWith('NON')) return 'non évalué';
+  return n||'—';
+}
+
+/* tolérance sur les noms de champs : on cherche la 1re clé qui existe */
+function pick(row, names){
+  for(const k of names){ if(row[k]!==undefined && row[k]!==null && row[k]!=='') return row[k]; }
+  return '';
+}
+/* lit les 4 sous-champs d'une excellence en tolérant plusieurs nommages */
+function excData(row, key){
+  return {
+    niveau:        val(pick(row,[key+'_niveau', key])),
+    verbatim:      val(pick(row,[key+'_verbatim'])),
+    manifestation: val(pick(row,[key+'_manifestation'])),
+    contexte:      val(pick(row,[key+'_contexte_activation', key+'_contexte']))
+  };
+}
+
+/* ── candidate_ID depuis l'URL ── */
+function getCandidateID(){
+  const parts=window.location.pathname.split('/').filter(Boolean);
+  return parts[parts.length-1]||null;
+}
+
+/* ── AGRÉGAT (optionnel : si le service renvoie data.agregat) ── */
+function buildAgg(agg){
+  if(!agg || !agg.length){ return; }
+  const wrap=document.getElementById('agg-wrap');
+  const box=document.getElementById('agg');
+  const byKey={};
+  agg.forEach(a=>{ byKey[val(a.excellence).toLowerCase()] = a; });
+  let html='';
+  EXC.forEach(e=>{
+    // on tente de retrouver la ligne d'agrégat par mot-clé
+    let a=null;
+    for(const k in byKey){ if(k.includes(e.tag)||k.includes(e.key.slice(0,5))) { a=byKey[k]; break; } }
+    if(!a) return;
+    html+=`<div class="acard ${e.tag}">
+      <span class="atag ${e.tag}">${esc(e.nom)}</span>
+      <div class="areg">régime</div>
+      <div class="aval">${esc(val(a.pattern)||val(a.niveau_global)||'—')}</div>
+      <div class="acounts">
+        <span>É ${esc(val(a.nb_eleve)||0)}</span><span>M ${esc(val(a.nb_moyen)||0)}</span>
+        <span>F ${esc(val(a.nb_faible)||0)}</span><span>N ${esc(val(a.nb_nulle)||0)}</span>
+      </div>
+      <div class="adens">densité : <b>${esc(val(a.densite_global)||'—')}</b><br>
+        som ${esc(val(a.densite_sommeil)||'–')} · wee ${esc(val(a.densite_weekend)||'–')} · ani ${esc(val(a.densite_animal)||'–')} · pan ${esc(val(a.densite_panne)||'–')}</div>
+      ${val(a.synthese)?`<div class="asynth">${esc(val(a.synthese))}</div>`:''}
+    </div>`;
+  });
+  if(html){ box.innerHTML=html; wrap.style.display='block'; }
+}
+
+/* ── une cellule excellence ── */
+function excCell(d){
+  const cls=lvlClass(d.niveau);
+  let h=`<div class="exc-top"><span class="lvl ${cls}">${esc(lvlLabel(d.niveau))}</span></div>`;
+  if(d.verbatim)      h+=`<div class="vb">« ${esc(d.verbatim)} »</div>`;
+  if(d.manifestation) h+=`<div class="mf"><small class="lab">Manifestation</small>${esc(d.manifestation)}</div>`;
+  if(d.contexte)      h+=`<details><summary>contexte</summary><div class="cx">${esc(d.contexte)}</div></details>`;
+  return `<td class="exc">${h}</td>`;
+}
+
+/* ── TABLE des 25 réponses ── */
+function buildTable(rows){
+  const tb=document.getElementById('TB');
+  tb.innerHTML='';
+  rows.forEach(r=>{
+    const scen=val(pick(r,['scenario_nom','scenario']));
+    const qid=val(pick(r,['id_question','numero_global']));
+    const resp=val(pick(r,['response_text','reponse']));
+    const tr=document.createElement('tr');
+    tr.dataset.sc=scen||'';
+    let cells=EXC.map(e=>excCell(excData(r,e.key))).join('');
+    tr.innerHTML=`
+      <td><span class="qid">${esc(qid)}</span></td>
+      <td><span class="sc-tag">${esc(scL[scen]||scen)}</span></td>
+      <td class="resp">${esc(resp)}</td>
+      ${cells}`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ── FILTRE scénario ── */
+const S={sc:'all'};
+function filt(btn,dim,v){
+  S[dim]=v;
+  document.querySelectorAll('.fb').forEach(b=>{
+    const m=(b.getAttribute('onclick')||'').match(/filt\(this,'(\w+)','(\w+)'\)/);
+    if(m&&m[1]===dim) b.classList.toggle('on',m[2]===v);
+  });
+  document.querySelectorAll('#TB tr').forEach(tr=>{
+    const show=(S.sc==='all'||tr.dataset.sc===S.sc);
+    tr.classList.toggle('hidden',!show);
+  });
+}
+
+/* ── tri par numero_global puis par ordre des scénarios ── */
+function sortRows(rows){
+  return rows.slice().sort((a,b)=>{
+    const na=parseInt(val(pick(a,['numero_global'])))||0;
+    const nb=parseInt(val(pick(b,['numero_global'])))||0;
+    return na-nb;
+  });
+}
+
+/* ── INIT ── */
+async function init(){
+  const id=getCandidateID();
+  if(!id){ showError("Aucun identifiant candidat dans l'URL.","Format attendu : "+API_ROUTE+"{candidate_ID}"); return; }
+  try{
+    const resp=await fetch(API_BASE+API_ROUTE+id);
+    if(!resp.ok) throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
+    const data=await resp.json();
+
+    /* le service peut renvoyer un tableau, ou {rows:[...]}, ou {records:[...]}, ou {reponses:[...], agregat:[...]} */
+    let rows = Array.isArray(data) ? data : (data.rows||data.records||data.reponses||data.detail||[]);
+    const agg = (data && (data.agregat||data.aggregate||data.t5b)) || null;
+    if(!rows.length) throw new Error("Aucune réponse trouvée pour ce candidat.");
+
+    rows=sortRows(rows);
+
+    const prenom=val(pick(rows[0],['Prenom','prenom']))||id;
+    const cap=prenom.charAt(0).toUpperCase()+prenom.slice(1);
+    document.title=`Les 4 excellences · ${cap}`;
+    document.getElementById('hdr-title').textContent=`Les 4 excellences · ${cap}`;
+    document.getElementById('hdr-meta').textContent=`${rows.length} réponses · 4 capacités`;
+
+    buildAgg(agg);
+    buildTable(rows);
+
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+  }catch(err){
+    showError("Erreur lors du chargement", err.message);
+  }
+}
+function showError(title,msg){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('err-detail').textContent=msg||'';
+  document.getElementById('error').style.display='flex';
+  document.querySelector('#error .err-title').textContent=title;
+}
+init();
+</script>
+</body>
+</html>
