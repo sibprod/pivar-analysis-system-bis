@@ -76,9 +76,14 @@ const STATUTS_DETECTES_PAR_POLLING = [
   // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
   'REPRENDRE_AGENT3',
   // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
-  'REPRENDRE_AGENT4'
+  'REPRENDRE_AGENT4',
+  // ⭐ v11.7 — Étape 2 : les 4 excellences (bilan)
+  'ETAPE2_1REPONSE4DIMENSIONS',
+  'ETAPE2_2EXCELLENCE',
+  'REPRENDRE_EXCELLENCES'
   // Statuts futurs à ajouter ici quand le vérificateur T4 sera migré :
   // 'REPRENDRE_VERIFICATEUR4'
+];
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
