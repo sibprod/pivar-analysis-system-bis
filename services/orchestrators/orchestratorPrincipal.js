@@ -63,6 +63,7 @@
 const airtableService            = require('../infrastructure/airtableService');
 const orchestratorEtape1         = require('./orchestratorEtape1');
 const orchestratorEtape2         = require('./orchestratorEtape2');  // ⭐ v10.8 (refonte étape 2 en 2 phases)
+const orchestratorExcellences    = require('./etape2/orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
 const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
 const logger                     = require('../../utils/logger');
 
@@ -254,6 +255,22 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
   if (STATUTS_ETAPE_2.includes(statut_actuel)) {
     logger.info('Aiguillage → Étape 2 (v10.9 — 3 phases)', { candidat_id, statut: statut_actuel });
     return await orchestratorEtape2.run({ candidat_id, visiteur });
+  }
+
+  // ─── ⭐ v11.7 — Aiguillage Étape 2 : LES 4 EXCELLENCES (bilan) ───────────
+  // Déclenché après l'Agent 3 (statut ETAPE3_TERMINEE) ou sur l'un des jalons
+  // de reprise de la phase excellences. orchestratorExcellences détecte lui-même
+  // s'il doit jouer T5A+T5BC ou reprendre à T5BC, à partir de visiteur.statut_analyse_pivar.
+  const STATUTS_EXCELLENCES = [
+    'ETAPE3_TERMINEE',              // sortie de l'Agent 3 → on enchaîne sur les excellences
+    'ETAPE2_1REPONSE4DIMENSIONS',  // reprise : T5A déjà fait → rejouer T5BC
+    'ETAPE2_2EXCELLENCE',          // reprise : re-agrégation T5BC
+    'REPRENDRE_EXCELLENCES'        // relance manuelle complète
+  ];
+
+  if (STATUTS_EXCELLENCES.includes(statut_actuel)) {
+    logger.info('Aiguillage → Étape 2 Excellences (bilan 4 dimensions)', { candidat_id, statut: statut_actuel });
+    return await orchestratorExcellences.run({ candidat_id, visiteur });
   }
 
   // Statut "REPRENDRE_VERIFICATEUR4" → Étape 4 (à coder en Phase ultérieure)
