@@ -84,7 +84,6 @@ const STATUTS_DETECTES_PAR_POLLING = [
   // Statuts futurs à ajouter ici quand le vérificateur T4 sera migré :
   // 'REPRENDRE_VERIFICATEUR4'
 ];
-];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // QUEUE — Ajout / récupération
