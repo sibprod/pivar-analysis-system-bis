@@ -192,6 +192,8 @@ Pour chaque excellence : **B1 (ÉLEVÉ)** — ce que fait l'humain à plein rég
 
 ## FORMATS DE SORTIE
 
+> 🔒 **RÈGLE DE SORTIE ABSOLUE.** Ta réponse est **UNIQUEMENT un objet JSON** de la forme `{ "T5B": [...], "T5C": {...}, "PORTRAIT": {...} }`, et **rien d'autre**. Tu raisonnes en interne (thinking), mais le **texte de ta réponse ne contient QUE le JSON** : il commence par `{` et finit par `}`. **Interdit** : titres Markdown, commentaires, phrases avant/après, balises de code. Si tu écris autre chose que le JSON, le système ne peut pas lire ta réponse et tout échoue.
+
 ### T5B (4 objets — 1 par excellence)
 ```json
 { "candidat_id":"", "excellence":"ANT", "niveau_global":"15/25 (60%)", "pattern":"RÉGULIÈRE ET ANCRÉE",
