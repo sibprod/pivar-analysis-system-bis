@@ -69,6 +69,14 @@ module.exports = {
     agent_t4_couts:          64000,
     agent_t4_transverses:    16000,  // pas de thinking, OK
 
+    // ── Étape 2 — les 4 excellences cognitives (v11.7, 05/06/2026) ────────
+    // agent_t5a : code les 4 excellences réponse par réponse (25 lignes/candidat),
+    //   thinking ON (distinction fine des niveaux, justification comparative).
+    // agent_t5bc : synthèse agrégée T5B (4 lignes + verbatims_preuves) + T5C (profil
+    //   + verdicts des deux faces), thinking ON (raisonnement régime/verdict).
+    agent_t5a:               64000,
+    agent_t5bc:              64000,
+
     // ── Certificateur lexique (objet distinct du vérificateur T1) ─────────
     certificateur_lexique:   64000,
 
@@ -94,6 +102,8 @@ module.exports = {
     agent_t2:                false,  // pas de thinking requis (redistribution mécanique)
     agent_t3:                true,   // nuances + clusters
     agent_t3_bilan:          false,  // ⭐ v11.0 — assemblage rédactionnel du bilan, pas de raisonnement complexe
+    agent_t5a:               true,   // ⭐ v11.7 — distinction fine des niveaux par excellence
+    agent_t5bc:              true,   // ⭐ v11.7 — raisonnement régime → verdict des deux faces
     agent_t4_architecture:   true,
     agent_t4_circuits:       true,
     agent_t4_modes:          true,
