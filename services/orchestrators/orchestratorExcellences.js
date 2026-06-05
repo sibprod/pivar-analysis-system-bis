@@ -25,10 +25,10 @@
 
 'use strict';
 
-const airtableService = require('../../infrastructure/airtableService');
-const agentT5A        = require('../../etape2/agentT5A');
-const agentT5BC       = require('../../etape2/agentT5BC');
-const logger          = require('../../../utils/logger');
+const airtableService = require('../infrastructure/airtableService');
+const agentT5A        = require('../etape2/agentT5A');
+const agentT5BC       = require('../etape2/agentT5BC');
+const logger          = require('../../utils/logger');
 
 // Statuts qui sautent T5A (déjà produit) et reprennent directement à T5BC.
 const SKIP_T5A_STATUSES = new Set([
