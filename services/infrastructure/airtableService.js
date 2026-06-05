@@ -206,15 +206,6 @@ async function getEtape2Excellences(session_id) {
 // consommable par services/visualisation/bilan_4excellences.html.
 // AUCUNE reformulation : les verbatims sont servis bruts depuis la base.
 
-const _EXC_ORDER_LABEL = { ANT: 'ANT', DEC: 'DEC', MET: 'MET', VUE: 'VUE' };
-
-function _excCode(excellenceValue) {
-  // Le champ "excellence" est un singleSelect dont le name est déjà ANT/DEC/MET/VUE.
-  if (!excellenceValue) return '';
-  if (typeof excellenceValue === 'object' && excellenceValue.name) return excellenceValue.name;
-  return String(excellenceValue);
-}
-
 function _safeParsePreuves(raw) {
   if (!raw) return [];
   try {
@@ -231,87 +222,187 @@ function _amplitude(e) {
   return (e.nb_eleve || 0) * 3 + (e.nb_moyen || 0) * 2 + (e.nb_faible || 0);
 }
 
-async function getBilanExcellences(candidat_id) {
+// Field IDs (stables) — lecture par ID pour être insensible aux renommages de colonnes.
+const _FID = {
+  // T5A (résolution identifiant de session → prénom)
+  t5a_session: 'fldg23o5T1IXoQS4L',
+  t5a_prenom:  'fldqqtGqbRCxU1h2o',
+  // T5B (agrégat par excellence)
+  t5b_candidat:   'fldeBigELIhzfyJjj',
+  t5b_excellence: 'fldpoyLIgYJ7buqE4',
+  t5b_niveau_global: 'fldep6lx5NmVJp8qS',
+  t5b_pattern:    'fldrWgpPRGMvHIVVv',
+  t5b_nb_eleve:   'fldidvaTno0PbKVkQ',
+  t5b_nb_moyen:   'fldjrJk8xtiKIKc9a',
+  t5b_nb_faible:  'fldMzg5EwlnNc5nRX',
+  t5b_nb_nulle:   'fldFtyY81xdW9WYJ3',
+  t5b_d_sommeil:  'fldju1OpGZAlq63wo',
+  t5b_d_weekend:  'fldQYaYshGEfPtpnZ',
+  t5b_d_animal:   'fldv1S1LXDIQDqwTW',
+  t5b_d_panne:    'fldvzJzS2j47mSoNS',
+  t5b_declencheur:'fldRTSu8grkD5Qu5H',
+  t5b_synthese:   'fldeNio6Sb6TYvF21',
+  t5b_preuves:    'fldoWUcOneZGBFUcm',
+  // T5C (profil / bilan)
+  t5c_candidat:   'flduJrXuni0onwu3T',
+  t5c_etiquette:  'fldzNnGXZ5t1pPY4v',   // profil_dominant (étiquette fonctionnelle)
+  t5c_portrait:   'fldf6Wdb6eY5c3jSC',   // portrait_un_mot
+  t5c_ordre:      'fldDHH8ZBF2gGnTpI',   // ordre_excellences
+  t5c_combinaison:'fldXMasJ4RoJaUjmm',
+  t5c_verdict_enc:'fldvNFj7vjExrvDRn',   // verdict_encadrement (libellé complet)
+  t5c_verdict_man:'fldJtsxqOJNw2vYZr',   // verdict_management
+  t5c_concl_enc:  'fldUxXiAJAoUrLGX0',   // B4_conclusions_enc
+  t5c_concl_man:  'fldtnqoPMFF9MSSY6',   // B4_conclusions_man
+  t5c_cond_enc:   'fldhrlPKser9YrVCF',   // conditions_encadrement
+  t5c_cond_man:   'fldLOO709I1ENdQp8',   // conditions_management
+  t5c_decoupage:  'fldCBqwrNe49OqMmF',   // palier_nom (lecture du découpage)
+  t5c_montee:     'fldns2EIKqVVD0i9g',   // montee_autre_face
+  t5c_reserve:    'fldXOMtejqdUdg7CQ',   // reserves_globales
+  t5c_vEncNiveau: 'fldTR7b2V0eGiCnTf',   // verdict_enc_niveau (singleSelect)
+  t5c_vManNiveau: 'fldXPZxnKrSmwyElM'    // verdict_man_niveau (singleSelect)
+};
+
+function _cellText(v) {
+  if (v === undefined || v === null) return '';
+  if (typeof v === 'object' && v.name) return v.name;   // singleSelect renvoyé en objet
+  return String(v);
+}
+
+// Normalise pour comparaison : minuscules + sans accents + trim.
+// (le prénom en T5A peut être "Véronique" alors que candidat_id en T5B/T5C est "veronique")
+function _norm(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase();
+}
+
+// Résout l'identifiant reçu en valeur candidat_id de T5B/T5C ("remi", "cecile", "veronique").
+// - Si l'identifiant ressemble à une session (contient "_"), on lit T5A pour récupérer
+//   le prénom associé, puis on le met en minuscules.
+// - Sinon on suppose que c'est déjà la valeur candidat_id et on la renvoie en minuscules.
+async function _resolveCandidat(base, rawId) {
+  // Renvoie { key, prenom } : key = clé normalisée pour matcher candidat_id,
+  // prenom = prénom d'affichage (accentué) si on a pu le lire en T5A.
+  const id = String(rawId || '').trim();
+  if (!id.includes('_')) {
+    const k = _norm(id);
+    return { key: k, prenom: k.charAt(0).toUpperCase() + k.slice(1) };
+  }
+  try {
+    const recs = await base(airtableConfig.TABLES.ETAPE2_RESPONSES_EXCELLENCES)
+      .select({
+        filterByFormula: `{session_ID} = "${id}"`,
+        maxRecords: 1,
+        returnFieldsByFieldId: true
+      })
+      .all();
+    if (recs && recs.length > 0) {
+      const prenomRaw = _cellText(recs[0].fields[_FID.t5a_prenom]).trim();
+      if (prenomRaw) {
+        return {
+          key: _norm(prenomRaw),
+          prenom: prenomRaw.charAt(0).toUpperCase() + prenomRaw.slice(1)
+        };
+      }
+    }
+  } catch (e) {
+    logger.warn('Résolution session→prénom échouée', { id, error: e.message });
+  }
+  const k = _norm(id);
+  return { key: k, prenom: k.charAt(0).toUpperCase() + k.slice(1) };
+}
+
+async function getBilanExcellences(rawCandidatId) {
   try {
     const base = getBase();
+    const resolved = await _resolveCandidat(base, rawCandidatId);
+    const candidat_id = resolved.key;
 
-    // ─── T5B : 4 lignes excellence ─────────────────────────────────────────
-    const t5bRecords = await base(airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE)
-      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
+    // ─── T5B : 4 lignes excellence (lecture par field ID, match normalisé) ─
+    const t5bAll = await base(airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE)
+      .select({ returnFieldsByFieldId: true })
       .all();
+    const t5bRecords = t5bAll.filter(r => _norm(_cellText(r.fields[_FID.t5b_candidat])) === candidat_id);
 
     if (!t5bRecords || t5bRecords.length === 0) {
-      logger.warn('Bilan — aucune ligne T5B', { candidat_id });
+      logger.warn('Bilan — aucune ligne T5B', { rawCandidatId, candidat_id });
       return null;
     }
 
     const excellences = t5bRecords.map(r => {
       const f = r.fields;
       return {
-        code:            _excCode(f.excellence),
-        niveau_global:   f.niveau_global || '',
-        pattern:         f.pattern || '',
-        nb_eleve:        f.nb_eleve || 0,
-        nb_moyen:        f.nb_moyen || 0,
-        nb_faible:       f.nb_faible || 0,
-        nb_nulle:        f.nb_nulle || 0,
-        densite_sommeil: f.densite_sommeil || '',
-        densite_weekend: f.densite_weekend || '',
-        densite_animal:  f.densite_animal || '',
-        densite_panne:   f.densite_panne || '',
-        declencheur:     f.declencheur || '',
-        synthese:        f.synthese || '',
-        verbatims_preuves: _safeParsePreuves(f.verbatims_preuves)
+        code:            _cellText(f[_FID.t5b_excellence]),
+        niveau_global:   _cellText(f[_FID.t5b_niveau_global]),
+        pattern:         _cellText(f[_FID.t5b_pattern]),
+        nb_eleve:        f[_FID.t5b_nb_eleve]  || 0,
+        nb_moyen:        f[_FID.t5b_nb_moyen]  || 0,
+        nb_faible:       f[_FID.t5b_nb_faible] || 0,
+        nb_nulle:        f[_FID.t5b_nb_nulle]  || 0,
+        densite_sommeil: _cellText(f[_FID.t5b_d_sommeil]),
+        densite_weekend: _cellText(f[_FID.t5b_d_weekend]),
+        densite_animal:  _cellText(f[_FID.t5b_d_animal]),
+        densite_panne:   _cellText(f[_FID.t5b_d_panne]),
+        declencheur:     _cellText(f[_FID.t5b_declencheur]),
+        synthese:        _cellText(f[_FID.t5b_synthese]),
+        verbatims_preuves: _safeParsePreuves(f[_FID.t5b_preuves])
       };
     }).sort((a, b) => _amplitude(b) - _amplitude(a));
 
-    // ─── T5C : 1 ligne profil ──────────────────────────────────────────────
-    const t5cRecords = await base(airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES)
-      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+    // ─── T5C : 1 ligne profil (lecture par field ID, match normalisé) ──────
+    const t5cAll = await base(airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES)
+      .select({ returnFieldsByFieldId: true })
       .all();
+    const t5cRecords = t5cAll.filter(r => _norm(_cellText(r.fields[_FID.t5c_candidat])) === candidat_id);
 
     if (!t5cRecords || t5cRecords.length === 0) {
-      logger.warn('Bilan — aucune ligne T5C (profil)', { candidat_id });
+      logger.warn('Bilan — aucune ligne T5C (profil)', { rawCandidatId, candidat_id });
       return null;
     }
-    const c = t5cRecords[0].fields;
+    const f = t5cRecords[0].fields;
 
-    // Jauges : on lit l'étiquette de verdict pour piloter hauteur/état "non mesuré".
-    function jaugeFromVerdict(verdictTxt, niveauTxt) {
-      const v = String(verdictTxt || '').toUpperCase();
-      // "non concluant / non mesuré" → jauge hachurée
+    // Prénom d'affichage : prénom accentué résolu depuis T5A (repli sur candidat_id).
+    const prenomBrut = resolved.prenom || _cellText(f[_FID.t5c_candidat]) || candidat_id;
+    const prenom = prenomBrut.charAt(0).toUpperCase() + prenomBrut.slice(1);
+
+    // Jauges : pilotées par le niveau isolé de verdict (singleSelect filtrable),
+    // avec repli sur le libellé complet si le champ niveau est vide.
+    function jaugeFromVerdict(niveauVal, libelleComplet) {
+      const v = (_cellText(niveauVal) || _cellText(libelleComplet)).toUpperCase();
       const na = v.includes('RÉSERVE') || v.includes('DÉFAVORABLE') || v.includes('NON');
+      if (na) return { na: true, val: 'non mesuré par ce test' };
       const map = { 'TRÈS BON': 80, 'BON': 62, 'SUFFISANT': 45 };
       let pct = 0, lab = '';
-      for (const k of Object.keys(map)) { if (v.includes(k)) { pct = map[k]; lab = k.charAt(0) + k.slice(1).toLowerCase(); break; } }
-      if (na) return { na: true, val: 'non mesuré par ce test' };
-      return { na: false, pct: pct || 50, val: lab || (niveauTxt || '') };
+      for (const k of Object.keys(map)) {
+        if (v.includes(k)) { pct = map[k]; lab = k.charAt(0) + k.slice(1).toLowerCase(); break; }
+      }
+      return { na: false, pct: pct || 50, val: lab || _cellText(niveauVal) };
     }
 
     const profil = {
-      prenom:         c.prenom || c.Prenom || '',
-      etiquette:      c.profil_dominant || '',                // étiquette de profil
-      dominante:      c.signal_constitutif || c.dominante || c.note_profil_global || '',
-      portrait:       c.portrait_un_mot || '',
-      ordre:          c.ordre_excellences || '',
-      combinaison:    c.combinaison || '',
-      verdict_enc:    c.verdict_encadrement || '',
-      verdict_man:    c.verdict_management || '',
-      conclusions_enc: c.B4_conclusions_enc || '',
-      conclusions_man: c.B4_conclusions_man || '',
-      conditions_enc:  c.conditions_encadrement || '',
-      conditions_man:  c.conditions_management || '',
-      decoupage:       c.profil_dominant || '',               // lecture du découpage (réutilise l'étiquette enrichie si besoin)
-      montee:          c.montee_autre_face || '',
-      reserve:         c.reserves_globales || '',
-      jauge_trav:      jaugeFromVerdict(c.verdict_encadrement, c.ANT_densite),
-      jauge_rev:       jaugeFromVerdict(c.verdict_management, c.DEC_densite)
+      prenom:          prenom,
+      etiquette:       _cellText(f[_FID.t5c_etiquette]),
+      dominante:       _cellText(f[_FID.t5c_etiquette]),
+      portrait:        _cellText(f[_FID.t5c_portrait]),
+      ordre:           _cellText(f[_FID.t5c_ordre]),
+      combinaison:     _cellText(f[_FID.t5c_combinaison]),
+      verdict_enc:     _cellText(f[_FID.t5c_verdict_enc]),
+      verdict_man:     _cellText(f[_FID.t5c_verdict_man]),
+      conclusions_enc: _cellText(f[_FID.t5c_concl_enc]),
+      conclusions_man: _cellText(f[_FID.t5c_concl_man]),
+      conditions_enc:  _cellText(f[_FID.t5c_cond_enc]),
+      conditions_man:  _cellText(f[_FID.t5c_cond_man]),
+      decoupage:       _cellText(f[_FID.t5c_decoupage]) || _cellText(f[_FID.t5c_etiquette]),
+      montee:          _cellText(f[_FID.t5c_montee]),
+      reserve:         _cellText(f[_FID.t5c_reserve]),
+      jauge_trav:      jaugeFromVerdict(f[_FID.t5c_vEncNiveau], f[_FID.t5c_verdict_enc]),
+      jauge_rev:       jaugeFromVerdict(f[_FID.t5c_vManNiveau], f[_FID.t5c_verdict_man])
     };
 
     logger.debug('Bilan assemblé', { candidat_id, nb_excellences: excellences.length });
     return { profil, excellences };
   } catch (error) {
-    logger.error('Failed to build bilan excellences', { candidat_id, error: error.message });
+    logger.error('Failed to build bilan excellences', { rawCandidatId, error: error.message });
     throw error;
   }
 }
