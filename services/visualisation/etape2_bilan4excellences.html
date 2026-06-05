@@ -242,7 +242,7 @@ function boot(){
   var id=getCandidatId();
   if(!id){errorState("Aucun identifiant de candidat dans l'adresse.");return;}
   loading();
-  fetch('/api/bilan/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
+  fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
     .then(function(r){
       if(!r.ok) throw new Error('Bilan introuvable pour cet identifiant ('+r.status+').');
       return r.json();
