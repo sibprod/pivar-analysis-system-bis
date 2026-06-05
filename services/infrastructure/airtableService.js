@@ -192,6 +192,131 @@ async function getEtape2Excellences(session_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ⭐ v11.7 (05/06/2026) — BILAN DYNAMIQUE DES 4 EXCELLENCES (lecture seule)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Assemble le payload du bilan candidat à partir de DEUX tables Airtable :
+//   - T5B (RESPONSES_ETAPE2_ EXCELLENCE) : 4 lignes/candidat (1 par excellence),
+//     comptages, régime (pattern), densités par scénario, déclencheur, synthèse,
+//     et verbatims_preuves (JSON déjà sélectionné/trié en base, ÉLEVÉ puis MOYEN).
+//   - T5C (ETAPE2_BILAN4EXCELLENCES) : 1 ligne/candidat, profil de synthèse
+//     (portrait, étiquette, ordre, combinaison, deux faces, découpage, montée…).
+//
+// Renvoie { profil: {...}, excellences: [ {code, ...}, ... ] } directement
+// consommable par services/visualisation/bilan_4excellences.html.
+// AUCUNE reformulation : les verbatims sont servis bruts depuis la base.
+
+const _EXC_ORDER_LABEL = { ANT: 'ANT', DEC: 'DEC', MET: 'MET', VUE: 'VUE' };
+
+function _excCode(excellenceValue) {
+  // Le champ "excellence" est un singleSelect dont le name est déjà ANT/DEC/MET/VUE.
+  if (!excellenceValue) return '';
+  if (typeof excellenceValue === 'object' && excellenceValue.name) return excellenceValue.name;
+  return String(excellenceValue);
+}
+
+function _safeParsePreuves(raw) {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    logger.warn('verbatims_preuves JSON invalide — ignoré', { error: e.message });
+    return [];
+  }
+}
+
+function _amplitude(e) {
+  // tri des excellences par amplitude : ÉLEVÉ×3 + MOYEN×2 + FAIBLE×1
+  return (e.nb_eleve || 0) * 3 + (e.nb_moyen || 0) * 2 + (e.nb_faible || 0);
+}
+
+async function getBilanExcellences(candidat_id) {
+  try {
+    const base = getBase();
+
+    // ─── T5B : 4 lignes excellence ─────────────────────────────────────────
+    const t5bRecords = await base(airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
+      .all();
+
+    if (!t5bRecords || t5bRecords.length === 0) {
+      logger.warn('Bilan — aucune ligne T5B', { candidat_id });
+      return null;
+    }
+
+    const excellences = t5bRecords.map(r => {
+      const f = r.fields;
+      return {
+        code:            _excCode(f.excellence),
+        niveau_global:   f.niveau_global || '',
+        pattern:         f.pattern || '',
+        nb_eleve:        f.nb_eleve || 0,
+        nb_moyen:        f.nb_moyen || 0,
+        nb_faible:       f.nb_faible || 0,
+        nb_nulle:        f.nb_nulle || 0,
+        densite_sommeil: f.densite_sommeil || '',
+        densite_weekend: f.densite_weekend || '',
+        densite_animal:  f.densite_animal || '',
+        densite_panne:   f.densite_panne || '',
+        declencheur:     f.declencheur || '',
+        synthese:        f.synthese || '',
+        verbatims_preuves: _safeParsePreuves(f.verbatims_preuves)
+      };
+    }).sort((a, b) => _amplitude(b) - _amplitude(a));
+
+    // ─── T5C : 1 ligne profil ──────────────────────────────────────────────
+    const t5cRecords = await base(airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+      .all();
+
+    if (!t5cRecords || t5cRecords.length === 0) {
+      logger.warn('Bilan — aucune ligne T5C (profil)', { candidat_id });
+      return null;
+    }
+    const c = t5cRecords[0].fields;
+
+    // Jauges : on lit l'étiquette de verdict pour piloter hauteur/état "non mesuré".
+    function jaugeFromVerdict(verdictTxt, niveauTxt) {
+      const v = String(verdictTxt || '').toUpperCase();
+      // "non concluant / non mesuré" → jauge hachurée
+      const na = v.includes('RÉSERVE') || v.includes('DÉFAVORABLE') || v.includes('NON');
+      const map = { 'TRÈS BON': 80, 'BON': 62, 'SUFFISANT': 45 };
+      let pct = 0, lab = '';
+      for (const k of Object.keys(map)) { if (v.includes(k)) { pct = map[k]; lab = k.charAt(0) + k.slice(1).toLowerCase(); break; } }
+      if (na) return { na: true, val: 'non mesuré par ce test' };
+      return { na: false, pct: pct || 50, val: lab || (niveauTxt || '') };
+    }
+
+    const profil = {
+      prenom:         c.prenom || c.Prenom || '',
+      etiquette:      c.profil_dominant || '',                // étiquette de profil
+      dominante:      c.signal_constitutif || c.dominante || c.note_profil_global || '',
+      portrait:       c.portrait_un_mot || '',
+      ordre:          c.ordre_excellences || '',
+      combinaison:    c.combinaison || '',
+      verdict_enc:    c.verdict_encadrement || '',
+      verdict_man:    c.verdict_management || '',
+      conclusions_enc: c.B4_conclusions_enc || '',
+      conclusions_man: c.B4_conclusions_man || '',
+      conditions_enc:  c.conditions_encadrement || '',
+      conditions_man:  c.conditions_management || '',
+      decoupage:       c.profil_dominant || '',               // lecture du découpage (réutilise l'étiquette enrichie si besoin)
+      montee:          c.montee_autre_face || '',
+      reserve:         c.reserves_globales || '',
+      jauge_trav:      jaugeFromVerdict(c.verdict_encadrement, c.ANT_densite),
+      jauge_rev:       jaugeFromVerdict(c.verdict_management, c.DEC_densite)
+    };
+
+    logger.debug('Bilan assemblé', { candidat_id, nb_excellences: excellences.length });
+    return { profil, excellences };
+  } catch (error) {
+    logger.error('Failed to build bilan excellences', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ETAPE1_T1 — Analyse brute des 25 réponses
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1476,6 +1601,9 @@ module.exports = {
 
   // ⭐ v11.6 — ETAPE2 : visualisation 4 excellences
   getEtape2Excellences,
+
+  // ⭐ v11.7 — Bilan dynamique des 4 excellences (T5B + T5C)
+  getBilanExcellences,
 
   // ETAPE1_T1
   getEtape1T1,
