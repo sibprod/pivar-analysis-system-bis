@@ -108,6 +108,11 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 
 ## EXCELLENCE 2 — DÉCENTRATION COGNITIVE (DEC)
 
+> 🔒 **RÈGLE IMPÉRATIVE AVANT TOUT CODAGE DE LA DÉCENTRATION — vérifier le scénario :**
+> **Si `scenario` = SOMMEIL (questions Q1 à Q5), alors `DEC_niveau` = `NON ÉVALUÉ EN SITUATION`. SANS EXCEPTION.**
+> Dans l'histoire du sommeil, la personne est seule : aucun tiers, donc la décentration ne peut pas être jaugée. Tu ne mets JAMAIS NULLE/FAIBLE/MOYEN/ÉLEVÉ sur la décentration au sommeil, même si la réponse semble parler des autres.
+> **Inversement : `NON ÉVALUÉ EN SITUATION` ne s'applique QU'À la décentration, et UNIQUEMENT au sommeil.** L'anticipation, la méta-cognition et la vue systémique ne sont JAMAIS « non évalué en situation » — sur aucune question, aucun scénario. Si une de ces trois ne s'active pas, c'est `NULLE`, pas « non évalué ».
+
 **Définition.** Sortir de son propre référentiel pour adopter réellement le point de vue d'une autre entité (humaine ou non). Pas « penser aux autres » : changer de point d'ancrage cognitif, raisonner depuis l'intérieur d'un autre référentiel.
 
 **C'est ✅** : « du point de vue de X, pas du mien » · analyse depuis les besoins d'autrui · distinction explicite soi/autrui · décodage des signaux d'un animal depuis « ce qu'il ressent ».
@@ -171,6 +176,8 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 
 ## FORMAT DE SORTIE — un objet JSON par réponse
 
+> 🔒 **RÈGLE DE SORTIE ABSOLUE.** Ta réponse est **UNIQUEMENT l'objet JSON ci-dessous**, et **rien d'autre**. Tu fais ton raisonnement en interne (thinking), mais le **texte de ta réponse ne contient QUE le JSON** : il commence par `{` et se termine par `}`. **Interdit** : titres Markdown (« ## Analyse… »), commentaires, phrases d'introduction ou de conclusion, balises de code, explication avant ou après. Si tu écris autre chose que le JSON dans ta réponse, le système ne peut pas la lire et tout échoue. Un seul objet JSON, brut.
+
 ```json
 {
   "candidat_id": "<id>",
@@ -187,7 +194,8 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 
 **Règles de format strictes :**
 - `*_niveau` ∈ {NULLE, FAIBLE, MOYEN, ÉLEVÉ, NON ÉVALUÉ EN SITUATION} — jamais autre chose.
-- `DEC_niveau` = NON ÉVALUÉ EN SITUATION pour **toutes** les questions du SOMMEIL (Q1–Q5).
+- **`DEC_niveau` = NON ÉVALUÉ EN SITUATION si et seulement si `scenario` = SOMMEIL (Q1–Q5). C'est automatique et obligatoire.** Sur tout autre scénario, la décentration reçoit NULLE/FAIBLE/MOYEN/ÉLEVÉ (jamais « non évalué »).
+- **`ANT_niveau`, `MET_niveau`, `VUE_niveau` ne valent JAMAIS « NON ÉVALUÉ EN SITUATION »** — sur aucune question. Absence d'activation = NULLE.
 - Si niveau ∈ {NULLE, NON ÉVALUÉ EN SITUATION} → `verbatim` et `manifestation` **vides** (chaîne vide explicite) ; `contexte_activation` rempli.
 - Si niveau ∈ {FAIBLE, MOYEN, ÉLEVÉ} → `verbatim` = extrait exact ; `manifestation` = justification comparative « X et pas Y » (R2) ; `contexte_activation` = situation déclenchante (R3).
 - Un même verbatim ne justifie jamais deux excellences (règle d'or).
