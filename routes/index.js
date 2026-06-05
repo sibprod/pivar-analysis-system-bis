@@ -909,9 +909,9 @@ router.get('/visualiser/t4/:candidat_id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // Deux routes complémentaires :
-//   - GET /api/bilan/:candidat_id            → JSON consolidé (T5B + T5C)
-//   - GET /visualiser/bilan/:candidat_id     → sert la page HTML autonome
-//     services/visualisation/bilan_4excellences.html (qui fetch l'API ci-dessus).
+//   - GET /api/etape2_2bilan4excellences/:candidat_id        → JSON consolidé (T5B + T5C)
+//   - GET /visualiser/etape2_2bilan4excellences/:candidat_id → sert la page HTML autonome
+//     services/visualisation/etape2_bilan4excellences.html (qui fetch l'API ci-dessus).
 //
 // La page lit les verbatims-preuves bruts depuis T5B (champ verbatims_preuves) :
 // aucune reformulation, aucune sélection côté serveur.
@@ -920,7 +920,7 @@ function _isValidCandidatId(id) {
   return id && id.length >= 5 && id.length <= 100;
 }
 
-router.get('/api/bilan/:candidat_id', async (req, res) => {
+router.get('/api/etape2_2bilan4excellences/:candidat_id', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   const startTime = Date.now();
 
@@ -949,7 +949,7 @@ router.get('/api/bilan/:candidat_id', async (req, res) => {
   }
 });
 
-router.get('/visualiser/bilan/:candidat_id', (req, res) => {
+router.get('/visualiser/etape2_2bilan4excellences/:candidat_id', (req, res) => {
   const candidat_id = req.params.candidat_id;
 
   if (!_isValidCandidatId(candidat_id)) {
