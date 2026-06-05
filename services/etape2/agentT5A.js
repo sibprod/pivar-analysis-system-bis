@@ -70,6 +70,7 @@ async function run({ candidat_id }) {
 
   const patchPlan = [];
   let totalCost = 0;
+  const echecs = [];
 
   for (const row of rows) {
     // Entrée de l'agent : la réponse brute + le signal limbique (lecture, pas recalcul).
@@ -85,16 +86,32 @@ async function run({ candidat_id }) {
       limbique_detail:       row.limbique_detail || ''
     };
 
-    const { result, cost } = await agentBase.callAgent({
-      serviceName: SERVICE_NAME,
-      promptPath:  PROMPT_PATH,
-      payload,
-      candidatId:  candidat_id
-    });
-    totalCost += cost || 0;
+    // Un appel par réponse, avec UN retry si l'agent renvoie un format illisible
+    // (ex. Markdown au lieu de JSON). On ne fait jamais échouer tout le candidat
+    // sur une seule réponse : on journalise et on continue.
+    let out = null;
+    for (let attempt = 1; attempt <= 2 && out === null; attempt++) {
+      try {
+        const { result, cost } = await agentBase.callAgent({
+          serviceName: SERVICE_NAME,
+          promptPath:  PROMPT_PATH,
+          payload,
+          candidatId:  candidat_id
+        });
+        totalCost += cost || 0;
+        out = Array.isArray(result) ? result[0] : result;
+      } catch (e) {
+        logger.warn('Agent T5A — réponse illisible', {
+          candidat_id, id_question: payload.id_question, attempt, error: e.message
+        });
+      }
+    }
 
-    // L'agent peut renvoyer un objet unique ou un objet sous une clé ; on normalise.
-    const out = Array.isArray(result) ? result[0] : result;
+    if (!out) {
+      echecs.push(payload.id_question);
+      continue; // on laisse cette ligne en l'état, on n'écrase pas avec du vide
+    }
+
     patchPlan.push({
       airtable_id:     row.airtable_id,
       fields_to_patch: buildPatchFields(out)
@@ -102,8 +119,13 @@ async function run({ candidat_id }) {
   }
 
   const updated = await airtableService.patchEtape2T5ARows(candidat_id, patchPlan);
-  logger.info('Agent T5A — terminé', { candidat_id, lignes: updated, cost_usd: totalCost.toFixed(4) });
-  return { lignes: updated, cost: totalCost };
+  if (echecs.length > 0) {
+    logger.warn('Agent T5A — réponses non traitées (à relancer)', { candidat_id, echecs });
+  }
+  logger.info('Agent T5A — terminé', {
+    candidat_id, lignes: updated, echecs: echecs.length, cost_usd: totalCost.toFixed(4)
+  });
+  return { lignes: updated, cost: totalCost, echecs };
 }
 
 module.exports = { run };
