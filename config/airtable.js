@@ -4,6 +4,12 @@
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.10 prévue)
 //
+// PHASE v11.7 (2026-06-05) — Bilan dynamique des 4 excellences :
+//   - ⭐ Ajout des tables ETAPE2_BILAN_EXCELLENCE (T5B, agrégat 4 lignes/candidat)
+//     et ETAPE2_BILAN4EXCELLENCES (profil de synthèse, 1 ligne/candidat) dans TABLES.
+//     Lues (lecture seule) par la route /api/bilan/:candidat_id via
+//     airtableService.getBilanExcellences. Aucun impact sur le pipeline.
+//
 // PHASE v11.6 (2026-06-05) — Visualisation Étape 2 (les 4 excellences) :
 //   - ⭐ Ajout de la table ETAPE2_RESPONSES_EXCELLENCES dans TABLES.
 //     Table Airtable = 'ETAPE2_1_RESPONSES pour 4 excellences' (tblLnWhszYAQldZOJ).
@@ -41,6 +47,13 @@ module.exports = {
     // Lue (seule) par la route /visualiser/etape2_1responsepour4excellences/
     // via airtableService.getEtape2Excellences. 25 lignes par candidat.
     ETAPE2_RESPONSES_EXCELLENCES: 'ETAPE2_1_RESPONSES pour 4 excellences',  // tblLnWhszYAQldZOJ
+
+    // ─── ⭐ v11.7 (05/06/2026) — Bilan dynamique des 4 excellences ──────────
+    // Lues (seules) par la route /api/bilan/:candidat_id via
+    // airtableService.getBilanExcellences. Agrégat par excellence (T5B,
+    // 4 lignes/candidat) + profil de synthèse (T5C, 1 ligne/candidat).
+    ETAPE2_BILAN_EXCELLENCE: 'RESPONSES_ETAPE2_ EXCELLENCE',  // tbldiVcVA52VC53n5 (note : espace dans le nom)
+    ETAPE2_BILAN4EXCELLENCES: 'ETAPE2_BILAN4EXCELLENCES',       // tbltn7TVAf3Q87frg (profil de synthèse, 1 ligne/candidat)
 
     // ─── Étape 1 — Pipeline d'analyse ──────────────────────────────────────
     ETAPE1_T1:           'ETAPE1_T1',
