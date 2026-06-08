@@ -1,31 +1,14 @@
 // services/flux/queueService.js
-// File d'attente d'analyse — Profil-Cognitif v10.5
+// File d'attente d'analyse — Profil-Cognitif v11.8
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
-// Responsabilités :
-//   - Stocker les candidats à analyser (en mémoire, FIFO avec priorité)
-//   - Polling Airtable périodique pour récupérer les nouveaux candidats
-//   - Lancer l'orchestrateur principal séquentiellement (MAX_CONCURRENT = 1 sur Starter)
-//   - Gérer les erreurs avec backoff via errorClassifier
-//
-// Statuts détectés par le polling (Section 12 du Contrat ETAPE1 v1.8) :
-//   - NOUVEAU
-//   - REPRENDRE_AGENT1
-//   - REPRENDRE_VERIFICATEUR1
-//   - REPRENDRE_T1_<X>_SEUL  (5 statuts)         ⭐ v10.2b
-//   - REPRENDRE_T1_DES_<X>   (5 statuts)         ⭐ v10.2b
-//
-// PHASE D (2026-04-28) — v10 :
-//   - Déplacé dans services/flux/ (Décision n°27)
-//   - Chemins require mis à jour (orchestrators/ + infrastructure/)
-//   - Polling default : 300000ms (5min) → 60000ms (1min) — Décision n°30
-//   - Statuts élargis : ajout REPRENDRE_AGENT1, REPRENDRE_VERIFICATEUR1
-//   - Healthcheck préalable : squelette pour Phase D-2 (Décision n°23)
-//
-// PHASE v10.2b (2026-05-03) — relances par scénario (Décision n°42) :
-//   - Ajout des 10 nouveaux statuts dans le filtre du polling
-//   - Priorité HIGH automatique pour les statuts de reprise (logique inchangée)
+// PHASE v11.8 (2026-06-08) — anti double prise en charge :
+//   Un candidat déjà EN COURS de traitement ne peut plus être réinséré dans la file
+//   par le polling. Sans ce garde-fou, le polling voyait encore le candidat (statut
+//   intermédiaire ETAPE2_2EXCELLENCE) pendant que le T5BC tournait, le remettait en
+//   file, et l'orchestrateur le reprenait APRÈS le succès → lecture d'un statut non
+//   traitable ("terminé") → bascule en ERREUR alors que l'analyse était bonne.
 
 'use strict';
 
@@ -35,54 +18,38 @@ const errorClassifier       = require('../../utils/errorClassifier');
 const logger                = require('../../utils/logger');
 
 // ─── État interne ─────────────────────────────────────────────────────────────
-const _queue = [];   // Array de { id, priority, addedAt, attempts }
+const _queue = [];
 let _processing = false;
+let _currentlyProcessingId = null;   // ⭐ v11.8 — id du candidat actuellement traité
 let _pollingInterval = null;
 let _cycleCount = 0;
 
-const MAX_CONCURRENT = 1; // Starter Render : un candidat à la fois
+const MAX_CONCURRENT = 1;
 
-// ⭐ v10.2b — Liste centrale des statuts détectés par le polling
-// Source primaire : Section 12 du Contrat ETAPE1 v1.8
-// Cohérent avec STATUTS_ETAPE_1 dans orchestratorPrincipal.js
 const STATUTS_DETECTES_PAR_POLLING = [
-  // Statuts existants v10
   'NOUVEAU',
-  // ⭐ v10.6 — Pré-étape 1.1 (lecture cognitive, Phase ETAPE1.1-1.0.0)
-  // NOUVEAU déclenche cette pré-étape avant T1 (cf. orchestratorPrincipal v10.6)
-  // REPRENDRE_PROMPT_ETAPE1 = relance manuelle solo de la pré-étape
   'REPRENDRE_PROMPT_ETAPE1',
   'REPRENDRE_AGENT1',
   'REPRENDRE_VERIFICATEUR1',
-  // ⭐ v10.2b — Famille A : relances isolées (Décision n°42)
   'REPRENDRE_T1_SOMMEIL_SEUL',
   'REPRENDRE_T1_WEEKEND_SEUL',
   'REPRENDRE_T1_ANIMAL1_SEUL',
   'REPRENDRE_T1_ANIMAL2_SEUL',
   'REPRENDRE_T1_PANNE_SEUL',
-  // ⭐ v10.2b — Famille B : relances cascade (Décision n°42)
   'REPRENDRE_T1_DES_SOMMEIL',
   'REPRENDRE_T1_DES_WEEKEND',
   'REPRENDRE_T1_DES_ANIMAL1',
   'REPRENDRE_T1_DES_ANIMAL2',
   'REPRENDRE_T1_DES_PANNE',
-  // ⭐ v10.5 — T2 v3.4 migré : reprise à T2 (Contrat v1.9 §12 ligne 1095)
   'REPRENDRE_AGENT2',
-  // ⭐ v10.9 (01/06/2026) — sous-phases isolées de l'étape 2 (manquaient dans le polling :
-  // ajoutées à orchestratorPrincipal STATUTS_ETAPE_2 en v10.9 mais oubliées ici → non détectées)
   'REPRENDRE_AGENT2_PHASE1',
   'REPRENDRE_AGENT2_PHASE2',
   'REPRENDRE_AGENT2_PHASE3',
-  // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
   'REPRENDRE_AGENT3',
-  // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
   'REPRENDRE_AGENT4',
-  // ⭐ v11.7 — Étape 2 : les 4 excellences (bilan)
   'ETAPE2_1REPONSE4DIMENSIONS',
   'ETAPE2_2EXCELLENCE',
   'REPRENDRE_EXCELLENCES'
-  // Statuts futurs à ajouter ici quand le vérificateur T4 sera migré :
-  // 'REPRENDRE_VERIFICATEUR4'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -90,6 +57,12 @@ const STATUTS_DETECTES_PAR_POLLING = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 function addToQueue(session_id, priority = 'NORMAL') {
+  // ⭐ v11.8 — Ne jamais remettre en file un candidat déjà EN COURS de traitement.
+  if (_currentlyProcessingId === session_id) {
+    logger.debug('Candidate already being processed, skipping enqueue', { id: session_id });
+    return;
+  }
+
   const existing = _queue.find(item => item.id === session_id);
   if (existing) {
     logger.debug('Already in queue, updating priority', { id: session_id });
@@ -118,10 +91,11 @@ function priorityValue(priority) {
 
 function getQueueStatus() {
   return {
-    size:                _queue.length,
-    processing:          _processing,
-    cycle_count:         _cycleCount,
-    polling_active:      _pollingInterval !== null,
+    size:           _queue.length,
+    processing:     _processing,
+    processing_id:  _currentlyProcessingId,
+    cycle_count:    _cycleCount,
+    polling_active: _pollingInterval !== null,
     items: _queue.map(item => ({
       id:       item.id,
       priority: item.priority,
@@ -141,6 +115,7 @@ async function processNext() {
 
   _processing = true;
   const item = _queue.shift();
+  _currentlyProcessingId = item.id;   // ⭐ v11.8 — on mémorise qui est en cours
 
   logger.info('Processing candidate from queue', {
     id:        item.id,
@@ -156,11 +131,11 @@ async function processNext() {
     const classification = errorClassifier.classifyError(error);
 
     logger.error('Candidate processing failed', {
-      id:           item.id,
-      attempts:     item.attempts,
-      errorType:    classification.errorType,
-      isTemporary:  classification.isTemporary,
-      shouldRetry:  classification.shouldRetry
+      id:          item.id,
+      attempts:    item.attempts,
+      errorType:   classification.errorType,
+      isTemporary: classification.isTemporary,
+      shouldRetry: classification.shouldRetry
     });
 
     if (classification.shouldRetry && !errorClassifier.shouldGiveUp(item.attempts)) {
@@ -179,6 +154,7 @@ async function processNext() {
     }
   } finally {
     _processing = false;
+    _currentlyProcessingId = null;   // ⭐ v11.8 — on libère le verrou
     if (_queue.length > 0) {
       setImmediate(() => processNext());
     }
@@ -186,10 +162,10 @@ async function processNext() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// POLLING — Vérification Airtable périodique (Décision n°30 : 60s)
+// POLLING
 // ═══════════════════════════════════════════════════════════════════════════
 
-function startPolling(intervalMs = 60000) {  // ⭐ v10 : 60s (Décision n°30)
+function startPolling(intervalMs = 60000) {
   if (_pollingInterval) {
     logger.warn('Polling already started');
     return;
@@ -218,16 +194,6 @@ async function runPollingCycle() {
   logger.info('Polling cycle started', { cycle: _cycleCount });
 
   try {
-    // ⭐ v10 : Healthcheck préalable squelette (Décision n°23)
-    // En Phase D-2 : implémenter via healthcheckService et skip le cycle si KO
-    // Pour le test Cécile, on continue sans vérification
-    // const healthOk = await healthcheckService.checkAllServices();
-    // if (!healthOk.allOk) {
-    //   logger.warn('Polling cycle skipped: services KO', { cycle: _cycleCount, ...healthOk });
-    //   return;
-    // }
-
-    // ⭐ v10.2b — Polling sur 13 statuts (3 hérités v10 + 10 ajoutés v10.2b)
     const candidates = await airtableService.getVisiteursByStatus({
       statut_analyse_pivar: STATUTS_DETECTES_PAR_POLLING
     });
@@ -244,6 +210,12 @@ async function runPollingCycle() {
         continue;
       }
 
+      // ⭐ v11.8 — Skip si déjà en cours de traitement
+      if (_currentlyProcessingId === id) {
+        logger.debug('Candidate currently processing, skipping poll enqueue', { id });
+        continue;
+      }
+
       if (c.statut_test !== 'terminé') {
         logger.debug('Candidate test not finished, skipping', {
           id, statut_test: c.statut_test
@@ -251,8 +223,6 @@ async function runPollingCycle() {
         continue;
       }
 
-      // Priorité HIGH pour les retry/reprise (tous les REPRENDRE_*)
-      // Priorité NORMAL pour NOUVEAU
       const priority = (c.statut_analyse_pivar === 'NOUVEAU') ? 'NORMAL' : 'HIGH';
       addToQueue(id, priority);
     }
@@ -267,10 +237,6 @@ async function runPollingCycle() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// EXPORTS
-// ═══════════════════════════════════════════════════════════════════════════
-
 module.exports = {
   addToQueue,
   getQueueStatus,
@@ -278,6 +244,5 @@ module.exports = {
   stopPolling,
   processNext,
   runPollingCycle,
-  // ⭐ v10.2b — export pour tests/debug et cohérence avec orchestratorPrincipal
   STATUTS_DETECTES_PAR_POLLING
 };
