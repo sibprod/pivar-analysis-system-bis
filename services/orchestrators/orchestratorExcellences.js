@@ -28,11 +28,11 @@
 
 'use strict';
 
-const airtableService = require('../../infrastructure/airtableService');
-const agentT5A        = require('../../etape2/agentT5A');
-const agentT5B        = require('../../etape2/agentT5B');
-const agentT5C        = require('../../etape2/agentT5C');
-const logger          = require('../../../utils/logger');
+const airtableService = require('../infrastructure/airtableService');
+const agentT5A        = require('../etape2/agentT5A');
+const agentT5B        = require('../etape2/agentT5B');
+const agentT5C        = require('../etape2/agentT5C');
+const logger          = require('../../utils/logger');
 
 // Quels agents lancer selon le statut entrant.
 // a = T5A (25 réponses), b = T5B (portraits), c = T5C (profil+verdicts).
