@@ -97,13 +97,23 @@ async function runSousAgent({ exc, prompt }, candidat_id, lignes) {
       logger.warn('Agent T5B — sous-agent illisible', { candidat_id, exc, attempt, error: e.message });
     }
   }
-  if (!out) throw new Error(`Agent T5B : sous-agent ${exc} sans sortie exploitable`);
+  // Ne JAMAIS jeter : on renvoie un statut. Un échec sur une excellence ne doit pas
+  // faire tomber les 3 autres (sinon cascade ERREUR alors que 3/4 ont réussi).
+  if (!out) {
+    logger.warn('Agent T5B — sous-agent sans sortie exploitable', { candidat_id, exc });
+    return { exc, ok: false, cost };
+  }
 
-  const row = toT5BRow(candidat_id, exc, out);
-  // Écriture au fil de l'eau : upsert de CETTE ligne (par excellence, n'écrase pas les autres).
-  await airtableService.upsertEtape2T5B(candidat_id, [row]);
-  logger.info('Agent T5B — excellence écrite', { candidat_id, exc, niveau: row.niveau_global, cost_usd: cost.toFixed(4) });
-  return { exc, cost };
+  try {
+    const row = toT5BRow(candidat_id, exc, out);
+    // Écriture au fil de l'eau : upsert de CETTE ligne (par excellence, n'écrase pas les autres).
+    await airtableService.upsertEtape2T5B(candidat_id, [row]);
+    logger.info('Agent T5B — excellence écrite', { candidat_id, exc, niveau: row.niveau_global, cost_usd: cost.toFixed(4) });
+    return { exc, ok: true, cost };
+  } catch (e) {
+    logger.warn('Agent T5B — écriture excellence échouée', { candidat_id, exc, error: e.message });
+    return { exc, ok: false, cost };
+  }
 }
 
 /**
@@ -132,15 +142,27 @@ async function run({ candidat_id }) {
   }));
 
   // Les 4 sous-agents tournent EN PARALLÈLE, chacun son prompt, chacun écrit sa ligne.
-  const resultats = await Promise.all(
+  // allSettled : un échec isolé ne fait pas tomber les autres.
+  const settled = await Promise.allSettled(
     SOUS_AGENTS.map(sa => runSousAgent(sa, candidat_id, lignes))
   );
 
+  const resultats = settled.map(s => s.status === 'fulfilled' ? s.value : { ok: false, cost: 0 });
+  const reussies = resultats.filter(r => r.ok).map(r => r.exc);
+  const echecs   = resultats.filter(r => !r.ok).map(r => r.exc).filter(Boolean);
   const totalCost = resultats.reduce((s, r) => s + (r.cost || 0), 0);
+
+  // On n'échoue QUE si aucune excellence n'a pu être produite. Sinon on garde l'acquis.
+  if (reussies.length === 0) {
+    throw new Error('Agent T5B : aucune excellence produite (toutes en échec)');
+  }
+  if (echecs.length > 0) {
+    logger.warn('Agent T5B — excellences en échec (à relancer en ETAPE2_AGENT_B)', { candidat_id, echecs, reussies });
+  }
   logger.info('Agent T5B — terminé', {
-    candidat_id, t5b: resultats.length, cost_usd: totalCost.toFixed(4)
+    candidat_id, t5b: reussies.length, echecs: echecs.length, cost_usd: totalCost.toFixed(4)
   });
-  return { t5b: resultats.length, cost: totalCost };
+  return { t5b: reussies.length, echecs, cost: totalCost };
 }
 
 module.exports = { run };
