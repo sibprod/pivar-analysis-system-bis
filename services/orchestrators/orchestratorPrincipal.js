@@ -63,7 +63,7 @@
 const airtableService            = require('../infrastructure/airtableService');
 const orchestratorEtape1         = require('./orchestratorEtape1');
 const orchestratorEtape2         = require('./orchestratorEtape2');  // ⭐ v10.8 (refonte étape 2 en 2 phases)
-const orchestratorExcellences    = require('./orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
+const orchestratorExcellences    = require('./etape2/orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
 const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
 const logger                     = require('../../utils/logger');
 
@@ -258,14 +258,19 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
   }
 
   // ─── ⭐ v11.7 — Aiguillage Étape 2 : LES 4 EXCELLENCES (bilan) ───────────
-  // Déclenché après l'Agent 3 (statut ETAPE3_TERMINEE) ou sur l'un des jalons
-  // de reprise de la phase excellences. orchestratorExcellences détecte lui-même
-  // s'il doit jouer T5A+T5BC ou reprendre à T5BC, à partir de visiteur.statut_analyse_pivar.
+  // Point d'entrée de l'Étape 2 : ETAPE2_1REPONSE4DIMENSIONS (posé après l'Agent 3).
+  // orchestratorExcellences détecte lui-même, à partir de visiteur.statut_analyse_pivar,
+  // s'il doit jouer T5A+T5BC (entrée / relance complète) ou reprendre à T5BC seul.
   const STATUTS_EXCELLENCES = [
-    'ETAPE3_TERMINEE',              // sortie de l'Agent 3 → on enchaîne sur les excellences
-    'ETAPE2_1REPONSE4DIMENSIONS',  // reprise : T5A déjà fait → rejouer T5BC
-    'ETAPE2_2EXCELLENCE',          // reprise : re-agrégation T5BC
-    'REPRENDRE_EXCELLENCES'        // relance manuelle complète
+    // ⭐ v12.0 — 3 agents A/B/C (un service par prompt) + mode complet
+    'ETAPE2_COMPLET',              // production autonome → A + B + C à la suite
+    'ETAPE2_AGENT_A',              // relance solo agent A (T5A : code 25 réponses)
+    'ETAPE2_AGENT_B',              // relance solo agent B (T5B : portraits) — suppose A fait
+    'ETAPE2_AGENT_C',              // relance solo agent C (T5C : profil+verdicts) — suppose B fait
+    // Compatibilité (anciens statuts)
+    'ETAPE2_1REPONSE4DIMENSIONS',  // ancien point d'entrée → fait tout (A+B+C)
+    'ETAPE2_2EXCELLENCE',          // ancienne reprise → B+C
+    'REPRENDRE_EXCELLENCES'        // relance manuelle complète (A+B+C)
   ];
 
   if (STATUTS_EXCELLENCES.includes(statut_actuel)) {
