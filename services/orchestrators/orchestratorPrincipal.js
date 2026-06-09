@@ -63,7 +63,7 @@
 const airtableService            = require('../infrastructure/airtableService');
 const orchestratorEtape1         = require('./orchestratorEtape1');
 const orchestratorEtape2         = require('./orchestratorEtape2');  // ⭐ v10.8 (refonte étape 2 en 2 phases)
-const orchestratorExcellences    = require('./etape2/orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
+const orchestratorExcellences    = require('./orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
 const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
 const logger                     = require('../../utils/logger');
 
