@@ -1,14 +1,15 @@
 // services/flux/queueService.js
-// File d'attente d'analyse — Profil-Cognitif v11.8
+// File d'attente d'analyse — Profil-Cognitif v12.0
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
-// PHASE v11.8 (2026-06-08) — anti double prise en charge :
-//   Un candidat déjà EN COURS de traitement ne peut plus être réinséré dans la file
-//   par le polling. Sans ce garde-fou, le polling voyait encore le candidat (statut
-//   intermédiaire ETAPE2_2EXCELLENCE) pendant que le T5BC tournait, le remettait en
-//   file, et l'orchestrateur le reprenait APRÈS le succès → lecture d'un statut non
-//   traitable ("terminé") → bascule en ERREUR alors que l'analyse était bonne.
+// v12.0 (2026-06-09) — Étape 2 en 3 agents A/B/C + verrou anti double prise :
+//   - Statuts polling Étape 2 : ETAPE2_COMPLET (A+B+C), ETAPE2_AGENT_A, ETAPE2_AGENT_B,
+//     ETAPE2_AGENT_C (relance solo), + compat ETAPE2_1REPONSE4DIMENSIONS,
+//     ETAPE2_2EXCELLENCE, REPRENDRE_EXCELLENCES.
+//   - Verrou _currentlyProcessingId : un candidat déjà EN COURS n'est jamais réinséré
+//     par le polling (corrige le faux ERREUR : le polling voyait le statut intermédiaire
+//     pendant le traitement et remettait le candidat en file).
 
 'use strict';
 
@@ -47,6 +48,12 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'REPRENDRE_AGENT2_PHASE3',
   'REPRENDRE_AGENT3',
   'REPRENDRE_AGENT4',
+  // ⭐ v12.0 — Étape 2 excellences, 3 agents A/B/C + mode complet
+  'ETAPE2_COMPLET',
+  'ETAPE2_AGENT_A',
+  'ETAPE2_AGENT_B',
+  'ETAPE2_AGENT_C',
+  // Compatibilité anciens statuts Étape 2 excellences
   'ETAPE2_1REPONSE4DIMENSIONS',
   'ETAPE2_2EXCELLENCE',
   'REPRENDRE_EXCELLENCES'
