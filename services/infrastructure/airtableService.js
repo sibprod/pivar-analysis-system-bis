@@ -295,6 +295,22 @@ async function upsertEtape2T5B(candidat_id, rows) {
   }
 }
 
+// ─── Lecture des 4 lignes T5B (entrée de l'agent T5C) ────────────────────────
+async function getEtape2T5BRows(candidat_id) {
+  try {
+    const tableName = airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE;
+    const records = await getBase()(tableName)
+      .select({ filterByFormula: `LOWER({candidat_id}) = "${String(candidat_id).toLowerCase()}"` })
+      .all();
+    const rows = records.map(r => ({ airtable_id: r.id, ...r.fields }));
+    logger.debug('ETAPE2 T5B rows fetched', { candidat_id, count: rows.length });
+    return rows;
+  } catch (error) {
+    logger.error('Failed to get ETAPE2 T5B rows', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
 // ─── Écriture T5C (1 ligne profil) — upsert sur candidat_id ──────────────────
 async function upsertEtape2T5C(candidat_id, fields) {
   try {
@@ -1734,6 +1750,7 @@ module.exports = {
   // ⭐ v11.7 — Production Étape 2 (agents T5A / T5BC)
   getEtape2T5ARows,
   patchEtape2T5ARows,
+  getEtape2T5BRows,
   upsertEtape2T5B,
   upsertEtape2T5C,
 
