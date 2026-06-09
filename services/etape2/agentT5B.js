@@ -1,20 +1,19 @@
 // services/etape2/agentT5B.js
-// Agent T5B — Portrait par excellence (Étape 2)
+// Agent T5B — Portraits par excellence (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
-// Rôle :
-//   - Lit les 25 lignes T5A déjà codées (les 4 excellences par réponse).
-//   - Appelle le prompt new-prompts/etape2/AGENT_T5B_prompt.md qui agrège et produit
-//     les 4 lignes T5B (1 par excellence) : comptages, régime, densités, synthèse,
-//     réserve, portrait_excellence (deux niveaux) ET verbatims_preuves.
-//   - Écrit T5B (upsert sur excellence).
+// v2.0 (2026-06-09) — UN SOUS-AGENT PAR EXCELLENCE (4 appels parallèles)
+//   AVANT : un seul appel produisait les 4 portraits → sortie ~25k caractères →
+//   tronquée (stop_reason max_tokens) → JSON invalide → échec.
+//   APRÈS : 4 sous-agents, un par excellence (ANT, DEC, MET, VUE), un PROMPT chacun,
+//   lancés EN PARALLÈLE (Promise.all). Chaque sous-agent ne produit qu'UN objet T5B
+//   (sa ligne) → aucun risque de saturation, et chaque excellence a tout son espace
+//   de raisonnement. Chaque ligne est écrite en base dès qu'elle est produite (upsert
+//   par excellence — n'écrase pas les autres lignes).
 //
-// Pattern : un service par prompt (aligné sur agentT5A / agent_t1 …).
-// Découpé de l'ancien agentT5BC (un seul appel saturait max_tokens) : T5B et T5C
-// sont désormais deux services distincts, chacun son prompt, chacun son quota.
-//
-// Robustesse : si l'agent omet niveau_densite (dérivable), on le dérive ici.
+//   Le service Claude reste 'agent_t5b' (mêmes max_tokens/thinking pour les 4).
+//   Seul le PROMPT change selon l'excellence ciblée.
 
 'use strict';
 
@@ -22,41 +21,106 @@ const agentBase       = require('../infrastructure/agentBase');
 const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
-const PROMPT_PATH  = 'etape2/AGENT_T5B_prompt.md';
 const SERVICE_NAME = 'agent_t5b';
 
-// Dérive le niveau de densité isolé (matching) depuis niveau_global / pattern.
-function deriveNiveauDensite(t5bRow) {
-  if (t5bRow.niveau_densite) return t5bRow.niveau_densite;
-  // Décentration non concluante (tranche 0-5) : niveau_global porte le texte dédié.
-  if (/non évalué/i.test(String(t5bRow.niveau_global || ''))) return 'NON ÉVALUÉE';
-  const pattern = String(t5bRow.pattern || '').toUpperCase();
-  if (pattern.includes('ABSENTE')) return 'ABSENTE';
-  if (pattern.includes('OBSERVÉE')) return 'FAIBLE';
-  if (pattern.includes('MODÉRÉ')) return 'MOYENNE';
-  if (pattern.includes('PLEIN') || pattern.includes('RÉGULIÈRE')) {
-    const act = (t5bRow.nb_eleve || 0) + (t5bRow.nb_moyen || 0);
-    return act >= 14 ? 'DENSE' : 'MOYENNE';
+// Les 4 sous-agents : code excellence → prompt dédié.
+const SOUS_AGENTS = [
+  { exc: 'ANT', prompt: 'etape2/AGENT_T5B_ANT_prompt.md' },
+  { exc: 'DEC', prompt: 'etape2/AGENT_T5B_DEC_prompt.md' },
+  { exc: 'MET', prompt: 'etape2/AGENT_T5B_MET_prompt.md' },
+  { exc: 'VUE', prompt: 'etape2/AGENT_T5B_VUE_prompt.md' }
+];
+
+// Dérive le niveau de densité isolé (matching) si l'agent l'omet.
+function deriveNiveauDensite(row) {
+  if (row.niveau_densite) return row.niveau_densite;
+  if (/non évalué/i.test(String(row.niveau_global || ''))) return 'NON ÉVALUÉE';
+  const p = String(row.pattern || '').toUpperCase();
+  if (p.includes('ABSENTE')) return 'ABSENTE';
+  if (p.includes('OBSERVÉE')) return 'FAIBLE';
+  if (p.includes('MODÉRÉ')) return 'MOYENNE';
+  if (p.includes('PLEIN') || p.includes('RÉGULIÈRE')) {
+    return ((row.nb_eleve || 0) + (row.nb_moyen || 0)) >= 14 ? 'DENSE' : 'MOYENNE';
   }
   return 'FAIBLE';
 }
 
+function pick(obj, keys) {
+  if (!obj) return null;
+  for (const k of keys) if (obj[k] !== undefined) return obj[k];
+  return null;
+}
+function val(v) { return (v && (v.name || v)) || ''; }
+
+// Normalise la sortie d'un sous-agent en une ligne T5B prête pour l'upsert.
+function toT5BRow(candidat_id, exc, agentOut) {
+  const row = pick(agentOut, ['T5B', 't5b']) || agentOut || {};
+  const preuves = row.verbatims_preuves;
+  const preuvesStr = typeof preuves === 'string' ? preuves : JSON.stringify(preuves || []);
+  return {
+    candidat_id,
+    excellence:          exc,
+    niveau_global:       row.niveau_global || '',
+    pattern:             row.pattern || '',
+    niveau_densite:      deriveNiveauDensite(row),
+    nb_eleve:            row.nb_eleve || 0,
+    nb_moyen:            row.nb_moyen || 0,
+    nb_faible:           row.nb_faible || 0,
+    nb_nulle:            row.nb_nulle || 0,
+    densite_sommeil:     row.densite_sommeil || '',
+    densite_weekend:     row.densite_weekend || '',
+    densite_animal:      row.densite_animal || '',
+    densite_panne:       row.densite_panne || '',
+    declencheur:         row.declencheur || '',
+    gradient:            row.gradient || '',
+    synthese:            row.synthese || '',
+    reserve:             row.reserve || '',
+    portrait_excellence: row.portrait_excellence || '',
+    verbatims_preuves:   preuvesStr
+  };
+}
+
+// Exécute UN sous-agent (une excellence) : appel Claude + écriture immédiate de sa ligne.
+async function runSousAgent({ exc, prompt }, candidat_id, lignes) {
+  let out = null, cost = 0;
+  for (let attempt = 1; attempt <= 2 && out === null; attempt++) {
+    try {
+      const res = await agentBase.callAgent({
+        serviceName: SERVICE_NAME,
+        promptPath:  prompt,
+        payload:     { candidat_id, excellence_ciblee: exc, lignes_t5a: lignes },
+        candidatId:  candidat_id
+      });
+      cost += res.cost || 0;
+      out = res.result;
+    } catch (e) {
+      logger.warn('Agent T5B — sous-agent illisible', { candidat_id, exc, attempt, error: e.message });
+    }
+  }
+  if (!out) throw new Error(`Agent T5B : sous-agent ${exc} sans sortie exploitable`);
+
+  const row = toT5BRow(candidat_id, exc, out);
+  // Écriture au fil de l'eau : upsert de CETTE ligne (par excellence, n'écrase pas les autres).
+  await airtableService.upsertEtape2T5B(candidat_id, [row]);
+  logger.info('Agent T5B — excellence écrite', { candidat_id, exc, niveau: row.niveau_global, cost_usd: cost.toFixed(4) });
+  return { exc, cost };
+}
+
 /**
- * Exécute l'agent T5B pour un candidat.
+ * Exécute l'agent T5B (4 sous-agents en parallèle).
  * @param {Object} params
- * @param {string} params.candidat_id - session_id du candidat
+ * @param {string} params.candidat_id
  * @returns {Promise<{ t5b: number, cost: number }>}
  */
 async function run({ candidat_id }) {
-  logger.info('Agent T5B — démarrage', { candidat_id });
+  logger.info('Agent T5B — démarrage (4 sous-agents par excellence)', { candidat_id });
 
-  // Entrée : les 25 lignes T5A codées (niveaux + verbatims des 4 excellences).
   const t5aRows = await airtableService.getEtape2T5ARows(candidat_id);
   if (!t5aRows || t5aRows.length === 0) {
     throw new Error(`Agent T5B : aucune ligne T5A pour ${candidat_id}`);
   }
 
-  // Projection réduite des champs utiles à l'agrégation.
+  // Projection commune transmise aux 4 sous-agents (les 25 réponses codées).
   const lignes = t5aRows.map(r => ({
     id_question: r.id_question || '',
     scenario:    (r.scenario_nom && (r.scenario_nom.name || r.scenario_nom)) || r.scenario || '',
@@ -67,58 +131,16 @@ async function run({ candidat_id }) {
     VUE: { niveau: val(r.vue_systemique_niveau),verbatim: r.vue_systemique_verbatim || '',manifestation: r.vue_systemique_manifestation || '' }
   }));
 
-  const { result, cost } = await agentBase.callAgent({
-    serviceName: SERVICE_NAME,
-    promptPath:  PROMPT_PATH,
-    payload:     { candidat_id, lignes_t5a: lignes },
-    candidatId:  candidat_id
-  });
+  // Les 4 sous-agents tournent EN PARALLÈLE, chacun son prompt, chacun écrit sa ligne.
+  const resultats = await Promise.all(
+    SOUS_AGENTS.map(sa => runSousAgent(sa, candidat_id, lignes))
+  );
 
-  const t5bArr = pick(result, ['T5B', 't5b', 'T5B_rows']) || [];
-  if (!Array.isArray(t5bArr) || t5bArr.length === 0) {
-    throw new Error('Agent T5B : sortie T5B absente ou vide');
-  }
-
-  const t5bRows = t5bArr.map(row => {
-    const preuves = row.verbatims_preuves;
-    const preuvesStr = typeof preuves === 'string' ? preuves : JSON.stringify(preuves || []);
-    return {
-      candidat_id,
-      excellence:          String(row.excellence || '').toUpperCase(),
-      niveau_global:       row.niveau_global || '',
-      pattern:             row.pattern || '',
-      niveau_densite:      deriveNiveauDensite(row),
-      nb_eleve:            row.nb_eleve || 0,
-      nb_moyen:            row.nb_moyen || 0,
-      nb_faible:           row.nb_faible || 0,
-      nb_nulle:            row.nb_nulle || 0,
-      densite_sommeil:     row.densite_sommeil || '',
-      densite_weekend:     row.densite_weekend || '',
-      densite_animal:      row.densite_animal || '',
-      densite_panne:       row.densite_panne || '',
-      declencheur:         row.declencheur || '',
-      gradient:            row.gradient || '',
-      synthese:            row.synthese || '',
-      reserve:             row.reserve || '',
-      portrait_excellence: row.portrait_excellence || '',
-      verbatims_preuves:   preuvesStr
-    };
-  });
-
-  const t5bCount = await airtableService.upsertEtape2T5B(candidat_id, t5bRows);
-
+  const totalCost = resultats.reduce((s, r) => s + (r.cost || 0), 0);
   logger.info('Agent T5B — terminé', {
-    candidat_id, t5b: t5bCount, cost_usd: (cost || 0).toFixed(4)
+    candidat_id, t5b: resultats.length, cost_usd: totalCost.toFixed(4)
   });
-  return { t5b: t5bCount, cost: cost || 0 };
-}
-
-// ── helpers ──────────────────────────────────────────────────────────────
-function val(v) { return (v && (v.name || v)) || ''; }
-function pick(obj, keys) {
-  if (!obj) return null;
-  for (const k of keys) { if (obj[k] !== undefined) return obj[k]; }
-  return null;
+  return { t5b: resultats.length, cost: totalCost };
 }
 
 module.exports = { run };
