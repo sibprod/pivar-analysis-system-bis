@@ -36,10 +36,10 @@ const airtableService = require('../infrastructure/airtableService');
 const backupService   = require('../infrastructure/backupService');
 const logger          = require('../../utils/logger');
 
-const PA = require('../etape1/bilan_fable/serviceP_A');
-const PB = require('../etape1/bilan_fable/serviceP_B');
-const PC = require('../etape1/bilan_fable/serviceP_C');
-const PD = require('../etape1/bilan_fable/serviceP_D');
+const PA = require('../etape1/etape1_t3/bilan_fable/serviceP_A');
+const PB = require('../etape1/etape1_t3/bilan_fable/serviceP_B');
+const PC = require('../etape1/etape1_t3/bilan_fable/serviceP_C');
+const PD = require('../etape1/etape1_t3/bilan_fable/serviceP_D');
 
 // Interrupteur de gate (comme ETAPE3_PRETE / PHASE3_PRETE) — défaut prudent : true.
 const MODE_VALIDATION_REQUISE =
