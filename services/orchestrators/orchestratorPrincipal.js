@@ -24,7 +24,7 @@
 //   - REPRENDRE_AGENT2_PHASE2       → Étape 2 v10.9 mode PHASE2_ISOLEE (consolidation + enrichissement, coût zéro)
 //   - REPRENDRE_AGENT2_PHASE3       → Étape 2 v10.9 mode PHASE3_ISOLEE (enrichissement seul, coût zéro) ⭐ v10.9
 //   - REPRENDRE_AGENT3              → Étape 3 ANCIENNE génération (orchestratorEtape1 mode AGENT3_SEUL → orchestratorT3 → agentT3BilanService)
-//   - REPRENDRE_BILAN_FABLE (+ PA/PB/PC/PD)  → ⭐ v10.7 (13/06/2026) Étape 3 NOUVELLE chaîne « Fable » (orchestratorBilanFable)
+//   - REPRENDRE_BILAN_FABLE (+ PA/PB/PC/PD)  → ⭐ v10.7 (13/06/2026) Étape 3 NOUVELLE chaîne « Fable » (orchestratoretape3bilan)
 //   - REPRENDRE_AGENT4              → Étape 4 (à coder)
 //   - REPRENDRE_VERIFICATEUR4       → Étape 4 (à coder)
 //   ─── Statuts hors pipeline ───────────────────────────────────────────
@@ -36,7 +36,7 @@
 //   - BILAN_FABLE_TERMINE           → ignoré (bilan Fable produit, terminal)
 //
 // PHASE v10.7 (2026-06-13) — INTÉGRATION CHAÎNE BILAN « FABLE » :
-//   - ⭐ Ajout du require orchestratorBilanFable (services/etape1/bilan_fable/).
+//   - ⭐ Ajout du require orchestratoretape3bilan (services/orchestrators/).
 //   - ⭐ Ajout de la liste STATUTS_BILAN_FABLE (5 déclencheurs) + branche d'aiguillage
 //     dédiée, calquée sur le bloc STATUTS_EXCELLENCES. La chaîne Fable court-circuite
 //     l'ancien chemin (orchestratorEtape1/orchestratorT3/agentT3BilanService), qui reste
@@ -80,7 +80,7 @@ const orchestratorEtape1         = require('./orchestratorEtape1');
 const orchestratorEtape2         = require('./orchestratorEtape2');  // ⭐ v10.8 (refonte étape 2 en 2 phases)
 const orchestratorExcellences    = require('./orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
 const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
-const orchestratorBilanFable     = require('../etape1/bilan_fable/orchestratorBilanFable');  // ⭐ v10.7 (chaîne bilan Fable)
+const orchestratorEtape3Bilan    = require('./orchestratoretape3bilan');  // ⭐ v10.7 (chaîne bilan Fable, étape 3)
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -245,7 +245,7 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT3_SEUL
     // ⚠️ v10.7 — REPRENDRE_AGENT3 = ANCIENNE génération du bilan (conservée, filet
     //    de retour arrière). La NOUVELLE chaîne Fable a ses propres statuts, aiguillés
-    //    plus bas vers orchestratorBilanFable.
+    //    plus bas vers orchestratoretape3bilan.
     'REPRENDRE_AGENT3',
     // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
     // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT4_SEUL
@@ -300,14 +300,14 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
 
   // ─── ⭐ v10.7 (13/06/2026) — Aiguillage Étape 3 : CHAÎNE BILAN « FABLE » ──
   // Nouvelle génération du bilan (P-A ×5 → P-B → P-C → P-D), distincte de l'ancien
-  // chemin REPRENDRE_AGENT3 (conservé). orchestratorBilanFable pose lui-même son
+  // chemin REPRENDRE_AGENT3 (conservé). orchestratoretape3bilan pose lui-même son
   // statut de sortie (BILAN_FABLE_PA_OK = pause validation des modes ; BILAN_FABLE_TERMINE
   // = fin) ; on retourne donc { stopReason } pour que processCandidate ne l'écrase pas.
   //
   // Sentinelle BILAN_FABLE_PA_OK et terminal BILAN_FABLE_TERMINE NE sont PAS aiguillés
   // ici (ni pollés) : après validation des modes, l'aval est relancé manuellement via
   // REPRENDRE_BILAN_PB → REPRENDRE_BILAN_PC → REPRENDRE_BILAN_PD.
-  const STATUTS_BILAN_FABLE = orchestratorBilanFable.STATUTS_BILAN_FABLE || [
+  const STATUTS_BILAN_FABLE = orchestratorEtape3Bilan.STATUTS_BILAN_FABLE || [
     'REPRENDRE_BILAN_FABLE',
     'REPRENDRE_BILAN_PA',
     'REPRENDRE_BILAN_PB',
@@ -318,7 +318,7 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
   if (STATUTS_BILAN_FABLE.includes(statut_actuel)) {
     logger.info('Aiguillage → Étape 3 Bilan Fable (P-A…P-D)', { candidat_id, statut: statut_actuel });
     const prenom = visiteur.Prenom || visiteur.prenom || '';
-    const fableResult = await orchestratorBilanFable.executerBilanFable({
+    const fableResult = await orchestratorEtape3Bilan.executerBilanFable({
       candidat_id,
       statut: statut_actuel,
       prenom
