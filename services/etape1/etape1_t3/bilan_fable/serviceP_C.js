@@ -1,31 +1,26 @@
 // services/etape1/bilan_fable/serviceP_C.js
-// P-C — CHAPITRE II : LES BOUCLES (chaîne bilan FABLE) — v1.0 (13/06/2026)
+// P-C — CHAPITRE II BOUCLES — v3.0 (14/06/2026)
+// Source : PROMPT_CH2_BOUCLES_v1.md + dossier §1 + base Cécile
 //
-// Rôle : décrit la trajectoire des outils à l'intérieur des réponses — 4 maillons
-// (départ / dialogue / débouché / jamais). Appelle PROMPT_CH2_BOUCLES_v1 une fois.
+// Prompt P-C entrées : maillon1..4 + verbatims_trajectoires + rôles + modes
+// Le prompt NE calcule rien : toutes les métriques viennent du service.
 //
-// ENTRÉES (assemblées ici, dénominateur figé = nb de réponses T1) :
-//   - rôles + modes validés ............ T3_BILAN (architecture) + T3_PILIER
-//   - libellés .......................... REFERENTIEL_PILIERS
-//   - métriques de maillons ............. calculées depuis ETAPE1_T1 :
-//       · M1 gouvernees = nb de réponses gouvernées par le socle (pilier_coeur == socle)
-//       · adjacences = transitions consécutives dans la SÉQUENCE intra-réponse,
-//         déduite de l'ORDRE des activations du champ types_verbatim_circuits
-//         (on réutilise le parseur déterministe d'É0). M2 aller/retour, M3 n.
-//       · M4 = trajectoire absente : l'aval ne gouverne aucune réponse (comptage direct).
+// Métriques maillons depuis T1 :
+//   M1 : nb réponses gouvernées par le socle (pilier_coeur == socle)
+//   M2 : adjacences amont↔socle dans types_verbatim_circuits (ordre des activations)
+//   M3 : gouvernées socle ET socle→aval dans la séquence
+//   M4 : nb réponses gouvernées par l'aval (attendu 0 — négatif structurant)
 //
-//   ⚠️ ZONE DE JUGEMENT NON FORMALISÉE — M2b (sens socle→amont) :
-//     l'étalon valide « 8 adjacences brutes − 2 exclusions sémantiques = 6 ». Ces
-//     exclusions (« auto-évaluation rassurante », « fragment instrumental ») sont un
-//     jugement non encore formalisé en règle déterministe. Ce service fournit le
-//     compte BRUT (retour_brut) et NE l'invente pas. Tant qu'une règle d'exclusion
-//     (ou un agent d'audit dédié) n'est pas défini, retour peut dépasser la valeur
-//     validée de l'étalon. À trancher (doctrine).
+// Format maillon stocké T3_BILAN — vérifié en base Cécile :
+//   "badge · titre\nAttesté : ...\nVERBATIMS :\n[verbatims]\nTEXTE :\n[texte]"
 //
-// SORTIE (contrat verrouillé) → T3_BILAN via upsertEtape1T3Bilan :
-//   intro → boucle_intro_texte ; technique → boucle_technique ;
-//   maillons[0..3] → maillon_m1_depart / m2_dialogue / m3_debouche / m4_jamais
-//   (chacun au FORMAT STOCKÉ vérifié en base : « badge · titre / Attesté / VERBATIMS / TEXTE »).
+// Écriture T3_BILAN (6 champs — vérifiés en base Cécile, dossier §1) :
+//   ch2_intro      → fldFWT8vtfVuTm4zC
+//   ch2_technique  → fldRRLpspWX6qTx7d
+//   ch2_maillon1   → fldVM2cfim5rBivMt
+//   ch2_maillon2   → fldAZQSbNRxK8ugWo
+//   ch2_maillon3   → fldKxUzxHTvZ6d3z5
+//   ch2_maillon4   → fldzc8cjyygsfbC5N
 
 'use strict';
 
@@ -33,173 +28,141 @@ const config          = require('../../../../config/airtable');
 const airtableService = require('../../../infrastructure/airtableService');
 const agentBase       = require('../../../infrastructure/agentBase');
 const logger          = require('../../../../utils/logger');
-const { _internal }   = require('./serviceE0_extraction');
-const { parseAttribution, ownerPilier } = _internal;
 
 const PROMPT_PATH = 'etape1/bilan/PROMPT_CH2_BOUCLES_v1.md';
 const PB = config.ETAPE1_T3_BILAN_FIELDS;
+const PC = config.ETAPE1_T3_CIRCUIT_FIELDS;
 
-const SLOT_ROLE = { socle: 'socle', str1: 'amont', str2: 'aval', fn1: 'fonctionnel', fn2: 'fonctionnel' };
+// fldIDs verbatims T3_CIRCUIT (dossier §1)
+const VERB = [
+  { t:'fldLP9juCWCTlCZPt', r:'fldI1DVJiH7EH4zel' },
+  { t:'fldSCQD9zvgRQcuq9', r:'fldmVPwfku0vUz6xX' },
+  { t:'fldhIp3aW72WR2V1t', r:'fldcQ7hxyRumcc1DO' },
+  { t:'fld4lrLWySRXVmvZe', r:'fldQgruSXveuTCLM4' },
+];
 
-// lit l'attribution ordonnée d'une ligne T1 (champ hors config, par son nom)
-function lireAttribution(row) {
-  return row.types_verbatim_circuits || row['types_verbatim_circuits'] || '';
+const SLOT_ROLE = { socle:'socle', str1:'amont', str2:'aval', fn1:'fonctionnel', fn2:'fonctionnel' };
+
+// Verbatims depuis T3_CIRCUIT (dossier §1)
+function extraireVerbatims(c) {
+  return VERB.map(f => {
+    const texte=(c[f.t]||'').trim(); if(!texte) return null;
+    const ref=(c[f.r]||'').trim();
+    const m=/^(P\d+Q\d+)\s+(.+)$/.exec(ref);
+    return { texte, qid:m?m[1]:ref, lieu:m?m[2]:'' };
+  }).filter(Boolean);
 }
 
-// séquence intra-réponse des piliers (ordre des activations, doublons consécutifs fusionnés)
-function pilierSequence(attrStr) {
-  const seq = [];
-  for (const it of parseAttribution(attrStr)) {
-    const o = ownerPilier(it.code);
-    if (o && (seq.length === 0 || seq[seq.length - 1] !== o)) seq.push(o);
+// Parse séquence de piliers depuis types_verbatim_circuits T1
+// Format observé : "P3 · C12 · FRANCHE\n  geste : ...\n  verbatim : ..." (blocs séparés \n\n)
+// On extrait l'ordre des piliers propriétaires (doublons consécutifs fusionnés)
+function pilierSequenceT1(raw) {
+  if (!raw) return [];
+  const seq=[];
+  const blocs=raw.split(/\n\s*\n/);
+  for (const bloc of blocs) {
+    const m=/^P([1-5])\s*·\s*C\d+/.exec(bloc.trim());
+    if (!m) continue;
+    const pil=`P${m[1]}`;
+    if (!seq.length || seq[seq.length-1]!==pil) seq.push(pil);
   }
   return seq;
 }
 
-// la séquence contient-elle la transition consécutive a→b ?
 function aTransition(seq, a, b) {
-  for (let i = 0; i < seq.length - 1; i++) {
-    if (seq[i] === a && seq[i + 1] === b) return true;
-  }
+  for (let i=0; i<seq.length-1; i++) if (seq[i]===a && seq[i+1]===b) return true;
   return false;
 }
 
-// assemble un maillon au format stocké vérifié en base
+// Format maillon — vérifié en base Cécile
 function formatMaillon(m) {
-  const lignes = [];
-  lignes.push(`${(m.badge || '').trim()} · ${(m.titre || '').trim()}`.trim());
-  if (m.attest) lignes.push(m.attest);
-  lignes.push('VERBATIMS :');
-  lignes.push(m.verbatims || '');
-  lignes.push('TEXTE :');
-  lignes.push(m.texte || '');
-  return lignes.join('\n');
+  return [
+    `${(m.badge||'').trim()} · ${(m.titre||'').trim()}`.trim(),
+    m.attest||'', 'VERBATIMS :', m.verbatims||'', 'TEXTE :', m.texte||'',
+  ].join('\n');
 }
 
-function parseVerbatimsField(raw) {
-  if (!raw) return [];
-  const out = []; const re = /«\s*([\s\S]*?)\s*»\s*\(([^\s)]+)\s+([^)]+)\)/g; let m;
-  while ((m = re.exec(raw)) !== null) out.push({ texte: m[1].trim(), qid: m[2].trim(), lieu: m[3].trim() });
-  return out;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Produit le chapitre II (boucles) et écrit intro + 4 maillons + technique.
- * @param {Object} p
- * @param {string} p.candidat_id
- * @param {string} [p.prenom]
- * @returns {Promise<{candidat_id, cost}>}
- */
-async function runBoucles({ candidat_id, prenom = '' }) {
-  const startTime = Date.now();
-  logger.info('P-C — démarrage chapitre II (boucles)', { candidat_id });
+async function runBoucles({ candidat_id, prenom='' }) {
+  const t=Date.now();
+  logger.info('P-C v3 — démarrage', { candidat_id });
 
   const [piliers, circuits, bilan, t1, piliersRef] = await Promise.all([
     airtableService.getEtape1T3Piliers(candidat_id),
     airtableService.getEtape1T3Circuits(candidat_id),
     airtableService.getEtape1T3Bilan(candidat_id),
     airtableService.getEtape1T1(candidat_id),
-    airtableService.getReferentielPiliers()
+    airtableService.getReferentielPiliers(),
   ]);
-  if (!bilan) throw new Error(`P-C: T3_BILAN absent pour ${candidat_id}`);
-  if (!t1 || !t1.length) throw new Error(`P-C: ETAPE1_T1 absent pour ${candidat_id}`);
 
-  const socle = bilan.pilier_socle;
-  const amont = bilan.pilier_str1 || null;
-  const aval  = bilan.pilier_str2 || null;
-  if (!socle || !/^P[1-5]$/.test(socle)) throw new Error(`P-C: pilier_socle invalide (${socle})`);
+  if (!bilan)       throw new Error(`P-C: T3_BILAN absent`);
+  if (!t1?.length)  throw new Error(`P-C: T1 absent`);
 
-  // libellés + rôles + modes
-  const piliers_libelles = {};
-  for (const p of piliersRef) if (p.pilier_code) piliers_libelles[p.pilier_code] = p.pilier_nom || '';
-  const roles = {};
-  for (const [champ, slot] of [['pilier_socle','socle'],['pilier_str1','str1'],['pilier_str2','str2'],['pilier_fn1','fn1'],['pilier_fn2','fn2']]) {
-    const code = bilan[champ];
-    if (code && /^P[1-5]$/.test(code)) roles[code] = SLOT_ROLE[slot];
+  const socle=bilan.pilier_socle, amont=bilan.pilier_str1||null, aval=bilan.pilier_str2||null;
+  if (!socle||!/^P[1-5]$/.test(socle)) throw new Error(`P-C: pilier_socle invalide`);
+
+  // Libellés + rôles + modes
+  const piliers_libelles={};
+  for (const p of (piliersRef||[])) if (p.pilier_code) piliers_libelles[p.pilier_code]=p.pilier_nom||'';
+  const roles={};
+  for (const [champ,slot] of [['pilier_socle','socle'],['pilier_str1','str1'],['pilier_str2','str2'],['pilier_fn1','fn1'],['pilier_fn2','fn2']]) {
+    const code=bilan[champ]; if (code&&/^P[1-5]$/.test(code)) roles[code]=SLOT_ROLE[slot];
   }
-  const modes_valides = {};
-  for (const p of piliers) if (p.pilier && p.pilier_mode) modes_valides[p.pilier] = p.pilier_mode;
+  const modes_valides={};
+  for (const p of (piliers||[])) {
+    const code=p.pilier||''; const mode=p[config.ETAPE1_T3_PILIER_FIELDS?.pilier_mode]||p.pilier_mode||'';
+    if (code&&mode) modes_valides[code]=mode;
+  }
 
-  const total = t1.length;
-
-  // ─── métriques de maillons depuis T1 ────────────────────────────────────
-  let gouverneeSocle = 0, gouverneeAval = 0;
-  let m2_aller = 0, m2_retour_brut = 0;   // amont→socle / socle→amont (BRUT)
-  let m3_n = 0;                           // gouverné socle ∧ socle→aval
+  // Métriques maillons depuis T1
+  let gouverneeSocle=0, gouverneeAval=0, m2_aller=0, m2_retour=0, m3_n=0;
   for (const row of t1) {
-    const gov = row.pilier_coeur;
-    const seq = pilierSequence(lireAttribution(row));
-    if (gov === socle) gouverneeSocle += 1;
-    if (aval && gov === aval) gouverneeAval += 1;
+    const gov=row.pilier_coeur||'';
+    // Séquence intra-réponse depuis types_verbatim_circuits
+    const raw=row.types_verbatim_circuits||row['types_verbatim_circuits']||'';
+    const seq=pilierSequenceT1(raw);
+    if (gov===socle) gouverneeSocle+=1;
+    if (aval&&gov===aval) gouverneeAval+=1;
     if (amont) {
-      if (aTransition(seq, amont, socle)) m2_aller += 1;
-      if (aTransition(seq, socle, amont)) m2_retour_brut += 1;
+      if (aTransition(seq,amont,socle)) m2_aller+=1;
+      if (aTransition(seq,socle,amont)) m2_retour+=1;
     }
-    if (aval && gov === socle && aTransition(seq, socle, aval)) m3_n += 1;
+    if (aval&&gov===socle&&aTransition(seq,socle,aval)) m3_n+=1;
+  }
+  if (m2_retour>0) logger.warn('P-C: M2b brut (exclusions sémantiques non appliquées)', { candidat_id, m2_retour });
+
+  // Pool verbatims trajectoire — circuits HAUT du socle — T3_CIRCUIT dossier §1
+  const verbatims_trajectoires=[];
+  for (const c of (circuits||[]).filter(c=>(c[PC.pilier]||c.pilier||'')===socle && (c[PC.circuit_niveau]||c.circuit_niveau||'')==='HAUT')) {
+    for (const v of extraireVerbatims(c))
+      verbatims_trajectoires.push({ qid:v.qid, lieu:v.lieu, texte:v.texte, maillon:1 });
   }
 
-  // ─── pool de verbatims de trajectoire (circuits HAUT du socle) ──────────
-  const verbatims_trajectoires = [];
-  for (const c of circuits.filter(c => c.pilier === socle && c.circuit_niveau === 'HAUT')) {
-    for (const v of parseVerbatimsField(c.n2_verbatims)) {
-      verbatims_trajectoires.push({ qid: v.qid, lieu: v.lieu, texte: v.texte, maillon: 1 });
-    }
-  }
-
-  // ─── payload P-C ────────────────────────────────────────────────────────
   const payload = {
-    candidat_prenom: prenom,
-    piliers_libelles,
-    roles,
-    modes_valides,
-    maillon1: { pilier: socle, gouvernees: gouverneeSocle, total },
-    maillon2: amont
-      ? { de: socle, vers: amont, aller: m2_aller, retour: m2_retour_brut }
-      : null,
-    maillon3: aval
-      ? { de: socle, vers: aval, n: m3_n, total }
-      : null,
-    // M4 : trajectoire absente la plus signifiante — l'aval ne gouverne aucune réponse
-    maillon4: aval
-      ? { de: aval, vers: socle, n: gouverneeAval, lecture: '' }
-      : null,
+    candidat_prenom:prenom, piliers_libelles, roles, modes_valides,
+    maillon1: { pilier:socle, gouvernees:gouverneeSocle, total:t1.length },
+    maillon2: amont ? { de:socle, vers:amont, aller:m2_aller, retour:m2_retour } : null,
+    maillon3: aval  ? { de:socle, vers:aval, n:m3_n, total:t1.length }           : null,
+    maillon4: aval  ? { de:aval, vers:socle, n:gouverneeAval, lecture:'' }        : null,
     verbatims_trajectoires,
-    // transparence pour l'agent / audit : le retour M2 est BRUT (exclusions non appliquées)
-    _note_m2b: 'retour = adjacences brutes socle→amont ; exclusions sémantiques non appliquées (zone de jugement)'
   };
 
   const { result, cost } = await agentBase.callAgent({
-    serviceName: 'bilan_fable_PC',
-    promptPath:  PROMPT_PATH,
-    payload,
-    injectLexique: true,
-    candidatId: candidat_id
+    serviceName:'bilan_fable_PC', promptPath:PROMPT_PATH, payload, injectLexique:true, candidatId:candidat_id,
   });
 
-  if (!result || !Array.isArray(result.maillons) || result.maillons.length < 4) {
-    throw new Error('P-C: sortie agent invalide (4 maillons attendus)');
-  }
+  if (!Array.isArray(result?.maillons)||result.maillons.length<4) throw new Error('P-C: 4 maillons attendus');
 
-  // ─── écriture (patch T3_BILAN) ──────────────────────────────────────────
-  const M = result.maillons;
-  const fields = {};
-  fields[PB.boucle_intro_texte] = result.intro || '';
-  fields[PB.boucle_technique]   = result.technique || '';
+  const M=result.maillons;
+  const fields={};
+  fields[PB.boucle_intro_texte]  = result.intro     ||'';
+  fields[PB.boucle_technique]    = result.technique  ||'';
   fields[PB.maillon_m1_depart]   = formatMaillon(M[0]);
   fields[PB.maillon_m2_dialogue] = formatMaillon(M[1]);
   fields[PB.maillon_m3_debouche] = formatMaillon(M[2]);
   fields[PB.maillon_m4_jamais]   = formatMaillon(M[3]);
 
   await airtableService.upsertEtape1T3Bilan(candidat_id, fields);
-
-  const elapsedMs = Date.now() - startTime;
-  logger.info('P-C — terminé', {
-    candidat_id, m1_socle: gouverneeSocle, m2_aller, m2_retour_brut, m3_n, m4_aval_gouv: gouverneeAval,
-    cost, elapsedMs
-  });
-
+  logger.info('P-C v3 — terminé', { candidat_id, m1:gouverneeSocle, m2_aller, m2_retour, m3_n, cost, elapsedMs:Date.now()-t });
   return { candidat_id, cost };
 }
 
