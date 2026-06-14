@@ -23,8 +23,8 @@
 //   - REPRENDRE_AGENT2_PHASE1       → Étape 2 v10.9 mode PHASE1_ISOLEE
 //   - REPRENDRE_AGENT2_PHASE2       → Étape 2 v10.9 mode PHASE2_ISOLEE (consolidation + enrichissement, coût zéro)
 //   - REPRENDRE_AGENT2_PHASE3       → Étape 2 v10.9 mode PHASE3_ISOLEE (enrichissement seul, coût zéro) ⭐ v10.9
-//   - REPRENDRE_AGENT3              → Étape 3 ANCIENNE génération (orchestratorEtape1 mode AGENT3_SEUL → orchestratorT3 → agentT3BilanService)
-//   - REPRENDRE_BILAN_FABLE (+ PA/PB/PC/PD)  → ⭐ v10.7 (13/06/2026) Étape 3 NOUVELLE chaîne « Fable » (orchestratoretape3bilan)
+//   - REPRENDRE_AGENT3              → SUPPRIMÉ v11.2 : ancien bilan retiré du dépôt (remplacé par la chaîne Fable)
+//   - REPRENDRE_BILAN_FABLE (+ PA/PB/PC/PD)  → ⭐ v10.7 (13/06/2026) Étape 3, chaîne « Fable » (orchestratoretape3bilan)
 //   - REPRENDRE_AGENT4              → Étape 4 (à coder)
 //   - REPRENDRE_VERIFICATEUR4       → Étape 4 (à coder)
 //   ─── Statuts hors pipeline ───────────────────────────────────────────
@@ -38,9 +38,10 @@
 // PHASE v10.7 (2026-06-13) — INTÉGRATION CHAÎNE BILAN « FABLE » :
 //   - ⭐ Ajout du require orchestratoretape3bilan (services/orchestrators/).
 //   - ⭐ Ajout de la liste STATUTS_BILAN_FABLE (5 déclencheurs) + branche d'aiguillage
-//     dédiée, calquée sur le bloc STATUTS_EXCELLENCES. La chaîne Fable court-circuite
-//     l'ancien chemin (orchestratorEtape1/orchestratorT3/agentT3BilanService), qui reste
-//     intact et accessible via REPRENDRE_AGENT3 (filet de retour arrière).
+//     dédiée, calquée sur le bloc STATUTS_EXCELLENCES.
+//   - ⚠️ v11.2 : l'ancien chemin du bilan (orchestratorEtape1 mode AGENT3_SEUL →
+//     orchestratorT3 → agentT3BilanService) a été SUPPRIMÉ du dépôt. Le bilan se génère
+//     uniquement via la chaîne Fable. Aucun filet de retour arrière conservé.
 //   - ⭐ Gestion du statut en sortie : l'orchestrateur Fable pose lui-même son statut
 //     (BILAN_FABLE_PA_OK pour la pause de validation des modes, BILAN_FABLE_TERMINE en fin)
 //     et retourne { stopReason } pour que processCandidate NE l'écrase PAS par 'terminé'
@@ -241,12 +242,10 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     // ⭐ v10.8 (21/05/2026) — REPRENDRE_AGENT2 retiré d'ici, désormais aiguillé
     //  vers orchestratorEtape2.run() (refonte étape 2 en 2 phases)
     //  cf. bloc d'aiguillage spécifique étape 2 ci-dessous.
-    // ⭐ v10.6 — T3 v4.3 migré : reprise à T3 (saute T1+Vérif+T2, démarre T3)
-    // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT3_SEUL
-    // ⚠️ v10.7 — REPRENDRE_AGENT3 = ANCIENNE génération du bilan (conservée, filet
-    //    de retour arrière). La NOUVELLE chaîne Fable a ses propres statuts, aiguillés
-    //    plus bas vers orchestratoretape3bilan.
-    'REPRENDRE_AGENT3',
+    // ⚠️ v11.2 (14/06/2026) — REPRENDRE_AGENT3 RETIRÉ : l'ancien bilan (orchestratorT3 →
+    //    agentT3BilanService) a été supprimé du dépôt. Le bilan se génère désormais
+    //    UNIQUEMENT via la chaîne Fable (statuts REPRENDRE_BILAN_*, aiguillés plus bas
+    //    vers orchestratoretape3bilan). Aucun filet de retour arrière conservé.
     // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
     // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT4_SEUL
     'REPRENDRE_AGENT4'
