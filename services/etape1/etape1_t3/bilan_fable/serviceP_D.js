@@ -30,10 +30,10 @@
 
 'use strict';
 
-const config          = require('../../../config/airtable');
-const airtableService = require('../../infrastructure/airtableService');
-const agentBase       = require('../../infrastructure/agentBase');
-const logger          = require('../../../utils/logger');
+const config          = require('../../../../config/airtable');
+const airtableService = require('../../../infrastructure/airtableService');
+const agentBase       = require('../../../infrastructure/agentBase');
+const logger          = require('../../../../utils/logger');
 
 const PROMPT_PATH = 'etape1/bilan/PROMPT_CH3_MARQUEURS_v1.md';
 const PB = config.ETAPE1_T3_BILAN_FIELDS;
