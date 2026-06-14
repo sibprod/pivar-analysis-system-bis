@@ -282,10 +282,10 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
   // s'il doit jouer T5A+T5BC (entrée / relance complète) ou reprendre à T5BC seul.
   const STATUTS_EXCELLENCES = [
     // ⭐ v12.0 — 3 agents A/B/C (un service par prompt) + mode complet
-    'ETAPE2_COMPLET',              // production autonome → A + B + C à la suite
-    'ETAPE2_AGENT_A',              // relance solo agent A (T5A : code 25 réponses)
-    'ETAPE2_AGENT_B',              // relance solo agent B (T5B : portraits) — suppose A fait
-    'ETAPE2_AGENT_C',              // relance solo agent C (T5C : profil+verdicts) — suppose B fait
+    'ETAPE2_COMPLET_EXCELLENCES',              // production autonome → A + B + C à la suite
+    'ETAPE2_AGENT_A_EXCELLENCES',              // relance solo agent A (T5A : code 25 réponses)
+    'ETAPE2_AGENT_B_EXCELLENCES',              // relance solo agent B (T5B : portraits) — suppose A fait
+    'ETAPE2_AGENT_C_EXCELLENCES',              // relance solo agent C (T5C : profil+verdicts) — suppose B fait
     // Compatibilité (anciens statuts)
     'ETAPE2_1REPONSE4DIMENSIONS',  // ancien point d'entrée → fait tout (A+B+C)
     'ETAPE2_2EXCELLENCE',          // ancienne reprise → B+C
