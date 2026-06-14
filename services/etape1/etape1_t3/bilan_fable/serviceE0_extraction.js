@@ -28,8 +28,8 @@
 
 'use strict';
 
-const airtableService = require('../../infrastructure/airtableService');
-const logger          = require('../../../utils/logger');
+const airtableService = require('../../../infrastructure/airtableService');
+const logger          = require('../../../../utils/logger');
 
 // ─── Seuils de niveau (échelle CŒUR) — doctrine ───────────────────────────────
 function niveauFromCoeur(coeur) {
