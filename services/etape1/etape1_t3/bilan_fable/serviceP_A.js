@@ -32,10 +32,10 @@
 
 'use strict';
 
-const config          = require('../../../config/airtable');
-const airtableService = require('../../infrastructure/airtableService');
-const agentBase       = require('../../infrastructure/agentBase');
-const logger          = require('../../../utils/logger');
+const config          = require('../../../../config/airtable');
+const airtableService = require('../../../infrastructure/airtableService');
+const agentBase       = require('../../../infrastructure/agentBase');
+const logger          = require('../../../../utils/logger');
 const { buildContexteE0 } = require('./serviceE0_extraction');
 
 const PROMPT_PATH = 'etape1/bilan/PROMPT_ANALYSE_PILIER_v7.md';
