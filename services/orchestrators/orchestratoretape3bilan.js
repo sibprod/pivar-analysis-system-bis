@@ -1,5 +1,6 @@
-// services/etape1/bilan_fable/orchestratorBilanFable.js
-// ORCHESTRATEUR — CHAÎNE BILAN « FABLE » — v1.1 (13/06/2026)
+// services/orchestrators/orchestratoretape3bilan.js
+// ORCHESTRATEUR ÉTAPE 3 — BILAN (chaîne « FABLE ») — v1.2 (14/06/2026)
+// (déplacé depuis services/etape1/bilan_fable/orchestratorBilanFable.js + renommé)
 //
 // Enchaîne : É0 (déterministe) → P-A ×5 (analyses pilier) → [GATE validation des
 // modes] → P-B (filtre/ch.IV) → P-C (boucles) → P-D (marqueurs/coûts).
@@ -31,14 +32,14 @@
 
 'use strict';
 
-const airtableService = require('../../infrastructure/airtableService');
-const backupService   = require('../../infrastructure/backupService');
-const logger          = require('../../../utils/logger');
+const airtableService = require('../infrastructure/airtableService');
+const backupService   = require('../infrastructure/backupService');
+const logger          = require('../../utils/logger');
 
-const PA = require('./serviceP_A');
-const PB = require('./serviceP_B');
-const PC = require('./serviceP_C');
-const PD = require('./serviceP_D');
+const PA = require('../etape1/bilan_fable/serviceP_A');
+const PB = require('../etape1/bilan_fable/serviceP_B');
+const PC = require('../etape1/bilan_fable/serviceP_C');
+const PD = require('../etape1/bilan_fable/serviceP_D');
 
 // Interrupteur de gate (comme ETAPE3_PRETE / PHASE3_PRETE) — défaut prudent : true.
 const MODE_VALIDATION_REQUISE =
