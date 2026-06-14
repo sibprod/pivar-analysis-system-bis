@@ -1,7 +1,16 @@
 // services/flux/queueService.js
-// File d'attente d'analyse — Profil-Cognitif v12.0
+// File d'attente d'analyse — Profil-Cognitif v12.1
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// v12.1 (2026-06-14) — Détection des statuts du bilan « Fable » (étape 1.3) :
+//   - ⭐ Ajout des 5 statuts REPRENDRE_BILAN_FABLE / _PA / _PB / _PC / _PD dans
+//     STATUTS_DETECTES_PAR_POLLING, sinon le candidat posé sur l'un d'eux n'est
+//     jamais ramassé par le polling (il reste au statut, rien ne se passe).
+//   - NE PAS détecter BILAN_FABLE_PA_OK (sentinelle de pause : validation humaine
+//     des modes) ni BILAN_FABLE_TERMINE (terminal) — ce sont des états d'arrêt, pas
+//     des déclencheurs. Les inclure relancerait l'aval sans la pause de validation.
+//   - Aucune autre modification : tout le reste est identique à v12.0.
 //
 // v12.0 (2026-06-09) — Étape 2 en 3 agents A/B/C + verrou anti double prise :
 //   - Statuts polling Étape 2 : ETAPE2_COMPLET (A+B+C), ETAPE2_AGENT_A, ETAPE2_AGENT_B,
@@ -49,14 +58,21 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'REPRENDRE_AGENT3',
   'REPRENDRE_AGENT4',
   // ⭐ v12.0 — Étape 2 excellences, 3 agents A/B/C + mode complet
-  'ETAPE2_COMPLET',
-  'ETAPE2_AGENT_A',
-  'ETAPE2_AGENT_B',
-  'ETAPE2_AGENT_C',
+  'ETAPE2_COMPLET_EXCELLENCES',
+  'ETAPE2_AGENT_A_EXCELLENCES',
+  'ETAPE2_AGENT_B_EXCELLENCES',
+  'ETAPE2_AGENT_C_EXCELLENCES',
   // Compatibilité anciens statuts Étape 2 excellences
   'ETAPE2_1REPONSE4DIMENSIONS',
   'ETAPE2_2EXCELLENCE',
-  'REPRENDRE_EXCELLENCES'
+  'REPRENDRE_EXCELLENCES',
+  // ⭐ v12.1 — Étape 1.3 : bilan « Fable » (déclencheurs uniquement).
+  //   PAS BILAN_FABLE_PA_OK (pause validation des modes) ni BILAN_FABLE_TERMINE (terminal).
+  'REPRENDRE_BILAN_FABLE',
+  'REPRENDRE_BILAN_PA',
+  'REPRENDRE_BILAN_PB',
+  'REPRENDRE_BILAN_PC',
+  'REPRENDRE_BILAN_PD'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
