@@ -1,52 +1,25 @@
 // config/airtable.js
-// Configuration Airtable v11.8 — Pipeline Profil-Cognitif Étape 1
+// Configuration Airtable v11.9 — Pipeline Profil-Cognitif Étape 1
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.10 prévue)
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// PHASE v11.8 (2026-06-13) — INTÉGRATION CHAÎNE BILAN « FABLE » (P-A..P-D)
+// PHASE v11.9 (2026-06-15) — AJOUT 8 CHAMPS VERBATIM T3_CIRCUIT
 // ─────────────────────────────────────────────────────────────────────────────
-//   OBJECTIF : rendre la config consciente des champs rédactionnels écrits par la
-//   nouvelle chaîne de bilan (4 prompts Fable). Sans ces ajouts, airtableService
-//   (_mapByFieldIds) PERDAIT ces champs à la lecture et les services ne pouvaient
-//   pas les écrire par leur clé lisible.
+//   OBJECTIF : exposer dans _mapByFieldIds les 8 champs verbatim écrits par
+//   serviceP_A (verbatim_1..4 + verbatim_1_ref..4_ref). Sans ces entrées,
+//   getEtape1T3Circuits ne les retournait pas à la lecture.
 //
-//   ⭐ AJOUTS (additifs uniquement — AUCUN champ ancien retiré ni renommé) :
-//   1. ETAPE1_T3_CIRCUIT_FIELDS : explication_courte_ch4, en_renfort.
-//   2. ETAPE1_T3_PILIER_FIELDS  : mode_explication, intro_eclate, 6 blocs
-//      (candidat/technique × HAUT/MOYEN/FAIBLE), 3 rattachements catalogue,
-//      synth_courte. (pilier_mode / synth_interpretee / pilier_rappel déjà
-//      présents = mode_libelle / vue_ensemble / têtière Fable : réutilisés tels quels.)
-//   3. ETAPE1_T3_BILAN_FIELDS   : filtre (fld9vAKpKEMIcRiTB, ≠ ancien filtre_label),
-//      filtre_declinaison, ch4_filtre_revelation, ch4_filtre_preuves,
-//      schema_intro_roles, schema_legende_socle, socle_libelle, 4 maillons ch.II,
-//      boucle_intro_texte, boucle_technique, registres, 2 coûts.
-//      (boucle_intro fldM9qq4vQedoBejk déjà présent = intro HTML Fable : réutilisé.)
-//   4. ALLOWED_VALUES.statut_analyse_pivar : SYNCHRONISÉ avec la base réelle
-//      (33 statuts existants) + 7 statuts de la chaîne bilan Fable :
-//      REPRENDRE_BILAN_FABLE (production), REPRENDRE_BILAN_PA/PB/PC/PD (reprises
-//      solo), BILAN_FABLE_PA_OK (sentinelle), BILAN_FABLE_TERMINE (terminal).
-//
-//   TOUS les field IDs Fable ci-dessous ont été vérifiés en base le 13/06/2026
-//   (get_table_schema). Les anciens champs T3_BILAN (filtre_preuve_1..5,
-//   glissement_*, boucle_1..3, signal_item*, cout1..3, d3_finalite/sig_finalite)
-//   sont CONSERVÉS pour compat de lecture mais GELÉS en écriture (la chaîne Fable
-//   ne les alimente pas).
+//   ⭐ AJOUT (additif uniquement — AUCUN champ ancien retiré ni renommé) :
+//   ETAPE1_T3_CIRCUIT_FIELDS : verbatim_1..4 + verbatim_1_ref..4_ref
+//   (8 champs, vérifiés en base le 14/06/2026 sur Cécile).
 //
 // (Historique antérieur conservé tel quel ci-dessous.)
 //
-// PHASE v11.7 (2026-06-05) — Bilan dynamique des 4 excellences :
-//   - ⭐ Ajout des tables ETAPE2_BILAN_EXCELLENCE (T5B) et ETAPE2_BILAN4EXCELLENCES.
+// PHASE v11.8 (2026-06-13) — INTÉGRATION CHAÎNE BILAN « FABLE » (P-A..P-D)
+// PHASE v11.7 (2026-06-05) — Bilan dynamique des 4 excellences.
 // PHASE v11.6 (2026-06-05) — Visualisation Étape 2 (les 4 excellences).
-//
-// Architecture multi-étapes (Décision n°26) :
-//   - VISITEUR, RESPONSES (existantes, intactes)
-//   - QUESTIONS PIVAR SCENARIO (référentiel, lecture seule)
-//   - ETAPE1_T1, ETAPE1_T2, ETAPE1_T3, ETAPE1_T4_BILAN (Étape 1 active)
-//   - VERIFICATEUR_T1 (audit du vérificateur — Décision n°10)
-//   - REFERENTIEL_LEXIQUE (15 termes doctrinaux, lue par tous les agents)
-//   - BILAN (ancienne, conservée pour Étape 2/3 futures)
 
 'use strict';
 
@@ -73,7 +46,7 @@ module.exports = {
 
     // ─── Étape 1 — Pipeline d'analyse ──────────────────────────────────────
     ETAPE1_T1:           'ETAPE1_T1',
-    VERIFICATEUR_T1:     'VERIFICATEUR_T1',     // ⭐ v10 — audit du vérificateur (Décision n°10)
+    VERIFICATEUR_T1:     'VERIFICATEUR_T1',
     ETAPE1_T2:           'ETAPE1_T2',
     ETAPE1_T3:           'ETAPE1_T3',
     ETAPE1_T4_BILAN:     'ETAPE1_T4_BILAN',
@@ -310,8 +283,7 @@ module.exports = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ETAPE1_T3 — Analyse pilier × circuit (15 colonnes) — ANCIENNE (step 1.3),
-  // jamais utilisée pour les comptages de circuits (cf. doctrine source freeze).
+  // ETAPE1_T3 — Analyse pilier × circuit (15 colonnes) — ANCIENNE (step 1.3)
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_FIELDS: {
     candidat_id:               'candidat_id',
@@ -429,19 +401,18 @@ module.exports = {
     liens_circuits:         'fldtZdnuftdhGx2mb',
 
     // ───────── ⭐ FABLE (13/06/2026) — champs rédactionnels chaîne bilan ─────────
-    // Tous vérifiés en base (multilineText). Écrits par serviceP_A (1 par pilier).
-    mode_explication:       'fld6GtEBRP5UxvHeI',   // explication pédagogique du mode
-    intro_eclate:           'fldomziXNOGf7Ujsb',   // intro de la section pilier éclatée (ch.IV)
-    bloc_haut_candidat:     'fldBLvofzosLTPUOr',   // synthèse bloc HAUT, registre candidat
-    bloc_moyen_candidat:    'flda16lg5Dt1HrXrF',   // synthèse bloc MOYEN, registre candidat
-    bloc_faible_candidat:   'fld68H41z6b9XtFoZ',   // synthèse bloc FAIBLE, registre candidat
-    bloc_haut_technique:    'flds6XOIwvYr20iRY',   // synthèse bloc HAUT, registre technique
-    bloc_moyen_technique:   'fld7Sv7LXlZ6XPghN',   // synthèse bloc MOYEN, registre technique
-    bloc_faible_technique:  'fld6BWLEjDMdbYTs6',   // synthèse bloc FAIBLE, registre technique
-    bloc_haut_catalogue:    'fldB9fRf8U61z4WZK',   // rattachement libellés catalogue, bloc HAUT
-    bloc_moyen_catalogue:   'fldMA46pZRI6Bi0ZU',   // rattachement libellés catalogue, bloc MOYEN
-    bloc_faible_catalogue:  'fldZiSdH20uMb5wCY',   // rattachement libellés catalogue, bloc FAIBLE
-    synth_courte:           'fldaSofvHZk2K2SXw'    // ligne de synthèse courte (activation coeur/total)
+    mode_explication:       'fld6GtEBRP5UxvHeI',
+    intro_eclate:           'fldomziXNOGf7Ujsb',
+    bloc_haut_candidat:     'fldBLvofzosLTPUOr',
+    bloc_moyen_candidat:    'flda16lg5Dt1HrXrF',
+    bloc_faible_candidat:   'fld68H41z6b9XtFoZ',
+    bloc_haut_technique:    'flds6XOIwvYr20iRY',
+    bloc_moyen_technique:   'fld7Sv7LXlZ6XPghN',
+    bloc_faible_technique:  'fld6BWLEjDMdbYTs6',
+    bloc_haut_catalogue:    'fldB9fRf8U61z4WZK',
+    bloc_moyen_catalogue:   'fldMA46pZRI6Bi0ZU',
+    bloc_faible_catalogue:  'fldZiSdH20uMb5wCY',
+    synth_courte:           'fldaSofvHZk2K2SXw'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -455,15 +426,15 @@ module.exports = {
     pilier:              'fld74EvZRf7r4biGh',
     circuit_id:          'fldrnHJtNOWWYJ91t',
     circuit_nom:         'fldSGRXf8mi4q1NTd',
-    circuit_freq:        'fldrM33rxdYnJ39vz',   // coeur (fréquence)
-    circuit_franches:    'fldwfbNZ0DKsdXray',   // activations FRANCHES (distinct de coeur)
-    circuit_nuancees:    'fldDnY9fRw3g62C6o',   // activations NUANCÉES (distinct de coeur)
+    circuit_freq:        'fldrM33rxdYnJ39vz',
+    circuit_franches:    'fldwfbNZ0DKsdXray',
+    circuit_nuancees:    'fldDnY9fRw3g62C6o',
     circuit_cluster:     'fldGzHp6ZFEsiIERf',
     circuit_signal:      'fldVsySoS1k0yFHgx',
     circuit_niveau:      'fld0LTPI1KfAVHRqI',
     n1_definition:       'fldKKSpL02oLC8Gwn',
     n2_verbatims:        'fldV3EBlHGUleiifK',
-    n3_nuance:           'fldSx0VOHYILowFSj',   // ⭐ FABLE = explication longue « 3 temps » (réutilisé)
+    n3_nuance:           'fldSx0VOHYILowFSj',   // ⭐ FABLE = explication longue « 3 temps »
     ordre_pilier:        'fldSK79cCYsuICAAy',
     ordre_circuit:       'fld5SPJJXdv9Bo6vT',
     en_svc_P1:           'fldoGZPSxM22pk82R',
@@ -474,19 +445,26 @@ module.exports = {
     total_activations:   'fldnFNJm6GP0mAGNm',
 
     // ───────── ⭐ FABLE (13/06/2026) — champs rédactionnels chaîne bilan ─────────
-    // Vérifiés en base (multilineText). Écrits par serviceP_A (1 ligne par circuit).
-    explication_courte_ch4: 'fld3zZ8SteMWedetW',  // mini-phrase chapitre IV
-    en_renfort:             'fldixMQDcsD7cCyd3'    // ligne « En renfort »
+    explication_courte_ch4: 'fld3zZ8SteMWedetW',
+    en_renfort:             'fldixMQDcsD7cCyd3',
+
+    // ───────── ⭐ v11.9 (15/06/2026) — verbatims cités par circuit ─────────────
+    // Ces 8 champs existent en base (vérifiés sur Cécile le 14/06/2026).
+    // Écrits par serviceP_A via fldIDs hardcodés dans VERB_FLD.
+    // Ajoutés ici pour que _mapByFieldIds les retourne à la lecture
+    // (nécessaire pour serviceP_B qui relit T3_CIRCUIT).
+    verbatim_1:     'fldLP9juCWCTlCZPt',
+    verbatim_1_ref: 'fldI1DVJiH7EH4zel',
+    verbatim_2:     'fldSCQD9zvgRQcuq9',
+    verbatim_2_ref: 'fldmVPwfku0vUz6xX',
+    verbatim_3:     'fldhIp3aW72WR2V1t',
+    verbatim_3_ref: 'fldcQ7hxyRumcc1DO',
+    verbatim_4:     'fld4lrLWySRXVmvZe',
+    verbatim_4_ref: 'fldQgruSXveuTCLM4'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ⭐ v11.1 — ETAPE1_T3_BILAN_FIELDS — tableId : tblv775KQrEhsogdI
-  //
-  // ⚠️ DEUX MONDES COEXISTENT :
-  //   - Champs ANCIENS (filtre_label, filtre_preuve_1..5, glissement_*, boucle_1..3,
-  //     signal_item*, cout1..3, d3_finalite/sig_finalite) → GELÉS en écriture par
-  //     la chaîne Fable (conservés pour compat de lecture uniquement).
-  //   - Champs FABLE (bloc ⭐ en bas) → écrits par serviceP_B / serviceP_C / serviceP_D.
   // ═══════════════════════════════════════════════════════════════════════════
   ETAPE1_T3_BILAN_FIELDS: {
     candidat_id:               'fldk66gddYGCREOV4',
@@ -497,7 +475,7 @@ module.exports = {
 
     pilier_socle:              'fldfJHsX7A38IYele',
     pilier_socle_label:        'fldUf6rhEyR3MKI1x',
-    pilier_socle_mode:         'fldLt4GhtqRUyl7V4',   // anomalie connue (resync vs T3_PILIER.pilier_mode)
+    pilier_socle_mode:         'fldLt4GhtqRUyl7V4',
     pilier_socle_role:         'fldBMHWSk6DsnRN2i',
     pilier_str1:               'fldzsZUsyQR7vvbEi',
     pilier_str1_label:         'fldVwPsne8uUxYbOG',
@@ -518,7 +496,7 @@ module.exports = {
     sorties_P5:                'fldu2FJSPYmjkFCUt',
     note_profil_global:        'fldXeBlXJ2IpU3diJ',
 
-    // ─── ANCIEN filtre (GELÉ — la chaîne Fable utilise « filtre » fld9vAKpKEMIcRiTB) ───
+    // ─── ANCIEN filtre (GELÉ) ───
     filtre_label:              'fld6KItM77nOSojnf',
     filtre_preuve_1:           'fldFPhv8r1PtQpzN0',
     filtre_preuve_2:           'fldRCUSIQ8sbx4rM4',
@@ -543,8 +521,8 @@ module.exports = {
     glissement_4_corps:        'fld6lWY9dpbwfrqTY',
     glissements_conclusion:    'fldI9PSSEB05HfKLR',
 
-    // ─── ANCIEN boucle (GELÉ, SAUF boucle_intro réutilisé par Fable comme intro HTML) ───
-    boucle_intro:              'fldM9qq4vQedoBejk',   // ⭐ FABLE = intro HTML ch.II (réutilisé)
+    // ─── ANCIEN boucle (GELÉ, SAUF boucle_intro réutilisé) ───
+    boucle_intro:              'fldM9qq4vQedoBejk',
     boucle_1_label:            'flduVchzSfMWP5wCF',
     boucle_1_scenario:         'flddgKN52eZZq4jMk',
     boucle_1_reponse:          'fldgCUORgJ7WR7CxZ',
@@ -578,7 +556,7 @@ module.exports = {
     signal_item4_verbatim:     'fldyLATVAfXhzKTbb',
     signal_synthese:           'flds2JqcNQwKy9pFg',
 
-    // ─── ANCIEN couts (GELÉ — la chaîne Fable utilise cout_principal/secondaire) ───
+    // ─── ANCIEN couts (GELÉ) ───
     cout1_niveau:              'fldUj9AnjGAC6mRA0',
     cout1_titre:               'flda1ghovzGZP61Pi',
     cout1_corps:               'fld98zcU1LR08eyrt',
@@ -592,7 +570,7 @@ module.exports = {
     cout3_corps:               'fldRLZNGvUevhxMUn',
     cout3_verbatim:            'fldWqhn5VKJMPSG6s',
 
-    // ─── ANCIEN signature (GELÉ — finalité écartée par doctrine 12/06) ───
+    // ─── ANCIEN signature (GELÉ) ───
     sig_pilier_label:          'fld1PZRqPxejsYc0Z',
     sig_filtre_val:            'fld6uiqUpCtWHfWYf',
     sig_finalite:              'fldxNmTAxP5FkqYWz',
@@ -603,35 +581,27 @@ module.exports = {
     liens_piliers:             'fld0i2Xr5A07KJZOC',
     liens_circuits:            'fld8F9KkASvL3Gqet',
 
-    // ═════════ ⭐ FABLE (13/06/2026) — CHAMPS DE LA CHAÎNE BILAN (maître Fable5) ═════════
-    // Tous vérifiés en base le 13/06. Écrits via upsertEtape1T3Bilan par P-B/P-C/P-D.
-    //
-    // ── P-B : filtre + signature + révélation chapitre IV ──
-    filtre:                    'fld9vAKpKEMIcRiTB',  // phrase-filtre (≠ ancien filtre_label) [multilineText]
-    filtre_declinaison:        'fld1p9p9Csvyllvcm',  // déclinaison du filtre
-    ch4_filtre_revelation:     'fldqDeT7EDov18iTz',  // texte de révélation ch.IV
-    ch4_filtre_preuves:        'fldXGZ5ijlcGPYc16',  // preuves du filtre (champ unique, ≠ filtre_preuve_1..5)
-    schema_intro_roles:        'fldm2QaOvI5cKpLwg',  // intro du schéma (rôles des piliers)
-    schema_legende_socle:      'fldXlpyU1EdUPBtIH',  // légende socle du schéma
-    socle_libelle:             'fldb8Y9IrrvMP9w0k',  // libellé du socle [singleLineText]
-    //
-    // ── P-C : chapitre II « boucle cognitive » (dénominateur figé 25) ──
-    //    (intro HTML = boucle_intro fldM9qq4vQedoBejk, déjà mappé plus haut)
-    maillon_m1_depart:         'fldVM2cfim5rBivMt',  // M1 « socle = point de départ »
-    maillon_m2_dialogue:       'fldAZQSbNRxK8ugWo',  // M2 « amont ⇄ socle »
-    maillon_m3_debouche:       'fldKxUzxHTvZ6d3z5',  // M3 « socle → aval »
-    maillon_m4_jamais:         'fldzc8cjyygsfbC5N',  // M4 « aval → socle : 0 »
-    boucle_intro_texte:        'fldFWT8vtfVuTm4zC',  // intro texte (version sans HTML)
-    boucle_technique:          'fldRRLpspWX6qTx7d',  // registre technique (méthode + comptages)
-    //
-    // ── P-D : chapitre III « marqueurs affectifs et zones de coût » (§05 + §06) ──
-    s05_intro:                 'fldxCNvqR4qyYAYjr',  // §05 intro (définition du signal limbique)
-    registres:                 'fldgeeC3lg3M89ESA',  // §05 registres de signal limbique (×N)
-    s05_cloture:               'fld9x0yRmGnAhVFS4',  // §05 clôture « ce que ça signifie » (gabarit fixe)
-    s06_intro:                 'fldxZi0jRCWnXsVng',  // §06 intro + définition du coût (gabarit fixe)
-    cout_principal:            'fld0nyRitbejCsihG',  // §06 zone de coût principale
-    cout_secondaire:           'fld7JUPi80iqSKzzV',  // §06 zone de coût secondaire
-    s06_cloture:               'fld1nB5UqVklCjikE'   // §06 clôture (gabarit fixe, 3 messages obligatoires)
+    // ═════════ ⭐ FABLE (13/06/2026) — CHAMPS DE LA CHAÎNE BILAN ═════════
+    filtre:                    'fld9vAKpKEMIcRiTB',
+    filtre_declinaison:        'fld1p9p9Csvyllvcm',
+    ch4_filtre_revelation:     'fldqDeT7EDov18iTz',
+    ch4_filtre_preuves:        'fldXGZ5ijlcGPYc16',
+    schema_intro_roles:        'fldm2QaOvI5cKpLwg',
+    schema_legende_socle:      'fldXlpyU1EdUPBtIH',
+    socle_libelle:             'fldb8Y9IrrvMP9w0k',
+    maillon_m1_depart:         'fldVM2cfim5rBivMt',
+    maillon_m2_dialogue:       'fldAZQSbNRxK8ugWo',
+    maillon_m3_debouche:       'fldKxUzxHTvZ6d3z5',
+    maillon_m4_jamais:         'fldzc8cjyygsfbC5N',
+    boucle_intro_texte:        'fldFWT8vtfVuTm4zC',
+    boucle_technique:          'fldRRLpspWX6qTx7d',
+    s05_intro:                 'fldxCNvqR4qyYAYjr',
+    registres:                 'fldgeeC3lg3M89ESA',
+    s05_cloture:               'fld9x0yRmGnAhVFS4',
+    s06_intro:                 'fldxZi0jRCWnXsVng',
+    cout_principal:            'fld0nyRitbejCsihG',
+    cout_secondaire:           'fld7JUPi80iqSKzzV',
+    s06_cloture:               'fld1nB5UqVklCjikE'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -640,17 +610,13 @@ module.exports = {
   ALLOWED_VALUES: {
     statut_test:             ['en_cours', 'terminé'],
 
-    // ⭐ v11.8 (13/06/2026) — SYNCHRONISÉ avec la base réelle (33 statuts) + 7 Fable.
-    // Source : get_table_schema VISITEUR.statut_analyse_pivar (fldyMwpcU1v9pwrYp), 13/06/2026.
     statut_analyse_pivar:    [
-      // ── États ──
       'EN_ATTENTE_VALIDATION_HUMAINE',
       'SUSPENDU MANUELLEMENT',
       'NOUVEAU',
       'en_cours',
       'terminé',
       'ERREUR',
-      // ── Étape 1.1 / T1 ──
       'REPRENDRE_PROMPT_ETAPE1',
       'REPRENDRE_AGENT1',
       'REPRENDRE_T1_SOMMEIL_SEUL',
@@ -664,7 +630,6 @@ module.exports = {
       'REPRENDRE_T1_DES_ANIMAL2',
       'REPRENDRE_T1_DES_PANNE',
       'ETAPE1_TERMINEE',
-      // ── Étape 2 ──
       'REPRENDRE_AGENT2',
       'REPRENDRE_AGENT2_PHASE1',
       'REPRENDRE_AGENT2_PHASE2',
@@ -677,17 +642,15 @@ module.exports = {
       'ETAPE2_AGENT_B',
       'ETAPE2_AGENT_C',
       'ETAPE2_3BILAN4EXCELLENCES',
-      // ── Étape 3 (ancien bilan) ──
       'REPRENDRE_AGENT3',
       'ETAPE3_TERMINEE',
-      // ── ⭐ Étape 3 (chaîne bilan FABLE — 13/06/2026) ──
-      'REPRENDRE_BILAN_FABLE',   // production : P-A ×5 → P-B → P-C ∥ P-D
-      'REPRENDRE_BILAN_PA',      // reprise solo : 5 analyses pilier (modes + circuits + synthèses)
-      'REPRENDRE_BILAN_PB',      // reprise solo : filtre + signature + révélation ch.IV
-      'REPRENDRE_BILAN_PC',      // reprise solo : boucles ch.II
-      'REPRENDRE_BILAN_PD',      // reprise solo : marqueurs ch.III
-      'BILAN_FABLE_PA_OK',       // sentinelle : 5 piliers OK, P-B/P-C/P-D à rejouer
-      'BILAN_FABLE_TERMINE'      // terminal : bilan produit, suite du pipeline possible
+      'REPRENDRE_BILAN_FABLE',
+      'REPRENDRE_BILAN_PA',
+      'REPRENDRE_BILAN_PB',
+      'REPRENDRE_BILAN_PC',
+      'REPRENDRE_BILAN_PD',
+      'BILAN_FABLE_PA_OK',
+      'BILAN_FABLE_TERMINE'
     ],
 
     validation_humaine_action: [
