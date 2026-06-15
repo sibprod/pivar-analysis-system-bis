@@ -109,7 +109,7 @@ async function runBoucles({ candidat_id, prenom='' }) {
   }
   const modes_valides={};
   for (const p of (piliers||[])) {
-    const code=p.pilier||''; const mode=p[config.ETAPE1_T3_PILIER_FIELDS?.pilier_mode]||p.pilier_mode||'';
+    const code=p.pilier||''; const mode=p.pilier_mode||'';   // clé lisible après _mapByFieldIds
     if (code&&mode) modes_valides[code]=mode;
   }
 
