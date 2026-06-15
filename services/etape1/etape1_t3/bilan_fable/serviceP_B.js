@@ -97,8 +97,8 @@ async function runFiltreEtChapitre4({ candidat_id, prenom='' }) {
   const modes_valides={}, vues_ensemble={};
   for (const p of (piliers||[])) {
     const code = p.pilier||'';
-    const mode = p[config.ETAPE1_T3_PILIER_FIELDS?.pilier_mode]||p.pilier_mode||'';
-    const synth= p[config.ETAPE1_T3_PILIER_FIELDS?.synth_interpretee]||p.synth_interpretee||'';
+    const mode  = p.pilier_mode        || '';   // clé lisible après _mapByFieldIds
+    const synth = p.synth_interpretee  || '';   // clé lisible après _mapByFieldIds
     if (code && mode)  modes_valides[code]= mode;
     if (code && synth) vues_ensemble[code] = synth;
   }
