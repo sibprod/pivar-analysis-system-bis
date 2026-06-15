@@ -1,7 +1,12 @@
 // services/infrastructure/airtableService.js
-// Service Airtable v11.6 — Profil-Cognitif
+// Service Airtable v11.7-fable — Profil-Cognitif
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// PHASE v11.7-fable (2026-06-15) — Ajout getEtape1T2Fable :
+//   - ⭐ Ajout getEtape1T2Fable(candidat_id) : lit la table tblaGd3ixAWxbJJp2
+//     (verbatims circuits + signal limbique Fable), distincte de ETAPE1_T2.
+//     Utilisée par serviceE0_extraction (É0 de la chaîne bilan Fable).
 //
 // PHASE v11.6 (2026-06-05) — Visualisation Étape 2 (les 4 excellences) :
 //   - ⭐ Ajout getEtape2Excellences(session_id) : lit la table
@@ -11,13 +16,6 @@
 //     /visualiser/etape2_1responsepour4excellences/:candidat_id.
 //
 // (Historique antérieur conservé.)
-//
-// Responsabilités :
-//   - VISITEUR : suivi candidat, statuts, backups, validation humaine, emails
-//   - RESPONSES : lecture seule (frontend candidat)
-//   - ETAPE1_T1, T2, T3, T4_BILAN : tables du pipeline
-//   - VERIFICATEUR_T1 : audit du vérificateur (Décision n°10)
-//   - REFERENTIEL_LEXIQUE : 15 termes doctrinaux, lus par tous les agents
 
 'use strict';
 
@@ -25,7 +23,6 @@ const Airtable        = require('airtable');
 const airtableConfig  = require('../../config/airtable');
 const logger          = require('../../utils/logger');
 
-// ─── Lazy initialization du base Airtable ─────────────────────────────────────
 let _base = null;
 function getBase() {
   if (!_base) {
@@ -35,10 +32,6 @@ function getBase() {
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HELPERS — nettoyage et normalisation
-// ═══════════════════════════════════════════════════════════════════════════
 
 function deepCleanString(value) {
   if (typeof value !== 'string') return value;
@@ -165,13 +158,8 @@ async function getResponses(session_id) {
 const getResponsesBySession = getResponses;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐ v11.6 (05/06/2026) — ETAPE2 — LES 4 EXCELLENCES (lecture seule, visualisation)
+// ⭐ v11.6 — ETAPE2 — LES 4 EXCELLENCES
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// Lit les 25 lignes de la table "ETAPE2_1_RESPONSES pour 4 excellences"
-// d'un candidat, triées par numero_global. Filtre sur session_ID (comme
-// getResponses : cette table porte le même identifiant de session).
-// Utilisée par la route /visualiser/etape2_1responsepour4excellences/.
 
 async function getEtape2Excellences(session_id) {
   try {
@@ -192,17 +180,9 @@ async function getEtape2Excellences(session_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐ v11.7 (05/06/2026) — ÉTAPE 2 : PRODUCTION DES 4 EXCELLENCES (agents T5A/T5BC)
+// ⭐ v11.7 — ÉTAPE 2 : PRODUCTION DES 4 EXCELLENCES
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// Trois tables :
-//   - T5A = ETAPE2_RESPONSES_EXCELLENCES ('ETAPE2_1_RESPONSES pour 4 excellences')
-//           25 lignes/candidat. Chaque ligne porte DÉJÀ response_text + le signal
-//           limbique (Étape 1). L'agent T5A MET À JOUR ces lignes (niveaux/verbatims).
-//   - T5B = ETAPE2_BILAN_EXCELLENCE ('RESPONSES_ETAPE2_ EXCELLENCE') 4 lignes/candidat.
-//   - T5C = ETAPE2_BILAN4EXCELLENCES 1 ligne/candidat.
 
-// ─── Lecture des 25 lignes T5A (entrée de l'agent T5A et de l'agent T5BC) ────
 async function getEtape2T5ARows(session_id) {
   try {
     const records = await getBase()(airtableConfig.TABLES.ETAPE2_RESPONSES_EXCELLENCES)
@@ -220,8 +200,6 @@ async function getEtape2T5ARows(session_id) {
   }
 }
 
-// ─── Mise à jour des lignes T5A (résultats de l'agent T5A) ───────────────────
-// patchPlan = [{ airtable_id, fields_to_patch: { anticipation_niveau, ... } }, ...]
 async function patchEtape2T5ARows(session_id, patchPlan) {
   if (!Array.isArray(patchPlan) || patchPlan.length === 0) {
     logger.info('patchEtape2T5ARows — rien à écrire', { session_id });
@@ -249,7 +227,6 @@ async function patchEtape2T5ARows(session_id, patchPlan) {
   }
 }
 
-// ─── Écriture T5B (4 lignes excellence) — upsert sur (candidat_id, excellence) ─
 async function upsertEtape2T5B(candidat_id, rows) {
   if (!Array.isArray(rows) || rows.length === 0) {
     logger.warn('upsertEtape2T5B — aucune ligne', { candidat_id });
@@ -257,7 +234,6 @@ async function upsertEtape2T5B(candidat_id, rows) {
   }
   try {
     const tableName = airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE;
-    // Lire les lignes existantes pour retrouver les record IDs par excellence
     const existing = await getBase()(tableName)
       .select({ filterByFormula: `LOWER({candidat_id}) = "${String(candidat_id).toLowerCase()}"` })
       .all();
@@ -295,7 +271,6 @@ async function upsertEtape2T5B(candidat_id, rows) {
   }
 }
 
-// ─── Lecture des 4 lignes T5B (entrée de l'agent T5C) ────────────────────────
 async function getEtape2T5BRows(candidat_id) {
   try {
     const tableName = airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE;
@@ -311,7 +286,6 @@ async function getEtape2T5BRows(candidat_id) {
   }
 }
 
-// ─── Écriture T5C (1 ligne profil) — upsert sur candidat_id ──────────────────
 async function upsertEtape2T5C(candidat_id, fields) {
   try {
     const tableName = airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES;
@@ -334,24 +308,12 @@ async function upsertEtape2T5C(candidat_id, fields) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐ v11.7 (05/06/2026) — BILAN DYNAMIQUE DES 4 EXCELLENCES (lecture seule)
+// ⭐ v11.7 — BILAN DYNAMIQUE DES 4 EXCELLENCES
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// Assemble le payload du bilan candidat à partir de DEUX tables Airtable :
-//   - T5B (RESPONSES_ETAPE2_ EXCELLENCE) : 4 lignes/candidat (1 par excellence),
-//     comptages, régime (pattern), densités par scénario, déclencheur, synthèse,
-//     et verbatims_preuves (JSON déjà sélectionné/trié en base, ÉLEVÉ puis MOYEN).
-//   - T5C (ETAPE2_BILAN4EXCELLENCES) : 1 ligne/candidat, profil de synthèse
-//     (portrait, étiquette, ordre, combinaison, deux faces, découpage, montée…).
-//
-// Renvoie { profil: {...}, excellences: [ {code, ...}, ... ] } directement
-// consommable par services/visualisation/bilan_4excellences.html.
-// AUCUNE reformulation : les verbatims sont servis bruts depuis la base.
 
 const _EXC_ORDER_LABEL = { ANT: 'ANT', DEC: 'DEC', MET: 'MET', VUE: 'VUE' };
 
 function _excCode(excellenceValue) {
-  // Le champ "excellence" est un singleSelect dont le name est déjà ANT/DEC/MET/VUE.
   if (!excellenceValue) return '';
   if (typeof excellenceValue === 'object' && excellenceValue.name) return excellenceValue.name;
   return String(excellenceValue);
@@ -369,7 +331,6 @@ function _safeParsePreuves(raw) {
 }
 
 function _amplitude(e) {
-  // tri des excellences par amplitude : ÉLEVÉ×3 + MOYEN×2 + FAIBLE×1
   return (e.nb_eleve || 0) * 3 + (e.nb_moyen || 0) * 2 + (e.nb_faible || 0);
 }
 
@@ -377,7 +338,6 @@ async function getBilanExcellences(candidat_id) {
   try {
     const base = getBase();
 
-    // ─── T5B : 4 lignes excellence ─────────────────────────────────────────
     const t5bRecords = await base(airtableConfig.TABLES.ETAPE2_BILAN_EXCELLENCE)
       .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
       .all();
@@ -407,7 +367,6 @@ async function getBilanExcellences(candidat_id) {
       };
     }).sort((a, b) => _amplitude(b) - _amplitude(a));
 
-    // ─── T5C : 1 ligne profil ──────────────────────────────────────────────
     const t5cRecords = await base(airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES)
       .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
       .all();
@@ -418,10 +377,8 @@ async function getBilanExcellences(candidat_id) {
     }
     const c = t5cRecords[0].fields;
 
-    // Jauges : on lit l'étiquette de verdict pour piloter hauteur/état "non mesuré".
     function jaugeFromVerdict(verdictTxt, niveauTxt) {
       const v = String(verdictTxt || '').toUpperCase();
-      // "non concluant / non mesuré" → jauge hachurée
       const na = v.includes('RÉSERVE') || v.includes('DÉFAVORABLE') || v.includes('NON');
       const map = { 'TRÈS BON': 80, 'BON': 62, 'SUFFISANT': 45 };
       let pct = 0, lab = '';
@@ -432,7 +389,7 @@ async function getBilanExcellences(candidat_id) {
 
     const profil = {
       prenom:         c.prenom || c.Prenom || '',
-      etiquette:      c.profil_dominant || '',                // étiquette de profil
+      etiquette:      c.profil_dominant || '',
       dominante:      c.signal_constitutif || c.dominante || c.note_profil_global || '',
       portrait:       c.portrait_un_mot || '',
       ordre:          c.ordre_excellences || '',
@@ -443,7 +400,7 @@ async function getBilanExcellences(candidat_id) {
       conclusions_man: c.B4_conclusions_man || '',
       conditions_enc:  c.conditions_encadrement || '',
       conditions_man:  c.conditions_management || '',
-      decoupage:       c.profil_dominant || '',               // lecture du découpage (réutilise l'étiquette enrichie si besoin)
+      decoupage:       c.profil_dominant || '',
       montee:          c.montee_autre_face || '',
       reserve:         c.reserves_globales || '',
       jauge_trav:      jaugeFromVerdict(c.verdict_encadrement, c.ANT_densite),
@@ -459,7 +416,7 @@ async function getBilanExcellences(candidat_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ETAPE1_T1 — Analyse brute des 25 réponses
+// ETAPE1_T1
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getEtape1T1(candidat_id) {
@@ -577,7 +534,6 @@ async function updateTypesVerbatimCircuits(updates) {
   }
 }
 
-// Liste canonique des scénarios (Décision n°40 : 5 agents T1 distincts)
 const SCENARIOS_VALIDES_T1 = ['SOMMEIL', 'WEEKEND', 'ANIMAL_1', 'ANIMAL_2', 'PANNE'];
 
 async function deleteEtape1T1Scenario(candidat_id, scenario_name) {
@@ -597,9 +553,7 @@ async function deleteEtape1T1Scenario(candidat_id, scenario_name) {
       .all();
 
     if (records.length === 0) {
-      logger.warn('deleteEtape1T1Scenario — aucune ligne à supprimer', {
-        candidat_id, scenario_name
-      });
+      logger.warn('deleteEtape1T1Scenario — aucune ligne à supprimer', { candidat_id, scenario_name });
       return { deleted: 0, scenario: scenario_name };
     }
 
@@ -613,17 +567,13 @@ async function deleteEtape1T1Scenario(candidat_id, scenario_name) {
     await getBase()(airtableConfig.TABLES.ETAPE1_T1).destroy(idsToDelete);
 
     logger.info('ETAPE1_T1 rows deleted for scenario', {
-      candidat_id,
-      scenario_name,
-      deleted: idsToDelete.length
+      candidat_id, scenario_name, deleted: idsToDelete.length
     });
 
     return { deleted: idsToDelete.length, scenario: scenario_name };
   } catch (error) {
     logger.error('Failed to delete ETAPE1_T1 rows for scenario', {
-      candidat_id,
-      scenario_name,
-      error: error.message
+      candidat_id, scenario_name, error: error.message
     });
     throw error;
   }
@@ -642,27 +592,17 @@ async function writeEtape1T1Scenario(candidat_id, rows) {
   }
 
   try {
-    const created = await createRowsInBatches(
-      airtableConfig.TABLES.ETAPE1_T1,
-      rows,
-      candidat_id
-    );
-    logger.info('ETAPE1_T1 scenario rows written (additive, no delete)', {
-      candidat_id,
-      count: created
-    });
+    const created = await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T1, rows, candidat_id);
+    logger.info('ETAPE1_T1 scenario rows written', { candidat_id, count: created });
     return created;
   } catch (error) {
-    logger.error('Failed to write ETAPE1_T1 scenario rows', {
-      candidat_id,
-      error: error.message
-    });
+    logger.error('Failed to write ETAPE1_T1 scenario rows', { candidat_id, error: error.message });
     throw error;
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VERIFICATEUR_T1 — ⭐ v10 (Décision n°10)
+// VERIFICATEUR_T1
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function writeVerificateurT1(candidat_id, auditData) {
@@ -694,7 +634,6 @@ async function writeVerificateurT1(candidat_id, auditData) {
     });
   } catch (error) {
     logger.error('Failed to write VERIFICATEUR_T1', { candidat_id, error: error.message });
-    // Non-bloquant : on log l'erreur mais on continue
   }
 }
 
@@ -715,7 +654,7 @@ async function getVerificateurT1History(candidat_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VALIDATION HUMAINE — ⭐ v10 (Décision n°16)
+// VALIDATION HUMAINE
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getCandidatsEnAttenteValidation() {
@@ -746,9 +685,7 @@ async function appliquerValidationHumaine(candidat_id, action, motif) {
     };
 
     const nouveauStatut = statutMap[action];
-    if (!nouveauStatut) {
-      throw new Error(`Action validation humaine inconnue : ${action}`);
-    }
+    if (!nouveauStatut) throw new Error(`Action validation humaine inconnue : ${action}`);
 
     await updateVisiteur(candidat_id, {
       validation_humaine_action: action,
@@ -766,7 +703,7 @@ async function appliquerValidationHumaine(candidat_id, action, motif) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TENTATIVES MODE 4 — ⭐ v10 (Décision n°24)
+// TENTATIVES MODE 4
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function incrementTentativesEtape1(candidat_id) {
@@ -774,7 +711,6 @@ async function incrementTentativesEtape1(candidat_id) {
     const visiteur = await getVisiteur(candidat_id);
     const current = parseInt(visiteur?.nombre_tentatives_etape1 || 0, 10);
     const newValue = current + 1;
-
     await updateVisiteur(candidat_id, { nombre_tentatives_etape1: newValue });
     logger.info('Tentatives etape1 incremented', { candidat_id, value: newValue });
     return newValue;
@@ -790,12 +726,11 @@ async function resetTentativesEtape1(candidat_id) {
     logger.debug('Tentatives etape1 reset to 0', { candidat_id });
   } catch (error) {
     logger.error('Failed to reset tentatives etape1', { candidat_id, error: error.message });
-    // Non-bloquant
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// COMMUNICATION CANDIDAT — ⭐ v10 (Décision n°33)
+// COMMUNICATION CANDIDAT
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getCandidatsAEmailler() {
@@ -833,9 +768,7 @@ async function markerEmailCandidatEnvoye(candidat_id, type) {
     };
 
     const fieldName = fieldMap[type];
-    if (!fieldName) {
-      throw new Error(`Type d'email inconnu : ${type}`);
-    }
+    if (!fieldName) throw new Error(`Type d'email inconnu : ${type}`);
 
     await updateVisiteur(candidat_id, { [fieldName]: true });
     logger.info('Email candidat marqué envoyé', { candidat_id, type });
@@ -856,7 +789,7 @@ async function setDateT0(candidat_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ETAPE1_T2 / T3 / T4_BILAN
+// ETAPE1_T2
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getEtape1T2(candidat_id) {
@@ -870,6 +803,37 @@ async function getEtape1T2(candidat_id) {
     return records.map(r => ({ airtable_id: r.id, ...r.fields }));
   } catch (error) {
     logger.error('Failed to get ETAPE1_T2', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ v11.7-fable (15/06/2026) — ETAPE1_T2_FABLE — table tblaGd3ixAWxbJJp2
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Table distincte de ETAPE1_T2 (ancienne table analyse par question).
+// tblaGd3ixAWxbJJp2 = 1 record par circuit activé par candidat.
+// Champs clés lus par serviceE0_extraction via fldIDs directs :
+//   fldbHyiLdkkRU6B0J = candidat_id (filtre)
+//   fldkByLh883MLtHB3 = pilier
+//   fldf3Rfux16asTI0I = circuit_id
+//   fldnDxnEc3uLoAknN = signal_limbique
+//   fldYZIvT2gMtumy6O = synthese_pilier
+
+async function getEtape1T2Fable(candidat_id) {
+  try {
+    const TABLE_ID = 'tblaGd3ixAWxbJJp2';
+    const records = await getBase()(TABLE_ID)
+      .select({
+        filterByFormula: `{fldbHyiLdkkRU6B0J} = "${candidat_id}"`,
+        returnFieldsByFieldId: true
+      })
+      .all();
+    const rows = records.map(r => ({ airtable_id: r.id, ...r.cellValuesByFieldId }));
+    logger.debug('ETAPE1_T2_FABLE fetched', { candidat_id, count: rows.length });
+    return rows;
+  } catch (error) {
+    logger.error('Failed to get ETAPE1_T2_FABLE', { candidat_id, error: error.message });
     throw error;
   }
 }
@@ -996,12 +960,12 @@ async function upsertEtape1T4Bilan(candidat_id, fields) {
         id: existing.airtable_id,
         fields: cleanedFields
       }], { typecast: true });
-      logger.debug('ETAPE1_T4_BILAN updated', { candidat_id, fieldsCount: Object.keys(cleanedFields).length });
+      logger.debug('ETAPE1_T4_BILAN updated', { candidat_id });
     } else {
       await getBase()(airtableConfig.TABLES.ETAPE1_T4_BILAN).create([{
         fields: { candidat_id, ...cleanedFields }
       }], { typecast: true });
-      logger.debug('ETAPE1_T4_BILAN created', { candidat_id, fieldsCount: Object.keys(cleanedFields).length });
+      logger.debug('ETAPE1_T4_BILAN created', { candidat_id });
     }
   } catch (error) {
     logger.error('Failed to upsert ETAPE1_T4_BILAN', { candidat_id, error: error.message });
@@ -1010,7 +974,7 @@ async function upsertEtape1T4Bilan(candidat_id, fields) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_LEXIQUE — 15 termes doctrinaux
+// REFERENTIEL_LEXIQUE
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getReferentielLexique() {
@@ -1049,15 +1013,9 @@ function formaterLexiquePourPrompt(lexique) {
   for (const terme of lexique) {
     lignes.push(`## ${terme.ordre_affichage}. ${terme.terme}`);
     lignes.push(`**Définition** : ${terme.definition}`);
-    if (terme.forme_grammaticale) {
-      lignes.push(`**Forme grammaticale** : ${terme.forme_grammaticale}`);
-    }
-    if (terme.precision_semantique) {
-      lignes.push(`**Précision sémantique** : ${terme.precision_semantique}`);
-    }
-    if (terme.termes_interdits_associes) {
-      lignes.push(`**Termes interdits associés** : ${terme.termes_interdits_associes}`);
-    }
+    if (terme.forme_grammaticale) lignes.push(`**Forme grammaticale** : ${terme.forme_grammaticale}`);
+    if (terme.precision_semantique) lignes.push(`**Précision sémantique** : ${terme.precision_semantique}`);
+    if (terme.termes_interdits_associes) lignes.push(`**Termes interdits associés** : ${terme.termes_interdits_associes}`);
     lignes.push('');
   }
 
@@ -1068,7 +1026,7 @@ function formaterLexiquePourPrompt(lexique) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_PILIERS — 5 entrées doctrinales (P1-P5)
+// REFERENTIEL_PILIERS
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getReferentielPiliers() {
@@ -1107,7 +1065,7 @@ async function getReferentielPiliers() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_CIRCUITS — 75 circuits officiels (étape 2)
+// REFERENTIEL_CIRCUITS
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getReferentielCircuits() {
@@ -1130,9 +1088,7 @@ async function getReferentielCircuits() {
     }));
 
     if (circuits.length !== 75) {
-      logger.warn('REFERENTIEL_CIRCUITS incomplet', {
-        found: circuits.length, expected: 75
-      });
+      logger.warn('REFERENTIEL_CIRCUITS incomplet', { found: circuits.length, expected: 75 });
     }
 
     logger.debug('REFERENTIEL_CIRCUITS loaded', { count: circuits.length });
@@ -1144,7 +1100,7 @@ async function getReferentielCircuits() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// REFERENTIEL_CIRCUITS_CANDIDATS — Bac de veille circuits ad hoc (étape 2)
+// REFERENTIEL_CIRCUITS_CANDIDATS
 // ═══════════════════════════════════════════════════════════════════════════
 
 const PROMOTION_THRESHOLD_SAME_PILLAR  = 3;
@@ -1155,9 +1111,7 @@ async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
     const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS)
       .select({
         filterByFormula: `{statut} = "${statut}"`,
-        sort: [
-          { field: 'occurrences_pilier_principal', direction: 'desc' }
-        ]
+        sort: [{ field: 'occurrences_pilier_principal', direction: 'desc' }]
       })
       .all();
 
@@ -1182,26 +1136,18 @@ async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
     logger.debug('Circuits ad hoc loaded', { statut, count: adHocs.length });
     return adHocs;
   } catch (error) {
-    logger.error('Failed to load REFERENTIEL_CIRCUITS_CANDIDATS', {
-      statut, error: error.message
-    });
+    logger.error('Failed to load REFERENTIEL_CIRCUITS_CANDIDATS', { statut, error: error.message });
     throw error;
   }
 }
 
 async function upsertCircuitAdHoc({
-  candidat_id,
-  nom_propose,
-  pilier_courant,
-  geste_propose                = null,
-  verbatim_source              = null,
-  question_source              = null,
-  circuits_proches_envisages   = null
+  candidat_id, nom_propose, pilier_courant,
+  geste_propose = null, verbatim_source = null,
+  question_source = null, circuits_proches_envisages = null
 }) {
   if (!candidat_id || !nom_propose || !pilier_courant) {
-    throw new Error(
-      'upsertCircuitAdHoc — candidat_id, nom_propose et pilier_courant sont requis'
-    );
+    throw new Error('upsertCircuitAdHoc — candidat_id, nom_propose et pilier_courant sont requis');
   }
 
   const nowIso = new Date().toISOString();
@@ -1210,16 +1156,12 @@ async function upsertCircuitAdHoc({
     const safeName = String(nom_propose).replace(/"/g, '\\"');
 
     const existants = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS)
-      .select({
-        filterByFormula: `{nom_propose} = "${safeName}"`,
-        maxRecords: 1
-      })
+      .select({ filterByFormula: `{nom_propose} = "${safeName}"`, maxRecords: 1 })
       .firstPage();
 
     if (existants && existants.length > 0) {
       const existant = existants[0];
       const pilierPrincipalRecord = extractLookup(existant.fields.pilier_principal);
-
       const currentOccPrincipal = existant.fields.occurrences_pilier_principal || 0;
       const currentOccAutres    = existant.fields.occurrences_autres_piliers   || 0;
       const currentCandidats    = existant.fields.candidats_concernes || '';
@@ -1227,35 +1169,26 @@ async function upsertCircuitAdHoc({
       const currentStatut       = extractLookup(existant.fields.statut);
 
       if (['PROMU_AUTO', 'PROMU_MANUEL', 'REJETE', 'FUSIONNE'].includes(currentStatut)) {
-        logger.debug('Circuit ad hoc déjà finalisé — skip', {
-          nom_propose, statut: currentStatut, candidat_id
-        });
+        logger.debug('Circuit ad hoc déjà finalisé — skip', { nom_propose, statut: currentStatut, candidat_id });
         return {
-          action:                       'skipped',
-          airtable_id:                  existant.id,
+          action: 'skipped', airtable_id: existant.id,
           occurrences_pilier_principal: currentOccPrincipal,
-          occurrences_autres_piliers:   currentOccAutres,
-          total:                        currentOccPrincipal + currentOccAutres,
-          promotion_triggered:          null
+          occurrences_autres_piliers: currentOccAutres,
+          total: currentOccPrincipal + currentOccAutres,
+          promotion_triggered: null
         };
       }
 
-      const candidatsList = currentCandidats
-        .split('\n')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+      const candidatsList = currentCandidats.split('\n').map(s => s.trim()).filter(s => s.length > 0);
 
       if (candidatsList.includes(candidat_id)) {
-        logger.debug('Circuit ad hoc déjà connu pour ce candidat (skip)', {
-          nom_propose, candidat_id
-        });
+        logger.debug('Circuit ad hoc déjà connu pour ce candidat (skip)', { nom_propose, candidat_id });
         return {
-          action:                       'skipped',
-          airtable_id:                  existant.id,
+          action: 'skipped', airtable_id: existant.id,
           occurrences_pilier_principal: currentOccPrincipal,
-          occurrences_autres_piliers:   currentOccAutres,
-          total:                        currentOccPrincipal + currentOccAutres,
-          promotion_triggered:          null
+          occurrences_autres_piliers: currentOccAutres,
+          total: currentOccPrincipal + currentOccAutres,
+          promotion_triggered: null
         };
       }
 
@@ -1266,35 +1199,19 @@ async function upsertCircuitAdHoc({
 
       candidatsList.push(candidat_id);
       const newCandidats = candidatsList.join('\n');
-
-      const questionEntry  = `${question_source || '?'} - ${candidat_id}`;
-      const newQuestions   = currentQuestions
-        ? `${currentQuestions}\n${questionEntry}`
-        : questionEntry;
+      const questionEntry = `${question_source || '?'} - ${candidat_id}`;
+      const newQuestions  = currentQuestions ? `${currentQuestions}\n${questionEntry}` : questionEntry;
 
       let promotionTriggered = null;
-      let newStatut          = currentStatut;
+      let newStatut = currentStatut;
 
       if (newOccPrincipal >= PROMOTION_THRESHOLD_SAME_PILLAR) {
         newStatut = 'PROMU_AUTO';
         promotionTriggered = 'auto';
-        logger.warn('🎯 PROMOTION AUTOMATIQUE DÉCLENCHÉE (Cas A : ≥3 même pilier)', {
-          nom_propose,
-          pilier_principal:                  pilierPrincipalRecord,
-          occurrences_pilier_principal:      newOccPrincipal,
-          candidats_concernes_count:         candidatsList.length,
-          action_requise:                    'CTO doit créer le circuit officiel dans REFERENTIEL_CIRCUITS sous P{X}·C{16+}'
-        });
+        logger.warn('🎯 PROMOTION AUTOMATIQUE DÉCLENCHÉE', { nom_propose, pilier_principal: pilierPrincipalRecord, occurrences_pilier_principal: newOccPrincipal });
       } else if (total >= PROMOTION_THRESHOLD_MULTI_PILLAR && newOccAutres > 0) {
         promotionTriggered = 'flag_arbitrage';
-        logger.warn('⚠️ ARBITRAGE MANUEL REQUIS (Cas B : ≥5 total multi-piliers)', {
-          nom_propose,
-          pilier_principal:                  pilierPrincipalRecord,
-          occurrences_pilier_principal:      newOccPrincipal,
-          occurrences_autres_piliers:        newOccAutres,
-          total,
-          action_requise:                    'CTO doit décider du pilier de rattachement définitif et basculer manuellement en PROMU_MANUEL'
-        });
+        logger.warn('⚠️ ARBITRAGE MANUEL REQUIS', { nom_propose, total });
       }
 
       const updateFields = {
@@ -1304,82 +1221,48 @@ async function upsertCircuitAdHoc({
         questions_concernees:         newQuestions,
         date_derniere_mise_a_jour:    nowIso
       };
-      if (newStatut !== currentStatut) {
-        updateFields.statut = newStatut;
-      }
+      if (newStatut !== currentStatut) updateFields.statut = newStatut;
 
-      await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).update([
-        { id: existant.id, fields: updateFields }
-      ]);
+      await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).update([{ id: existant.id, fields: updateFields }]);
 
-      logger.info('Circuit ad hoc incrémenté', {
-        nom_propose,
-        pilier_courant,
-        pilier_principal_record: pilierPrincipalRecord,
-        incremented:             isPilierPrincipal ? 'pilier_principal' : 'autres_piliers',
-        occurrences_pilier_principal: newOccPrincipal,
-        occurrences_autres_piliers:   newOccAutres,
-        total,
-        candidat_id,
-        statut: newStatut
-      });
+      logger.info('Circuit ad hoc incrémenté', { nom_propose, pilier_courant, occurrences_pilier_principal: newOccPrincipal, total, candidat_id, statut: newStatut });
 
       return {
-        action:                       isPilierPrincipal ? 'incremented_principal' : 'incremented_autres',
-        airtable_id:                  existant.id,
+        action: isPilierPrincipal ? 'incremented_principal' : 'incremented_autres',
+        airtable_id: existant.id,
         occurrences_pilier_principal: newOccPrincipal,
-        occurrences_autres_piliers:   newOccAutres,
+        occurrences_autres_piliers: newOccAutres,
         total,
-        promotion_triggered:          promotionTriggered
+        promotion_triggered: promotionTriggered
       };
     }
 
     const questionEntry = `${question_source || '?'} - ${candidat_id}`;
 
-    const created = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).create([
-      {
-        fields: cleanFields({
-          nom_propose,
-          pilier_principal:              pilier_courant,
-          geste_propose,
-          occurrences_pilier_principal:  1,
-          occurrences_autres_piliers:    0,
-          candidats_concernes:           candidat_id,
-          questions_concernees:          questionEntry,
-          verbatim_source_premier:       verbatim_source,
-          circuits_proches_envisages,
-          statut:                        'EN_ATTENTE',
-          date_premiere_detection:       nowIso,
-          date_derniere_mise_a_jour:     nowIso
-        })
-      }
-    ]);
+    const created = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS).create([{
+      fields: cleanFields({
+        nom_propose, pilier_principal: pilier_courant, geste_propose,
+        occurrences_pilier_principal: 1, occurrences_autres_piliers: 0,
+        candidats_concernes: candidat_id, questions_concernees: questionEntry,
+        verbatim_source_premier: verbatim_source, circuits_proches_envisages,
+        statut: 'EN_ATTENTE',
+        date_premiere_detection: nowIso, date_derniere_mise_a_jour: nowIso
+      })
+    }]);
 
-    logger.info('Circuit ad hoc créé', {
-      nom_propose,
-      pilier_principal: pilier_courant,
-      candidat_id,
-      airtable_id: created[0].id
-    });
+    logger.info('Circuit ad hoc créé', { nom_propose, pilier_principal: pilier_courant, candidat_id, airtable_id: created[0].id });
 
     return {
-      action:                       'created',
-      airtable_id:                  created[0].id,
-      occurrences_pilier_principal: 1,
-      occurrences_autres_piliers:   0,
-      total:                        1,
-      promotion_triggered:          null
+      action: 'created', airtable_id: created[0].id,
+      occurrences_pilier_principal: 1, occurrences_autres_piliers: 0,
+      total: 1, promotion_triggered: null
     };
   } catch (error) {
-    logger.error('Failed to upsert circuit ad hoc', {
-      candidat_id, nom_propose, pilier_courant,
-      error: error.message
-    });
+    logger.error('Failed to upsert circuit ad hoc', { candidat_id, nom_propose, pilier_courant, error: error.message });
     throw error;
   }
 }
 
-// ─── Helper interne pour les nouvelles fonctions étape 2 ──────────────────
 function extractLookup(value) {
   if (value === null || value === undefined) return null;
   if (Array.isArray(value)) return value.length > 0 ? String(value[0]) : null;
@@ -1387,7 +1270,7 @@ function extractLookup(value) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VISITEUR — getCiviliteCandidat (Décision n°4 : anonymisation absolue)
+// VISITEUR — civilité et info visualisation
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getCiviliteCandidat(candidat_id) {
@@ -1414,10 +1297,6 @@ async function getCiviliteCandidat(candidat_id) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// VISITEUR — getVisiteurInfoForVisualisation (v10.5 — affichage HTML interne)
-// ═══════════════════════════════════════════════════════════════════════════
-
 async function getVisiteurInfoForVisualisation(candidat_id) {
   try {
     const records = await getBase()(airtableConfig.TABLES.VISITEUR)
@@ -1439,14 +1318,12 @@ async function getVisiteurInfoForVisualisation(candidat_id) {
     }
 
     const f = records[0].fields;
-    const info = {
+    return {
       candidate_ID: f[airtableConfig.VISITEUR_FIELDS.candidate_ID] || candidat_id,
       prenom:       f[airtableConfig.VISITEUR_FIELDS.Prenom]            || '?',
       nom:          f[airtableConfig.VISITEUR_FIELDS.Nom]               || '?',
       civilite:     f[airtableConfig.VISITEUR_FIELDS.civilite_candidat] || '?'
     };
-    logger.debug('Visiteur info lu pour visualisation', { candidat_id, prenom: info.prenom });
-    return info;
   } catch (error) {
     logger.error('Failed to read visiteur info for visualisation', { candidat_id, error: error.message });
     return { prenom: '?', nom: '?', civilite: '?', candidate_ID: candidat_id };
@@ -1459,10 +1336,7 @@ async function getVisiteurInfoForVisualisation(candidat_id) {
 
 async function deleteRowsByCandidatId(tableName, candidat_id) {
   const records = await getBase()(tableName)
-    .select({
-      filterByFormula: `{candidat_id} = "${candidat_id}"`,
-      fields: []
-    })
+    .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, fields: [] })
     .all();
 
   if (records.length === 0) {
@@ -1503,7 +1377,7 @@ async function createRowsInBatches(tableName, rows, candidat_id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐ v11.0 (28/05/2026) — ÉTAPE 3 : LE BILAN (3 tables T3)
+// ⭐ v11.0 — ÉTAPE 3 : LE BILAN (3 tables T3)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function _mapByFieldIds(record, fieldsMap) {
@@ -1549,10 +1423,7 @@ async function getEtape1T3Piliers(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_PILIER)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        returnFieldsByFieldId: true
-      })
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, returnFieldsByFieldId: true })
       .all();
     return records.map(r => _mapByFieldIds(r, F));
   } catch (error) {
@@ -1565,10 +1436,7 @@ async function getEtape1T3Circuits(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_CIRCUIT_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_CIRCUIT)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        returnFieldsByFieldId: true
-      })
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, returnFieldsByFieldId: true })
       .all();
     return records.map(r => _mapByFieldIds(r, F));
   } catch (error) {
@@ -1581,11 +1449,7 @@ async function getEtape1T3Bilan(candidat_id) {
   try {
     const F = airtableConfig.ETAPE1_T3_BILAN_FIELDS;
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T3_BILAN)
-      .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        maxRecords: 1,
-        returnFieldsByFieldId: true
-      })
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1, returnFieldsByFieldId: true })
       .firstPage();
     if (records.length === 0) return null;
     return _mapByFieldIds(records[0], F);
@@ -1641,10 +1505,7 @@ async function upsertEtape1T3Bilan(candidat_id, fields) {
       .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
       .firstPage();
     if (existing.length > 0) {
-      await getBase()(t).update(
-        [{ id: existing[0].id, fields }],
-        { typecast: true }
-      );
+      await getBase()(t).update([{ id: existing[0].id, fields }], { typecast: true });
       logger.info('ETAPE1_T3_BILAN updated', { candidat_id, recordId: existing[0].id });
       return existing[0].id;
     } else {
@@ -1762,28 +1623,29 @@ module.exports = {
   deleteEtape1T1Scenario,
   writeEtape1T1Scenario,
 
-  // VERIFICATEUR_T1 — ⭐ v10
+  // VERIFICATEUR_T1
   writeVerificateurT1,
   getVerificateurT1History,
 
-  // VALIDATION HUMAINE — ⭐ v10
+  // VALIDATION HUMAINE
   getCandidatsEnAttenteValidation,
   appliquerValidationHumaine,
 
-  // TENTATIVES MODE 4 — ⭐ v10
+  // TENTATIVES MODE 4
   incrementTentativesEtape1,
   resetTentativesEtape1,
 
-  // COMMUNICATION CANDIDAT — ⭐ v10
+  // COMMUNICATION CANDIDAT
   getCandidatsAEmailler,
   markerEmailCandidatEnvoye,
   setDateT0,
 
   // ETAPE1_T2
   getEtape1T2,
+  getEtape1T2Fable,             // ⭐ v11.7-fable — table tblaGd3ixAWxbJJp2
   writeEtape1T2,
 
-  // ⭐ v10.9 — Tables Phase 3 (visualisation persistée)
+  // ⭐ v10.9 — Tables Phase 3
   getEtape1T2VentilationPiliers,
   writeEtape1T2VentilationPiliers,
   getEtape1T2InventaireCircuits,
@@ -1801,7 +1663,7 @@ module.exports = {
   writeEtape1T3Circuits,
   upsertEtape1T3Bilan,
 
-  // REFERENTIEL_PROFILS — ⭐ v11.0
+  // REFERENTIEL_PROFILS
   getReferentielProfils,
 
   // VÉRIFICATEUR (Lot D)
@@ -1816,13 +1678,13 @@ module.exports = {
   getReferentielLexique,
   formaterLexiquePourPrompt,
 
-  // REFERENTIEL_PILIERS — ⭐ v10.1
+  // REFERENTIEL_PILIERS
   getReferentielPiliers,
 
-  // REFERENTIEL_CIRCUITS — ⭐ v10.7
+  // REFERENTIEL_CIRCUITS
   getReferentielCircuits,
 
-  // REFERENTIEL_CIRCUITS_CANDIDATS — ⭐ v10.7
+  // REFERENTIEL_CIRCUITS_CANDIDATS
   getCircuitsAdHocByStatut,
   upsertCircuitAdHoc,
 
