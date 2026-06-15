@@ -32,11 +32,9 @@ const PROMPT_PATH = 'etape1/bilan/PROMPT_ANALYSE_PILIER_v7.md';
 const PC = config.ETAPE1_T3_CIRCUIT_FIELDS;
 const PP = config.ETAPE1_T3_PILIER_FIELDS;
 
-// fldIDs T3_CIRCUIT écriture directe (dossier §1)
-const FLD = {
-  explication:   'fldSx0VOHYILowFSj',
-  courte:        'fld3zZ8SteMWedetW',
-  renfort:       'fldixMQDcsD7cCyd3',
+// fldIDs T3_CIRCUIT verbatims (dossier §1 — écriture directe par fldID)
+// explication/courte/renfort passent maintenant par config PC (I3)
+const VERB_FLD = {
   v1: 'fldLP9juCWCTlCZPt', v1r: 'fldI1DVJiH7EH4zel',
   v2: 'fldSCQD9zvgRQcuq9', v2r: 'fldmVPwfku0vUz6xX',
   v3: 'fldhIp3aW72WR2V1t', v3r: 'fldcQ7hxyRumcc1DO',
@@ -57,7 +55,7 @@ function bareId(code) { return String(code).replace(/^P[1-5]/, ''); }
 // Écriture verbatims cités dans 4 paires de champs séparés (dossier §1)
 function ecrireVerbatims(row, cites) {
   const slots = [
-    [FLD.v1,FLD.v1r],[FLD.v2,FLD.v2r],[FLD.v3,FLD.v3r],[FLD.v4,FLD.v4r],
+    [VERB_FLD.v1,VERB_FLD.v1r],[VERB_FLD.v2,VERB_FLD.v2r],[VERB_FLD.v3,VERB_FLD.v3r],[VERB_FLD.v4,VERB_FLD.v4r],
   ];
   const valides = (cites||[]).filter(v=>v&&v.texte);
   slots.forEach(([ft,fr],i) => {
@@ -67,15 +65,17 @@ function ecrireVerbatims(row, cites) {
   });
 }
 
-// Écriture blocs : agregat←synth_candidat, rattachement←synth_technique, technique←synth_technique
-// (vérifiés en base Cécile : les 3 champs sont remplis)
+// Écriture blocs — prompt v7 produit exactement 2 champs par bloc :
+//   synth_candidat  → agregat   (registre B — texte candidat)
+//   synth_technique → technique (registre A — chiffres bruts)
+// rattachement : NON produit par le prompt v7 — pas écrit.
 function ecrireBlocs(prow, blocs) {
   for (const niv of ['HAUT','MOYEN','FAIBLE']) {
     const b = (blocs||[]).find(x => String(x.niveau||'').toUpperCase()===niv);
     const f = BLOC[niv];
     prow[f.a] = b ? (b.synth_candidat  || '') : '';
-    prow[f.r] = b ? (b.synth_technique || '') : '';
     prow[f.t] = b ? (b.synth_technique || '') : '';
+    // f.r (rattachement) : non produit par prompt v7 — non écrit
   }
 }
 
@@ -152,9 +152,9 @@ async function runAnalysePiliers({ candidat_id, prenom='', modesValides=null }) 
       row[PC.en_svc_P1]=s.P1||0; row[PC.en_svc_P2]=s.P2||0; row[PC.en_svc_P3]=s.P3||0;
       row[PC.en_svc_P4]=s.P4||0; row[PC.en_svc_P5]=s.P5||0;
       row[PC.ordre_pilier]  = i+1; row[PC.ordre_circuit] = j+1;
-      row[FLD.explication]  = a.explication        || '';
-      row[FLD.courte]       = a.explication_courte || '';
-      row[FLD.renfort]      = a.en_renfort         || '';
+      row[PC.n3_nuance]              = a.explication        || '';   // fldSx0VOHYILowFSj
+      row[PC.explication_courte_ch4] = a.explication_courte || '';   // fld3zZ8SteMWedetW
+      row[PC.en_renfort]             = a.en_renfort         || '';   // fldixMQDcsD7cCyd3
       ecrireVerbatims(row, a.verbatims_cites);
       circuitRows.push(row);
     });
