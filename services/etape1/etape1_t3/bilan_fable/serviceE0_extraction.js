@@ -94,7 +94,7 @@ async function buildContexteE0({ candidat_id }) {
     airtableService.getEtape1T3Circuits(candidat_id),
     airtableService.getEtape1T3Piliers(candidat_id),
     airtableService.getEtape1T3Bilan(candidat_id),
-    airtableService.getEtape1T2(candidat_id),
+    airtableService.getEtape1T2Fable(candidat_id),  // tblaGd3ixAWxbJJp2 — verbatims circuits Fable
     airtableService.getReferentielPiliers(),
   ]);
 
@@ -154,19 +154,20 @@ async function buildContexteE0({ candidat_id }) {
   }
 
   // T3_CIRCUIT → verbatims EXACTS + sortants en_svc_Px (RÈGLE GRAVÉE)
-  const PC = config.ETAPE1_T3_CIRCUIT_FIELDS;
+  // getEtape1T3Circuits utilise _mapByFieldIds → champs accessibles par CLÉ LISIBLE
+  // (pas par fldID). On accède donc par r.pilier, r.circuit_id, r.en_svc_P1...
   const t3cByCode = {};
   for (const r of (t3circuits || [])) {
-    const pil = r[PC.pilier] || r.pilier || '';
-    const cid = r[PC.circuit_id] || r.circuit_id || '';
+    const pil = r.pilier       || '';
+    const cid = r.circuit_id   || '';
     if (!pil || !cid) continue;
     const code = `${pil}${cid}`;
     t3cByCode[code] = {
       verbatims: extraireVerbatims(r),
       sortants: {
-        P1: Number(r[PC.en_svc_P1] || 0), P2: Number(r[PC.en_svc_P2] || 0),
-        P3: Number(r[PC.en_svc_P3] || 0), P4: Number(r[PC.en_svc_P4] || 0),
-        P5: Number(r[PC.en_svc_P5] || 0),
+        P1: Number(r.en_svc_P1 || 0), P2: Number(r.en_svc_P2 || 0),
+        P3: Number(r.en_svc_P3 || 0), P4: Number(r.en_svc_P4 || 0),
+        P5: Number(r.en_svc_P5 || 0),
       },
     };
   }
