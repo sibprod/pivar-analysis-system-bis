@@ -656,15 +656,25 @@ async function ecrireCircuits(pa_output, circuits_t3) {
     // C7 — soleil_micro : produit par l'agent v9 (HAUT+MOYEN seulement)
     if (c.soleil_micro) fields[FC.soleil_micro] = c.soleil_micro;
 
-    // Verbatims sélectionnés par P-A (format inchangé : verbatims_cites[])
+    // Verbatims sélectionnés — lecture v9 (champs directs) avec backward compat v8 (verbatims_cites[])
     const vbs = c.verbatims_cites || [];
-    if (vbs[0]) {
-      fields[FC.soleil_vb]  = vbs[0].texte || '';
-      fields[FC.soleil_ref] = `${vbs[0].qid} ${vbs[0].lieu}`.trim();
-    }
-    if (vbs[1]) { fields[FC.vb2]  = vbs[1].texte || ''; fields[FC.vb2_ref] = `${vbs[1].qid} ${vbs[1].lieu}`.trim(); }
-    if (vbs[2]) { fields[FC.vb3]  = vbs[2].texte || ''; fields[FC.vb3_ref] = `${vbs[2].qid} ${vbs[2].lieu}`.trim(); }
-    if (vbs[3]) { fields[FC.vb4]  = vbs[3].texte || ''; fields[FC.vb4_ref] = `${vbs[3].qid} ${vbs[3].lieu}`.trim(); }
+    const soleil_vb  = c.soleil_verbatim  || (vbs[0] && vbs[0].texte) || '';
+    const soleil_ref = c.soleil_verbatim_ref || (vbs[0] ? `${vbs[0].qid} ${vbs[0].lieu}`.trim() : '');
+    const vb2        = c.verbatim_2       || (vbs[1] && vbs[1].texte) || '';
+    const vb2_ref    = c.verbatim_2_ref   || (vbs[1] ? `${vbs[1].qid} ${vbs[1].lieu}`.trim() : '');
+    const vb3        = c.verbatim_3       || (vbs[2] && vbs[2].texte) || '';
+    const vb3_ref    = c.verbatim_3_ref   || (vbs[2] ? `${vbs[2].qid} ${vbs[2].lieu}`.trim() : '');
+    const vb4        = c.verbatim_4       || (vbs[3] && vbs[3].texte) || '';
+    const vb4_ref    = c.verbatim_4_ref   || (vbs[3] ? `${vbs[3].qid} ${vbs[3].lieu}`.trim() : '');
+
+    if (soleil_vb)  { fields[FC.soleil_vb]  = soleil_vb;  }
+    if (soleil_ref) { fields[FC.soleil_ref] = soleil_ref; }
+    if (vb2)        { fields[FC.vb2]  = vb2;  }
+    if (vb2_ref)    { fields[FC.vb2_ref]    = vb2_ref;    }
+    if (vb3)        { fields[FC.vb3]  = vb3;  }
+    if (vb3_ref)    { fields[FC.vb3_ref]    = vb3_ref;    }
+    if (vb4)        { fields[FC.vb4]  = vb4;  }
+    if (vb4_ref)    { fields[FC.vb4_ref]    = vb4_ref;    }
 
     await updateRecord(T.T3_CIRCUIT, rec_id, fields);
     console.log(`    ✅ ${c.code}`);
