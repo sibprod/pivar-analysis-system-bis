@@ -418,7 +418,10 @@ function valider(pa_output, entree_json) {
       errors.push(`[Bloc ${n}] synth_rattachement doit contenir "sont ce que le protocole nomme"`);
     }
     if (n === 'FAIBLE' && rattach.includes('sont ce que le protocole nomme')) {
-      errors.push(`[Bloc FAIBLE] synth_rattachement NE DOIT PAS contenir "sont ce que le protocole nomme" (format FAIBLE)`);
+      errors.push(`[Bloc FAIBLE] synth_rattachement NE DOIT PAS contenir "sont ce que le protocole nomme" (format FAIBLE = "portent leur étiquette")`);
+    }
+    if (n === 'FAIBLE' && rattach.trim() && !rattach.includes('portent leur étiquette') && !rattach.includes('portent les étiquettes')) {
+      warnings.push(`[Bloc FAIBLE] synth_rattachement devrait contenir "portent leur étiquette" ou "portent les étiquettes". Trouvé : "${rattach.slice(0,60)}"`);
     }
   }
 
