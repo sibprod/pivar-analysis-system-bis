@@ -1,6 +1,6 @@
 /**
  * SERVICE P-A — Génération rédactionnelle des 5 piliers
- * Profil-Cognitif Sib Prod · 2026-06-16
+ * Profil-Cognitif Sib Prod · 2026-06-16 · v9
  *
  * UN seul fichier. Lit Airtable → appelle Claude P-A v9 → valide → écrit.
  *
@@ -16,14 +16,24 @@
  * ENV :
  *   AIRTABLE_API_KEY
  *   ANTHROPIC_API_KEY
+ *
+ * DELTA v8 → v9 (7 corrections) :
+ *   C1  const fs manquant dans les imports — ajouté
+ *   C2  FC : n2_verbatims + soleil_micro ajoutés
+ *   C3  construireEntree() : emprunts_recus convertis au format [{depuis, circuits:[{code,nb}]}]
+ *   C4  valider() : c.n3_nuance || c.explication / c.renfort_phrase || c.en_renfort
+ *   C5  valider() : bloc.rattachement || bloc.synth_rattachement
+ *   C6  ecrirePilier() : bloc.rattachement || bloc.synth_rattachement
+ *   C7  ecrireCircuits() : n3_nuance, renfort_phrase, + écriture n2_verbatims + soleil_micro
  */
 
 'use strict';
 require('dotenv').config();
 const Anthropic = require('@anthropic-ai/sdk');
 const Airtable  = require('airtable');
-const path    = require('path');
-const PROMPT  = fs.readFileSync(path.join(__dirname, 'prompt_pa_v9.md'), 'utf8');
+const fs   = require('fs');   // C1 — manquait dans l'original
+const path = require('path');
+const PROMPT = fs.readFileSync(path.join(__dirname, 'PROMPT_ANALYSE_PILIER_v9.md'), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — CONFIGURATION
@@ -49,7 +59,6 @@ const FP = {
   pilier_mode:    'fldoGY71vyiaUeFl6',
   nb_activations: 'fldg5DCdL9U523YfG',
   nb_actifs:      'fldtUV0KYT0zyjg0J',
-  // nb_haut (fldUmfMvtMEsADKFX) retiré : non utilisé par P-A, pas de contrôle croisé fiable
   synth_coeur:    'fldCM0X6TsHYLQ0YD',
   synth_elargi:   'fldKkGWMbDy4csrOg',
   // Champs rédactionnels écrits par P-A
@@ -84,8 +93,10 @@ const FC = {
   total:         'fldnFNJm6GP0mAGNm',
   // Champs rédactionnels écrits par P-A
   n3_nuance:     'fldSx0VOHYILowFSj',
+  n2_verbatims:  'fldV3EBlHGUleiifK',   // C2 — ajouté v9
   expl_courte:   'fld3zZ8SteMWedetW',
   renfort:       'fldixMQDcsD7cCyd3',
+  soleil_micro:  'flduJoJnNpHRmh6jg',   // C2 — ajouté v9
   soleil_vb:     'fldLP9juCWCTlCZPt',
   soleil_ref:    'fldI1DVJiH7EH4zel',
   vb2:           'fldSCQD9zvgRQcuq9',
@@ -145,7 +156,7 @@ async function lireRefPiliers() {
   const recs = await selectAll(T.REF_PILIERS, { fields: [FREF.pilier_code, FREF.pilier_nom] });
   const map = {};
   for (const r of recs) map[fv(r, FREF.pilier_code)] = fv(r, FREF.pilier_nom);
-  return map; // { P1: "Collecte d'information", ... }
+  return map;
 }
 
 async function lireRefCircuits() {
@@ -158,7 +169,7 @@ async function lireRefCircuits() {
     const c = fname(fv(r, FREF.circ_code));
     if (p && c) map[`${p}${c}`] = { nom: fv(r, FREF.circ_nom) || '', geste: fv(r, FREF.circ_geste) || '' };
   }
-  return map; // { P3C12: {nom, geste}, ... }
+  return map;
 }
 
 async function lireRefProfils() {
@@ -169,7 +180,7 @@ async function lireRefProfils() {
     const l = fv(r, FREF.prof_label);
     if (p && l) { if (!map[p]) map[p] = []; map[p].push(l); }
   }
-  return map; // { P3: ["Critérié et tranché", ...], ... }
+  return map;
 }
 
 async function lirePilier(candidat_id, pilier_code) {
@@ -236,8 +247,6 @@ async function lireVerbatims(candidat_id, pilier_code) {
 }
 
 // D1 — Emprunts reçus : circuits des AUTRES piliers dont en_svc_Px pointe vers le pilier courant.
-// Pour pilier Px, on lit tous les T3_CIRCUIT du candidat (autres piliers) et on retient
-// ceux dont en_svc_Px ≥ 1.
 async function lireEmpruntsRecus(candidat_id, pilier_code) {
   const svc_field_pour_pilier = {
     P1: FC.en_svc_P1, P2: FC.en_svc_P2, P3: FC.en_svc_P3,
@@ -254,7 +263,7 @@ async function lireEmpruntsRecus(candidat_id, pilier_code) {
   const emprunts = {};
   for (const r of recs) {
     const pilier_source = fname(fv(r, FC.pilier));
-    if (pilier_source === pilier_code) continue; // on exclut le pilier lui-même
+    if (pilier_source === pilier_code) continue;
     const nb = fv(r, field_cible) || 0;
     if (nb <= 0) continue;
     const cid = fv(r, FC.circuit_id);
@@ -263,11 +272,10 @@ async function lireEmpruntsRecus(candidat_id, pilier_code) {
     if (!emprunts[pilier_source]) emprunts[pilier_source] = [];
     emprunts[pilier_source].push({ code, nom, n: nb });
   }
-  // Trier chaque groupe par n décroissant
   for (const py of Object.keys(emprunts)) {
     emprunts[py].sort((a, b) => b.n - a.n);
   }
-  return emprunts; // { P1: [{code:'P1C1', nom:'...', n:3}, ...], P5: [...] }
+  return emprunts; // { P1: [{code, nom, n}], P5: [...] }
 }
 
 function parseVerbatims(raw, circuit_code) {
@@ -278,9 +286,7 @@ function parseVerbatims(raw, circuit_code) {
 
   for (const block of blocks) {
     if (!block.trim()) continue;
-    // En-tête : **PxQy LIEU** ou **PxQy** (lieu optionnel)
     const h = block.match(/\*\*(P\d+Q\d+)(?:\s+([A-Z_0-9\-À-Ü][A-Za-zÀ-ü0-9_\-]*))?(?:\s+[^*]*)?\*\*/i);
-    // Verbatim : > "..." ou > «...» ou > "..." (guillemets droits ou typographiques)
     const v = block.match(/^>\s*["""«](.+?)["""»]?\s*$/m);
     if (h && v) {
       result.push({
@@ -291,12 +297,11 @@ function parseVerbatims(raw, circuit_code) {
     }
   }
 
-  // Warning si perte silencieuse
   if (result.length < nb_blocs && circuit_code) {
     const perte = nb_blocs - result.length;
-    console.warn(`    ⚠️  [${circuit_code}] parseVerbatims : ${nb_blocs} bloc(s) détecté(s) / ${result.length} capté(s) — ${perte} bloc(s) au format non reconnu (ignorés silencieusement)`);
+    console.warn(`    ⚠️  [${circuit_code}] parseVerbatims : ${nb_blocs} bloc(s) / ${result.length} capté(s) — ${perte} au format non reconnu`);
     if (nb_blocs <= 4 && result.length < nb_blocs) {
-      console.warn(`    ❌  [${circuit_code}] RÈGLE COUVERTURE : ≤4 blocs disponibles → tous doivent être captés. Vérifier le format du champ T2.detail.`);
+      console.warn(`    ❌  [${circuit_code}] RÈGLE COUVERTURE : ≤4 blocs → tous doivent être captés. Vérifier format T2.detail.`);
     }
   }
 
@@ -310,8 +315,6 @@ function parseVerbatims(raw, circuit_code) {
 function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, refCircuits, refPiliers, refProfils, pilier_code, prenom) {
   const has_coeur = circuits.some(c => c.coeur > 0);
 
-  // Signal limbique : donnée É0 depuis ETAPE1_T2 — consolidé au niveau pilier
-  // Prend le premier signal non-NULLE (tous les circuits du pilier partagent le même signal)
   const signal_entry = Object.values(verbatimsMap).find(v => v.signal) || {};
   const signal_valeur = signal_entry.signal || 'NULLE';
   const signal_expl   = signal_entry.signal_expl || 'Aucun signal limbique détecté.';
@@ -322,6 +325,16 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
   const sous_totaux = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
   for (const c of circuits) for (const [px, val] of Object.entries(c.en_svc)) sous_totaux[px] += val;
 
+  // C3 — Conversion format emprunts_recus :
+  // Entrée  : { P1: [{code, nom, n}], P5: [...] }  (format lireEmpruntsRecus)
+  // Sortie  : [{depuis, circuits: [{code, nb}]}]    (format attendu par prompt v9)
+  const emprunts_v9 = Object.entries(empruntsRecus || {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([depuis, liste]) => ({
+      depuis,
+      circuits: liste.map(e => ({ code: e.code, nb: e.n })),
+    }));
+
   const circuits_input = circuits.map(c => {
     const t2 = verbatimsMap[c.circuit_id] || { verbatims: [] };
     const ref = refCircuits[c.code] || { nom: c.circuit_nom, geste: '' };
@@ -331,6 +344,7 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
     return {
       code: c.code,
       nom: ref.nom || c.circuit_nom,
+      geste: ref.geste || '',
       coeur: c.coeur,
       total: c.total,
       niveau,
@@ -349,8 +363,8 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
     profils_types: refProfils[pilier_code] || [],
     echelle_classement: has_coeur ? 'coeur' : 'total',
     signal_limbique: signal_global,
-    sous_totaux_instrumentaux: sous_totaux,
-    emprunts_recus: empruntsRecus || {},   // D1 : { P1: [{code, nom, n}, ...], P5: [...] }
+    sous_totaux_sortants: sous_totaux,
+    emprunts_recus: emprunts_v9,    // C3 — format v9
     synth_factuelle_coeur: pilierData.synth_coeur || null,
     synth_factuelle_elargie: pilierData.synth_elargi || null,
     circuits: circuits_input,
@@ -359,17 +373,10 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
 
 function normaliserNiveau(niveau, coeur, total, echelle) {
   if (echelle === 'total') {
-    // Pilier entièrement sans cœur (ex. P5) : classement sur total_activations.
-    // NE PAS forcer EN_SOUTIEN ici — les circuits cœur=0 d'un pilier échelle total
-    // gardent leur niveau calculé sur le total.
     if (total >= 5) return 'HAUT';
     if (total >= 2) return 'MOYEN';
     return 'FAIBLE';
   }
-  // Règle absolue — échelle CŒUR UNIQUEMENT :
-  // un circuit à cœur=0 dans un pilier qui a par ailleurs des circuits à cœur≥1
-  // est TOUJOURS EN_SOUTIEN, quelle que soit la valeur stockée en base.
-  // (La garde echelle==='total' ci-dessus empêche d'appliquer cette règle à P5.)
   if (coeur === 0) return 'EN_SOUTIEN';
   const n = (niveau || '').toUpperCase().replace(/\s/g, '_');
   if (n.includes('SOUTIEN')) return 'EN_SOUTIEN';
@@ -421,27 +428,25 @@ async function appellerClaude(entree_json, opts = {}) {
 
 const MOTS_INTERDITS = ['impressionnant','impressionnante','remarquable','performant','performante',
   'précieux','précieuse','à mobiliser sur','cluster','aucun cluster'];
-// Note : 'anticiper' et 'prévoir' ne sont PAS dans cette liste — ils apparaissent dans les noms
-// officiels de circuits ("Anticipation méthodique…") et dans le corpus validé. Seul leur emploi
-// PRESCRIPTIF est interdit ("il faudrait anticiper…") — ce contrôle reste dans le prompt.
 
-// Mots qui signalent une qualité dans le mode (pas une manière de faire)
 const QUALITES_INTERDITES_MODE = ['analytique','rigoureux','rigoureuse','méthodique','organisé','organisée','curieux','curieuse','créatif','créative','précis','précise','efficace','polyvalent'];
 
 function valider(pa_output, entree_json) {
   const errors = [], warnings = [];
 
-  // Circuits attendus présents ?
   const codes_attendus = (entree_json.circuits || []).map(c => c.code);
   const codes_sortie = new Set((pa_output.circuits || []).map(c => c.code));
   for (const code of codes_attendus) if (!codes_sortie.has(code)) errors.push(`Circuit ${code} absent de la sortie`);
 
-  // Validation par circuit
   for (const c of (pa_output.circuits || [])) {
     const code = c.code;
-    const expl = c.explication || '';
-    const expl_c = c.explication_courte || '';
-    const renfort = c.en_renfort || '';
+    // C4 — v9 utilise n3_nuance et renfort_phrase (backward compat avec explication / en_renfort)
+    const expl    = c.n3_nuance   || c.explication   || '';
+    const expl_c  = c.explication_courte || '';
+    const renfort = c.renfort_phrase || c.en_renfort || '';
+    const n2      = c.n2_verbatims || '';
+    const micro   = c.soleil_micro || '';
+
     const ic = (entree_json.circuits || []).find(x => x.code === code) || {};
     const max_svc = Math.max(0, ...Object.values(ic.sortants || {}));
     const niveau = ic.niveau || 'FAIBLE';
@@ -452,27 +457,44 @@ function valider(pa_output, entree_json) {
     }
     // Guillemets dans n3_nuance
     if (/[«»]/.test(expl)) errors.push(`[${code}] n3_nuance contient des guillemets «» — paraphrase pure obligatoire`);
+
     // explication_courte : 18 mots max
     const nb_mots = (expl_c.match(/\S+/g) || []).length;
     if (nb_mots > 18) errors.push(`[${code}] explication_courte : ${nb_mots} mots (max 18). Texte : "${expl_c}"`);
     if (!expl_c) errors.push(`[${code}] explication_courte vide`);
-    // EN SOUTIEN : basé sur coeur===0, pas sur le libellé niveau (peut être mal stocké)
+
+    // EN SOUTIEN : basé sur coeur===0
     const est_soutien = (ic.coeur === 0);
     if (est_soutien && expl_c && !expl_c.toLowerCase().startsWith('jamais en propre')) {
-      errors.push(`[${code}] explication_courte circuit cœur=0 doit commencer par "Jamais en propre :" (niveau stocké="${ic.niveau}" ignoré — coeur=0 force EN_SOUTIEN)`);
+      errors.push(`[${code}] explication_courte circuit cœur=0 doit commencer par "Jamais en propre :" (coeur=0 force EN_SOUTIEN)`);
     }
-    // en_renfort : vide si pas de sortant ≥ 2
-    if (max_svc < 2 && renfort.trim()) errors.push(`[${code}] en_renfort devrait être vide (aucun sortant ≥2)`);
+
+    // en_renfort / renfort_phrase : vide si pas de sortant ≥ 2
+    if (max_svc < 2 && renfort.trim()) errors.push(`[${code}] renfort devrait être vide (aucun sortant ≥2)`);
     if (renfort.trim() && !renfort.trim().startsWith('En renfort :')) {
-      errors.push(`[${code}] en_renfort doit commencer par "En renfort :"`);
+      errors.push(`[${code}] renfort doit commencer par "En renfort :"`);
     }
+
+    // n2_verbatims : format INLINE (pas de \n)
+    if (n2 && n2.includes('\n')) errors.push(`[${code}] n2_verbatims contient des \\n — format INLINE obligatoire`);
+
+    // soleil_micro : HAUT+MOYEN seulement, ≤15 mots
+    if (micro) {
+      if (niveau === 'FAIBLE' || niveau === 'EN_SOUTIEN') {
+        errors.push(`[${code}] soleil_micro non vide pour niveau ${niveau} — FAIBLE et EN_SOUTIEN doivent être vides`);
+      }
+      const mots_micro = (micro.match(/\S+/g) || []).length;
+      if (mots_micro > 15) errors.push(`[${code}] soleil_micro : ${mots_micro} mots (max 15)`);
+    }
+
     // Mots interdits
     for (const mot of MOTS_INTERDITS) {
       if ((expl + expl_c + renfort).toLowerCase().includes(mot)) {
         errors.push(`[${code}] Mot interdit : "${mot}"`);
       }
     }
-    // Longueurs
+
+    // Longueurs n3_nuance
     const seuils = { HAUT:{min:250,max:450}, MOYEN:{min:160,max:300}, FAIBLE:{min:100,max:200}, EN_SOUTIEN:{min:70,max:160} };
     const s = seuils[niveau] || seuils.FAIBLE;
     if (expl.length < s.min) warnings.push(`[${code}] n3_nuance courte pour ${niveau} (${expl.length}c < ${s.min}c)`);
@@ -480,12 +502,10 @@ function valider(pa_output, entree_json) {
   }
 
   // Validation blocs
-  // Pré-calcul : circuits avec renfort et leur cible
   const renforts_par_cible = {};
   for (const c of (pa_output.circuits || [])) {
-    const r = c.en_renfort || '';
+    const r = c.renfort_phrase || c.en_renfort || '';
     if (!r.trim()) continue;
-    // Extraire "(Px) — N fois" depuis "En renfort : ... (P1) — 2 fois : ..."
     const m = r.match(/\(P([1-5])\)\s*[—-]\s*(\d+)\s*fois/i);
     if (m) {
       const cible = `P${m[1]}`, nb = parseInt(m[2]);
@@ -498,17 +518,21 @@ function valider(pa_output, entree_json) {
     const n = (bloc.niveau || '').toUpperCase();
     const tech = bloc.synth_technique || '';
     const cand = bloc.synth_candidat || '';
-    const rattach = bloc.synth_rattachement || '';
+    // C5 — v9 utilise bloc.rattachement (backward compat avec synth_rattachement)
+    const rattach = bloc.rattachement || bloc.synth_rattachement || '';
 
     // Préfixe synth_technique
     const prefixe = n === 'HAUT' ? 'Bloc HAUT cœur' : n === 'MOYEN' ? 'Bloc MOYEN cœur' : 'Bloc FAIBLE';
     if (!tech.trim().startsWith(prefixe)) {
       errors.push(`[Bloc ${n}] synth_technique doit commencer par "${prefixe}". Trouvé : "${tech.slice(0,50)}"`);
     }
-    // synth_candidat : zéro code circuit
-    if (/P[1-5]C\d{1,2}/i.test(cand)) errors.push(`[Bloc ${n}] synth_candidat contient un code circuit PxCy`);
 
-    // Contrôle M2 : cohérence avec les renforts (Contrôle 16)
+    // synth_candidat : zéro code circuit pour FAIBLE, codes autorisés en M2 pour HAUT/MOYEN
+    if (n === 'FAIBLE' && /P[1-5]C\d{1,2}/i.test(cand)) {
+      errors.push(`[Bloc FAIBLE] synth_candidat contient un code circuit PxCy (interdit pour ce niveau)`);
+    }
+
+    // Contrôle M2 cohérence renforts
     for (const [cible, nb] of Object.entries(renforts_par_cible)) {
       if (nb >= 2 && !cand.includes(cible) && !tech.includes(cible)) {
         warnings.push(`[Bloc ${n}] M2 : renfort vers ${cible} (${nb}×) non mentionné dans synth_candidat ou synth_technique`);
@@ -516,14 +540,18 @@ function valider(pa_output, entree_json) {
     }
 
     // Rattachements
-    if ((n === 'HAUT' || n === 'MOYEN') && !rattach.includes('sont ce que le protocole nomme')) {
-      errors.push(`[Bloc ${n}] synth_rattachement doit contenir "sont ce que le protocole nomme"`);
+    if ((n === 'HAUT' || n === 'MOYEN') && rattach && !rattach.includes('sont ce que le protocole nomme')) {
+      errors.push(`[Bloc ${n}] rattachement doit contenir "sont ce que le protocole nomme"`);
     }
-    if (n === 'FAIBLE' && rattach.includes('sont ce que le protocole nomme')) {
-      errors.push(`[Bloc FAIBLE] synth_rattachement NE DOIT PAS contenir "sont ce que le protocole nomme" (format FAIBLE = "portent leur étiquette")`);
+    if (n === 'FAIBLE' && rattach && rattach.includes('sont ce que le protocole nomme')) {
+      errors.push(`[Bloc FAIBLE] rattachement NE DOIT PAS contenir "sont ce que le protocole nomme" (format = "portent leur étiquette")`);
     }
     if (n === 'FAIBLE' && rattach.trim() && !rattach.includes('portent leur étiquette') && !rattach.includes('portent les étiquettes')) {
-      warnings.push(`[Bloc FAIBLE] synth_rattachement devrait contenir "portent leur étiquette" ou "portent les étiquettes". Trouvé : "${rattach.slice(0,60)}"`);
+      warnings.push(`[Bloc FAIBLE] rattachement devrait contenir "portent leur étiquette" ou "portent les étiquettes". Trouvé : "${rattach.slice(0,60)}"`);
+    }
+    // Clôture rattachement
+    if (rattach.trim() && !rattach.includes('Le nom de') && !rattach.includes('l\'étiquette du geste')) {
+      warnings.push(`[Bloc ${n}] rattachement manque la clôture "Le nom de chaque circuit n'est que l'étiquette..."`);
     }
   }
 
@@ -534,22 +562,27 @@ function valider(pa_output, entree_json) {
   if (!(s.mode_explication_candidat || '').startsWith('Ce mode découle')) {
     errors.push(`mode_explication_candidat doit commencer par "Ce mode découle". Trouvé : "${(s.mode_explication_candidat||'').slice(0,60)}"`);
   }
-  // Contrôle 17 : mode PROPOSITION = manière de faire, pas une qualité
   if (s.mode_statut === 'PROPOSITION' && s.mode_libelle) {
     const mode_lc = s.mode_libelle.toLowerCase();
     const qualite_detectee = QUALITES_INTERDITES_MODE.find(q => mode_lc.includes(q));
     if (qualite_detectee) {
-      errors.push(`[mode_libelle PROPOSITION] contient une qualité interdite "${qualite_detectee}" — le mode doit nommer une manière de faire, pas un trait de caractère. Trouvé : "${s.mode_libelle}"`);
+      errors.push(`[mode_libelle PROPOSITION] qualité interdite "${qualite_detectee}" — le mode nomme une manière de faire, pas un trait. Trouvé : "${s.mode_libelle}"`);
     }
   }
   const vue = s.vue_ensemble || '';
   for (const titre of ['Profil — ce que vos gestes disent de vous','▸','Le mode retenu','Où cet outil revient']) {
-    if (!vue.includes(titre)) errors.push(`vue_ensemble (synth_interpretee) : titre manquant "${titre}"`);
+    if (!vue.includes(titre)) errors.push(`vue_ensemble : titre manquant "${titre}"`);
+  }
+  // Titre 3ème section : "ou en appui" (v9)
+  if (vue && !vue.includes('ou en appui') && !vue.includes('de temps en temps')) {
+    warnings.push('vue_ensemble : titre 3ème section devrait contenir "de temps en temps, ou en appui"');
   }
   const intro = s.intro_eclate || '';
   if (!intro) errors.push('intro_eclate vide');
   if (/\d/.test(intro)) errors.push('intro_eclate contient un chiffre (interdit)');
   if (/P[1-5]C\d/i.test(intro)) errors.push('intro_eclate contient un code circuit (interdit)');
+  const mots_intro = (intro.match(/\S+/g) || []).length;
+  if (mots_intro > 20) errors.push(`intro_eclate : ${mots_intro} mots (max 20)`);
 
   return { ok: errors.length === 0, errors, warnings };
 }
@@ -570,34 +603,32 @@ async function ecrirePilier(pa_output, pilier_rec_id, write_mode) {
   const s = pa_output.synthese_pilier || {};
   const fields = {};
 
-  // Blocs par niveau
   for (const bloc of (pa_output.blocs || [])) {
     const n = (bloc.niveau || '').toUpperCase();
+    // C6 — v9 utilise bloc.rattachement (backward compat avec synth_rattachement)
+    const rattach = bloc.rattachement || bloc.synth_rattachement || '';
     if (n === 'HAUT') {
       fields[FP.haut_candidat]  = bloc.synth_candidat  || '';
       fields[FP.haut_technique] = bloc.synth_technique  || '';
-      fields[FP.haut_rattach]   = bloc.synth_rattachement || '';
+      fields[FP.haut_rattach]   = rattach;
     } else if (n === 'MOYEN') {
       fields[FP.moyen_candidat]  = bloc.synth_candidat  || '';
       fields[FP.moyen_technique] = bloc.synth_technique  || '';
-      fields[FP.moyen_rattach]   = bloc.synth_rattachement || '';
+      fields[FP.moyen_rattach]   = rattach;
     } else if (n === 'FAIBLE') {
       fields[FP.faible_candidat]  = bloc.synth_candidat  || '';
       fields[FP.faible_technique] = bloc.synth_technique  || '';
-      fields[FP.faible_rattach]   = bloc.synth_rattachement || '';
+      fields[FP.faible_rattach]   = rattach;
     }
   }
 
-  // Synthèse
   fields[FP.synth_interpretee] = s.vue_ensemble || '';
   fields[FP.mode_explication]  = s.mode_explication_candidat || '';
   fields[FP.ch4_intro]         = s.intro_eclate || '';
 
-  // Synth factuelles si construites par P-A
   if (s.profil_pur)    fields[FP.synth_coeur]  = s.profil_pur;
   if (s.profil_elargi) fields[FP.synth_elargi] = s.profil_elargi;
 
-  // Mode (seulement après validation manuelle)
   if (write_mode && s.mode_libelle) fields[FP.pilier_mode] = s.mode_libelle;
 
   await updateRecord(T.T3_PILIER, pilier_rec_id, fields);
@@ -605,7 +636,6 @@ async function ecrirePilier(pa_output, pilier_rec_id, write_mode) {
 }
 
 async function ecrireCircuits(pa_output, circuits_t3) {
-  // Map code → rec_id depuis les T3_CIRCUIT lus
   const rec_map = {};
   for (const c of circuits_t3) rec_map[c.code] = c.rec_id;
 
@@ -613,18 +643,28 @@ async function ecrireCircuits(pa_output, circuits_t3) {
     const rec_id = rec_map[c.code];
     if (!rec_id) { console.warn(`    ⚠️  ${c.code} : rec T3_CIRCUIT introuvable — skipped`); continue; }
 
+    // C7 — v9 utilise n3_nuance et renfort_phrase (backward compat)
     const fields = {
-      [FC.n3_nuance]:  c.explication      || '',
+      [FC.n3_nuance]:  c.n3_nuance   || c.explication      || '',
       [FC.expl_courte]:c.explication_courte || '',
-      [FC.renfort]:    c.en_renfort       || '',
+      [FC.renfort]:    c.renfort_phrase || c.en_renfort     || '',
     };
 
-    // Verbatims sélectionnés par P-A
+    // C7 — n2_verbatims : produit directement par l'agent v9 en format inline
+    if (c.n2_verbatims) fields[FC.n2_verbatims] = c.n2_verbatims;
+
+    // C7 — soleil_micro : produit par l'agent v9 (HAUT+MOYEN seulement)
+    if (c.soleil_micro) fields[FC.soleil_micro] = c.soleil_micro;
+
+    // Verbatims sélectionnés par P-A (format inchangé : verbatims_cites[])
     const vbs = c.verbatims_cites || [];
-    if (vbs[0]) { fields[FC.soleil_vb]  = vbs[0].texte || ''; fields[FC.soleil_ref] = `${vbs[0].qid} ${vbs[0].lieu}`.trim(); }
-    if (vbs[1]) { fields[FC.vb2]        = vbs[1].texte || ''; fields[FC.vb2_ref]    = `${vbs[1].qid} ${vbs[1].lieu}`.trim(); }
-    if (vbs[2]) { fields[FC.vb3]        = vbs[2].texte || ''; fields[FC.vb3_ref]    = `${vbs[2].qid} ${vbs[2].lieu}`.trim(); }
-    if (vbs[3]) { fields[FC.vb4]        = vbs[3].texte || ''; fields[FC.vb4_ref]    = `${vbs[3].qid} ${vbs[3].lieu}`.trim(); }
+    if (vbs[0]) {
+      fields[FC.soleil_vb]  = vbs[0].texte || '';
+      fields[FC.soleil_ref] = `${vbs[0].qid} ${vbs[0].lieu}`.trim();
+    }
+    if (vbs[1]) { fields[FC.vb2]  = vbs[1].texte || ''; fields[FC.vb2_ref] = `${vbs[1].qid} ${vbs[1].lieu}`.trim(); }
+    if (vbs[2]) { fields[FC.vb3]  = vbs[2].texte || ''; fields[FC.vb3_ref] = `${vbs[2].qid} ${vbs[2].lieu}`.trim(); }
+    if (vbs[3]) { fields[FC.vb4]  = vbs[3].texte || ''; fields[FC.vb4_ref] = `${vbs[3].qid} ${vbs[3].lieu}`.trim(); }
 
     await updateRecord(T.T3_CIRCUIT, rec_id, fields);
     console.log(`    ✅ ${c.code}`);
@@ -638,28 +678,26 @@ async function ecrireCircuits(pa_output, circuits_t3) {
 async function traiterPilier(candidat_id, pilier_code, prenom, refs, opts) {
   console.log(`\n  ── ${pilier_code} ──`);
 
-  // Lecture
   process.stdout.write('    Lecture Airtable...');
   const [pilierData, circuits, verbatimsMap, empruntsRecus] = await Promise.all([
     lirePilier(candidat_id, pilier_code),
     lireCircuits(candidat_id, pilier_code),
     lireVerbatims(candidat_id, pilier_code),
-    lireEmpruntsRecus(candidat_id, pilier_code),  // D1
+    lireEmpruntsRecus(candidat_id, pilier_code),
   ]);
-  const nb_emprunts = Object.values(empruntsRecus).reduce((s, arr) => s + arr.length, 0);
-  console.log(` ${circuits.length} circuits · ${nb_emprunts} emprunts reçus`);
+  const nb_verbatims = Object.values(verbatimsMap).reduce((s, v) => s + v.verbatims.length, 0);
+  const nb_emprunts  = Object.values(empruntsRecus).reduce((s, arr) => s + arr.length, 0);
+  console.log(` ${circuits.length} circuits · ${nb_verbatims} verbatims · ${nb_emprunts} emprunts reçus`);
 
-  // Construction entrée
   const entree = construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus,
     refs.circuits, refs.piliers, refs.profils, pilier_code, prenom);
 
   if (opts.dry_run) {
     console.log('    [DRY-RUN] Entrée P-A :');
-    console.log(JSON.stringify(entree, null, 2).slice(0, 1000) + '...');
+    console.log(JSON.stringify(entree, null, 2));
     return null;
   }
 
-  // Appel Claude avec retry
   const MAX_RETRY = opts.max_retries || 2;
   let pa_output, validation;
 
@@ -689,7 +727,6 @@ async function traiterPilier(candidat_id, pilier_code, prenom, refs, opts) {
     for (const w of validation.warnings) console.log(`    ⚠️  ${w}`);
   }
 
-  // Écriture
   console.log('    Écriture T3_PILIER...');
   await ecrirePilier(pa_output, pilierData.rec_id, opts.write_mode || false);
 
@@ -712,7 +749,6 @@ async function lancerAgentPA(candidat_id, opts = {}) {
   console.log(`Dry-run  : ${opts.dry_run ? 'oui' : 'non'}`);
   console.log(`Modes    : ${opts.write_mode ? 'écriture' : 'lecture seule'}`);
 
-  // Charger les référentiels une fois
   process.stdout.write('\nChargement référentiels...');
   const refs = {
     piliers:  await lireRefPiliers(),
@@ -734,7 +770,6 @@ async function lancerAgentPA(candidat_id, opts = {}) {
     }
   }
 
-  // Résumé final
   console.log(`\n${'─'.repeat(55)}`);
   const propositions = resultats.filter(r => r.mode_statut === 'PROPOSITION');
   if (propositions.length > 0) {
@@ -756,7 +791,7 @@ async function lancerAgentPA(candidat_id, opts = {}) {
 if (require.main === module) {
   const args = process.argv.slice(2);
   if (args.length < 2 || args[0].startsWith('--')) {
-    console.error('Usage: node service_pa.js <candidat_id> <prenom> [--piliers P3,P1] [--dry-run] [--write-mode] [--strict]');
+    console.error('Usage: node service_pa.js <candidat_id> <prenom> [--piliers P4,P1] [--dry-run] [--write-mode] [--strict]');
     process.exit(1);
   }
 
