@@ -325,15 +325,8 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
   const sous_totaux = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
   for (const c of circuits) for (const [px, val] of Object.entries(c.en_svc)) sous_totaux[px] += val;
 
-  // C3 — Conversion format emprunts_recus :
-  // Entrée  : { P1: [{code, nom, n}], P5: [...] }  (format lireEmpruntsRecus)
-  // Sortie  : [{depuis, circuits: [{code, nb}]}]    (format attendu par prompt v9)
-  const emprunts_v9 = Object.entries(empruntsRecus || {})
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([depuis, liste]) => ({
-      depuis,
-      circuits: liste.map(e => ({ code: e.code, nb: e.n })),
-    }));
+  // emprunts_recus : garder le format objet { P1: [{code, nom, n}], ... }
+  // (format natif de lireEmpruntsRecus, attendu par le prompt)
 
   const circuits_input = circuits.map(c => {
     const t2 = verbatimsMap[c.circuit_id] || { verbatims: [] };
@@ -363,8 +356,8 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
     profils_types: refProfils[pilier_code] || [],
     echelle_classement: has_coeur ? 'coeur' : 'total',
     signal_limbique: signal_global,
-    sous_totaux_sortants: sous_totaux,
-    emprunts_recus: emprunts_v9,    // C3 — format v9
+    sous_totaux_instrumentaux: sous_totaux,
+    emprunts_recus: empruntsRecus || {},  // format objet { P1: [{code, nom, n}], ... }
     synth_factuelle_coeur: pilierData.synth_coeur || null,
     synth_factuelle_elargie: pilierData.synth_elargi || null,
     circuits: circuits_input,
@@ -440,10 +433,9 @@ function valider(pa_output, entree_json) {
 
   for (const c of (pa_output.circuits || [])) {
     const code = c.code;
-    // C4 — v9 utilise n3_nuance et renfort_phrase (backward compat avec explication / en_renfort)
-    const expl    = c.n3_nuance   || c.explication   || '';
+    const expl    = c.explication || '';
     const expl_c  = c.explication_courte || '';
-    const renfort = c.renfort_phrase || c.en_renfort || '';
+    const renfort = c.en_renfort || '';
     const n2      = c.n2_verbatims || '';
     const micro   = c.soleil_micro || '';
 
@@ -504,7 +496,7 @@ function valider(pa_output, entree_json) {
   // Validation blocs
   const renforts_par_cible = {};
   for (const c of (pa_output.circuits || [])) {
-    const r = c.renfort_phrase || c.en_renfort || '';
+    const r = c.en_renfort || '';
     if (!r.trim()) continue;
     const m = r.match(/\(P([1-5])\)\s*[—-]\s*(\d+)\s*fois/i);
     if (m) {
@@ -518,8 +510,7 @@ function valider(pa_output, entree_json) {
     const n = (bloc.niveau || '').toUpperCase();
     const tech = bloc.synth_technique || '';
     const cand = bloc.synth_candidat || '';
-    // C5 — v9 utilise bloc.rattachement (backward compat avec synth_rattachement)
-    const rattach = bloc.rattachement || bloc.synth_rattachement || '';
+    const rattach = bloc.synth_rattachement || '';
 
     // Préfixe synth_technique
     const prefixe = n === 'HAUT' ? 'Bloc HAUT cœur' : n === 'MOYEN' ? 'Bloc MOYEN cœur' : 'Bloc FAIBLE';
@@ -605,8 +596,7 @@ async function ecrirePilier(pa_output, pilier_rec_id, write_mode) {
 
   for (const bloc of (pa_output.blocs || [])) {
     const n = (bloc.niveau || '').toUpperCase();
-    // C6 — v9 utilise bloc.rattachement (backward compat avec synth_rattachement)
-    const rattach = bloc.rattachement || bloc.synth_rattachement || '';
+    const rattach = bloc.synth_rattachement || '';
     if (n === 'HAUT') {
       fields[FP.haut_candidat]  = bloc.synth_candidat  || '';
       fields[FP.haut_technique] = bloc.synth_technique  || '';
@@ -645,9 +635,9 @@ async function ecrireCircuits(pa_output, circuits_t3) {
 
     // C7 — v9 utilise n3_nuance et renfort_phrase (backward compat)
     const fields = {
-      [FC.n3_nuance]:  c.n3_nuance   || c.explication      || '',
+      [FC.n3_nuance]:  c.explication      || '',
       [FC.expl_courte]:c.explication_courte || '',
-      [FC.renfort]:    c.renfort_phrase || c.en_renfort     || '',
+      [FC.renfort]:    c.en_renfort     || '',
     };
 
     // C7 — n2_verbatims : produit directement par l'agent v9 en format inline
@@ -656,25 +646,12 @@ async function ecrireCircuits(pa_output, circuits_t3) {
     // C7 — soleil_micro : produit par l'agent v9 (HAUT+MOYEN seulement)
     if (c.soleil_micro) fields[FC.soleil_micro] = c.soleil_micro;
 
-    // Verbatims sélectionnés — lecture v9 (champs directs) avec backward compat v8 (verbatims_cites[])
+    // Verbatims sélectionnés par P-A (format prompt : verbatims_cites[])
     const vbs = c.verbatims_cites || [];
-    const soleil_vb  = c.soleil_verbatim  || (vbs[0] && vbs[0].texte) || '';
-    const soleil_ref = c.soleil_verbatim_ref || (vbs[0] ? `${vbs[0].qid} ${vbs[0].lieu}`.trim() : '');
-    const vb2        = c.verbatim_2       || (vbs[1] && vbs[1].texte) || '';
-    const vb2_ref    = c.verbatim_2_ref   || (vbs[1] ? `${vbs[1].qid} ${vbs[1].lieu}`.trim() : '');
-    const vb3        = c.verbatim_3       || (vbs[2] && vbs[2].texte) || '';
-    const vb3_ref    = c.verbatim_3_ref   || (vbs[2] ? `${vbs[2].qid} ${vbs[2].lieu}`.trim() : '');
-    const vb4        = c.verbatim_4       || (vbs[3] && vbs[3].texte) || '';
-    const vb4_ref    = c.verbatim_4_ref   || (vbs[3] ? `${vbs[3].qid} ${vbs[3].lieu}`.trim() : '');
-
-    if (soleil_vb)  { fields[FC.soleil_vb]  = soleil_vb;  }
-    if (soleil_ref) { fields[FC.soleil_ref] = soleil_ref; }
-    if (vb2)        { fields[FC.vb2]  = vb2;  }
-    if (vb2_ref)    { fields[FC.vb2_ref]    = vb2_ref;    }
-    if (vb3)        { fields[FC.vb3]  = vb3;  }
-    if (vb3_ref)    { fields[FC.vb3_ref]    = vb3_ref;    }
-    if (vb4)        { fields[FC.vb4]  = vb4;  }
-    if (vb4_ref)    { fields[FC.vb4_ref]    = vb4_ref;    }
+    if (vbs[0]) { fields[FC.soleil_vb]  = vbs[0].texte || ''; fields[FC.soleil_ref] = `${vbs[0].qid} ${vbs[0].lieu}`.trim(); }
+    if (vbs[1]) { fields[FC.vb2]  = vbs[1].texte || ''; fields[FC.vb2_ref] = `${vbs[1].qid} ${vbs[1].lieu}`.trim(); }
+    if (vbs[2]) { fields[FC.vb3]  = vbs[2].texte || ''; fields[FC.vb3_ref] = `${vbs[2].qid} ${vbs[2].lieu}`.trim(); }
+    if (vbs[3]) { fields[FC.vb4]  = vbs[3].texte || ''; fields[FC.vb4_ref] = `${vbs[3].qid} ${vbs[3].lieu}`.trim(); }
 
     await updateRecord(T.T3_CIRCUIT, rec_id, fields);
     console.log(`    ✅ ${c.code}`);
