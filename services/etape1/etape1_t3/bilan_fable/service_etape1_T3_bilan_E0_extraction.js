@@ -1,4 +1,4 @@
-// services/etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_E0_extraction.js
+// services/etape1/etape1_t3/bilan_fable/serviceE0_extraction.js
 // É0 — EXTRACTION & DÉRIVATIONS — v5.0 (15/06/2026)
 //
 // CORRECTION FONDAMENTALE v5.0 :
@@ -40,9 +40,9 @@ const INV = {
   pilier:       'fldSudlYoCeU2cOqz',  // singleSelect → .name
   circuit_id:   'fldPF1xvYiONGiOAA',  // "C12"
   code_complet: 'fldjbr1Ej7Dosb6S6',  // "P4C12"
-  coeur:        'fld76259zIzR6XVRB',
-  total:        'fldzV8udGk3eQ58No',
-  adhoc:        'fldgAjStrMoLleMbA',
+  coeur:        'fld8nEBQqdLqQqe1b',  // nb_coeur (corrigé — fld76259zIzR6XVRB = rang_dans_pilier)
+  total:        'fldzV8udGk3eQ58No',  // total_activations ✓
+  adhoc:        'fld0SuUut21rToKbj',  // circuit_origine singleSelect OFFICIEL/ADHOC (corrigé — fldgAjStrMoLleMbA = nb_svc_P4)
 };
 
 // fldID T3_PILIER mode
@@ -151,7 +151,7 @@ async function buildContexteE0({ candidat_id }) {
       pilier,
       coeur: Number(r[INV.coeur] || 0),
       total: Number(r[INV.total] || 0),
-      adhoc: Number(r[INV.adhoc] || 0) === 1,
+      adhoc: (r[INV.adhoc]?.name || r[INV.adhoc] || '') === 'ADHOC',
     };
     // Ajouter le pilier à l'ordre s'il n'y est pas (cas circuits sans ventilation)
     if (pilier && /^P[1-5]$/.test(pilier) && !ordre.includes(pilier)) {
