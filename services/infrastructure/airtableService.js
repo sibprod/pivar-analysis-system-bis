@@ -904,10 +904,6 @@ async function getEtape1T2InventaireCircuits(candidat_id) {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_INVENTAIRE_CIRCUITS)
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [
-          { field: 'fldSudlYoCeU2cOqz', direction: 'asc' },
-          { field: 'fld76259zIzR6XVRB', direction: 'asc' }
-        ],
         returnFieldsByFieldId: true
       })
       .all();
