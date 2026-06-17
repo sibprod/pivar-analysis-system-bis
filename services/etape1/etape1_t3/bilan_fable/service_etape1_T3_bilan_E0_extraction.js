@@ -75,12 +75,20 @@ async function buildContexteE0({ candidat_id }) {
     airtableService.getReferentielPiliers(),
   ]);
 
+  const raw0 = ventilation?.[0] || {};
   logger.info('É0 — données lues', {
     candidat_id,
     nb_ventilation: ventilation?.length,
     nb_inventaire:  inventaire?.length,
     nb_t2rows:      t2rows?.length,
-    sample_vent:    ventilation?.[0] ? Object.keys(ventilation[0]).slice(0,5) : []
+    sample_vent_keys: Object.keys(raw0),
+    sample_vent_val:  raw0
+  });
+  const inv0 = inventaire?.[0] || {};
+  logger.info('É0 — inventaire sample', {
+    candidat_id,
+    inv_keys: Object.keys(inv0),
+    inv_val:  inv0
   });
 
   if (!ventilation?.length) throw new Error(`É0: VENTILATION_PILIERS vide pour ${candidat_id}`);
