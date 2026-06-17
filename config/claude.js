@@ -48,7 +48,7 @@ module.exports = {
     // ── Agents amont Étape 1 ──────────────────────────────────────────────
     agent_t1:                64000,  // 5 appels par scénario, thinking ON
     agent_t1_verificateur:   96000,  // ⭐ v10 : renommé depuis agent_t1_certificateur (Décision n°10)
-    agent_t2:                32000,  // ⭐ v10.5 — bumped from 16000 (output 25 lignes JSON + synthese tronquait à 16k)
+    agent_t2:                48000,  // ⭐ A22 — aligné sur déclaration prompt etape1_t2_phase1 (48000)
     agent_t3:                64000,  // 75 lignes pilier × circuit, thinking ON
 
     // ── Étape 3 — le bilan (v11.0, 28/05/2026) ────────────────────────────
