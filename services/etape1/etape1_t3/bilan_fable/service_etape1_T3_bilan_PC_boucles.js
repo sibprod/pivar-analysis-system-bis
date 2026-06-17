@@ -1,4 +1,4 @@
-/**
+/**service_etape1_T3_bilan_PC_boucles.js
  * ════════════════════════════════════════════════════════════════════════
  * SERVICE P-C — CHAPITRE II « BOUCLES »  ·  FICHIER UNIQUE
  * Profil-Cognitif Sib Prod · 16/06/2026
