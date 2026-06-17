@@ -1,23 +1,11 @@
 // services/orchestrators/orchestrator_etape1_T3_bilan.js
 // ORCHESTRATEUR ÉTAPE 1 T3 — BILAN (chaîne « FABLE »)
 //
-// v1 CTO (17/06/2026) — CORRECTION A31
-//   Méthodes inexistantes remplacées par les exports réels :
-//     E0 → buildContexteE0({ candidat_id })
-//     PA → lancerAgentPA(candidat_id, opts)   retourne tableau résultats
-//     PB → run({ candidat_id, prenom })
-//     PC → run({ candidat_id, prenom })
-//     PD → run({ candidat_id, prenom, coutPrincipal, coutSecondaire })
-//   Require mis à jour vers nouveaux noms de fichiers (nomenclature CTO)
-//
-// Enchaîne : É0 → PA×5 → [GATE validation modes] → PB → PC → PD
-//
-// STATUTS :
-//   REPRENDRE_BILAN_FABLE → É0+PA ; gate → BILAN_FABLE_PA_OK ou aval → TERMINE
-//   REPRENDRE_BILAN_PA    → PA seul → BILAN_FABLE_PA_OK
-//   REPRENDRE_BILAN_PB    → PB seul → BILAN_FABLE_PA_OK
-//   REPRENDRE_BILAN_PC    → PC seul → BILAN_FABLE_PA_OK
-//   REPRENDRE_BILAN_PD    → PD seul → BILAN_FABLE_TERMINE
+// v1 CTO (17/06/2026) — CORRECTION A31 : méthodes fantômes → exports réels
+// v2 CTO (17/06/2026) — CORRECTION R1 : anonymisation agents Claude API
+//   Les agents LLM reçoivent UNIQUEMENT candidat_id + civilite.
+//   JAMAIS prenom ni nom. La civilite est lue depuis VISITEUR.
+//   PB/PC/PD n'envoient pas de données candidat à Claude — conformes.
 
 'use strict';
 
@@ -53,30 +41,33 @@ async function _setStatut(candidat_id, statut) {
   logger.info('Bilan Fable — statut posé', { candidat_id, statut });
 }
 
-async function _phaseE0etPA(candidat_id, prenom) {
-  // É0 : contexte déterministe (lecture sources, construit payload)
-  // Export réel : { buildContexteE0 }
+// Lit la civilité depuis VISITEUR — seule donnée candidat envoyée aux agents LLM (R1)
+async function _lireCivilite(candidat_id) {
+  const civilite = await airtableService.getCiviliteCandidat(candidat_id);
+  return civilite || '';
+}
+
+async function _phaseE0etPA(candidat_id, civilite) {
+  // É0 — déterministe, 0 appel Claude
   await E0.buildContexteE0({ candidat_id });
 
-  // PA : 5 appels Claude (1 par pilier)
-  // Export réel : { lancerAgentPA }  signature : (candidat_id, opts)
-  const resultats = await PA.lancerAgentPA(candidat_id, { prenom, write_mode: true });
+  // PA — 5 appels Claude · reçoit civilite (jamais prenom/nom)
+  const resultats = await PA.lancerAgentPA(candidat_id, { civilite, write_mode: true });
 
   const tousValides = (resultats || []).every(r => r.mode_statut !== 'PROPOSITION');
   return { tousValides };
 }
 
-async function _phaseAval(candidat_id, prenom, coutPrincipal, coutSecondaire) {
-  // PB, PC, PD exportent tous { run }
-  await PB.run({ candidat_id, prenom });
-  await PC.run({ candidat_id, prenom });
-  await PD.run({ candidat_id, prenom, coutPrincipal, coutSecondaire });
+async function _phaseAval(candidat_id, coutPrincipal, coutSecondaire) {
+  // PB/PC/PD n'envoient pas de données candidat à Claude — conformes R1
+  await PB.run({ candidat_id });
+  await PC.run({ candidat_id });
+  await PD.run({ candidat_id, coutPrincipal, coutSecondaire });
 }
 
 async function executerBilanFable({
   candidat_id,
   statut,
-  prenom = '',
   coutPrincipal = null,
   coutSecondaire = null
 }) {
@@ -85,42 +76,45 @@ async function executerBilanFable({
 
   await backupService.save(candidat_id, 'before_t3', { orchestrateur: 'bilan_fable', statut });
 
+  // Lecture civilité une seule fois — R1 : seule donnée candidat transmise aux agents
+  const civilite = await _lireCivilite(candidat_id);
+
   let statut_sortie;
 
   switch (statut) {
 
     case 'REPRENDRE_BILAN_FABLE': {
-      const { tousValides } = await _phaseE0etPA(candidat_id, prenom);
+      const { tousValides } = await _phaseE0etPA(candidat_id, civilite);
       if (MODE_VALIDATION_REQUISE && !tousValides) {
         statut_sortie = STATUT_PA_OK;
         break;
       }
-      await _phaseAval(candidat_id, prenom, coutPrincipal, coutSecondaire);
+      await _phaseAval(candidat_id, coutPrincipal, coutSecondaire);
       await airtableService.resetTentativesEtape1(candidat_id);
       statut_sortie = STATUT_TERMINE;
       break;
     }
 
     case 'REPRENDRE_BILAN_PA': {
-      await _phaseE0etPA(candidat_id, prenom);
+      await _phaseE0etPA(candidat_id, civilite);
       statut_sortie = STATUT_PA_OK;
       break;
     }
 
     case 'REPRENDRE_BILAN_PB': {
-      await PB.run({ candidat_id, prenom });
+      await PB.run({ candidat_id });
       statut_sortie = STATUT_PA_OK;
       break;
     }
 
     case 'REPRENDRE_BILAN_PC': {
-      await PC.run({ candidat_id, prenom });
+      await PC.run({ candidat_id });
       statut_sortie = STATUT_PA_OK;
       break;
     }
 
     case 'REPRENDRE_BILAN_PD': {
-      await PD.run({ candidat_id, prenom, coutPrincipal, coutSecondaire });
+      await PD.run({ candidat_id, coutPrincipal, coutSecondaire });
       await airtableService.resetTentativesEtape1(candidat_id);
       statut_sortie = STATUT_TERMINE;
       break;
