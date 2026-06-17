@@ -32,7 +32,7 @@ const T_T1        = 'ETAPE1_T1';            // signaux limbiques
 const T_RESP      = 'tblK28GE8RWq9tQMV';    // RESPONSES (gouvernance)
 const T_BILAN     = 'tblv775KQrEhsogdI';    // sortie
 const T_PILIER    = 'tblzDIn7P2cOvVvY2';    // architecture
-const PROMPT_PATH = path.join(__dirname, 'PROMPT_CH3_MARQUEURS_v1.md');
+const PROMPT_PATH = path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PD_marqueurs.md');
 
 // field IDs ETAPE1_T1 (vérifiés en base 16/06)
 const F_T1 = {
