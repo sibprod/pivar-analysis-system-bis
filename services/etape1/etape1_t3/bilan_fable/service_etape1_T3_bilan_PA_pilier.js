@@ -33,7 +33,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Airtable  = require('airtable');
 const fs   = require('fs');   // C1 — manquait dans l'original
 const path = require('path');
-const PROMPT = fs.readFileSync(path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PA_pilier.md'), 'utf8');
+const PROMPT = fs.readFileSync(path.join(__dirname, 'PROMPT_ANALYSE_PILIER_v9.md'), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — CONFIGURATION
@@ -185,7 +185,7 @@ async function lireRefProfils() {
 
 async function lirePilier(candidat_id, pilier_code) {
   const recs = await selectAll(T.T3_PILIER, {
-    filterByFormula: `AND({candidat_id} = "${candidat_id}", {pilier} = "${pilier_code}")`,
+    filterByFormula: `AND({${FP.candidat_id}} = "${candidat_id}", {${FP.pilier}} = "${pilier_code}")`,
     fields: Object.values(FP),
   });
   if (!recs.length) throw new Error(`T3_PILIER ${pilier_code} introuvable pour ${candidat_id}`);
@@ -201,7 +201,7 @@ async function lirePilier(candidat_id, pilier_code) {
 
 async function lireCircuits(candidat_id, pilier_code) {
   const recs = await selectAll(T.T3_CIRCUIT, {
-    filterByFormula: `AND({candidat_id} = "${candidat_id}", {pilier} = "${pilier_code}")`,
+    filterByFormula: `AND({${FC.candidat_id}} = "${candidat_id}", {${FC.pilier}} = "${pilier_code}")`,
     sort: [{ field: FC.ordre, direction: 'asc' }],
     fields: Object.values(FC),
   });
@@ -256,7 +256,7 @@ async function lireEmpruntsRecus(candidat_id, pilier_code) {
   if (!field_cible) return {};
 
   const recs = await selectAll(T.T3_CIRCUIT, {
-    filterByFormula: `{candidat_id} = "${candidat_id}"`,
+    filterByFormula: `AND({${FC.candidat_id}} = "${candidat_id}")`,
     fields: [FC.pilier, FC.circuit_id, FC.circuit_nom, field_cible],
   });
 
@@ -398,12 +398,18 @@ async function appellerClaude(entree_json, opts = {}) {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY manquante');
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  // A25 — max_tokens porté à 32000 (pilier socle riche = 12 circuits × verbatims + synthèses + bloc 4)
   const response = await client.messages.create({
     model:      'claude-sonnet-4-6',
-    max_tokens: opts.max_tokens || 8000,
+    max_tokens: opts.max_tokens || 32000,
     system:     PROMPT,
     messages: [{ role: 'user', content: JSON.stringify(entree_json, null, 2) }],
   });
+
+  // A25 — vérification stop_reason pour détecter troncature silencieuse
+  if (response.stop_reason === 'max_tokens') {
+    throw new Error(`P-A tronqué (stop_reason=max_tokens) — pilier ${entree_json.pilier_code || '?'}. Augmenter max_tokens.`);
+  }
 
   const raw = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
   const cleaned = raw.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '').trim();
