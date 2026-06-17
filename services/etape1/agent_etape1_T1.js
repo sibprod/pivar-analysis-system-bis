@@ -1,4 +1,4 @@
-// services/etape1/agent_etape1_T1.js
+// services/etape1/agentT1Service.js
 // Agent T1 — Analyse technique cognitive en aval de l'étape 1.1
 // Profil-Cognitif v10.7
 //
@@ -96,7 +96,7 @@ const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
 const SERVICE_NAME = 'agent_t1';
-const PROMPT_PATH  = 'etape1/etape1_t1.txt';
+const PROMPT_PATH  = 'etape1/prompt_etape1_T1.txt';
 
 // ─── DÉFINITION DES SCÉNARIOS (unités narratives — Pilier 2 doctrine) ──────
 const SCENARIOS = [
