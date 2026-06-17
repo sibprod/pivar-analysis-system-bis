@@ -1,4 +1,4 @@
-// services/etape2/agent_etape2_b_T5C_profil.js
+// services/etape2/agentT5C.js
 // Agent T5C — Profil global + verdicts des deux faces du métier (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -22,7 +22,7 @@ const agentBase       = require('../infrastructure/agentBase');
 const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
-const PROMPT_PATH  = 'etape2/AGENT_T5C_prompt.md';
+const PROMPT_PATH  = 'etape2/prompt_etape2_b_T5C_profil.md';
 const SERVICE_NAME = 'agent_t5c';
 
 const VERDICTS = ['TRÈS BON', 'BON', 'SUFFISANT', 'RÉSERVE DE PROTOCOLE', 'DÉFAVORABLE'];
