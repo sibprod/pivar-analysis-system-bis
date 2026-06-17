@@ -180,7 +180,7 @@ function construireEntreeAgent(candidat_id, arch, gestesHaut, glissements, opts)
 
 async function appelerAgent(entree) {
   const prompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4000,
@@ -253,7 +253,7 @@ async function run() {
   const doWrite = args.includes('--write');
   if (!candidat_id) { console.error('ERREUR : --candidat <id> obligatoire'); process.exit(1); }
 
-  const airtable = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(BASE_ID);
+  const airtable = new Airtable({ apiKey: process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY }).base(BASE_ID);
 
   // 1) Architecture
   const arch = await lireArchitecture(candidat_id, airtable);
