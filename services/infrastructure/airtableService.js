@@ -877,7 +877,7 @@ async function getEtape1T2VentilationPiliers(candidat_id) {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_VENTILATION_PILIERS)
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'rang_par_frequence', direction: 'asc' }],
+        sort: [{ field: 'fldZqTLiapVQSznq0', direction: 'asc' }],
         returnFieldsByFieldId: true
       })
       .all();
@@ -905,8 +905,8 @@ async function getEtape1T2InventaireCircuits(candidat_id) {
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
         sort: [
-          { field: 'pilier_owner',     direction: 'asc' },
-          { field: 'rang_dans_pilier', direction: 'asc' }
+          { field: 'fldSudlYoCeU2cOqz', direction: 'asc' },
+          { field: 'fld76259zIzR6XVRB', direction: 'asc' }
         ],
         returnFieldsByFieldId: true
       })
