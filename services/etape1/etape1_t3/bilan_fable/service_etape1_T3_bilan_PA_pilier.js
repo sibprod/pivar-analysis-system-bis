@@ -33,7 +33,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Airtable  = require('airtable');
 const fs   = require('fs');   // C1 — manquait dans l'original
 const path = require('path');
-const PROMPT = fs.readFileSync(path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PA_pilier.md'), 'utf8');
+const PROMPT = fs.readFileSync(path.join(__dirname, 'PROMPT_ANALYSE_PILIER_v9.md'), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — CONFIGURATION
@@ -136,8 +136,9 @@ const PILIERS_ORDRE = ['P4', 'P5', 'P1', 'P2', 'P3'];
 // ═══════════════════════════════════════════════════════════════
 
 function base() {
-  if (!process.env.AIRTABLE_API_KEY) throw new Error('AIRTABLE_API_KEY manquante');
-  return new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(BASE_ID);
+  const token = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
+  if (!token) throw new Error('AIRTABLE_TOKEN manquant');
+  return new Airtable({ apiKey: token }).base(BASE_ID);
 }
 
 async function selectAll(tableId, opts = {}) {
@@ -395,8 +396,9 @@ function normaliserRole(role) {
 // ═══════════════════════════════════════════════════════════════
 
 async function appellerClaude(entree_json, opts = {}) {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY manquante');
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('CLAUDE_API_KEY manquante');
+  const client = new Anthropic({ apiKey });
 
   // A25 — max_tokens porté à 32000 (pilier socle riche = 12 circuits × verbatims + synthèses + bloc 4)
   const response = await client.messages.create({
