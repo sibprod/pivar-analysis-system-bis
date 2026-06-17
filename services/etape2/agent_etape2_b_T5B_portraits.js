@@ -1,4 +1,4 @@
-// services/etape2/agentT5B.js
+// services/etape2/agent_etape2_b_T5B_portraits.js
 // Agent T5B — Portraits par excellence (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
