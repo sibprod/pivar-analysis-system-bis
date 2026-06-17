@@ -1,4 +1,4 @@
-// services/orchestrators/orchestrator_etape1_T1.js
+// services/orchestrators/orchestratorEtape1.js
 // Sous-orchestrateur Étape 1 — Profil-Cognitif
 //
 // ARCHITECTURE v11.2 (3 étapes — suppression T2 historique, renumérotation propre) :
@@ -34,7 +34,7 @@ const backupService       = require('../infrastructure/backupService');
 const agentBase           = require('../infrastructure/agentBase');
 const logger              = require('../../utils/logger');
 
-const agentT1Service      = require('../etape1/agentT1Service');
+const agentT1Service      = require('../etape1/agent_etape1_T1');
 
 // ─── Étape 2 (circuits) — import désactivé en attente refonte doctrinale ───
 // const agentT2Service      = require('../etape1/agentT2Service');
