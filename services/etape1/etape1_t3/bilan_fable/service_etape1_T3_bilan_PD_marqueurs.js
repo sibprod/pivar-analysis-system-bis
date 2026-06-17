@@ -32,7 +32,7 @@ const T_T1        = 'ETAPE1_T1';            // signaux limbiques
 const T_RESP      = 'tblK28GE8RWq9tQMV';    // RESPONSES (gouvernance)
 const T_BILAN     = 'tblv775KQrEhsogdI';    // sortie
 const T_PILIER    = 'tblzDIn7P2cOvVvY2';    // architecture
-const PROMPT_PATH = path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PD_marqueurs.md');
+const PROMPT_PATH = path.join(__dirname, 'PROMPT_CH3_MARQUEURS_v1.md');
 
 // field IDs ETAPE1_T1 (vérifiés en base 16/06)
 const F_T1 = {
@@ -169,13 +169,16 @@ function regrouperSignaux(signaux) {
 
 /** Calcule les chiffres du §06 depuis la gouvernance + l'architecture. */
 function calculerCout(gouvernance, roles) {
-  const { socle, aval } = roles;
+  const { socle, amont, aval } = roles;
   const g = {};
   for (const p of ['P1','P2','P3','P4','P5']) g[p] = gouvernance.filter(r => r.gouv === p).length;
 
-  // pilier faible = pilier non-socle/non-amont/non-aval qui gouverne le moins, hors 0 structurel
-  // pour le coût secondaire on suit la doctrine : pilier de création (P4) si présent
-  const creationCode = 'P4';
+  // A28 — pilier secondaire : pilier fonctionnel (ni socle, ni amont, ni aval)
+  // qui gouverne le moins de questions — dynamique selon l'architecture du candidat
+  const piliersPrincipaux = new Set([socle, amont, aval].filter(Boolean));
+  const piliersFonctionnels = ['P1','P2','P3','P4','P5'].filter(p => !piliersPrincipaux.has(p));
+  const creationCode = piliersFonctionnels.sort((a, b) => (g[a] || 0) - (g[b] || 0))[0] || 'P4';
+
   const questionsCreation = gouvernance.filter(r => r.q.startsWith(creationCode + 'Q'));
   const basculeVersSocle = questionsCreation.filter(r => r.gouv === socle).map(r => r.q);
 
@@ -282,7 +285,7 @@ async function lireArchitecture(candidat_id, airtable) {
   const piliers = {};
   let socle=null, amont=null, aval=null;
   await airtable(T_PILIER).select({
-    filterByFormula: `{candidat_id}="${candidat_id}"`,
+    filterByFormula: `{${F_PIL.candidat}}="${candidat_id}"`,
     fields: [F_PIL.pilier, F_PIL.role, F_PIL.label, F_PIL.mode],
     pageSize: 20,
   }).eachPage((records, next) => {
@@ -302,7 +305,7 @@ async function lireArchitecture(candidat_id, airtable) {
 async function _findBilan(candidat_id, airtable) {
   return new Promise((resolve, reject) => {
     airtable(T_BILAN).select({
-      filterByFormula: `{candidat_id}="${candidat_id}"`, maxRecords: 1, fields: [F_BILAN.candidat],
+      filterByFormula: `{${F_BILAN.candidat}}="${candidat_id}"`, maxRecords: 1, fields: [F_BILAN.candidat],
     }).firstPage((err, recs) => err ? reject(err) : resolve(recs && recs[0] ? recs[0] : null));
   });
 }
