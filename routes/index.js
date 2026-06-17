@@ -1,24 +1,32 @@
-// routes/index.js — v1 (17/06/2026)
-// Corrections : A1 (import mort tableauT3bilanPayloadService supprimé)
-//               + chemins HTML mis à jour selon nomenclature validée CTO
+// routes/index.js
+// Routes HTTP — Profil-Cognitif v12.0
 //
-// HISTORIQUE
-//   v12.0 (repo) : ajout route /visualiser/t3_bilancognitif + bilanFablePayloadService
-//   v1    (CTO)  : suppression import tableauT3bilanPayloadService (module inexistant → crash boot)
-//                  mise à jour chemins sendFile vers nouveaux noms de fichiers
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// PHASE v12.0 (2026-06-17) — Bilan Fable cognitif complet :
+//   - ⭐ Ajout require bilanFablePayloadService
+//   - ⭐ Ajout route GET /visualiser/t3_bilancognitif/:candidat_id
+//     Rendu serveur (même pattern que /visualiser/t3_bilan/:candidat_id) :
+//     buildPayload(candidat_id) → _renderT3Template(tpl, payload) → HTML
+//     Template : services/visualisation/bilanFableVisualiseurService.html
+//
+// PHASE v11.6 (2026-06-05) — Visualisation Étape 2 (les 4 excellences) :
+//   - ⭐ Ajout route GET /visualiser/etape2_1responsepour4excellences/:candidat_id
 
 'use strict';
 
 const path = require('path');
 
-const express                  = require('express');
-const router                   = express.Router();
-const orchestratorPrincipal    = require('../services/orchestrators/orchestrator_principal');
-const queueService             = require('../services/flux/queueService');
-const airtableService          = require('../services/infrastructure/airtableService');
-const backupService            = require('../services/infrastructure/backupService');
+const express               = require('express');
+const router                = express.Router();
+const orchestratorPrincipal  = require('../services/orchestrators/orchestrator_principal');
+const queueService          = require('../services/flux/queueService');
+const airtableService       = require('../services/infrastructure/airtableService');
+const backupService         = require('../services/infrastructure/backupService');
+const tableauT3bilanPayloadService = require('../services/visualisation/service_etape1_T3_bilan_payload') // ancien tableauT3bilanPayloadService;
+// ⭐ v12.0
 const bilanFablePayloadService = require('../services/visualisation/service_etape1_T3_bilan_payload');
-const logger                   = require('../utils/logger');
+const logger                = require('../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /webhook
@@ -214,7 +222,7 @@ router.get('/visualiser/etape1/:candidat_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/etape2_1responsepour4excellences/:candidat_id
+// GET /visualiser/etape2_1responsepour4excellences/:candidat_id — v11.6
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/visualiser/etape2_1responsepour4excellences/:candidat_id', async (req, res) => {
@@ -254,7 +262,7 @@ router.get('/visualiser/etape2_1responsepour4excellences/:candidat_id', async (r
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/t1/:candidat_id
+// GET /visualiser/t1/:candidat_id — v10.7
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/visualiser/t1/:candidat_id', async (req, res) => {
@@ -315,7 +323,7 @@ router.get('/visualiser/t1/:candidat_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/tableau2piliers/:candidat_id
+// GET /visualiser/tableau2piliers/:candidat_id — v10.9
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/visualiser/tableau2piliers/:candidat_id', async (req, res) => {
@@ -436,7 +444,49 @@ function _renderT3Template(tpl, ctx) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/tableau2circuits/:candidat_id
+// GET /visualiser/t3_bilan/:candidat_id — v11.0
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/visualiser/t3_bilan/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Identifiant candidat invalide</h1></body></html>');
+  }
+  const acceptHeader = req.headers.accept || '';
+  const formatParam  = (req.query && req.query.format) || '';
+  const wantsJson = acceptHeader.includes('application/json') || formatParam === 'json';
+
+  if (wantsJson) {
+    logger.info('Visualisation t3_bilan — mode JSON', { candidat_id });
+    try {
+      const payload = await tableauT3bilanPayloadService.buildPayload(candidat_id);
+      if (!payload) return res.status(404).json({ error: 'Aucun bilan T3 trouvé', candidat_id });
+      return res.json(payload);
+    } catch (error) {
+      logger.error('Visualisation t3_bilan — erreur assemblage', { candidat_id, error: error.message });
+      return res.status(500).json({ error: error.message, candidat_id });
+    }
+  }
+
+  logger.info('Visualisation t3_bilan — mode HTML (rendu serveur)', { candidat_id });
+  const fs = require('fs');
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_etape1_T3_bilan.html');
+  try {
+    const payload = await tableauT3bilanPayloadService.buildPayload(candidat_id);
+    if (!payload) {
+      return res.status(404).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Aucun bilan T3 trouvé</h1><p>candidat_id : <code>' + candidat_id + '</code></p></body></html>');
+    }
+    const tpl = fs.readFileSync(htmlPath, 'utf8');
+    const html = _renderT3Template(tpl, payload);
+    res.type('html').send(html);
+  } catch (error) {
+    logger.error('Visualisation t3_bilan — erreur HTML', { candidat_id, error: error.message });
+    if (!res.headersSent) res.status(500).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Erreur rendu t3_bilan</h1><p>' + (error.message || '') + '</p></body></html>');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GET /visualiser/tableau2circuits/:candidat_id — v10.9
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/visualiser/tableau2circuits/:candidat_id', async (req, res) => {
@@ -468,7 +518,7 @@ router.get('/visualiser/tableau2circuits/:candidat_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET /visualiser/tableau2parquestion/:candidat_id
+// GET /visualiser/tableau2parquestion/:candidat_id — v10.9
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/visualiser/tableau2parquestion/:candidat_id', async (req, res) => {
@@ -512,7 +562,7 @@ router.get('/visualiser/tableau2parquestion/:candidat_id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BILAN DYNAMIQUE DES 4 EXCELLENCES
+// ⭐ v11.7 — BILAN DYNAMIQUE DES 4 EXCELLENCES
 // ═══════════════════════════════════════════════════════════════════════════
 
 function _isValidCandidatId(id) {
@@ -549,7 +599,7 @@ router.get('/visualiser/etape2_2bilan4excellences/:candidat_id', (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BILAN FABLE COGNITIF COMPLET
+// ⭐ v12.0 (17/06/2026) — BILAN FABLE COGNITIF COMPLET
 // ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/visualiser/t3_bilancognitif/:candidat_id', async (req, res) => {
