@@ -1,4 +1,4 @@
-// services/etape2/agent_etape2_b_T5B_portraits.js
+// services/etape2/agentT5B.js
 // Agent T5B — Portraits par excellence (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -25,10 +25,10 @@ const SERVICE_NAME = 'agent_t5b';
 
 // Les 4 sous-agents : code excellence → prompt dédié.
 const SOUS_AGENTS = [
-  { exc: 'ANT', prompt: 'etape2/AGENT_T5B_ANT_prompt.md' },
-  { exc: 'DEC', prompt: 'etape2/AGENT_T5B_DEC_prompt.md' },
-  { exc: 'MET', prompt: 'etape2/AGENT_T5B_MET_prompt.md' },
-  { exc: 'VUE', prompt: 'etape2/AGENT_T5B_VUE_prompt.md' }
+  { exc: 'ANT', prompt: 'etape2/prompt_etape2_b_T5B_ANT.md' },
+  { exc: 'DEC', prompt: 'etape2/prompt_etape2_b_T5B_DEC.md' },
+  { exc: 'MET', prompt: 'etape2/prompt_etape2_b_T5B_MET.md' },
+  { exc: 'VUE', prompt: 'etape2/prompt_etape2_b_T5B_VUE.md' }
 ];
 
 // Dérive le niveau de densité isolé (matching) si l'agent l'omet.
