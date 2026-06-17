@@ -48,6 +48,7 @@ module.exports = {
     ETAPE1_T1:           'ETAPE1_T1',
     VERIFICATEUR_T1:     'VERIFICATEUR_T1',
     ETAPE1_T2:           'ETAPE1_T2',
+    ETAPE1_T2_FABLE:     'tblaGd3ixAWxbJJp2',    // ⭐ A12 — table verbatims agrégés pour P-A
     ETAPE1_T3:           'ETAPE1_T3',
     ETAPE1_T4_BILAN:     'ETAPE1_T4_BILAN',
 
