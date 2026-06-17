@@ -1,4 +1,4 @@
-// services/orchestrators/orchestratorPromptEtape1.js
+// services/orchestrators/orchestrator_etape1_responses.js
 // Sous-Orchestrator Prompt Étape 1 — pré-étape doctrinale avant T1
 // Profil-Cognitif v10.7
 //
