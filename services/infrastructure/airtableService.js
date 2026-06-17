@@ -852,7 +852,7 @@ async function getEtape1T2Fable(candidat_id) {
         returnFieldsByFieldId: true
       })
       .all();
-    const rows = records.map(r => ({ airtable_id: r.id, ...r.cellValuesByFieldId }));
+    const rows = records.map(r => ({ airtable_id: r.id, ...r.fields }));
     logger.debug('ETAPE1_T2_FABLE fetched', { candidat_id, count: rows.length });
     return rows;
   } catch (error) {
@@ -881,7 +881,7 @@ async function getEtape1T2VentilationPiliers(candidat_id) {
         returnFieldsByFieldId: true
       })
       .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.cellValuesByFieldId }));
+    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
   } catch (error) {
     logger.error('Failed to get ETAPE1_T2_VENTILATION_PILIERS', { candidat_id, error: error.message });
     throw error;
@@ -907,7 +907,7 @@ async function getEtape1T2InventaireCircuits(candidat_id) {
         returnFieldsByFieldId: true
       })
       .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.cellValuesByFieldId }));
+    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
   } catch (error) {
     logger.error('Failed to get ETAPE1_T2_INVENTAIRE_CIRCUITS', { candidat_id, error: error.message });
     throw error;
