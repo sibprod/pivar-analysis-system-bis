@@ -1,4 +1,4 @@
-// services/etape2/agent_etape2_b_T5A_codage.js
+// services/etape2/agentT5A.js
 // Agent T5A — Codage des 4 excellences cognitives, réponse par réponse (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -28,7 +28,7 @@ const agentBase       = require('../infrastructure/agentBase');
 const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
-const PROMPT_PATH  = 'etape2/AGENT_T5A_prompt.md';
+const PROMPT_PATH  = 'etape2/prompt_etape2_b_T5A_codage.md';
 const SERVICE_NAME = 'agent_t5a';
 
 // Nombre de réponses analysées EN MÊME TEMPS. Chaque analyse garde son thinking complet.
