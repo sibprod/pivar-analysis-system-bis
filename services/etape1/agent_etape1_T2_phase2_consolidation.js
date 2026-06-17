@@ -1,4 +1,4 @@
-// services/etape1/agentT2_phase2_consolidation_Service.js
+// services/etape1/agent_etape1_T2_phase2_consolidation.js
 // Agent de CONSOLIDATION — ÉTAPE 2 / Phase 2 — v1.0 (21/05/2026)
 // Profil-Cognitif — Refonte v10.8
 //
