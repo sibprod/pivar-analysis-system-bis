@@ -22,7 +22,7 @@
 
 'use strict';
 
-const orchestratorPrincipal = require('../orchestrators/orchestratorPrincipal');
+const orchestratorPrincipal = require('../orchestrators/orchestrator_principal');
 const airtableService       = require('../infrastructure/airtableService');
 const errorClassifier       = require('../../utils/errorClassifier');
 const logger                = require('../../utils/logger');
