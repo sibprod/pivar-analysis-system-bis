@@ -77,11 +77,11 @@
 'use strict';
 
 const airtableService            = require('../infrastructure/airtableService');
-const orchestratorEtape1         = require('./orchestratorEtape1');
-const orchestratorEtape2         = require('./orchestratorEtape2');  // ⭐ v10.8 (refonte étape 2 en 2 phases)
-const orchestratorExcellences    = require('./orchestratorExcellences');  // ⭐ v11.7 (bilan 4 excellences)
-const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');  // ⭐ v10.6 (Phase ETAPE1.1)
-const orchestratorEtape3Bilan    = require('./orchestratoretape3bilan');  // ⭐ v10.7 (chaîne bilan Fable, étape 3)
+const orchestratorEtape1         = require('./orchestrator_etape1_T1');
+const orchestratorEtape2         = require('./orchestrator_etape1_T2');
+const orchestratorExcellences    = require('./orchestrator_etape2_b_excellences');
+const orchestratorPromptEtape1   = require('./orchestrator_etape1_responses');
+const orchestratorEtape3Bilan    = require('./orchestrator_etape1_T3_bilan');
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -248,7 +248,7 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     //    vers orchestratoretape3bilan). Aucun filet de retour arrière conservé.
     // ⭐ v10.7 — T4 v1.1 migré : reprise à T4 (saute T1+Vérif+T2+T3, démarre T4)
     // L'aiguillage va vers orchestratorEtape1 qui détecte le mode AGENT4_SEUL
-    'REPRENDRE_AGENT4'
+    // 'REPRENDRE_AGENT4' — retiré A17 : T4 non implémenté, tombait en PIPELINE_COMPLET silencieusement
   ];
 
   if (STATUTS_ETAPE_1.includes(statut_actuel)) {
@@ -316,11 +316,11 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
 
   if (STATUTS_BILAN_FABLE.includes(statut_actuel)) {
     logger.info('Aiguillage → Étape 3 Bilan Fable (P-A…P-D)', { candidat_id, statut: statut_actuel });
-    const prenom = visiteur.Prenom || visiteur.prenom || '';
     const fableResult = await orchestratorEtape3Bilan.executerBilanFable({
       candidat_id,
-      statut: statut_actuel,
-      prenom
+      statut: statut_actuel
+      // R1 : civilite lue directement dans orchestrator_etape1_T3_bilan via getCiviliteCandidat()
+      // prenom supprimé — jamais transmis aux agents LLM
     });
     // L'orchestrateur Fable a déjà posé le statut final → on préserve via stopReason.
     return {
