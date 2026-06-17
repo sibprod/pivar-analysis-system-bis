@@ -1,4 +1,4 @@
-// services/orchestrators/orchestrator_etape1_responses.js
+// services/orchestrators/orchestratorPromptEtape1.js
 // Sous-Orchestrator Prompt Étape 1 — pré-étape doctrinale avant T1
 // Profil-Cognitif v10.7
 //
@@ -36,7 +36,7 @@
 'use strict';
 
 const airtableService            = require('../infrastructure/airtableService');
-const agentPromptEtape1Service   = require('../etape1/agentPromptEtape1Service');
+const agentPromptEtape1Service   = require('../etape1/agent_etape1_responses');
 const logger                     = require('../../utils/logger');
 
 /**
