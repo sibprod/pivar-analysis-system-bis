@@ -1,4 +1,4 @@
-// services/orchestrators/orchestratorPrincipal.js
+// services/orchestrators/orchestrator_principal.js
 // Orchestrateur principal — Profil-Cognitif v10.7
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
@@ -77,10 +77,10 @@
 'use strict';
 
 const airtableService            = require('../infrastructure/airtableService');
-const orchestratorEtape1         = require('./orchestrator_etape1_T1');
-const orchestratorEtape2         = require('./orchestrator_etape1_T2');
+const orchestratorEtape1         = require('./orchestratorEtape1');
+const orchestratorEtape2         = require('./orchestratorEtape2');
 const orchestratorExcellences    = require('./orchestrator_etape2_b_excellences');
-const orchestratorPromptEtape1   = require('./orchestrator_etape1_responses');
+const orchestratorPromptEtape1   = require('./orchestratorPromptEtape1');
 const orchestratorEtape3Bilan    = require('./orchestrator_etape1_T3_bilan');
 const logger                     = require('../../utils/logger');
 
