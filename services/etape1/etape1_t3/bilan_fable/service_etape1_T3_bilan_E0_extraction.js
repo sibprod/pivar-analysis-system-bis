@@ -1,17 +1,9 @@
 // services/etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_E0_extraction.js
-// É0 — EXTRACTION & DÉRIVATIONS — v5.1 (17/06/2026)
+// É0 — EXTRACTION & DÉRIVATIONS — v5.2 (17/06/2026)
 //
-// RESPONSABILITÉ UNIQUE : lecture seule des sources → payload pour P-A×5
-// L'initialisation T3 (création records) est déléguée à É0b.
-//
-// SOURCES :
-//   ETAPE1_T2_VENTILATION_PILIERS → rang, pilier_coeur
-//   ETAPE1_T2_INVENTAIRE_CIRCUITS → coeur/total/adhoc par circuit
-//   T3_PILIER                     → mode existant si déjà validé
-//   ETAPE1_T2 (Fable)             → signal_limbique + synthese_pilier
-//   REFERENTIEL_PILIERS           → libellés officiels
-//
-// SORTIE : { candidat_id, piliers[] }
+// v5.2 : accès aux données par NOM DE CHAMP (SDK Airtable 0.12.2 retourne r.fields
+//        avec les Field IDs comme clés quand returnFieldsByFieldId:true — mais les
+//        fonctions airtableService retournent ...r.fields donc clés = noms de champs)
 
 'use strict';
 
@@ -19,38 +11,35 @@ const config          = require('../../../../config/airtable');
 const airtableService = require('../../../infrastructure/airtableService');
 const logger          = require('../../../../utils/logger');
 
-// fldIDs VENTILATION_PILIERS
+// Noms de champs VENTILATION_PILIERS (tels que dans Airtable)
 const VENT = {
-  candidat_id:    'fldElNhexmTf6w73F',
-  pilier_coeur:   'fldDzu3P3ryAT5eTt',  // singleSelect P1..P5
-  rang:           'fldZqTLiapVQSznq0',  // rang_par_frequence 1..5
-  nb_activations: 'flddntGV77W5qGzeH',
+  candidat_id:    'candidat_id',
+  pilier_coeur:   'pilier_coeur',          // singleSelect P1..P5
+  rang:           'rang_par_frequence',    // number 1..5
+  nb_activations: 'nb_activations_coeur_total',
 };
 
-// fldIDs INVENTAIRE_CIRCUITS
+// Noms de champs INVENTAIRE_CIRCUITS
 const INV = {
-  candidat_id:  'fldWInB63lYApVz8G',
-  pilier:       'fldSudlYoCeU2cOqz',  // singleSelect → .name
-  circuit_id:   'fldPF1xvYiONGiOAA',  // "C12"
-  code_complet: 'fldjbr1Ej7Dosb6S6',  // "P4C12"
-  coeur:        'fld8nEBQqdLqQqe1b',  // nb_coeur ✓
-  total:        'fldzV8udGk3eQ58No',  // total_activations ✓
-  adhoc:        'fld0SuUut21rToKbj',  // circuit_origine singleSelect OFFICIEL/ADHOC ✓
+  candidat_id:  'candidat_id',
+  pilier:       'pilier_owner',     // singleSelect → string directement
+  circuit_id:   'circuit_id',       // "C12"
+  code_complet: 'circuit_label',    // "P4C12"
+  coeur:        'nb_coeur',
+  total:        'total_activations',
+  adhoc:        'circuit_origine',  // singleSelect "OFFICIEL" / "AD_HOC"
 };
 
-// fldIDs T3_PILIER
-const FLD_PIL_CODE = 'fldVvi5gbKioBmlsQ';
-const FLD_MODE     = 'fldoGY71vyiaUeFl6';
+// Noms de champs T3_PILIER
+const FLD_PIL_CODE = 'pilier';
+const FLD_MODE     = 'pilier_mode';
 
-// fldIDs T2 Fable
+// Noms de champs T2 Fable
 const T2 = {
-  pilier:          'fldkByLh883MLtHB3',
-  signal_limbique: 'fldnDxnEc3uLoAknN',
-  synthese_pilier: 'fldYZIvT2gMtumy6O',
+  pilier:          'pilier',
+  signal_limbique: 'signal_limbique',
+  synthese_pilier: 'synthese_pilier',
 };
-
-// fldID REFERENTIEL_PILIERS
-const FLD_PIL_NOM = 'fldI2u7FxkWhdGoot';
 
 // rang → rôle/slot
 const RANG_TO_ROLE = {
@@ -68,9 +57,15 @@ function niveauFromCoeur(n) {
   return 'EN_SOUTIEN';
 }
 
+function extractName(val) {
+  if (!val) return '';
+  if (typeof val === 'object' && val.name) return val.name;
+  return String(val);
+}
+
 async function buildContexteE0({ candidat_id }) {
   const t = Date.now();
-  logger.info('É0 v5.1 — démarrage', { candidat_id });
+  logger.info('É0 v5.2 — démarrage', { candidat_id });
 
   const [ventilation, inventaire, t3piliers, t2rows, piliersRef] = await Promise.all([
     airtableService.getEtape1T2VentilationPiliers(candidat_id),
@@ -80,23 +75,27 @@ async function buildContexteE0({ candidat_id }) {
     airtableService.getReferentielPiliers(),
   ]);
 
-  logger.info('É0 — données lues', { candidat_id, nb_ventilation: ventilation?.length, nb_inventaire: inventaire?.length, nb_t2rows: t2rows?.length });
+  logger.info('É0 — données lues', {
+    candidat_id,
+    nb_ventilation: ventilation?.length,
+    nb_inventaire:  inventaire?.length,
+    nb_t2rows:      t2rows?.length,
+    sample_vent:    ventilation?.[0] ? Object.keys(ventilation[0]).slice(0,5) : []
+  });
+
   if (!ventilation?.length) throw new Error(`É0: VENTILATION_PILIERS vide pour ${candidat_id}`);
   if (!inventaire?.length)  throw new Error(`É0: INVENTAIRE_CIRCUITS vide pour ${candidat_id}`);
 
   // Libellés officiels depuis REFERENTIEL_PILIERS
   const nomParPilier = {};
   for (const p of (piliersRef || [])) {
-    const code = p.pilier_code || '';
-    const nom  = p[FLD_PIL_NOM] || p.pilier_nom || '';
-    if (code && nom) nomParPilier[code] = nom;
+    if (p.pilier_code && p.pilier_nom) nomParPilier[p.pilier_code] = p.pilier_nom;
   }
 
   // Architecture rôles depuis VENTILATION_PILIERS
   const roleParPilier = {}, slotParPilier = {}, ordre = [];
   for (const r of ventilation) {
-    const pilierVal = r[VENT.pilier_coeur];
-    const code = typeof pilierVal === 'object' ? pilierVal.name : String(pilierVal || '');
+    const code = extractName(r[VENT.pilier_coeur]);
     const rang  = Number(r[VENT.rang] || 0);
     if (!code || !/^P[1-5]$/.test(code)) continue;
     const mapped = RANG_TO_ROLE[rang] || { role: 'fonctionnel', slot: 'fn2' };
@@ -105,20 +104,13 @@ async function buildContexteE0({ candidat_id }) {
     if (!ordre.includes(code)) ordre.push(code);
   }
 
-  // Trier par rang
   ordre.sort((a, b) => {
-    const ra = ventilation.find(r => {
-      const v = r[VENT.pilier_coeur];
-      return (typeof v === 'object' ? v.name : v) === a;
-    });
-    const rb = ventilation.find(r => {
-      const v = r[VENT.pilier_coeur];
-      return (typeof v === 'object' ? v.name : v) === b;
-    });
+    const ra = ventilation.find(r => extractName(r[VENT.pilier_coeur]) === a);
+    const rb = ventilation.find(r => extractName(r[VENT.pilier_coeur]) === b);
     return Number(ra?.[VENT.rang] || 99) - Number(rb?.[VENT.rang] || 99);
   });
 
-  // Modes existants depuis T3_PILIER (vide au premier run — normal)
+  // Modes existants depuis T3_PILIER
   const modeParPilier = {};
   for (const p of (t3piliers || [])) {
     const code = p[FLD_PIL_CODE] || p.pilier || '';
@@ -138,17 +130,16 @@ async function buildContexteE0({ candidat_id }) {
   // INVENTAIRE → coeur/total/adhoc par code circuit
   const invByCode = {};
   for (const r of inventaire) {
-    const code = r[INV.code_complet] || '';
+    const code   = r[INV.code_complet] || '';
     if (!code) continue;
-    const pilierVal = r[INV.pilier];
-    const pilier = typeof pilierVal === 'object' ? pilierVal.name : String(pilierVal || '');
+    const pilier = extractName(r[INV.pilier]);
     invByCode[code] = {
       code,
       circuit_id: String(r[INV.circuit_id] || ''),
       pilier,
-      coeur: Number(r[INV.coeur] || 0),
-      total: Number(r[INV.total] || 0),
-      adhoc: (r[INV.adhoc]?.name || r[INV.adhoc] || '') === 'ADHOC',
+      coeur:  Number(r[INV.coeur] || 0),
+      total:  Number(r[INV.total] || 0),
+      adhoc:  extractName(r[INV.adhoc]) === 'AD_HOC',
     };
     if (pilier && /^P[1-5]$/.test(pilier) && !ordre.includes(pilier)) {
       roleParPilier[pilier] = 'fonctionnel';
@@ -157,27 +148,33 @@ async function buildContexteE0({ candidat_id }) {
     }
   }
 
-  logger.info('É0 — invByCode', { candidat_id, nb_codes: Object.keys(invByCode).length, sample: Object.keys(invByCode).slice(0,3), ordre });
+  logger.info('É0 — invByCode', {
+    candidat_id,
+    nb_codes: Object.keys(invByCode).length,
+    sample:   Object.keys(invByCode).slice(0, 3),
+    ordre
+  });
+
   // Assemblage piliers
   const piliers = [];
   for (const pilier_code of ordre) {
     const circuitsInv = Object.values(invByCode).filter(c => c.pilier === pilier_code);
     if (!circuitsInv.length) {
-      logger.warn(`É0: aucun circuit inventaire pour ${pilier_code}`, { candidat_id });
+      logger.warn(`É0: aucun circuit pour ${pilier_code}`, { candidat_id });
       continue;
     }
 
     const aDuCoeur = circuitsInv.some(c => c.coeur > 0);
     const circuits = circuitsInv.map(inv => ({
-      code:      inv.code,
-      nom:       inv.circuit_id,
+      code:       inv.code,
+      nom:        inv.circuit_id,
       circuit_id: inv.circuit_id,
-      coeur:     inv.coeur,
-      total:     inv.total,
-      niveau:    niveauFromCoeur(inv.coeur),
-      adhoc:     inv.adhoc,
-      verbatims: [],
-      sortants:  {},
+      coeur:      inv.coeur,
+      total:      inv.total,
+      niveau:     niveauFromCoeur(inv.coeur),
+      adhoc:      inv.adhoc,
+      verbatims:  [],
+      sortants:   {},
     })).sort((a, b) => (b.coeur - a.coeur) || (b.total - a.total));
 
     const modeExistant = modeParPilier[pilier_code] || '';
@@ -197,7 +194,7 @@ async function buildContexteE0({ candidat_id }) {
 
   if (!piliers.length) throw new Error(`É0: aucun pilier assemblé pour ${candidat_id}`);
 
-  logger.info('É0 v5.1 — terminée', { candidat_id, nb_piliers: piliers.length, elapsedMs: Date.now() - t });
+  logger.info('É0 v5.2 — terminée', { candidat_id, nb_piliers: piliers.length, elapsedMs: Date.now() - t });
   return { candidat_id, piliers };
 }
 
