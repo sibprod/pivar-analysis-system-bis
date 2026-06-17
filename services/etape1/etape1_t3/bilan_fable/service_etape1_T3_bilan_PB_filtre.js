@@ -32,7 +32,7 @@ const T_INV       = 'tblUHZjXIW9jp9nIf';    // ETAPE1_T2_INVENTAIRE_CIRCUITS (so
 const T_RESP      = 'tblK28GE8RWq9tQMV';    // RESPONSES (gouvernance → glissements)
 const T_BILAN     = 'tblv775KQrEhsogdI';
 const T_PILIER    = 'tblzDIn7P2cOvVvY2';
-const PROMPT_PATH = path.join(__dirname, 'PROMPT_CH4_FILTRE_v1.md');
+const PROMPT_PATH = path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PB_filtre.md');
 
 const SEUIL_HAUT = 4;   // échelle CŒUR : HAUT >=4, MOYEN 2-3, FAIBLE 1
 
