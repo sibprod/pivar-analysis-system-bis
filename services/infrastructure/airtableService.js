@@ -878,10 +878,11 @@ async function getEtape1T2VentilationPiliers(candidat_id) {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_VENTILATION_PILIERS)
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'rang_par_frequence', direction: 'asc' }]
+        sort: [{ field: 'rang_par_frequence', direction: 'asc' }],
+        returnFieldsByFieldId: true
       })
       .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
+    return records.map(r => ({ airtable_id: r.id, ...r.cellValuesByFieldId }));
   } catch (error) {
     logger.error('Failed to get ETAPE1_T2_VENTILATION_PILIERS', { candidat_id, error: error.message });
     throw error;
@@ -907,10 +908,11 @@ async function getEtape1T2InventaireCircuits(candidat_id) {
         sort: [
           { field: 'pilier_owner',     direction: 'asc' },
           { field: 'rang_dans_pilier', direction: 'asc' }
-        ]
+        ],
+        returnFieldsByFieldId: true
       })
       .all();
-    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
+    return records.map(r => ({ airtable_id: r.id, ...r.cellValuesByFieldId }));
   } catch (error) {
     logger.error('Failed to get ETAPE1_T2_INVENTAIRE_CIRCUITS', { candidat_id, error: error.message });
     throw error;
