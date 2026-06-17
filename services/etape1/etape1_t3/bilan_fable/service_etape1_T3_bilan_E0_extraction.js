@@ -1,4 +1,4 @@
-// services/etape1/etape1_t3/bilan_fable/serviceE0_extraction.js
+// services/etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_E0_extraction.js
 // É0 — EXTRACTION & DÉRIVATIONS — v5.0 (15/06/2026)
 //
 // CORRECTION FONDAMENTALE v5.0 :
