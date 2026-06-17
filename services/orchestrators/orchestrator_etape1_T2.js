@@ -1,4 +1,4 @@
-// services/orchestrators/orchestrator_etape1_T2.js
+// services/orchestrators/orchestratorEtape2.js
 // Sous-Orchestrateur Étape 2 — Cartographie des circuits cognitifs
 // Profil-Cognitif v10.9 (Phase 3 ajoutée 22/05/2026)
 //
@@ -114,9 +114,9 @@
 'use strict';
 
 const airtableService                       = require('../infrastructure/airtableService');
-const agentT2_phase1_attribution_Service    = require('../etape1/agentT2_phase1_attribution_Service');
-const agentT2_phase2_consolidation_Service  = require('../etape1/agentT2_phase2_consolidation_Service');
-const agentT2_phase3_enrichissement_Service = require('../etape1/agentT2_phase3_enrichissement_Service');  // ⭐ v10.9
+const agentT2_phase1_attribution_Service    = require('../etape1/agent_etape1_T2_phase1_attribution');
+const agentT2_phase2_consolidation_Service  = require('../etape1/agent_etape1_T2_phase2_consolidation');
+const agentT2_phase3_enrichissement_Service = require('../etape1/agent_etape1_T2_phase3_enrichissement');  // ⭐ v10.9
 const backupService                         = require('../infrastructure/backupService');
 const logger                                = require('../../utils/logger');
 
