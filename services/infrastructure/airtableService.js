@@ -846,8 +846,7 @@ async function getEtape1T2(candidat_id) {
 
 async function getEtape1T2Fable(candidat_id) {
   try {
-    const TABLE_ID = 'tblaGd3ixAWxbJJp2';
-    const records = await getBase()(TABLE_ID)
+    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_FABLE)
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
         returnFieldsByFieldId: true
