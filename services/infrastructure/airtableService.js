@@ -849,7 +849,7 @@ async function getEtape1T2Fable(candidat_id) {
     const TABLE_ID = 'tblaGd3ixAWxbJJp2';
     const records = await getBase()(TABLE_ID)
       .select({
-        filterByFormula: `{fldbHyiLdkkRU6B0J} = "${candidat_id}"`,
+        filterByFormula: `{candidat_id} = "${candidat_id}"`,
         returnFieldsByFieldId: true
       })
       .all();
