@@ -89,7 +89,7 @@ function aAdjacence(piliers, a, b) {
 async function lireResponses(candidat_id, airtable) {
   const out = [];
   await airtable(T_RESP).select({
-    filterByFormula: `{${F_RESP.candidat}}="${candidat_id}"`,
+    filterByFormula: `{session_ID}="${candidat_id}"`,
     fields: [F_RESP.candidat, F_RESP.question, F_RESP.scenario, F_RESP.gouverne, F_RESP.sequence, F_RESP.texte],
     pageSize: 100,
   }).eachPage((records, next) => {
@@ -231,7 +231,7 @@ async function lireArchitecture(candidat_id, airtable) {
   const piliers = {};
   let socle=null, amont=null, aval=null;
   await airtable(T_PILIER).select({
-    filterByFormula: `{${F_PIL.candidat}}="${candidat_id}"`,
+    filterByFormula: `{candidat_id}="${candidat_id}"`,
     fields: [F_PIL.pilier, F_PIL.role, F_PIL.label, F_PIL.mode],
     pageSize: 20,
   }).eachPage((records, next) => {
@@ -251,7 +251,7 @@ async function lireArchitecture(candidat_id, airtable) {
 async function _findBilan(candidat_id, airtable) {
   return new Promise((resolve, reject) => {
     airtable(T_BILAN).select({
-      filterByFormula: `{${F_BILAN.candidat}}="${candidat_id}"`, maxRecords: 1, fields: [F_BILAN.candidat],
+      filterByFormula: `{candidat_id}="${candidat_id}"`, maxRecords: 1, fields: [F_BILAN.candidat],
     }).firstPage((err, recs) => err ? reject(err) : resolve(recs && recs[0] ? recs[0] : null));
   });
 }
