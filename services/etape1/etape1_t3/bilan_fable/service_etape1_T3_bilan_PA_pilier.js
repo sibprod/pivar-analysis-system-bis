@@ -33,7 +33,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Airtable  = require('airtable');
 const fs   = require('fs');   // C1 — manquait dans l'original
 const path = require('path');
-const PROMPT = fs.readFileSync(path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PA_pilier.md'), 'utf8');
+const PROMPT = fs.readFileSync(path.join(__dirname, 'PROMPT_ANALYSE_PILIER_v9.md'), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — CONFIGURATION
@@ -52,16 +52,17 @@ const T = {
 
 // T3_PILIER field IDs
 const FP = {
-  candidat_id:    'fldZKruIBDdjAsY47',
-  pilier:         'fldVvi5gbKioBmlsQ',
-  pilier_label:   'fldbDYECHFEGkh0Ng',
-  pilier_role:    'fldhFisqhUf9oBLOe',
-  pilier_mode:    'fldoGY71vyiaUeFl6',
-  nb_activations: 'fldg5DCdL9U523YfG',
-  nb_actifs:      'fldtUV0KYT0zyjg0J',
-  synth_coeur:    'fldCM0X6TsHYLQ0YD',
-  synth_elargi:   'fldKkGWMbDy4csrOg',
-  // Champs rédactionnels écrits par P-A
+  // Noms de champs pour LECTURE (sans returnFieldsByFieldId)
+  candidat_id:    'candidat_id',
+  pilier:         'pilier',
+  pilier_label:   'pilier_label',
+  pilier_role:    'role_pilier',
+  pilier_mode:    'pilier_mode',
+  nb_activations: 'nb_activations',
+  nb_actifs:      'nb_circuits_actifs',
+  synth_coeur:    'synth_factuelle_coeur',
+  synth_elargi:   'synth_factuelle_elargie',
+  // Field IDs pour ÉCRITURE (passés directement à updateRecord)
   haut_candidat:     'fldBLvofzosLTPUOr',
   haut_technique:    'flds6XOIwvYr20iRY',
   haut_rattach:      'fldB9fRf8U61z4WZK',
@@ -76,21 +77,21 @@ const FP = {
   ch4_intro:         'fldomziXNOGf7Ujsb',
 };
 
-// T3_CIRCUIT field IDs
+// T3_CIRCUIT — noms de champs pour LECTURE / Field IDs pour ÉCRITURE
 const FC = {
-  candidat_id:   'fldpQzPEvlNaRXFgg',
-  pilier:        'fld74EvZRf7r4biGh',
-  circuit_id:    'fldrnHJtNOWWYJ91t',
-  circuit_nom:   'fldSGRXf8mi4q1NTd',
-  circuit_freq:  'fldrM33rxdYnJ39vz',
-  circuit_niveau:'fld0LTPI1KfAVHRqI',
-  ordre:         'fld5SPJJXdv9Bo6vT',
-  en_svc_P1:     'fldoGZPSxM22pk82R',
-  en_svc_P2:     'fldAgQzO8YgqbzUEe',
-  en_svc_P3:     'fld56OTFNSTo7OGAE',
-  en_svc_P4:     'fldJ76jeasA2KVmdY',
-  en_svc_P5:     'fldqMhYYHMy7b2s1n',
-  total:         'fldnFNJm6GP0mAGNm',
+  candidat_id:   'candidat_id',
+  pilier:        'pilier',
+  circuit_id:    'circuit_id',
+  circuit_nom:   'circuit_nom',
+  circuit_freq:  'circuit_freq',
+  circuit_niveau:'circuit_niveau',
+  ordre:         'ordre_circuit',
+  en_svc_P1:     'en_svc_P1',
+  en_svc_P2:     'en_svc_P2',
+  en_svc_P3:     'en_svc_P3',
+  en_svc_P4:     'en_svc_P4',
+  en_svc_P5:     'en_svc_P5',
+  total:         'total_activations',
   // Champs rédactionnels écrits par P-A
   n3_nuance:     'fldSx0VOHYILowFSj',
   n2_verbatims:  'fldV3EBlHGUleiifK',   // C2 — ajouté v9
@@ -109,24 +110,24 @@ const FC = {
 
 // T2_VERBATIMS field IDs
 const FT2 = {
-  candidat_id:   'fldbHyiLdkkRU6B0J',
-  pilier:        'fldkByLh883MLtHB3',
-  circuit_id:    'fldf3Rfux16asTI0I',
-  detail:        'fldHd6KNM11jQTcts',
-  signal:        'fldWlSKIGYrtvEBCT',
-  signal_expl:   'fldnDxnEc3uLoAknN',
+  candidat_id:   'candidat_id',
+  pilier:        'pilier',
+  circuit_id:    'circuit_id',
+  detail:        'types_verbatim_detail',
+  signal:        'signal_limbique',
+  signal_expl:   'signal_expl',
 };
 
 // REF field IDs
 const FREF = {
-  pilier_code: 'fldgf7XGb55eTroKn',
-  pilier_nom:  'fldI2u7FxkWhdGoot',
-  circ_pilier: 'fldYUFKjWvPZWGXva',
-  circ_code:   'fldLrUbZhzYvYYf1I',
-  circ_nom:    'fldaRcdCErwKZfLft',
-  circ_geste:  'fldS4sVj4FxFofcqJ',
-  prof_pilier: 'fldmr0XA22Q4OiRbG',
-  prof_label:  'fldqXSmhxJXSPJzId',
+  pilier_code: 'pilier_code',
+  pilier_nom:  'pilier_nom',
+  circ_pilier: 'pilier',
+  circ_code:   'circuit_id',
+  circ_nom:    'circuit_nom',
+  circ_geste:  'geste',
+  prof_pilier: 'pilier',
+  prof_label:  'profil_nom',
 };
 
 const PILIERS_ORDRE = ['P4', 'P5', 'P1', 'P2', 'P3'];
@@ -144,7 +145,7 @@ function base() {
 async function selectAll(tableId, opts = {}) {
   return new Promise((resolve, reject) => {
     const recs = [];
-    base()(tableId).select({ ...opts, returnFieldsByFieldId: true })
+    base()(tableId).select({ ...opts })
       .eachPage((page, next) => { recs.push(...page); next(); },
                 (err) => { if (err) reject(err); else resolve(recs); });
   });
