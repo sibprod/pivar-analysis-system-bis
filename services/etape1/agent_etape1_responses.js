@@ -1,4 +1,4 @@
-// services/etape1/agentPromptEtape1Service.js
+// services/etape1/agent_etape1_responses.js
 // Agent Prompt Étape 1 — Lecture cognitive des 25 réponses du candidat
 // Profil-Cognitif v10.7 (Phase ETAPE1.1-1.0.0 — 2026-05-07)
 //
