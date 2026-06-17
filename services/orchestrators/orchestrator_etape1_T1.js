@@ -1,4 +1,4 @@
-// services/orchestrators/orchestratorEtape1.js
+// services/orchestrators/orchestrator_etape1_T1.js
 // Sous-orchestrateur Étape 1 — Profil-Cognitif
 //
 // ARCHITECTURE v11.2 (3 étapes — suppression T2 historique, renumérotation propre) :
