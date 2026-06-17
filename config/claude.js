@@ -74,8 +74,12 @@ module.exports = {
     //   thinking ON (distinction fine des niveaux, justification comparative).
     // agent_t5bc : synthèse agrégée T5B (4 lignes + verbatims_preuves) + T5C (profil
     //   + verdicts des deux faces), thinking ON (raisonnement régime/verdict).
+    //   ⭐ CORRECTION A11 (17/06/2026) : agent_t5b et agent_t5c ajoutés séparément
+    //   (découpage v2.0 en 4 sous-agents — agent_t5bc n'est plus lu).
     agent_t5a:               64000,
-    agent_t5bc:              64000,
+    agent_t5bc:              64000,  // conservé pour compatibilité — non utilisé depuis v2.0
+    agent_t5b:               64000,  // ⭐ A11 — portraits par excellence (portrait_excellence long)
+    agent_t5c:               64000,  // ⭐ A11 — profil global + verdicts deux faces
 
     // ── Certificateur lexique (objet distinct du vérificateur T1) ─────────
     certificateur_lexique:   64000,
@@ -103,7 +107,9 @@ module.exports = {
     agent_t3:                true,   // nuances + clusters
     agent_t3_bilan:          false,  // ⭐ v11.0 — assemblage rédactionnel du bilan, pas de raisonnement complexe
     agent_t5a:               true,   // ⭐ v11.7 — distinction fine des niveaux par excellence
-    agent_t5bc:              true,   // ⭐ v11.7 — raisonnement régime → verdict des deux faces
+    agent_t5bc:              true,   // conservé pour compatibilité — non utilisé depuis v2.0
+    agent_t5b:               true,   // ⭐ A11 — portraits par excellence, raisonnement régime
+    agent_t5c:               true,   // ⭐ A11 — verdicts deux faces, raisonnement comparatif
     agent_t4_architecture:   true,
     agent_t4_circuits:       true,
     agent_t4_modes:          true,
