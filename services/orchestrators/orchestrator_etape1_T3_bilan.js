@@ -1,11 +1,12 @@
 // services/orchestrators/orchestrator_etape1_T3_bilan.js
 // ORCHESTRATEUR ÉTAPE 1 T3 — BILAN (chaîne « FABLE »)
 //
-// v1 CTO (17/06/2026) — CORRECTION A31 : méthodes fantômes → exports réels
-// v2 CTO (17/06/2026) — CORRECTION R1 : anonymisation agents Claude API
-//   Les agents LLM reçoivent UNIQUEMENT candidat_id + civilite.
-//   JAMAIS prenom ni nom. La civilite est lue depuis VISITEUR.
-//   PB/PC/PD n'envoient pas de données candidat à Claude — conformes.
+// CTO 17/06/2026 — CORRECTIONS :
+//   A31 : méthodes fantômes remplacées par exports réels
+//         E0 → buildContexteE0({ candidat_id })
+//         PA → lancerAgentPA(candidat_id, opts)
+//         PB/PC/PD → run({ candidat_id })
+//   R1  : civilite lue depuis VISITEUR — prenom jamais transmis aux agents LLM
 
 'use strict';
 
@@ -41,25 +42,14 @@ async function _setStatut(candidat_id, statut) {
   logger.info('Bilan Fable — statut posé', { candidat_id, statut });
 }
 
-// Lit la civilité depuis VISITEUR — seule donnée candidat envoyée aux agents LLM (R1)
-async function _lireCivilite(candidat_id) {
-  const civilite = await airtableService.getCiviliteCandidat(candidat_id);
-  return civilite || '';
-}
-
 async function _phaseE0etPA(candidat_id, civilite) {
-  // É0 — déterministe, 0 appel Claude
   await E0.buildContexteE0({ candidat_id });
-
-  // PA — 5 appels Claude · reçoit civilite (jamais prenom/nom)
   const resultats = await PA.lancerAgentPA(candidat_id, { civilite, write_mode: true });
-
   const tousValides = (resultats || []).every(r => r.mode_statut !== 'PROPOSITION');
   return { tousValides };
 }
 
 async function _phaseAval(candidat_id, coutPrincipal, coutSecondaire) {
-  // PB/PC/PD n'envoient pas de données candidat à Claude — conformes R1
   await PB.run({ candidat_id });
   await PC.run({ candidat_id });
   await PD.run({ candidat_id, coutPrincipal, coutSecondaire });
@@ -76,8 +66,7 @@ async function executerBilanFable({
 
   await backupService.save(candidat_id, 'before_t3', { orchestrateur: 'bilan_fable', statut });
 
-  // Lecture civilité une seule fois — R1 : seule donnée candidat transmise aux agents
-  const civilite = await _lireCivilite(candidat_id);
+  const civilite = await airtableService.getCiviliteCandidat(candidat_id) || '';
 
   let statut_sortie;
 
