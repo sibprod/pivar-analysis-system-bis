@@ -1,29 +1,30 @@
-// services/orchestrators/orchestrator_etape2_b_excellences.js
-// Sous-orchestrateur Étape 2b — Les 4 excellences cognitives + bilan
+// services/orchestrators/etape2/orchestratorExcellences.js
+// Sous-orchestrateur Étape 2 — Les 4 excellences cognitives + bilan
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
 // v3.0 (2026-06-09) — UN SERVICE PAR AGENT (A / B / C) + relance solo
-// v1 CTO (17/06/2026) — CORRECTION A16 : suffixes _EXCELLENCES ajoutés dans
-//   STATUT_TO_PLAN (les statuts entrants depuis orchestrator_principal portent
-//   ce suffixe — sans lui, plan = undefined → throw pour tout candidat).
-//   + require mis à jour vers nouveaux noms de fichiers (nomenclature CTO).
+//   Trois agents distincts, un prompt chacun (aligné sur le reste du protocole) :
+//     - agent A = agentT5A  → code les 4 excellences réponse par réponse (25 lignes)
+//     - agent B = agentT5B  → portraits par excellence (4 lignes T5B)
+//     - agent C = agentT5C  → profil + verdicts des deux faces (1 ligne T5C)
 //
 // Machine à états (statut entrant → ce qu'on exécute) :
-//   - ETAPE2_COMPLET_EXCELLENCES              → A + B + C à la suite
-//   - ETAPE2_AGENT_A_EXCELLENCES              → A seul
-//   - ETAPE2_AGENT_B_EXCELLENCES              → B seul
-//   - ETAPE2_AGENT_C_EXCELLENCES              → C seul
-//   - ETAPE2_3BILAN4EXCELLENCES               → déjà terminé (idempotent)
-//   (compat : ETAPE2_1REPONSE4DIMENSIONS / ETAPE2_2EXCELLENCE / REPRENDRE_EXCELLENCES)
+//   - ETAPE2_COMPLET              → A + B + C à la suite (production autonome)
+//   - ETAPE2_AGENT_A              → A seul
+//   - ETAPE2_AGENT_B              → B seul (suppose A déjà fait : 25 lignes T5A en base)
+//   - ETAPE2_AGENT_C              → C seul (suppose B déjà fait : 4 lignes T5B en base)
+//   - ETAPE2_3BILAN4EXCELLENCES   → déjà terminé : rien à refaire (idempotent)
+//   (compat : ETAPE2_1REPONSE4DIMENSIONS = ancien point d'entrée = COMPLET ;
+//             ETAPE2_2EXCELLENCE = ancien « reprise B+C » = B puis C)
 //
-// Jalons posés au fil de l'eau :
-//   A fait → ETAPE2_AGENT_B_EXCELLENCES
-//   B fait → ETAPE2_AGENT_C_EXCELLENCES
-//   C fait → ETAPE2_3BILAN4EXCELLENCES
+// Jalons posés au fil de l'eau (servent de points de reprise) :
+//   A fait → ETAPE2_AGENT_B ; B fait → ETAPE2_AGENT_C ; C fait → ETAPE2_3BILAN4EXCELLENCES.
 //
-// ⚠️ run() renvoie { stopReason: 'excellences_done' } et NON { success:true }
-//   pour préserver le jalon posé (l'orchestrateur principal n'écrase pas le statut).
+// ⚠️ En sortie réussie, run() renvoie { stopReason: 'excellences_done' } et NON
+//   { success:true } : l'orchestrateur principal, sur success:true, écrase le statut
+//   par "terminé" (non éligible → faux ERREUR si repris). Avec stopReason, le principal
+//   préserve le jalon ETAPE2_3BILAN4EXCELLENCES posé ici (statut final de l'Étape 2).
 
 'use strict';
 
@@ -107,6 +108,7 @@ async function run({ candidat_id, visiteur }) {
       candidat_id, statut, totalElapsedMs, totalCostUsd: totalCost.toFixed(4)
     });
 
+    // stopReason (pas success:true) → le principal NE pose PAS "terminé".
     return { stopReason: 'excellences_done', candidat_id, totalCostUsd: totalCost, totalElapsedMs };
 
   } catch (error) {
