@@ -1,4 +1,4 @@
-// services/etape1/agent_etape1_T2_phase1_attribution.js
+// services/etape1/agentT2_phase1_attribution_Service.js
 // Agent d'ATTRIBUTION — ÉTAPE 2 / Phase 1 — v1.0 (21/05/2026)
 // Profil-Cognitif — Refonte v10.8
 //
@@ -70,7 +70,7 @@ const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
 const SERVICE_NAME = 'agent_t2';  // ⭐ v10.8 — réutilise la clé MAX_TOKENS existante de l'ancien agent T2
-const PROMPT_PATH  = 'etape1/etape1_t2_phase1_attribution.txt';
+const PROMPT_PATH  = 'etape1/prompt_etape1_T2_phase1_attribution.txt';
 
 // ⭐ v11.0 (23/05/2026) — Mapping doctrinal injecté dans le payload
 // Dossier contenant les 5 mappings doctrinaux par pilier (un .md par pilier).
