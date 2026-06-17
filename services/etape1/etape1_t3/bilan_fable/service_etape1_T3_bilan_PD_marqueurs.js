@@ -32,7 +32,7 @@ const T_T1        = 'ETAPE1_T1';            // signaux limbiques
 const T_RESP      = 'tblK28GE8RWq9tQMV';    // RESPONSES (gouvernance)
 const T_BILAN     = 'tblv775KQrEhsogdI';    // sortie
 const T_PILIER    = 'tblzDIn7P2cOvVvY2';    // architecture
-const PROMPT_PATH = path.join(__dirname, 'PROMPT_CH3_MARQUEURS_v1.md');
+const PROMPT_PATH = path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PD_marqueurs.md');
 
 // field IDs ETAPE1_T1 (vérifiés en base 16/06)
 const F_T1 = {
@@ -226,7 +226,7 @@ function construireEntreeAgent(candidat_id, arch, signaux, registres, cout) {
 
 async function appelerAgent(entree) {
   const prompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4000,
@@ -317,7 +317,7 @@ async function run() {
   const doWrite = args.includes('--write');
   if (!candidat_id) { console.error('ERREUR : --candidat <id> obligatoire'); process.exit(1); }
 
-  const airtable = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(BASE_ID);
+  const airtable = new Airtable({ apiKey: process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY }).base(BASE_ID);
 
   // 1) Architecture
   const arch = await lireArchitecture(candidat_id, airtable);
