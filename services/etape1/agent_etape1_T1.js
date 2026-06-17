@@ -1,4 +1,4 @@
-// services/etape1/agentT1Service.js
+// services/etape1/agent_etape1_T1.js
 // Agent T1 — Analyse technique cognitive en aval de l'étape 1.1
 // Profil-Cognitif v10.7
 //
