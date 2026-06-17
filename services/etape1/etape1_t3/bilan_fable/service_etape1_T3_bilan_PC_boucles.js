@@ -89,7 +89,7 @@ function aAdjacence(piliers, a, b) {
 async function lireResponses(candidat_id, airtable) {
   const out = [];
   await airtable(T_RESP).select({
-    filterByFormula: `{session_ID}="${candidat_id}"`,
+    filterByFormula: `{${F_RESP.candidat}}="${candidat_id}"`,
     fields: [F_RESP.candidat, F_RESP.question, F_RESP.scenario, F_RESP.gouverne, F_RESP.sequence, F_RESP.texte],
     pageSize: 100,
   }).eachPage((records, next) => {
@@ -171,7 +171,7 @@ function construireEntreeAgent(candidat_id, arch, maillons) {
 
 async function appelerAgent(entree) {
   const prompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4000,
@@ -231,7 +231,7 @@ async function lireArchitecture(candidat_id, airtable) {
   const piliers = {};
   let socle=null, amont=null, aval=null;
   await airtable(T_PILIER).select({
-    filterByFormula: `{candidat_id}="${candidat_id}"`,
+    filterByFormula: `{${F_PIL.candidat}}="${candidat_id}"`,
     fields: [F_PIL.pilier, F_PIL.role, F_PIL.label, F_PIL.mode],
     pageSize: 20,
   }).eachPage((records, next) => {
@@ -251,7 +251,7 @@ async function lireArchitecture(candidat_id, airtable) {
 async function _findBilan(candidat_id, airtable) {
   return new Promise((resolve, reject) => {
     airtable(T_BILAN).select({
-      filterByFormula: `{candidat_id}="${candidat_id}"`, maxRecords: 1, fields: [F_BILAN.candidat],
+      filterByFormula: `{${F_BILAN.candidat}}="${candidat_id}"`, maxRecords: 1, fields: [F_BILAN.candidat],
     }).firstPage((err, recs) => err ? reject(err) : resolve(recs && recs[0] ? recs[0] : null));
   });
 }
@@ -264,7 +264,7 @@ async function run() {
   const force   = args.includes('--force');
   if (!candidat_id) { console.error('ERREUR : --candidat <id> obligatoire'); process.exit(1); }
 
-  const airtable = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(BASE_ID);
+  const airtable = new Airtable({ apiKey: process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY }).base(BASE_ID);
 
   // 1) Architecture
   const arch = await lireArchitecture(candidat_id, airtable);
