@@ -1,4 +1,4 @@
-// services/orchestrators/orchestratorEtape2.js
+// services/orchestrators/orchestrator_etape1_T2.js
 // Sous-Orchestrateur Étape 2 — Cartographie des circuits cognitifs
 // Profil-Cognitif v10.9 (Phase 3 ajoutée 22/05/2026)
 //
