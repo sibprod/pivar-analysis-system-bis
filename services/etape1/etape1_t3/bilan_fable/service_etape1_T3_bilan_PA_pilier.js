@@ -413,15 +413,16 @@ async function appellerClaude(entree_json, opts = {}) {
   if (!apiKey) throw new Error('CLAUDE_API_KEY manquante');
   const client = new Anthropic({ apiKey });
 
-  // A25 — max_tokens porté à 32000 (pilier socle riche = 12 circuits × verbatims + synthèses + bloc 4)
-  const response = await client.messages.create({
+  // Streaming obligatoire pour max_tokens > 10min (SDK Anthropic)
+  const stream = await client.messages.stream({
     model:      'claude-sonnet-4-6',
-    max_tokens: opts.max_tokens || 32000,
+    max_tokens: opts.max_tokens || 16000,
     system:     PROMPT,
     messages: [{ role: 'user', content: JSON.stringify(entree_json, null, 2) }],
   });
 
-  // A25 — vérification stop_reason pour détecter troncature silencieuse
+  const response = await stream.finalMessage();
+
   if (response.stop_reason === 'max_tokens') {
     throw new Error(`P-A tronqué (stop_reason=max_tokens) — pilier ${entree_json.pilier_code || '?'}. Augmenter max_tokens.`);
   }
