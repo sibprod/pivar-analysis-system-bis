@@ -1,4 +1,4 @@
-/**service_etape1_T3_bilan_PC_boucles.js
+/**
  * ════════════════════════════════════════════════════════════════════════
  * SERVICE P-C — CHAPITRE II « BOUCLES »  ·  FICHIER UNIQUE
  * Profil-Cognitif Sib Prod · 16/06/2026
@@ -31,7 +31,7 @@ const BASE_ID     = 'appgghhXjYBdFRras';
 const T_RESP      = 'tblK28GE8RWq9tQMV';   // RESPONSES
 const T_BILAN     = 'tblv775KQrEhsogdI';   // ETAPE1_T3_BILAN
 const T_PILIER    = 'tblzDIn7P2cOvVvY2';   // ETAPE1_T3_PILIER
-const PROMPT_PATH = path.join(__dirname, 'PROMPT_CH2_BOUCLES_v1.md');
+const PROMPT_PATH = path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PC_boucles.md');
 const DENOM       = 25;                     // dénominateur figé
 
 // field IDs RESPONSES (vérifiés en base 16/06)
