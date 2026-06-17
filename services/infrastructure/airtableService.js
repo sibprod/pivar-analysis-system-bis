@@ -157,6 +157,30 @@ async function getResponses(session_id) {
 
 const getResponsesBySession = getResponses;
 
+// ⭐ A21 (17/06/2026) — patchResponseRow : met à jour un record RESPONSES par son airtable_id
+// Signature : patchResponseRow(recordId, fields)
+//   recordId : id Airtable du record (r.id)
+//   fields   : objet champs à mettre à jour (cog_*, v2_*, etc.)
+// Appelée par agent_etape1_responses.js après chaque appel Claude.
+async function patchResponseRow(recordId, fields) {
+  if (!recordId) {
+    logger.warn('patchResponseRow — recordId manquant, patch ignoré');
+    return false;
+  }
+  try {
+    await getBase()(airtableConfig.TABLES.RESPONSES).update(
+      recordId,
+      cleanFields(fields),
+      { typecast: true }
+    );
+    logger.debug('RESPONSES row patched', { recordId });
+    return true;
+  } catch (error) {
+    logger.error('Failed to patch RESPONSES row', { recordId, error: error.message });
+    throw error;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐ v11.6 — ETAPE2 — LES 4 EXCELLENCES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1601,6 +1625,7 @@ module.exports = {
   // RESPONSES (lecture seule)
   getResponses,
   getResponsesBySession,
+  patchResponseRow,
 
   // ⭐ v11.6 — ETAPE2 : visualisation 4 excellences
   getEtape2Excellences,
