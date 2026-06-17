@@ -1,4 +1,4 @@
-// services/etape1/agentT2_phase3_enrichissement_Service.js
+// services/etape1/agent_etape1_T2_phase3_enrichissement.js
 // Agent d'ENRICHISSEMENT — ÉTAPE 2 / Phase 3 — v1.0 (22/05/2026)
 // Profil-Cognitif v10.9 — Algorithme A v1.1
 //
