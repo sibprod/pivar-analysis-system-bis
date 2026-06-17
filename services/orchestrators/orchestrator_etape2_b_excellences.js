@@ -14,17 +14,17 @@
 //   - ETAPE2_AGENT_A              → A seul
 //   - ETAPE2_AGENT_B              → B seul (suppose A déjà fait : 25 lignes T5A en base)
 //   - ETAPE2_AGENT_C              → C seul (suppose B déjà fait : 4 lignes T5B en base)
-//   - ETAPE2_3BILAN4EXCELLENCES   → déjà terminé : rien à refaire (idempotent)
+//   - ETAPE2_3BILAN4_EXCELLENCES   → déjà terminé : rien à refaire (idempotent)
 //   (compat : ETAPE2_1REPONSE4DIMENSIONS = ancien point d'entrée = COMPLET ;
 //             ETAPE2_2EXCELLENCE = ancien « reprise B+C » = B puis C)
 //
 // Jalons posés au fil de l'eau (servent de points de reprise) :
-//   A fait → ETAPE2_AGENT_B ; B fait → ETAPE2_AGENT_C ; C fait → ETAPE2_3BILAN4EXCELLENCES.
+//   A fait → ETAPE2_AGENT_B ; B fait → ETAPE2_AGENT_C ; C fait → ETAPE2_3BILAN4_EXCELLENCES.
 //
 // ⚠️ En sortie réussie, run() renvoie { stopReason: 'excellences_done' } et NON
 //   { success:true } : l'orchestrateur principal, sur success:true, écrase le statut
 //   par "terminé" (non éligible → faux ERREUR si repris). Avec stopReason, le principal
-//   préserve le jalon ETAPE2_3BILAN4EXCELLENCES posé ici (statut final de l'Étape 2).
+//   préserve le jalon ETAPE2_3BILAN4_EXCELLENCES posé ici (statut final de l'Étape 2).
 
 'use strict';
 
@@ -49,7 +49,7 @@ const STATUT_TO_PLAN = {
 };
 
 // Statut déjà terminal : rien à refaire (idempotent).
-const DONE_STATUSES = new Set(['ETAPE2_3BILAN4EXCELLENCES']);
+const DONE_STATUSES = new Set(['ETAPE2_3BILAN4_EXCELLENCES']);
 
 async function run({ candidat_id, visiteur }) {
   const startTime = Date.now();
@@ -97,7 +97,7 @@ async function run({ candidat_id, visiteur }) {
       const rC = await agentT5C.run({ candidat_id });
       totalCost += rC.cost || 0;
       await airtableService.updateVisiteur(candidat_id, {
-        statut_analyse_pivar: 'ETAPE2_3BILAN4EXCELLENCES',
+        statut_analyse_pivar: 'ETAPE2_3BILAN4_EXCELLENCES',
         derniere_activite:    new Date().toISOString()
       });
       logger.info('Excellences — Agent C (T5C) terminé', { candidat_id, t5c: rC.t5c });
