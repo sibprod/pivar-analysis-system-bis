@@ -185,7 +185,7 @@ async function lireRefProfils() {
 
 async function lirePilier(candidat_id, pilier_code) {
   const recs = await selectAll(T.T3_PILIER, {
-    filterByFormula: `AND({${FP.candidat_id}} = "${candidat_id}", {${FP.pilier}} = "${pilier_code}")`,
+    filterByFormula: `AND({candidat_id} = "${candidat_id}", {pilier} = "${pilier_code}")`,
     fields: Object.values(FP),
   });
   if (!recs.length) throw new Error(`T3_PILIER ${pilier_code} introuvable pour ${candidat_id}`);
@@ -201,7 +201,7 @@ async function lirePilier(candidat_id, pilier_code) {
 
 async function lireCircuits(candidat_id, pilier_code) {
   const recs = await selectAll(T.T3_CIRCUIT, {
-    filterByFormula: `AND({${FC.candidat_id}} = "${candidat_id}", {${FC.pilier}} = "${pilier_code}")`,
+    filterByFormula: `AND({candidat_id} = "${candidat_id}", {pilier} = "${pilier_code}")`,
     sort: [{ field: FC.ordre, direction: 'asc' }],
     fields: Object.values(FC),
   });
@@ -256,7 +256,7 @@ async function lireEmpruntsRecus(candidat_id, pilier_code) {
   if (!field_cible) return {};
 
   const recs = await selectAll(T.T3_CIRCUIT, {
-    filterByFormula: `AND({${FC.candidat_id}} = "${candidat_id}")`,
+    filterByFormula: `{candidat_id} = "${candidat_id}"`,
     fields: [FC.pilier, FC.circuit_id, FC.circuit_nom, field_cible],
   });
 
