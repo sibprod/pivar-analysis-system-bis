@@ -80,6 +80,7 @@ async function buildContexteE0({ candidat_id }) {
     airtableService.getReferentielPiliers(),
   ]);
 
+  logger.info('É0 — données lues', { candidat_id, nb_ventilation: ventilation?.length, nb_inventaire: inventaire?.length, nb_t2rows: t2rows?.length });
   if (!ventilation?.length) throw new Error(`É0: VENTILATION_PILIERS vide pour ${candidat_id}`);
   if (!inventaire?.length)  throw new Error(`É0: INVENTAIRE_CIRCUITS vide pour ${candidat_id}`);
 
@@ -156,6 +157,7 @@ async function buildContexteE0({ candidat_id }) {
     }
   }
 
+  logger.info('É0 — invByCode', { candidat_id, nb_codes: Object.keys(invByCode).length, sample: Object.keys(invByCode).slice(0,3), ordre });
   // Assemblage piliers
   const piliers = [];
   for (const pilier_code of ordre) {
