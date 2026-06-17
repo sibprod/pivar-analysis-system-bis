@@ -1,4 +1,4 @@
-// services/etape2/agentT5C.js
+// services/etape2/agent_etape2_b_T5C_profil.js
 // Agent T5C — Profil global + verdicts des deux faces du métier (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
