@@ -848,8 +848,7 @@ async function getEtape1T2Fable(candidat_id) {
   try {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_FABLE)
       .select({
-        filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        returnFieldsByFieldId: true
+        filterByFormula: `{candidat_id} = "${candidat_id}"`
       })
       .all();
     const rows = records.map(r => ({ airtable_id: r.id, ...r.fields }));
@@ -877,8 +876,7 @@ async function getEtape1T2VentilationPiliers(candidat_id) {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_VENTILATION_PILIERS)
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        sort: [{ field: 'fldZqTLiapVQSznq0', direction: 'asc' }],
-        returnFieldsByFieldId: true
+        sort: [{ field: 'rang_par_frequence', direction: 'asc' }]
       })
       .all();
     return records.map(r => ({ airtable_id: r.id, ...r.fields }));
@@ -904,7 +902,7 @@ async function getEtape1T2InventaireCircuits(candidat_id) {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_INVENTAIRE_CIRCUITS)
       .select({
         filterByFormula: `{candidat_id} = "${candidat_id}"`,
-        returnFieldsByFieldId: true
+        sort: [{ field: 'pilier_owner', direction: 'asc' }]
       })
       .all();
     return records.map(r => ({ airtable_id: r.id, ...r.fields }));
