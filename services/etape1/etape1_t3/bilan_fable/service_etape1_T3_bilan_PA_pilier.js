@@ -312,7 +312,7 @@ function parseVerbatims(raw, circuit_code) {
 // SECTION 3 — CONSTRUCTION ENTRÉE P-A
 // ═══════════════════════════════════════════════════════════════
 
-function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, refCircuits, refPiliers, refProfils, pilier_code, prenom) {
+function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, refCircuits, refPiliers, refProfils, pilier_code, civilite) {
   const has_coeur = circuits.some(c => c.coeur > 0);
 
   const signal_entry = Object.values(verbatimsMap).find(v => v.signal) || {};
@@ -348,7 +348,7 @@ function construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus, ref
   });
 
   return {
-    candidat_prenom: prenom,
+    candidat_civilite: civilite,
     pilier_code,
     pilier_nom: refPiliers[pilier_code] || '',
     pilier_role: normaliserRole(pilierData.pilier_role),
@@ -662,7 +662,7 @@ async function ecrireCircuits(pa_output, circuits_t3) {
 // SECTION 7 — ORCHESTRATEUR PRINCIPAL
 // ═══════════════════════════════════════════════════════════════
 
-async function traiterPilier(candidat_id, pilier_code, prenom, refs, opts) {
+async function traiterPilier(candidat_id, pilier_code, civilite, refs, opts) {
   console.log(`\n  ── ${pilier_code} ──`);
 
   process.stdout.write('    Lecture Airtable...');
@@ -677,7 +677,7 @@ async function traiterPilier(candidat_id, pilier_code, prenom, refs, opts) {
   console.log(` ${circuits.length} circuits · ${nb_verbatims} verbatims · ${nb_emprunts} emprunts reçus`);
 
   const entree = construireEntree(pilierData, circuits, verbatimsMap, empruntsRecus,
-    refs.circuits, refs.piliers, refs.profils, pilier_code, prenom);
+    refs.circuits, refs.piliers, refs.profils, pilier_code, civilite);
 
   if (opts.dry_run) {
     console.log('    [DRY-RUN] Entrée P-A :');
@@ -731,7 +731,7 @@ async function lancerAgentPA(candidat_id, opts = {}) {
   console.log(`\n${'═'.repeat(55)}`);
   console.log(`AGENT P-A v9 — ${candidat_id}`);
   console.log(`${'═'.repeat(55)}`);
-  console.log(`Prénom   : ${opts.prenom || '?'}`);
+  console.log(`Civilité : ${opts.civilite || '?'}`);
   console.log(`Piliers  : ${(opts.piliers || PILIERS_ORDRE).join(', ')}`);
   console.log(`Dry-run  : ${opts.dry_run ? 'oui' : 'non'}`);
   console.log(`Modes    : ${opts.write_mode ? 'écriture' : 'lecture seule'}`);
@@ -749,7 +749,7 @@ async function lancerAgentPA(candidat_id, opts = {}) {
 
   for (const pilier_code of piliers) {
     try {
-      const res = await traiterPilier(candidat_id, pilier_code, opts.prenom || 'le candidat', refs, opts);
+      const res = await traiterPilier(candidat_id, pilier_code, opts.civilite || '', refs, opts);
       if (res) resultats.push(res);
     } catch (err) {
       console.error(`\n  ❌ ${pilier_code} : ${err.message}`);
