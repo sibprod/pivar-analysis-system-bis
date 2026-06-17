@@ -33,7 +33,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Airtable  = require('airtable');
 const fs   = require('fs');   // C1 — manquait dans l'original
 const path = require('path');
-const PROMPT = fs.readFileSync(path.join(__dirname, 'PROMPT_ANALYSE_PILIER_v9.md'), 'utf8');
+const PROMPT = fs.readFileSync(path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PA_pilier.md'), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — CONFIGURATION
