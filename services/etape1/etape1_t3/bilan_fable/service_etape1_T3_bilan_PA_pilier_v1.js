@@ -33,7 +33,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const Airtable  = require('airtable');
 const fs   = require('fs');   // C1 — manquait dans l'original
 const path = require('path');
-const PROMPT = fs.readFileSync(path.join(__dirname, 'prompt_etape1_T3_bilan_PA_pilier.md'), 'utf8');
+const PROMPT = fs.readFileSync(path.join(__dirname, 'PROMPT_ANALYSE_PILIER_v9.md'), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION 1 — CONFIGURATION
@@ -228,7 +228,7 @@ async function lireCircuits(candidat_id, pilier_code) {
 
 async function lireVerbatims(candidat_id, pilier_code) {
   const recs = await selectAll(T.T2_VERBATIMS, {
-    filterByFormula: `AND({${FT2.candidat_id}} = "${candidat_id}", {${FT2.pilier}} = "${pilier_code}")`,
+    filterByFormula: `AND({candidat_id} = "${candidat_id}", {pilier} = "${pilier_code}")`,
     fields: [FT2.circuit_id, FT2.detail, FT2.signal, FT2.signal_expl],
   });
   const map = {};
