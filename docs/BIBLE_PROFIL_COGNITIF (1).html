@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bible du Profil Cognitif — Sib Prod</title>
+<style>
+  :root{
+    --rouge:#dc2626; --orange:#ea580c; --jaune:#ca8a04; --vert:#16a34a; --vertpale:#84cc16;
+    --encre:#1f2937; --gris:#6b7280; --bord:#e5e7eb; --fond:#fafafa; --bleu:#1d4ed8;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Georgia,'Times New Roman',serif; color:var(--encre); line-height:1.65;
+    max-width:880px; margin:0 auto; padding:48px 32px; background:#fff;}
+  h1{font-size:30px; line-height:1.25; border-bottom:3px solid var(--encre); padding-bottom:14px; margin-bottom:6px;}
+  h2{font-size:22px; margin-top:44px; border-bottom:1px solid var(--bord); padding-bottom:6px;}
+  h3{font-size:17px; margin-top:28px; color:#111;}
+  h4{font-size:15px; margin-top:20px; color:#374151;}
+  .sous{color:var(--gris); font-style:italic; margin-top:0;}
+  .meta{font-size:13px; color:var(--gris); margin:18px 0 0;}
+  p,li{font-size:15px;}
+  code{background:var(--fond); border:1px solid var(--bord); border-radius:3px; padding:1px 5px; font-size:13px; font-family:'SF Mono',Consolas,monospace;}
+  blockquote{margin:14px 0; padding:10px 18px; border-left:4px solid var(--bleu); background:var(--fond); font-style:italic; color:#374151;}
+  .principe{background:#fff7ed; border:1px solid #fed7aa; border-left:4px solid var(--orange); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  .principe strong{color:var(--orange);}
+  .doctrine{background:#eff6ff; border:1px solid #bfdbfe; border-left:4px solid var(--bleu); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  .garde{background:#fef2f2; border:1px solid #fecaca; border-left:4px solid var(--rouge); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  .garde strong{color:var(--rouge);}
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:13.5px;}
+  th,td{border:1px solid var(--bord); padding:7px 10px; text-align:left; vertical-align:top;}
+  th{background:var(--fond); font-family:Arial,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#374151;}
+  .tag{display:inline-block; font-family:Arial,sans-serif; font-size:11px; padding:1px 7px; border-radius:10px; background:var(--fond); border:1px solid var(--bord); color:#374151;}
+  .toc{background:var(--fond); border:1px solid var(--bord); border-radius:6px; padding:18px 24px; margin:28px 0;}
+  .toc ol{margin:0; padding-left:22px;} .toc li{margin:3px 0;}
+  .pilier-leg span{display:inline-block; margin-right:14px; font-size:13px;}
+  .dot{display:inline-block; width:11px; height:11px; border-radius:50%; vertical-align:middle; margin-right:4px;}
+  hr{border:none; border-top:1px solid var(--bord); margin:36px 0;}
+  .ref{font-size:12.5px; color:var(--gris);}
+  .footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--bord); font-size:12px; color:var(--gris);}
+</style>
+</head>
+<body>
+
+<h1>Bible du Profil Cognitif</h1>
+<p class="sous">Doctrine de référence — système Profil-Cognitif Sib Prod</p>
+<p class="meta">Version figée du 18 juin 2026 · Base de profilage cognitif · Document de référence transversal pour l'ensemble du pipeline (étapes 1 et 2)</p>
+
+<div class="doctrine">
+Ce document fige la compréhension du profil cognitif telle qu'elle a été construite et appliquée dans le travail sur les circuits : l'étalonnage de la <strong>capacité</strong> des 75 circuits du référentiel, l'ajout de la <strong>profondeur d'activation</strong>, et la doctrine épistémologique qui sous-tend l'ensemble. Il est destiné à servir de référence unique pour tout agent ou intervenant du pipeline. Il prime sur les formulations antérieures éparses en cas de conflit.
+</div>
+
+<div class="toc">
+<strong>Sommaire</strong>
+<ol>
+  <li>Ce qu'est un profil cognitif (et ce qu'il n'est pas)</li>
+  <li>Le cadre : 5 piliers, 75 circuits</li>
+  <li>Le vocabulaire de la boîte à outils</li>
+  <li>Les rôles : socle, amont, aval, fonctionnel</li>
+  <li>Les deux échelles : cœur et amplitude</li>
+  <li>La capacité d'un circuit (valeur cognitive intrinsèque)</li>
+  <li>La profondeur d'activation (emploi par un candidat)</li>
+  <li>Les quatre lectures croisées d'un circuit</li>
+  <li>La doctrine épistémologique (le socle non négociable)</li>
+  <li>Les circuits ADHOC</li>
+  <li>Méthode de jugement sur pièces</li>
+  <li>Annexe : les 6 niveaux de capacité et les 3 degrés de profondeur</li>
+</ol>
+</div>
+
+<h2>1. Ce qu'est un profil cognitif (et ce qu'il n'est pas)</h2>
+
+<p>Le profil cognitif décrit <em>comment une personne pense</em> face à une situation : par quel geste mental elle entre dans un problème, quels outils elle mobilise, dans quel ordre, avec quelle finesse. Il ne mesure pas une performance, ne classe pas les gens entre eux, et ne décerne aucune note de valeur. Il photographie une manière de fonctionner, à un instant donné, à partir de ce que la personne a réellement dit.</p>
+
+<p>Le profil est bâti sur un protocole précis : <strong>25 questions</strong>, organisées autour de quatre scénarios de vie (un trouble du sommeil, un week-end à organiser, la garde d'un animal, une panne de voiture), qui produisent <strong>25 réponses</strong>. Chaque réponse est décomposée en gestes cognitifs élémentaires, chacun rattaché à un circuit du référentiel et étayé par un <em>verbatim</em> — les mots exacts du candidat.</p>
+
+<div class="principe">
+<strong>Principe fondateur.</strong> Tout ce qui est affirmé dans un profil doit être <em>attesté sur pièces</em>, c'est-à-dire adossé à un verbatim réel. On ne profile jamais « à l'imagination » : un profil qui simule plutôt qu'il n'observe est non seulement inutile, il est trompeur.
+</div>
+
+<h2>2. Le cadre : 5 piliers, 75 circuits</h2>
+
+<p>L'activité cognitive est découpée en <strong>cinq piliers</strong>, qui forment une boucle naturelle du traitement de l'information : on cherche, on range, on comprend, on imagine, on réalise.</p>
+
+<p class="pilier-leg">
+  <span><span class="dot" style="background:var(--rouge)"></span><strong>P1 — Collecte</strong> : chercher l'information</span>
+  <span><span class="dot" style="background:var(--orange)"></span><strong>P2 — Tri</strong> : ranger, organiser, mémoriser</span><br>
+  <span><span class="dot" style="background:var(--jaune)"></span><strong>P3 — Analyse</strong> : comprendre, diagnostiquer</span>
+  <span><span class="dot" style="background:var(--vert)"></span><strong>P4 — Création</strong> : imaginer des solutions</span>
+  <span><span class="dot" style="background:var(--vertpale)"></span><strong>P5 — Mise en œuvre</strong> : réaliser, exécuter</span>
+</p>
+
+<p>Chaque pilier contient <strong>15 circuits</strong> (C1 à C15), soit <strong>75 circuits</strong> au total. Un circuit est un « tour de main » cognitif : une opération mentale précise et nommée. Par exemple, en Collecte, « diversifier les canaux d'information » (P1C2) ou « activer son réseau humain » (P1C15) ; en Analyse, « construire des hypothèses explicatives » (P3C13) ou « hiérarchiser les problématiques » (P3C12).</p>
+
+<p>Le référentiel des 75 circuits est <em>commun à tous les candidats</em> : c'est la grille de lecture partagée. Chaque circuit y est défini par un <strong>geste</strong> — une description comportementale de ce que la personne fait quand elle l'active.</p>
+
+<h2>3. Le vocabulaire de la boîte à outils</h2>
+
+<p>La métaphore qui tient tout l'édifice est celle de la <strong>boîte à outils</strong>. Elle n'est pas décorative : elle structure la manière dont on lit et dont on restitue un profil.</p>
+
+<table>
+<tr><th>Terme</th><th>Définition</th></tr>
+<tr><td><strong>Circuit</strong></td><td>Un outil dans la boîte : une opération cognitive précise, nommée, définie par son geste.</td></tr>
+<tr><td><strong>Geste</strong></td><td>Le circuit attesté dans les mots du candidat — la trace concrète de l'outil employé.</td></tr>
+<tr><td><strong>Socle</strong></td><td>Le pilier qui gouverne, celui que la personne prend en premier par réflexe. Prouvé par les « glissements » : même hors de son domaine, elle y revient.</td></tr>
+<tr><td><strong>Filtre</strong></td><td>Le réglage de départ : les questions que la personne pose à l'entrée d'une situation. Le filtre n'existe que sur le socle.</td></tr>
+<tr><td><strong>Mode</strong></td><td>La façon de travailler propre à chaque outil. Deux personnes avec le même socle peuvent avoir des modes très différents.</td></tr>
+<tr><td><strong>Signature</strong></td><td>L'équation qui résume la personne : <em>socle + filtre + finalité</em>.</td></tr>
+</table>
+
+<div class="principe">
+<strong>Permanence.</strong> Les chiffres, les rôles et les modes doivent être <em>identiques partout où ils apparaissent</em> dans un bilan — vue globale, en-tête de pilier, carte de circuit. La permanence est la rigueur du profilage : une incohérence d'un grain à l'autre ruine la confiance dans l'ensemble.
+</div>
+
+<h2>4. Les rôles : socle, amont, aval, fonctionnel</h2>
+
+<p>Dans un profil donné, chaque pilier reçoit un <strong>rôle</strong>, qui dit sa place dans l'architecture de la pensée de la personne :</p>
+
+<table>
+<tr><th>Rôle</th><th>Sens</th></tr>
+<tr><td><strong>socle</strong></td><td>Le pilier qui gouverne, pris en premier, qui porte le filtre.</td></tr>
+<tr><td><strong>amont</strong></td><td>Pilier structurant qui <em>alimente</em> le socle (vient avant dans la chaîne).</td></tr>
+<tr><td><strong>aval</strong></td><td>Pilier structurant qui <em>conclut</em> (vient après le socle).</td></tr>
+<tr><td><strong>fonctionnel</strong></td><td>Pilier mobilisé au service des autres, sans gouverner.</td></tr>
+</table>
+
+<p class="ref">Note : les anciennes appellations <code>str1 / str2 / fn1 / fn2</code> sont périmées. Seules les quatre valeurs ci-dessus font foi.</p>
+
+<h2>5. Les deux échelles : cœur et amplitude</h2>
+
+<p>Un même circuit se lit sur <strong>deux échelles indépendantes</strong>, qu'il ne faut jamais confondre.</p>
+
+<h3>Échelle CŒUR — combien le geste gouverne</h3>
+<p>Elle compte les fois où le candidat répond <em>dans</em> ce pilier, là où il dirige sa pensée.</p>
+<table>
+<tr><th>Niveau cœur</th><th>Seuil</th></tr>
+<tr><td>HAUT</td><td>≥ 4</td></tr>
+<tr><td>MOYEN</td><td>2 – 3</td></tr>
+<tr><td>FAIBLE</td><td>1</td></tr>
+<tr><td>EN SOUTIEN</td><td>cœur = 0, mais le geste sert ailleurs (instrumental)</td></tr>
+</table>
+
+<h3>Échelle AMPLITUDE — l'ampleur totale</h3>
+<p>Elle mesure l'ampleur totale (cœur + instrumental), et se calcule même quand le cœur est nul, en lisant les débordements du geste vers d'autres piliers.</p>
+<table>
+<tr><th>Niveau amplitude</th><th>Seuil</th></tr>
+<tr><td>HAUT</td><td>≥ 8</td></tr>
+<tr><td>MOYEN</td><td>4 – 7</td></tr>
+<tr><td>FAIBLE</td><td>1 – 3</td></tr>
+</table>
+
+<div class="garde">
+<strong>EN SOUTIEN n'est pas FAIBLE.</strong> Un pilier « en soutien » a un cœur nul mais reste actif : le candidat ne répond jamais dans ce pilier, pourtant le geste sert ailleurs, en instrumental. C'est une posture, pas une faiblesse. Confondre les deux est une faute doctrinale.
+</div>
+
+<p>La lecture d'un circuit se fait en trois temps : d'abord le cœur (combien le geste gouverne), puis l'amplitude (l'ampleur totale), puis la distribution instrumentale (vers quel pilier le geste déborde). Un circuit dont le cœur est haut mais dont les instrumentaux tombent massivement sur l'Analyse, par exemple, est un geste qui sert l'analyse.</p>
+
+<h2>6. La capacité d'un circuit (valeur cognitive intrinsèque)</h2>
+
+<p>La <strong>capacité</strong> répond à une question simple : <em>tous les circuits ne se valent pas — combien vaut celui-ci, en lui-même ?</em> C'est la valeur cognitive intrinsèque du circuit, sa richesse en tant qu'opération mentale.</p>
+
+<div class="principe">
+<strong>La capacité est attachée au circuit, pas au candidat.</strong> Elle est la même pour tout le monde, parce qu'elle décrit l'outil, pas la main qui le tient. Elle se juge « dans l'absolu » : ce que le geste exige cognitivement, attesté par les meilleures réponses observées sur ce circuit, tous candidats confondus.
+</div>
+
+<p>L'échelle a six niveaux, croisant deux axes — la <em>nature</em> (simple ou sophistiquée) et l'<em>étendue</em> (un geste, le même décliné, ou plusieurs gestes réunis) :</p>
+
+<table>
+<tr><th>Niveau</th><th>Définition</th><th>Exemple attesté</th></tr>
+<tr><td><strong>simple</strong></td><td>Une opération cognitive élémentaire, geste unique.</td><td>P1C1 « regarder sur internet », « s'il gratte »</td></tr>
+<tr><td><strong>simple avec détails / variantes sur le même geste</strong></td><td>Le même geste simple décliné en variantes, canaux ou supports.</td><td>P1C2 google map / pages jaunes / insta / podcasts / IA</td></tr>
+<tr><td><strong>plusieurs simples distinctes</strong></td><td>Plusieurs gestes simples <em>différents</em> réunis sous un même circuit.</td><td>P1C13 chercher sur le web + téléphoner + questionner</td></tr>
+<tr><td><strong>sophistiquée</strong></td><td>Une opération mentale de haut niveau qui produit un <em>résultat délimité</em> : une inférence, un jugement, une hypothèse, un recadrage, une option qui se pose et se referme.</td><td>P3C13 construire une hypothèse ; P3C4 évaluer la fiabilité d'une information</td></tr>
+<tr><td><strong>sophistiquée intégrative</strong></td><td>Une opération de haut niveau qui <em>tient ensemble une structure</em> à plusieurs branches, niveaux ou modules (arborescence, branches conditionnelles, modèle causal multi-niveaux, orchestration de dépendances, combinatoire).</td><td>P3C12 priorisation hiérarchique ; P5C6 orchestration ; P3C6 conséquences en cascade</td></tr>
+<tr><td><strong>plusieurs sophistiquées distinctes</strong></td><td>Plusieurs opérations intégratives <em>différentes</em> réunies sous un même circuit.</td><td>P4C15 scénario à tiroir + arborescence + zoom/dézoom</td></tr>
+</table>
+
+<div class="doctrine">
+<strong>Critère binaire — sophistiquée ou intégrative ?</strong> La frontière n'est pas une affaire d'intensité (« assez » vs « très » sophistiqué), qui serait impossible à juger de façon reproductible. C'est une seule question fermée : <em>le geste produit-il un résultat unique, ou articule-t-il une structure à plusieurs branches / niveaux ?</em> La première traite ; la seconde bâtit. Ce critère factuel garantit qu'un même circuit reçoit le même verdict à chaque jugement, y compris par un agent automatique.
+</div>
+
+<p>La distribution des 75 circuits officiels après étalonnage et scission du bloc sophistiqué : 37 sophistiquée, 12 sophistiquée intégrative, 12 simple, 11 simple avec détails/variantes, 2 plusieurs simples distinctes, 1 plusieurs sophistiquées distinctes. La part de haut niveau est juste et attendue : les piliers Analyse et Création sont par nature faits d'opérations sophistiquées ; le « simple » se concentre logiquement sur la Collecte de base et l'Exécution ; l'intégrative reste sélective, réservée aux gestes qui bâtissent vraiment une structure.</p>
+
+<div class="doctrine">
+<strong>Point doctrinal tranché (18 juin 2026).</strong> Le bloc « sophistiquée » regroupait à lui seul près des deux tiers des circuits, sans distinguer des étages pourtant réels : reconnaître un pattern, modéliser une cause profonde et concevoir une architecture ne pèsent pas le même poids cognitif. La décision retenue est de scinder le bloc en deux, sur le critère binaire ci-dessus — sophistiquée (résultat délimité) vs sophistiquée intégrative (structure articulée) — plutôt que d'ajouter une gradation d'intensité, qui aurait été irreproductible d'un jugement à l'autre. La scission a été appliquée à l'ensemble du référentiel et de la table figée.
+</div>
+
+<h2>7. La profondeur d'activation (emploi par un candidat)</h2>
+
+<p>La <strong>profondeur d'activation</strong> répond à une autre question, qui ne porte plus sur l'outil mais sur la main : <em>quand cette personne prend cet outil, l'emploie-t-elle pleinement, ou ne fait-elle que l'effleurer ?</em></p>
+
+<div class="principe">
+<strong>La profondeur est attachée au couple candidat × circuit.</strong> Elle varie d'une personne à l'autre. Elle se lit sur les verbatims, jamais sur les chiffres.
+</div>
+
+<p>Elle est rigoureusement <strong>indépendante du nombre d'activations</strong>. Le niveau cœur (HAUT / MOYEN / FAIBLE) compte combien de fois l'outil est pris ; la profondeur regarde ce qu'on en fait à chaque prise. Un outil peut être sorti dix fois et toujours effleuré ; un autre sorti une seule fois mais à plein régime.</p>
+
+<table>
+<tr><th>Degré</th><th>Sens (métaphore de l'outil)</th><th>Exemple</th></tr>
+<tr><td><strong>effleuré</strong></td><td>La main se pose sur l'outil mais ne s'en sert pas vraiment. Le geste est nommé, mentionné, sans être montré à l'œuvre.</td><td>« je m'adapte » lâché sans rien derrière ; « je peux être très persuasive »</td></tr>
+<tr><td><strong>effectif</strong></td><td>L'outil fait le travail, proprement, sans démonstration. Le geste est bien là, fonctionnel, sobre.</td><td>« je me renseigne sur les prochains trains » ; « je range dans des catégories »</td></tr>
+<tr><td><strong>plein régime</strong></td><td>L'outil est exploité dans toute sa puissance, la mécanique cognitive est pleinement visible.</td><td>« scénario à tiroir avec arborescence, zoom et dézoom » ; orchestration wifi/couloir avec parallélisation</td></tr>
+</table>
+
+<div class="doctrine">
+<strong>Règle du multiple.</strong> Quand un circuit s'active plusieurs fois chez un candidat à des profondeurs différentes, on retient la <strong>plus haute observée</strong> — non pour préjuger d'une capacité, mais parce que c'est un fait attesté : la personne <em>a</em> déployé l'outil à ce degré au moins une fois, on l'a vu dans les pièces.
+</div>
+
+<h2>8. Les quatre lectures croisées d'un circuit</h2>
+
+<p>Pour un candidat donné, chaque circuit qu'il a activé se lit désormais sur quatre dimensions complémentaires, posées côte à côte :</p>
+
+<table>
+<tr><th>Dimension</th><th>Question</th><th>Attachée à</th></tr>
+<tr><td>Niveau cœur</td><td>Combien de fois le geste gouverne ?</td><td>candidat × circuit</td></tr>
+<tr><td>Amplitude</td><td>Quelle est l'ampleur totale (cœur + instrumental) ?</td><td>candidat × circuit</td></tr>
+<tr><td><strong>Capacité</strong></td><td>Combien vaut le circuit en lui-même ?</td><td>circuit (commun à tous)</td></tr>
+<tr><td><strong>Profondeur</strong></td><td>Avec quelle finesse la personne l'emploie-t-elle ?</td><td>candidat × circuit</td></tr>
+</table>
+
+<p>La combinaison de ces quatre lectures est ce qui rend un profil à la fois rigoureux et nuancé : on distingue un outil puissant pris souvent et employé à fond (un vrai socle) d'un outil puissant que la personne n'a fait qu'effleurer (un potentiel non déployé, qu'on se garde bien de surinterpréter).</p>
+
+<h2>9. La doctrine épistémologique (le socle non négociable)</h2>
+
+<p>C'est la règle qui protège le profil de toute sur-interprétation, et elle gouverne en particulier la profondeur d'activation.</p>
+
+<div class="garde">
+<strong>On ne profile que sur 25 réponses, à un instant t.</strong>
+<ul>
+<li><strong>Le silence n'est pas une donnée.</strong> On ne déduit rien de ce qui n'a pas été activé. Un circuit absent ne dit pas que la personne en est incapable — il ne dit rien.</li>
+<li><strong>Ce qui a été activé est un fait validé.</strong> Puisque c'est le candidat lui-même qui a jugé l'enjeu de chaque situation, la profondeur qu'il a déployée est exactement celle qu'il a estimée nécessaire.</li>
+<li><strong>Un effleurement ne préjuge jamais d'une profondeur maximale.</strong> Un geste effleuré peut être la juste mesure pour un enjeu mineur, ou la limite de la personne — <em>on ne tranche pas</em>, faute de preuve.</li>
+<li><strong>Les pièces confirment ou corrigent, elles ne plafonnent pas.</strong> Un circuit riche dans l'absolu ne voit pas sa capacité abaissée parce qu'un candidat l'a effleuré : capacité et profondeur sont deux mesures séparées, justement pour cela.</li>
+<li><strong>Pour trancher un point précis, on fait un test complémentaire ciblé</strong>, jamais une inférence tirée du silence ou d'un seul indice.</li>
+</ul>
+</div>
+
+<p>Cette doctrine est la raison d'être de la séparation entre capacité et profondeur. La phrase qui l'a cristallisée, et qui mérite d'être retenue telle quelle :</p>
+<blockquote>Les pièces servent à confirmer ou à corriger, pas à plafonner un circuit riche parce qu'un candidat l'a effleuré.</blockquote>
+
+<h2>10. Les circuits ADHOC</h2>
+
+<p>Quand un candidat manifeste un geste cognitif réel mais qu'aucun des 75 circuits standard ne le couvre correctement, on crée pour lui un circuit <strong>ADHOC</strong> : un outil sur mesure, propre à ce candidat, rangé dans une table dédiée et signalé comme tel.</p>
+
+<p>Les trois ADHOC actuellement attestés, tous rattachés à la Mise en œuvre, et tous jugés de capacité « simple » sur leurs verbatims :</p>
+<table>
+<tr><th>ADHOC</th><th>Geste</th><th>Verbatim source</th></tr>
+<tr><td>Élimination délibérée des données après résolution</td><td>jeter tout une fois la situation résolue</td><td>« tout simplement tout jeter une fois que la situation est résolue »</td></tr>
+<tr><td>Exécution contrainte en aversion déclarée</td><td>exécuter en force, d'un bloc, à contrecœur</td><td>« je m'isole et je fais tout d'une traite sans aucun plaisir »</td></tr>
+<tr><td>Endurance passive en attente de clôture contrainte</td><td>patienter, tenir une tâche subie jusqu'à sa fin</td><td>« je compte les heures avant de le rendre » ; « je prends mon mal en patience »</td></tr>
+</table>
+<p>Un ADHOC se retrouve systématiquement, s'affiche avec son marquage propre, cite son verbatim source, et porte désormais lui aussi une capacité.</p>
+
+<h2>11. Méthode de jugement sur pièces</h2>
+
+<p>Le jugement, qu'il porte sur la capacité ou la profondeur, suit toujours la même discipline en deux temps :</p>
+<ol>
+<li><strong>Étalonner</strong> l'échelle sur des cas francs, en lisant les réponses réelles, pour fixer le sens de chaque niveau avant de juger en série.</li>
+<li><strong>Juger chaque circuit sur ses pièces</strong> : ses verbatims agrégés à travers toutes les réponses, et non son seul libellé.</li>
+</ol>
+
+<p>Pour la <strong>capacité</strong>, le jugement est « dans l'absolu » : on prend la meilleure expression observée du geste, tous candidats confondus ; si les pièces sont maigres, on s'appuie sur le geste-référentiel sans plafonner. Pour la <strong>profondeur</strong>, le jugement est propre au candidat : on lit ses verbatims à lui, et on retient sa plus haute profondeur observée.</p>
+
+<div class="principe">
+<strong>Traçabilité.</strong> Chaque verdict — de capacité comme de profondeur — est adossé au verbatim qui le justifie. N'importe quel rang doit pouvoir être contesté en revenant à la pièce. Un verdict sans pièce est un verdict suspect.
+</div>
+
+<h2>12. Annexe — les niveaux de référence</h2>
+
+<h3>Les 6 niveaux de capacité (du plus simple au plus riche)</h3>
+<ol>
+<li>simple</li>
+<li>simple avec détails / variantes sur le même geste</li>
+<li>plusieurs simples distinctes</li>
+<li>sophistiquée</li>
+<li>sophistiquée intégrative</li>
+<li>plusieurs sophistiquées distinctes</li>
+</ol>
+
+<h3>Les 3 degrés de profondeur d'activation (du plus pauvre au plus plein)</h3>
+<ol>
+<li>effleuré</li>
+<li>effectif</li>
+<li>plein régime</li>
+</ol>
+
+<h3>Couleurs des rôles (référence visuelle)</h3>
+<p class="pilier-leg">
+<span><span class="dot" style="background:var(--rouge)"></span>socle — rouge</span>
+<span><span class="dot" style="background:var(--orange)"></span>amont — orange</span>
+<span><span class="dot" style="background:var(--jaune)"></span>aval — jaune</span>
+<span><span class="dot" style="background:var(--vert)"></span>fonctionnel — vert</span>
+</p>
+
+<hr>
+
+<h3>Où vivent ces notions dans la base</h3>
+<table>
+<tr><th>Notion</th><th>Emplacement</th></tr>
+<tr><td>Référentiel des 75 circuits + capacité</td><td>table du référentiel des circuits (1 ligne par circuit, commune à tous)</td></tr>
+<tr><td>Circuits ADHOC + capacité</td><td>table des circuits candidats</td></tr>
+<tr><td>Cœur, amplitude, bloc de fréquence, rôle, <strong>capacité</strong> (report) et <strong>profondeur d'activation</strong></td><td>table figée des circuits pour bilan (1 ligne par circuit et par candidat)</td></tr>
+</table>
+
+<div class="footer">
+Bible du Profil Cognitif — Sib Prod. Document de référence figé, à jour de la scission du bloc sophistiqué (18 juin 2026). Toute évolution doctrinale ultérieure doit être consignée par amendement daté, sans réécriture des verdicts existants tant qu'une nouvelle décision n'est pas arbitrée.
+</div>
+
+</body>
+</html>
