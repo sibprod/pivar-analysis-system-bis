@@ -1,7 +1,17 @@
 // services/infrastructure/airtableService.js
-// Service Airtable v11.7-fable — Profil-Cognitif
+// Service Airtable v12.0-fable — Profil-Cognitif
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// PHASE v12.0 (2026-06-18) — TABLE FIGÉE CIRCUITS_POURBILAN (Phase 4 étape 1.2) :
+//   ⭐ ADDITIF. Une seule fonction existante modifiée (getReferentielCircuits),
+//      UNIQUEMENT par ajout d'un champ (capacite) à l'objet retourné — aucun
+//      champ retiré ni renommé, donc aucun appelant existant n'est cassé.
+//   4 changements :
+//     (A) getReferentielCircuits : + champ `capacite` (colonne « capacité »)
+//     (B) getReferentielCircuitsCapacites : NOUVELLE — map nom ad hoc → capacité
+//     (C) getEtape1T2CircuitsPourbilan : NOUVELLE — lecture table figée
+//     (D) writeEtape1T2CircuitsPourbilan : NOUVELLE — purge + écriture table figée
 //
 // PHASE v11.7-fable (2026-06-15) — Ajout getEtape1T2Fable :
 //   - ⭐ Ajout getEtape1T2Fable(candidat_id) : lit la table tblaGd3ixAWxbJJp2
@@ -158,10 +168,6 @@ async function getResponses(session_id) {
 const getResponsesBySession = getResponses;
 
 // ⭐ A21 (17/06/2026) — patchResponseRow : met à jour un record RESPONSES par son airtable_id
-// Signature : patchResponseRow(recordId, fields)
-//   recordId : id Airtable du record (r.id)
-//   fields   : objet champs à mettre à jour (cog_*, v2_*, etc.)
-// Appelée par agent_etape1_responses.js après chaque appel Claude.
 async function patchResponseRow(recordId, fields) {
   if (!recordId) {
     logger.warn('patchResponseRow — recordId manquant, patch ignoré');
@@ -834,16 +840,6 @@ async function getEtape1T2(candidat_id) {
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐ v11.7-fable (15/06/2026) — ETAPE1_T2_FABLE — table tblaGd3ixAWxbJJp2
 // ═══════════════════════════════════════════════════════════════════════════
-//
-// Table distincte de ETAPE1_T2 (ancienne table analyse par question).
-// tblaGd3ixAWxbJJp2 = 1 record par circuit activé par candidat.
-// Champs clés lus par serviceE0_extraction via fldIDs directs :
-//   fldbHyiLdkkRU6B0J = candidat_id (filtre)
-//   fldkByLh883MLtHB3 = pilier
-//   fldf3Rfux16asTI0I = circuit_id
-//   fldnDxnEc3uLoAknN = signal_limbique
-//   fldYZIvT2gMtumy6O = synthese_pilier
-
 async function getEtape1T2Fable(candidat_id) {
   try {
     const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_FABLE)
@@ -919,6 +915,43 @@ async function writeEtape1T2InventaireCircuits(candidat_id, rows) {
     logger.info('ETAPE1_T2_INVENTAIRE_CIRCUITS written', { candidat_id, count: rows.length });
   } catch (error) {
     logger.error('Failed to write ETAPE1_T2_INVENTAIRE_CIRCUITS', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ 18/06/2026 — ETAPE1_T2_CIRCUITS_POURBILAN — table figée (Phase 4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getEtape1T2CircuitsPourbilan(candidat_id) {
+  try {
+    const records = await getBase()(airtableConfig.TABLES.ETAPE1_T2_CIRCUITS_POURBILAN)
+      .select({
+        filterByFormula: `{candidat_id} = "${candidat_id}"`,
+        sort: [
+          { field: 'rang_pilier',      direction: 'asc' },
+          { field: 'ordre_bloc',       direction: 'asc' },
+          { field: 'rang_dans_pilier', direction: 'asc' }
+        ]
+      })
+      .all();
+    const rows = records.map(r => ({ airtable_id: r.id, ...r.fields }));
+    logger.debug('ETAPE1_T2_CIRCUITS_POURBILAN fetched', { candidat_id, count: rows.length });
+    return rows;
+  } catch (error) {
+    logger.error('Failed to get ETAPE1_T2_CIRCUITS_POURBILAN', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+async function writeEtape1T2CircuitsPourbilan(candidat_id, rows) {
+  try {
+    await deleteRowsByCandidatId(airtableConfig.TABLES.ETAPE1_T2_CIRCUITS_POURBILAN, candidat_id);
+    const rowsSansId = rows.map(({ candidat_id: _omit, ...reste }) => reste);
+    await createRowsInBatches(airtableConfig.TABLES.ETAPE1_T2_CIRCUITS_POURBILAN, rowsSansId, candidat_id);
+    logger.info('ETAPE1_T2_CIRCUITS_POURBILAN written', { candidat_id, count: rows.length });
+  } catch (error) {
+    logger.error('Failed to write ETAPE1_T2_CIRCUITS_POURBILAN', { candidat_id, error: error.message });
     throw error;
   }
 }
@@ -1103,7 +1136,8 @@ async function getReferentielCircuits() {
       pilier:      extractLookup(r.fields.pilier),
       circuit_id:  r.fields.circuit_id,
       circuit_nom: r.fields.circuit_nom,
-      geste:       r.fields.geste || null
+      geste:       r.fields.geste || null,
+      capacite:    extractLookup(r.fields['capacité']) || null   // ⭐ 18/06 — colonne « capacité » (avec accent)
     }));
 
     if (circuits.length !== 75) {
@@ -1156,6 +1190,27 @@ async function getCircuitsAdHocByStatut(statut = 'EN_ATTENTE') {
     return adHocs;
   } catch (error) {
     logger.error('Failed to load REFERENTIEL_CIRCUITS_CANDIDATS', { statut, error: error.message });
+    throw error;
+  }
+}
+
+// ⭐ 18/06/2026 — Map { nom_propose → capacité } pour la Phase 4 (capacité des ad hoc)
+async function getReferentielCircuitsCapacites() {
+  try {
+    const records = await getBase()(airtableConfig.TABLES.REFERENTIEL_CIRCUITS_CANDIDATS)
+      .select({ fields: ['nom_propose', 'capacité'] })
+      .all();
+
+    const map = {};
+    for (const r of records) {
+      const nom = r.fields['nom_propose'];
+      const cap = extractLookup(r.fields['capacité']);
+      if (nom) map[nom] = cap || null;
+    }
+    logger.debug('REFERENTIEL_CIRCUITS_CANDIDATS capacités loaded', { count: Object.keys(map).length });
+    return map;
+  } catch (error) {
+    logger.error('Failed to load ad hoc capacités', { error: error.message });
     throw error;
   }
 }
@@ -1285,6 +1340,7 @@ async function upsertCircuitAdHoc({
 function extractLookup(value) {
   if (value === null || value === undefined) return null;
   if (Array.isArray(value)) return value.length > 0 ? String(value[0]) : null;
+  if (value && typeof value === 'object' && value.name !== undefined) return String(value.name);
   return String(value);
 }
 
@@ -1671,6 +1727,10 @@ module.exports = {
   getEtape1T2InventaireCircuits,
   writeEtape1T2InventaireCircuits,
 
+  // ⭐ 18/06/2026 — Table figée Phase 4
+  getEtape1T2CircuitsPourbilan,
+  writeEtape1T2CircuitsPourbilan,
+
   // ETAPE1_T3
   getEtape1T3,
   writeEtape1T3,
@@ -1706,6 +1766,7 @@ module.exports = {
 
   // REFERENTIEL_CIRCUITS_CANDIDATS
   getCircuitsAdHocByStatut,
+  getReferentielCircuitsCapacites,   // ⭐ 18/06/2026 — capacité des ad hoc
   upsertCircuitAdHoc,
 
   // VISITEUR — civilité
