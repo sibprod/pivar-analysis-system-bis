@@ -147,41 +147,34 @@ async function metaFetch(path, method = 'GET', body = null) {
 }
 
 /**
- * Retourne le tableId de TABLE_SORTIE. La crée si elle n'existe pas.
- * Si le scope schema.bases:write manque, lève une erreur explicite.
+ * Retourne le tableId de TABLE_SORTIE.
+ *
+ * DOCTRINE : ce service NE CRÉE JAMAIS de table. Le schéma de la base reste
+ * sous le contrôle exclusif d'Isabelle. La table ETAPE1_T2_CIRCUITS_POURBILAN
+ * doit être créée à la main, une fois, AVANT le premier run. Si elle est
+ * absente, la mission s'arrête avec un message explicite — elle ne tente
+ * aucune écriture de schéma (le token de prod n'a pas, et ne doit pas avoir,
+ * le scope schema.bases:write).
+ *
+ * La liste des champs attendus est dans TABLE_FIELDS (consultable plus haut).
  */
 async function ensureTableExists() {
-  const schema = await metaFetch('/tables');               // lecture schéma (scope read)
+  const schema = await metaFetch('/tables');               // lecture seule du schéma
   const found = schema.tables.find(t => t.name === TABLE_SORTIE);
   if (found) {
-    console.log(`  Table "${TABLE_SORTIE}" déjà présente (${found.id}).`);
+    console.log(`  Table "${TABLE_SORTIE}" trouvée (${found.id}).`);
     return found.id;
   }
 
-  console.log(`  Table "${TABLE_SORTIE}" absente — création via meta API…`);
-  try {
-    const created = await metaFetch('/tables', 'POST', {
-      name: TABLE_SORTIE,
-      description: 'Inventaire circuits projeté pour l\'agent PA pilier (étape 1.3). '
-                 + 'Données figées 1.2 + niveaux cœur/amplitude + bloc + additions. '
-                 + 'Généré par la mission de fin d\'étape 1.2 (phase 4). Ne pas éditer à la main.',
-      fields: TABLE_FIELDS,
-    });
-    console.log(`  Table créée : ${created.id}`);
-    return created.id;
-  } catch (err) {
-    if (err.status === 403) {
-      throw new Error(
-        `Création de table refusée (403). La clé AIRTABLE_TOKEN n'a pas le scope `
-        + `"schema.bases:write". Deux options :\n`
-        + `  1) Ajouter ce scope au token, OU\n`
-        + `  2) Créer la table "${TABLE_SORTIE}" à la main avec les ${TABLE_FIELDS.length} champs `
-        + `spécifiés dans TABLE_FIELDS de ce fichier.\n`
-        + `Détail API : ${err.message}`
-      );
-    }
-    throw err;
-  }
+  // Absente → on REFUSE de la créer. Arrêt net avec consigne claire.
+  throw new Error(
+    `Table "${TABLE_SORTIE}" absente de la base. `
+    + `Ce service ne crée pas de table (le schéma reste sous contrôle manuel). `
+    + `Créez la table à la main une fois, avec les ${TABLE_FIELDS.length} champs listés `
+    + `dans TABLE_FIELDS de ce fichier, puis relancez. `
+    + `Les options des champs "Sélection unique" peuvent rester vides : `
+    + `elles se remplissent automatiquement à l'écriture (typecast).`
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
