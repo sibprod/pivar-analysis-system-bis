@@ -1,9 +1,29 @@
 // services/orchestrators/orchestrator_etape1_T2.js
 // Sous-Orchestrateur Étape 2 — Cartographie des circuits cognitifs
-// Profil-Cognitif v10.10 (Phase 4 ajoutée 18/06/2026)
+// Profil-Cognitif v10.11 (Phase 4 enchaînée en mode COMPLET — 18/06/2026)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/PLAN_CORRECTION_v10_8.md
 //                       et docs/memo_technique_phase3.md (22/05/2026)
+//
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐ v10.11 (18/06/2026) — PHASE 4 ENCHAÎNÉE EN MODE COMPLET
+// ───────────────────────────────────────────────────────────────────────────
+//
+//   En production le pipeline est autogéré : personne ne pose les statuts à la
+//   main. La Phase 4 (gravure ETAPE1_T2_CIRCUITS_POURBILAN) doit donc s'enchaîner
+//   automatiquement à la fin du mode COMPLET, après la Phase 3, avant la bascule
+//   de statut finale. Un candidat traité de bout en bout a ainsi sa table
+//   pour-bilan prête pour l'agent PA pilier, sans intervention.
+//
+//   GARDE-FOUS :
+//   - Le kill-switch PHASE4_PRETE reste le maître interrupteur : si false, la
+//     Phase 4 est sautée en mode COMPLET (le pipeline finit quand même proprement)
+//     et le statut isolé REPRENDRE_AGENT2_CIRCUITPOURBILAN est rejeté.
+//   - Avant de graver, on vérifie que l'inventaire ETAPE1_T2_INVENTAIRE_CIRCUITS
+//     n'est pas vide. S'il l'est (Phase 3 partielle), on NE grave PAS une table
+//     vide : on pose la sentinelle pour rejouer, sans casser les données métier.
+//   - Le mode PHASE4_ISOLEE (déclenchement manuel) reste intact pour rejouer la
+//     Phase 4 seule sur un candidat déjà traité.
 //
 // ───────────────────────────────────────────────────────────────────────────
 // ⭐ v10.10 (18/06/2026) — MISSION DE FIN D'ÉTAPE 1.2 (Phase 4)
@@ -16,10 +36,6 @@
 //   de l'inventaire (niveaux cœur + amplitude, bloc, additions, noms en clair)
 //   prête à lire pour l'agent PA pilier de l'étape 1.3. Elle NE recalcule aucun
 //   chiffre source : elle lit ETAPE1_T2_INVENTAIRE_CIRCUITS ligne à ligne.
-//
-//   DÉCLENCHEMENT MANUEL UNIQUEMENT : la Phase 4 ne s'enchaîne PAS après la
-//   Phase 3 en mode COMPLET (pour ne pas alourdir le chemin critique). Isabelle
-//   pose REPRENDRE_AGENT2_CIRCUITPOURBILAN quand l'étape 1.2 est prête à être figée.
 //
 //   FIN DE MISSION : bascule statut → ETAPE2_TERMINEE (l'étape 1.2 est finie,
 //   l'inventaire pour bilan est gravé, l'étape 1.3 peut démarrer).
@@ -48,6 +64,7 @@
 //     │       et /visualiser/tableau2circuits (visualisation HTML dynamique)
 //     └─ Phase 4 : service_etape1_T2_phase4_circuits_pourbilan (0 appel Claude) ⭐ v10.10
 //        └─ Grave ETAPE1_T2_CIRCUITS_POURBILAN (mission de fin d'étape 1.2)
+//        └─ ⭐ v10.11 : enchaînée automatiquement en mode COMPLET
 //   étape 3   (synthèse 6 sous-agents)  ← orchestratorEtape3 (à coder)
 //
 // ───────────────────────────────────────────────────────────────────────────
@@ -57,7 +74,7 @@
 //   ┌──────────────────────────────────────┬──────────────────────────────────────┐
 //   │ Statut entrant                       │ Mode interne / Comportement          │
 //   ├──────────────────────────────────────┼──────────────────────────────────────┤
-//   │ REPRENDRE_AGENT2                     │ COMPLET : Phase 1 + 2 + 3            │
+//   │ REPRENDRE_AGENT2                     │ COMPLET : Phase 1 + 2 + 3 + 4 ⭐v10.11│
 //   │ REPRENDRE_AGENT2_PHASE1             │ PHASE1_ISOLEE : Phase 1 seule        │
 //   │ REPRENDRE_AGENT2_PHASE2             │ PHASE2_ISOLEE : Phase 2 + 3          │
 //   │ REPRENDRE_AGENT2_PHASE3             │ PHASE3_ISOLEE : Phase 3 seule        │
@@ -82,7 +99,8 @@ const ETAPE3_PRETE = false;
 const PHASE3_PRETE = true;
 
 // ⭐ v10.10 — Drapeau d'activation de la Phase 4 (mission de fin d'étape 1.2)
-// Si false : le statut REPRENDRE_AGENT2_CIRCUITPOURBILAN est rejeté avec ERREUR.
+// Si false : le statut REPRENDRE_AGENT2_CIRCUITPOURBILAN est rejeté avec ERREUR,
+//            et la Phase 4 enchaînée en mode COMPLET (v10.11) est sautée.
 //            Aucune autre phase n'est affectée.
 const PHASE4_PRETE = true;
 
@@ -93,6 +111,11 @@ const STATUT_FIN_PHASE2_ISOLEE     = ETAPE3_PRETE ? 'REPRENDRE_AGENT3' : 'ETAPE2
 const STATUT_FIN_PHASE3_ISOLEE     = ETAPE3_PRETE ? 'REPRENDRE_AGENT3' : 'ETAPE2_TERMINEE';  // ⭐ v10.9
 const STATUT_SENTINELLE_PHASE3_KO  = 'ETAPE2_PHASE2_TERMINEE';                                // ⭐ v10.9
 const STATUT_FIN_PHASE4_ISOLEE     = 'ETAPE2_TERMINEE';                                       // ⭐ v10.10
+
+// ⭐ v10.11 — Sentinelle si la Phase 4 enchaînée (mode COMPLET) échoue ou si
+// l'inventaire est vide : on conserve les données métier (Phases 1-3 OK) et on
+// permet de rejouer la Phase 4 seule via REPRENDRE_AGENT2_CIRCUITPOURBILAN.
+const STATUT_SENTINELLE_PHASE4_KO  = 'ETAPE2_PHASE4_A_REJOUER';
 
 // Modes de run
 const MODE_COMPLET        = 'COMPLET';
@@ -131,7 +154,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   }
 
   logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-  logger.info('Pipeline Étape 2 (v10.10) starting', {
+  logger.info('Pipeline Étape 2 (v10.11) starting', {
     candidat_id,
     statut_entrant: visiteur?.statut_analyse_pivar || '?',
     mode:           runMode,
@@ -157,7 +180,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
       session_id:     session_id || candidat_id,
       statut_entrant: visiteur?.statut_analyse_pivar || '?',
       mode:           runMode,
-      version:        'v10.10'
+      version:        'v10.11'
     });
   } catch (e) {
     logger.warn('orchestratorEtape2 — échec backup before_etape2 (non bloquant)', {
@@ -228,7 +251,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     // Backup après Phase 4
     try {
       await backupService.save(candidat_id, 'after_etape2_phase4', {
-        version:     'v10.10',
+        version:     'v10.11',
         mode:        runMode,
         nb_lignes:   phase4Result?.nb_lignes   || 0,
         nb_circuits: phase4Result?.nb_circuits || 0
@@ -265,7 +288,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     return {
       success:       true,
       candidat_id,
-      pipeline:      'etape2_circuits_v10_10',
+      pipeline:      'etape2_circuits_v10_11',
       mode:          runMode,
       phase1:        null,
       phase2:        null,
@@ -284,6 +307,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   let attributionResult    = null;
   let consolidationResult  = null;
   let enrichissementResult = null;  // ⭐ v10.9 — Phase 3
+  let phase4Result         = null;  // ⭐ v10.11 — Phase 4 enchaînée
 
   // ═════════════════════════════════════════════════════════════════════════
   // PHASE 1 — ATTRIBUTION (sauf en mode PHASE2_ISOLEE)
@@ -590,17 +614,115 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   }
 
   // ═════════════════════════════════════════════════════════════════════════
+  // ⭐ v10.11 — PHASE 4 ENCHAÎNÉE (mode COMPLET uniquement)
+  //
+  // En production autogérée, la Phase 4 doit graver CIRCUITS_POURBILAN dans la
+  // foulée de la Phase 3, sans intervention. On ne l'enchaîne QU'EN MODE COMPLET
+  // (le seul mode "bout en bout" du pipeline normal). Les modes isolés PHASE2/
+  // PHASE3 gardent leur comportement (ils ne touchent pas à la Phase 4 ; pour la
+  // rejouer on utilise REPRENDRE_AGENT2_CIRCUITPOURBILAN).
+  //
+  // Garde-fous :
+  //  - PHASE4_PRETE = false  → on saute proprement (pipeline finit quand même).
+  //  - inventaire vide       → on NE grave PAS, on pose la sentinelle PHASE4_KO
+  //                            (données métier intactes, Phase 4 rejouable seule).
+  //  - exception runPhase4   → idem sentinelle, jamais ERREUR (Phases 1-3 valides).
+  // ═════════════════════════════════════════════════════════════════════════
+  if (runMode === MODE_COMPLET) {
+    if (!PHASE4_PRETE) {
+      logger.warn('⏸️ Phase 4 désactivée (PHASE4_PRETE = false) — saut de la gravure CIRCUITS_POURBILAN en mode COMPLET', { candidat_id });
+    } else {
+      logger.info('─── PHASE 4 — CIRCUITS_POURBILAN (enchaînée, mécanique, 0 appel Claude) ───', { candidat_id });
+
+      // Garde-fou : ne pas graver une table vide si l'inventaire est absent.
+      let inventaireOk = true;
+      try {
+        const inv = await airtableService.getEtape1T2InventaireCircuits(candidat_id);
+        if (!Array.isArray(inv) || inv.length === 0) {
+          inventaireOk = false;
+          logger.warn('Phase 4 enchaînée — inventaire ETAPE1_T2_INVENTAIRE_CIRCUITS vide, gravure annulée', {
+            candidat_id,
+            nb_inventaire: Array.isArray(inv) ? inv.length : 0
+          });
+        }
+      } catch (e) {
+        // Si la lecture de contrôle échoue, on laisse runPhase4 décider/échouer proprement.
+        logger.warn('Phase 4 enchaînée — contrôle inventaire non concluant (on tente quand même la gravure)', {
+          candidat_id, error: e.message
+        });
+      }
+
+      if (!inventaireOk) {
+        // Données métier (Phases 1-3) intactes : on pose la sentinelle pour rejouer la Phase 4 seule.
+        try {
+          await airtableService.updateVisiteur(candidat_id, {
+            statut_analyse_pivar: STATUT_SENTINELLE_PHASE4_KO,
+            erreur_analyse:       '[etape2_phase4_chained] Inventaire vide : gravure CIRCUITS_POURBILAN annulée. Rejouer via REPRENDRE_AGENT2_CIRCUITPOURBILAN après vérification de la Phase 3.'.substring(0, 500),
+            derniere_activite:    new Date().toISOString()
+          });
+          logger.warn(`orchestratorEtape2 — Phase 4 sautée (inventaire vide), statut posé → ${STATUT_SENTINELLE_PHASE4_KO}`, { candidat_id });
+        } catch (e) { /* fallback */ }
+
+        throw new Error(
+          `Phase 4 (enchaînée) annulée : inventaire ETAPE1_T2_INVENTAIRE_CIRCUITS vide pour ${candidat_id}. ` +
+          `Phases 1-3 OK. Rejouer la Phase 4 via REPRENDRE_AGENT2_CIRCUITPOURBILAN.`
+        );
+      }
+
+      try {
+        phase4Result = await phase4_circuits_pourbilan_Service.runPhase4({ candidat_id });
+      } catch (err) {
+        logger.error('Pipeline Étape 2 — PHASE 4 enchaînée (circuits_pourbilan) failed', {
+          candidat_id,
+          error:     err.message,
+          stack:     err.stack?.substring(0, 500),
+          rejouable: 'OUI — relancer via REPRENDRE_AGENT2_CIRCUITPOURBILAN (coût zéro, idempotent)'
+        });
+
+        try {
+          await backupService.save(candidat_id, 'error_etape2_phase4_chained', {
+            phase: 'circuits_pourbilan',
+            mode:  runMode,
+            error: err.message
+          });
+        } catch (e) { /* backup non bloquant */ }
+
+        // Phase 4 ne touche pas aux données métier (Phases 1-3 valides).
+        // On pose la sentinelle : la Phase 4 est rejouable seule sans rien casser.
+        try {
+          await airtableService.updateVisiteur(candidat_id, {
+            statut_analyse_pivar: STATUT_SENTINELLE_PHASE4_KO,
+            erreur_analyse:       `[etape2_phase4_chained] ${err.message}`.substring(0, 500),
+            derniere_activite:    new Date().toISOString()
+          });
+          logger.warn(`orchestratorEtape2 — Phase 4 enchaînée KO, statut posé → ${STATUT_SENTINELLE_PHASE4_KO}`, { candidat_id });
+        } catch (e) { /* fallback */ }
+
+        throw err;
+      }
+
+      logger.info('PHASE 4 — Circuits_pourbilan terminée (enchaînée)', {
+        candidat_id,
+        nb_lignes:   phase4Result?.nb_lignes   || 0,
+        nb_circuits: phase4Result?.nb_circuits || 0
+      });
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
   // SUITES POST-PHASES
   // ═════════════════════════════════════════════════════════════════════════
 
   // ─── 3. Backup après étape 2 ────────────────────────────────────────────
   try {
     await backupService.save(candidat_id, 'after_etape2', {
-      version:                  'v10.10',
+      version:                  'v10.11',
       mode:                     runMode,
       phase1_stats:             attributionResult?.stats    || null,
       phase2_stats:             consolidationResult?.stats  || null,
       phase3_stats:             enrichissementResult?.stats || null,  // ⭐ v10.9
+      phase4_nb_lignes:         phase4Result?.nb_lignes     || 0,     // ⭐ v10.11
+      phase4_nb_circuits:       phase4Result?.nb_circuits   || 0,     // ⭐ v10.11
       rows_count_etape1_t2:     consolidationResult?.rows?.length || 0,
       rows_count_ventilation:   enrichissementResult?.nb_lignes_ventilation || 0,  // ⭐ v10.9
       rows_count_inventaire:    enrichissementResult?.nb_lignes_inventaire  || 0,  // ⭐ v10.9
@@ -649,7 +771,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   const totalCostUsd   = attributionResult?.cost || 0;
 
   logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-  logger.info(`🎉 Pipeline Étape 2 (v10.10 / mode ${runMode}) terminé`, {
+  logger.info(`🎉 Pipeline Étape 2 (v10.11 / mode ${runMode}) terminé`, {
     candidat_id,
     mode:                          runMode,
     phase1_attributions_totales:  attributionResult?.stats?.nb_attributions_totales  || 0,
@@ -669,6 +791,8 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     phase3_piliers_actifs:        enrichissementResult?.stats?.nb_piliers_actifs     || 0,  // ⭐ v10.9
     phase3_circuits_distincts:    enrichissementResult?.stats?.nb_circuits_distincts || 0,  // ⭐ v10.9
     phase3_ad_hoc:                enrichissementResult?.stats?.nb_ad_hoc             || 0,  // ⭐ v10.9
+    phase4_nb_lignes:             phase4Result?.nb_lignes   || 0,  // ⭐ v10.11
+    phase4_nb_circuits:           phase4Result?.nb_circuits || 0,  // ⭐ v10.11
     totalCostUsd:                 totalCostUsd.toFixed(4),
     totalElapsedMs,
     totalElapsedSec:              (totalElapsedMs / 1000).toFixed(1),
@@ -679,7 +803,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   return {
     success:    true,
     candidat_id,
-    pipeline:   'etape2_circuits_v10_10',
+    pipeline:   'etape2_circuits_v10_11',
     mode:       runMode,
     phase1: attributionResult ? {
       attributions_totales:     attributionResult.stats.nb_attributions_totales,
@@ -699,6 +823,10 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
       lignes_inventaire:        enrichissementResult.nb_lignes_inventaire,
       stats:                    enrichissementResult.stats,
       elapsedMs:                enrichissementResult.elapsedMs
+    } : null,
+    phase4: phase4Result ? {                                                      // ⭐ v10.11
+      nb_lignes:                phase4Result.nb_lignes,
+      nb_circuits:              phase4Result.nb_circuits
     } : null,
     totalCostUsd,
     totalElapsedMs,
@@ -766,6 +894,7 @@ module.exports = {
   STATUT_FIN_PHASE3_ISOLEE,           // ⭐ v10.9
   STATUT_SENTINELLE_PHASE3_KO,        // ⭐ v10.9
   STATUT_FIN_PHASE4_ISOLEE,           // ⭐ v10.10
+  STATUT_SENTINELLE_PHASE4_KO,        // ⭐ v10.11
   MODE_COMPLET,
   MODE_PHASE1_ISOLEE,
   MODE_PHASE2_ISOLEE,
