@@ -1,7 +1,16 @@
 // routes/index.js
-// Routes HTTP — Profil-Cognitif v12.0
+// Routes HTTP — Profil-Cognitif v12.1
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// PHASE v12.1 (2026-06-18) — Visualisation table figée CIRCUITS_POURBILAN :
+//   - ⭐ Ajout route GET /visualiser/tableau2circuitspourbilan/:candidat_id
+//     Calquée sur /visualiser/tableau2circuits (sa jumelle), mais lit la table
+//     figée ETAPE1_T2_CIRCUITS_POURBILAN via
+//     airtableService.getEtape1T2CircuitsPourbilan.
+//     Mode JSON ({rows}) + mode HTML (sert visu_etape1_T2_circuitspourbilan.html).
+//     Vue candidat complète : capacité, niveau cœur + amplitude, profondeur,
+//     instrumentaux P1..P5, totaux (sous-totaux, totaux pilier, total général).
 //
 // PHASE v12.0 (2026-06-17) — Bilan Fable cognitif complet :
 //   - ⭐ Ajout require bilanFablePayloadService
@@ -514,6 +523,41 @@ router.get('/visualiser/tableau2circuits/:candidat_id', async (req, res) => {
   const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_etape1_T2_circuits.html');
   res.sendFile(htmlPath, function(err) {
     if (err && !res.headersSent) res.status(500).type('html').send('<html><body><h1>Erreur tableau2circuits</h1></body></html>');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ v12.1 (18/06/2026) — GET /visualiser/tableau2circuitspourbilan/:candidat_id
+// Vue candidat complète de la table figée ETAPE1_T2_CIRCUITS_POURBILAN.
+// Jumelle de tableau2circuits, mais lit la table figée (Phase 4) et affiche
+// capacité, niveau cœur + amplitude, profondeur, instrumentaux et totaux.
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/visualiser/tableau2circuitspourbilan/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Identifiant candidat invalide</h1></body></html>');
+  }
+  const acceptHeader = req.headers.accept || '';
+  const fetchMode    = req.headers['sec-fetch-mode'] || '';
+  const formatParam  = (req.query && req.query.format) || '';
+  const wantsJson = acceptHeader.includes('application/json') || formatParam === 'json' || fetchMode === 'cors';
+
+  if (wantsJson) {
+    logger.info('Visualisation tableau2circuitspourbilan — mode JSON', { candidat_id });
+    try {
+      const rows = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id);
+      return res.json({ rows: rows || [] });
+    } catch (error) {
+      logger.error('Visualisation tableau2circuitspourbilan — erreur', { candidat_id, error: error.message });
+      return res.status(500).json({ error: error.message, candidat_id });
+    }
+  }
+
+  logger.info('Visualisation tableau2circuitspourbilan — mode HTML', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_etape1_T2_circuitspourbilan.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err && !res.headersSent) res.status(500).type('html').send('<html><body><h1>Erreur tableau2circuitspourbilan</h1></body></html>');
   });
 });
 
