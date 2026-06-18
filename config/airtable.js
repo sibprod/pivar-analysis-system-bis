@@ -1,12 +1,21 @@
 // config/airtable.js
-// Configuration Airtable v11.9 — Pipeline Profil-Cognitif Étape 1
+// Configuration Airtable v12.0 — Pipeline Profil-Cognitif Étape 1
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.10 prévue)
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// PHASE v11.9 (2026-06-15) — AJOUT 8 CHAMPS VERBATIM T3_CIRCUIT
+// PHASE v12.0 (2026-06-18) — TABLE FIGÉE CIRCUITS_POURBILAN (Phase 4 étape 1.2)
 // ─────────────────────────────────────────────────────────────────────────────
+//   ⭐ AJOUT (additif uniquement — AUCUN champ ancien retiré ni renommé) :
+//     - TABLES.ETAPE1_T2_CIRCUITS_POURBILAN (tblV8UBCgEOzJ2Tch)
+//     - ETAPE1_T2_CIRCUITS_POURBILAN_FIELDS (mapping des colonnes)
+//   Table produite par service_etape1_T2_phase4_circuits_pourbilan.js,
+//   lue par l'agent PA pilier de l'étape 1.3.
+//
+// (Historique antérieur conservé tel quel ci-dessous.)
+//
+// PHASE v11.9 (2026-06-15) — AJOUT 8 CHAMPS VERBATIM T3_CIRCUIT
 //   OBJECTIF : exposer dans _mapByFieldIds les 8 champs verbatim écrits par
 //   serviceP_A (verbatim_1..4 + verbatim_1_ref..4_ref). Sans ces entrées,
 //   getEtape1T3Circuits ne les retournait pas à la lecture.
@@ -14,8 +23,6 @@
 //   ⭐ AJOUT (additif uniquement — AUCUN champ ancien retiré ni renommé) :
 //   ETAPE1_T3_CIRCUIT_FIELDS : verbatim_1..4 + verbatim_1_ref..4_ref
 //   (8 champs, vérifiés en base le 14/06/2026 sur Cécile).
-//
-// (Historique antérieur conservé tel quel ci-dessous.)
 //
 // PHASE v11.8 (2026-06-13) — INTÉGRATION CHAÎNE BILAN « FABLE » (P-A..P-D)
 // PHASE v11.7 (2026-06-05) — Bilan dynamique des 4 excellences.
@@ -55,6 +62,7 @@ module.exports = {
     // ─── ⭐ v10.9 (22/05/2026) — Tables Phase 3 (visualisation persistée) ────
     ETAPE1_T2_VENTILATION_PILIERS: 'ETAPE1_T2_VENTILATION_PILIERS',  // tbl4UzvAMQY4nRnI5
     ETAPE1_T2_INVENTAIRE_CIRCUITS: 'ETAPE1_T2_INVENTAIRE_CIRCUITS',  // tblUHZjXIW9jp9nIf (frozen source coeur/total/nb_svc)
+    ETAPE1_T2_CIRCUITS_POURBILAN:  'tblV8UBCgEOzJ2Tch',  // ⭐ 18/06/2026 — table figée PRÊTE À LIRE (Phase 4 → agent PA pilier 1.3)
 
     // ─── ⭐ v11.0 (28/05/2026) — Étape 3 : le bilan (3 tables) ──────────────
     ETAPE1_T3_PILIER:              'ETAPE1_T3_PILIER',              // tblzDIn7P2cOvVvY2
@@ -281,6 +289,37 @@ module.exports = {
     nb_svc_P5:           'nb_svc_P5',
     total_activations:   'total_activations',
     rang_dans_pilier:    'rang_dans_pilier'
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ 18/06/2026 — ETAPE1_T2_CIRCUITS_POURBILAN — table figée PRÊTE À LIRE
+  // tableId : tblV8UBCgEOzJ2Tch
+  // Produite par la Phase 4. Lue par l'agent PA pilier de l'étape 1.3.
+  // ═══════════════════════════════════════════════════════════════════════════
+  ETAPE1_T2_CIRCUITS_POURBILAN_FIELDS: {
+    candidat_id:        'candidat_id',
+    type_ligne:         'type_ligne',        // CIRCUIT / SOUS_TOTAL / TOTAL_PILIER / TOTAL_GENERAL
+    pilier_owner:       'pilier_owner',
+    pilier_nom:         'pilier_nom',
+    rang_pilier:        'rang_pilier',
+    role_pilier:        'role_pilier',       // socle / amont / aval / fonctionnel
+    circuit_code:       'circuit_code',      // ex "P3C12" ou "P5·ADHOC"
+    circuit_nom_clair:  'circuit_nom_clair',
+    capacité:           'capacité',          // ⭐ NOM LITTÉRAL AVEC ACCENT
+    bloc:               'bloc',
+    ordre_bloc:         'ordre_bloc',
+    niveau_coeur:       'niveau_coeur',      // HAUT / MOYEN / FAIBLE / EN_SOUTIEN
+    niveau_amplitude:   'niveau_amplitude',  // HAUT / MOYEN / FAIBLE
+    activation_coeur:   'activation_coeur',
+    instru_P1:          'instru_P1',
+    instru_P2:          'instru_P2',
+    instru_P3:          'instru_P3',
+    instru_P4:          'instru_P4',
+    instru_P5:          'instru_P5',
+    total_occurrences:  'total_occurrences',
+    circuit_origine:    'circuit_origine',   // OFFICIEL / AD_HOC
+    nom_ad_hoc:         'nom_ad_hoc',
+    rang_dans_pilier:   'rang_dans_pilier'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
