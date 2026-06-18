@@ -1,5 +1,5 @@
 // services/etape1/agent_etape1_T2_phase2_consolidation.js
-// Agent de CONSOLIDATION — ÉTAPE 2 / Phase 2 — v1.0 (21/05/2026)
+// Agent de CONSOLIDATION — ÉTAPE 2 / Phase 2 — v1.1 (18/06/2026)
 // Profil-Cognitif — Refonte v10.8
 //
 // ⚠️ AVANT MODIFICATION : lire docs/PLAN_CORRECTION_v10_8.md
@@ -19,6 +19,20 @@
 //   d'inventer ou de perdre un geste.
 //
 // ───────────────────────────────────────────────────────────────────────────
+// CHANGEMENT v1.1 (18/06/2026) — DISPARITION DU CLUSTER
+// ───────────────────────────────────────────────────────────────────────────
+//
+// La notion de « cluster » est abolie par la doctrine (remplacée par les règles
+// d'emprunts, traitées en aval). Ce service ne détecte plus, ne calcule plus et
+// n'écrit plus aucun cluster :
+//   - fonction detectClustersByPilier      : supprimée
+//   - constante SEUIL_CLUSTER_COOCC          : supprimée
+//   - champs cluster_dominant_* et clusters_identifies dans ETAPE1_T2 : supprimés
+//   - mentions de cluster dans les commentaires et l'analyse commentée : retirées
+// Les colonnes cluster_* de la table ETAPE1_T2 doivent être supprimées à la main
+// dans Airtable (l'API ne sait pas supprimer un champ).
+//
+// ───────────────────────────────────────────────────────────────────────────
 // CE QUE FAIT LA CONSOLIDATION
 // ───────────────────────────────────────────────────────────────────────────
 //
@@ -32,17 +46,13 @@
 //      - activations_nuancees = liste des questions où NUANCEE (+ inflexions)
 //      - types_verbatim_detail = compilation verbatims activants
 //      - circuit_personnalise = libellé contextualisé 4 ingrédients
-//   4. Détection des clusters par pilier :
-//      - 2 circuits HAUT du même pilier, co-activés ≥ 3 fois → cluster
-//      - Tri par co-occurrences décroissantes (rang 1 = dominant)
-//   5. Synthèse par pilier :
+//   4. Synthèse par pilier :
 //      - total_activations_pilier, score_concentration_pilier
 //      - nb_circuits_actifs_pilier
-//      - cluster_dominant_* (4 champs lisibles humainement)
 //      - nb_signaux_limbiques_pilier (depuis T1.signal_limbique)
 //      - candidature_socle_*, candidature_resistant_*
 //      - analyse_commentee_pilier (texte narratif)
-//   6. Écriture ETAPE1_T2 (delete + create atomique)
+//   5. Écriture ETAPE1_T2 (delete + create atomique)
 //
 // ───────────────────────────────────────────────────────────────────────────
 // RÈGLES DURES
@@ -50,11 +60,8 @@
 //
 //   - Zéro invention : si un circuit n'a aucune attribution, il n'apparaît
 //     PAS dans ETAPE1_T2 (silence = info).
-//   - Cohérence intra-pilier (V5) : les 12 champs synthétiques par pilier
+//   - Cohérence intra-pilier (V5) : les champs synthétiques par pilier
 //     sont IDENTIQUES sur toutes les lignes du même pilier.
-//   - Symétrie clusters : un cluster (C_X, C_Y) est déclaré dans la ligne
-//     de C_X ET dans la ligne de C_Y avec les mêmes chiffres.
-//   - Seuils cluster : nb_co_occurrences ≥ 3 ET les 2 circuits HAUT (≥ 4).
 
 'use strict';
 
@@ -64,8 +71,7 @@ const logger          = require('../../utils/logger');
 const SERVICE_NAME = 'agent_consolidation';
 
 // Seuils doctrinaux
-const SEUIL_HAUT             = 4;  // freq ≥ 4 → HAUT, sinon MOYEN
-const SEUIL_CLUSTER_COOCC    = 3;  // ≥ 3 co-occurrences pour cluster
+const SEUIL_HAUT = 4;  // freq ≥ 4 → HAUT, sinon MOYEN
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENTRÉE PRINCIPALE
@@ -128,21 +134,16 @@ async function runConsolidation({ candidat_id, session_id = null }) {
     candidat_id
   });
 
-  // ─── 7. Détecter les clusters par pilier ──────────────────────────────
-  const clustersParPilier = detectClustersByPilier(attributionsParCircuit);
-
-  // ─── 8. Calculer les synthèses par pilier ──────────────────────────────
+  // ─── 7. Calculer les synthèses par pilier ──────────────────────────────
   const synthesesParPilier = computeSynthesesByPilier({
     attributionsParCircuit,
-    clustersParPilier,
     lignesT1,
     referentiel75
   });
 
-  // ─── 9. Construire les rows ETAPE1_T2 ─────────────────────────────────
+  // ─── 8. Construire les rows ETAPE1_T2 ─────────────────────────────────
   const rows = buildEtape1T2Rows({
     attributionsParCircuit,
-    clustersParPilier,
     synthesesParPilier,
     candidat_id,
     session_id,
@@ -151,17 +152,16 @@ async function runConsolidation({ candidat_id, session_id = null }) {
     adHocTous
   });
 
-  // ─── 10. Écrire ETAPE1_T2 (delete + create atomique) ──────────────────
+  // ─── 9. Écrire ETAPE1_T2 (delete + create atomique) ───────────────────
   await airtableService.writeEtape1T2(candidat_id, rows);
 
-  // ─── 11. Stats finales ────────────────────────────────────────────────
+  // ─── 10. Stats finales ────────────────────────────────────────────────
   const totalMs = Date.now() - startTime;
   const stats = {
     nb_rows_ecrites:      rows.length,
     nb_piliers_actifs:    Object.keys(synthesesParPilier).filter(p => synthesesParPilier[p].nb_circuits_actifs > 0).length,
     nb_circuits_haut:     rows.filter(r => r.niveau_activation === 'HAUT').length,
     nb_circuits_moyen:    rows.filter(r => r.niveau_activation === 'MOYEN').length,
-    nb_clusters_detectes: countClustersTotal(clustersParPilier),
     elapsed_total_ms:     totalMs
   };
 
@@ -406,86 +406,10 @@ function parseOneAttributionBloc(text) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DÉTECTION DES CLUSTERS PAR PILIER
+// SYNTHÈSE PAR PILIER (champs synthétiques + analyse commentée)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Détecte les clusters dans chaque pilier.
- * Un cluster = couple de circuits HAUT du même pilier, co-activés ≥ 3 fois.
- *
- * @returns {Object} { P1: [...], P2: [...], ..., P5: [...] }
- *   Chaque entrée = { circuit_a, circuit_b, nb_co_occurrences, questions, rang }
- */
-function detectClustersByPilier(attributionsParCircuit) {
-  // Grouper les circuits par pilier
-  const circuitsByPilier = { P1: [], P2: [], P3: [], P4: [], P5: [] };
-  for (const [key, entry] of attributionsParCircuit) {
-    if (circuitsByPilier[entry.pilier]) {
-      circuitsByPilier[entry.pilier].push({ key, entry });
-    }
-  }
-
-  const clustersByPilier = { P1: [], P2: [], P3: [], P4: [], P5: [] };
-
-  for (const pilier of ['P1', 'P2', 'P3', 'P4', 'P5']) {
-    const circuits = circuitsByPilier[pilier];
-
-    // Construire la map { circuit_key → Set des questions où il est activé }
-    const questionsByCircuit = new Map();
-    for (const { key, entry } of circuits) {
-      const questions = new Set();
-      for (const act of entry.activations) {
-        questions.add(act.id_question);
-      }
-      questionsByCircuit.set(key, questions);
-    }
-
-    // Tester chaque paire (X, Y) avec X != Y, en s'assurant qu'on ne compte
-    // pas (X, Y) et (Y, X) deux fois
-    const clusters = [];
-    for (let i = 0; i < circuits.length; i++) {
-      for (let j = i + 1; j < circuits.length; j++) {
-        const a = circuits[i];
-        const b = circuits[j];
-
-        // Seuil HAUT pour les 2 circuits
-        if (a.entry.activations.length < SEUIL_HAUT) continue;
-        if (b.entry.activations.length < SEUIL_HAUT) continue;
-
-        // Calcul co-occurrences (intersection des questions activantes)
-        const qA = questionsByCircuit.get(a.key);
-        const qB = questionsByCircuit.get(b.key);
-        const coOccQuestions = [];
-        for (const q of qA) {
-          if (qB.has(q)) coOccQuestions.push(q);
-        }
-
-        if (coOccQuestions.length >= SEUIL_CLUSTER_COOCC) {
-          clusters.push({
-            circuit_a:         a.entry,
-            circuit_b:         b.entry,
-            nb_co_occurrences: coOccQuestions.length,
-            questions:         coOccQuestions.sort()
-          });
-        }
-      }
-    }
-
-    // Tri par nb_co_occurrences décroissant
-    clusters.sort((x, y) => y.nb_co_occurrences - x.nb_co_occurrences);
-    clusters.forEach((c, idx) => { c.rang = idx + 1; });
-
-    clustersByPilier[pilier] = clusters;
-  }
-
-  return clustersByPilier;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SYNTHÈSE PAR PILIER (les 12 champs synthétiques + analyse commentée)
-// ═══════════════════════════════════════════════════════════════════════════
-
-function computeSynthesesByPilier({ attributionsParCircuit, clustersParPilier, lignesT1, referentiel75 }) {
+function computeSynthesesByPilier({ attributionsParCircuit, lignesT1, referentiel75 }) {
   const synthese = { P1: null, P2: null, P3: null, P4: null, P5: null };
 
   // Index : circuits par pilier
@@ -526,10 +450,6 @@ function computeSynthesesByPilier({ attributionsParCircuit, clustersParPilier, l
         score_concentration:                        0,
         nb_circuits_actifs:                         0,
         nb_circuits_haut:                           0,
-        cluster_dominant_circuits:                  null,
-        cluster_dominant_co_occurrences:            0,
-        cluster_dominant_signature_unifiee:         false,
-        cluster_dominant_lecture:                   null,
         nb_signaux_limbiques:                       limbiquesByPilier[pilier].length,
         questions_avec_signaux_limbiques:           limbiquesByPilier[pilier].map(l => l.id_question).join(', '),
         candidature_socle_score:                    'NULLE',
@@ -552,45 +472,9 @@ function computeSynthesesByPilier({ attributionsParCircuit, clustersParPilier, l
       ? Number((freqMax / totalActivations).toFixed(2))
       : 0;
 
-    // Cluster dominant du pilier (rang 1)
-    const clusters = clustersParPilier[pilier];
-    const clusterDom = clusters[0] || null;
-
-    let clusterDomCircuits = null;
-    let clusterDomCoOcc    = 0;
-    let clusterDomUnifiee  = false;
-    let clusterDomLecture  = null;
-
-    if (clusterDom) {
-      const idA = clusterDom.circuit_a.circuit_id || `ADHOC[${clusterDom.circuit_a.nom_ad_hoc}]`;
-      const idB = clusterDom.circuit_b.circuit_id || `ADHOC[${clusterDom.circuit_b.nom_ad_hoc}]`;
-      clusterDomCircuits = `${idA}+${idB}`;
-      clusterDomCoOcc    = clusterDom.nb_co_occurrences;
-
-      // Signature unifiée : tous les circuits HAUT du pilier sont dans CE cluster
-      const circuitsHautKeys = new Set(
-        circuits
-          .filter(({ entry }) => entry.activations.length >= SEUIL_HAUT)
-          .map(({ key }) => key)
-      );
-      const clusterKeys = new Set([
-        `${clusterDom.circuit_a.pilier}::${clusterDom.circuit_a.circuit_id || 'ADHOC::' + clusterDom.circuit_a.nom_ad_hoc}`,
-        `${clusterDom.circuit_b.pilier}::${clusterDom.circuit_b.circuit_id || 'ADHOC::' + clusterDom.circuit_b.nom_ad_hoc}`
-      ]);
-      // Unifiée si exactement les mêmes que les circuits HAUT
-      clusterDomUnifiee = (
-        circuitsHautKeys.size === clusterKeys.size &&
-        [...circuitsHautKeys].every(k => clusterKeys.has(k))
-      );
-
-      clusterDomLecture =
-        `Cluster ${idA}×${idB} (${clusterDom.nb_co_occurrences} co-occurrences sur ${clusterDom.questions.join(', ')}) — ` +
-        `${clusterDom.circuit_a.circuit_nom} couplé avec ${clusterDom.circuit_b.circuit_nom}.`;
-    }
-
     // Candidature socle (mécanique)
     const { score: socleScore, raison: socleRaison } = computeCandidatureSocle({
-      nbCircuitsHaut, totalActivations, scoreConcentration, clusterDom, clusterDomUnifiee
+      nbCircuitsHaut, totalActivations, scoreConcentration
     });
 
     // Candidature résistant (mécanique)
@@ -609,7 +493,6 @@ function computeSynthesesByPilier({ attributionsParCircuit, clustersParPilier, l
       nbCircuitsActifs,
       nbCircuitsHaut,
       scoreConcentration,
-      clusterDom,
       nbSignauxLimbiques: limbiques.length
     });
 
@@ -618,10 +501,6 @@ function computeSynthesesByPilier({ attributionsParCircuit, clustersParPilier, l
       score_concentration:                scoreConcentration,
       nb_circuits_actifs:                 nbCircuitsActifs,
       nb_circuits_haut:                   nbCircuitsHaut,
-      cluster_dominant_circuits:          clusterDomCircuits,
-      cluster_dominant_co_occurrences:    clusterDomCoOcc,
-      cluster_dominant_signature_unifiee: clusterDomUnifiee,
-      cluster_dominant_lecture:           clusterDomLecture,
       nb_signaux_limbiques:               limbiques.length,
       questions_avec_signaux_limbiques:   limbiques.map(l => l.id_question).join(', '),
       candidature_socle_score:            socleScore,
@@ -638,12 +517,12 @@ function computeSynthesesByPilier({ attributionsParCircuit, clustersParPilier, l
 /**
  * Calcule la candidature socle d'un pilier.
  * Critères doctrinaux (formule mécanique stabilisée) :
- *   FORTE   : >= 3 circuits HAUT ET (concentration >= 0.35 OU cluster unifié)
+ *   FORTE   : >= 3 circuits HAUT ET concentration >= 0.35
  *   MOYENNE : 2 circuits HAUT OU (1 HAUT + concentration >= 0.40)
  *   FAIBLE  : 1 circuit HAUT
  *   NULLE   : 0 circuit HAUT
  */
-function computeCandidatureSocle({ nbCircuitsHaut, totalActivations, scoreConcentration, clusterDom, clusterDomUnifiee }) {
+function computeCandidatureSocle({ nbCircuitsHaut, totalActivations, scoreConcentration }) {
   if (nbCircuitsHaut === 0) {
     return {
       score:  'NULLE',
@@ -659,13 +538,13 @@ function computeCandidatureSocle({ nbCircuitsHaut, totalActivations, scoreConcen
   if (nbCircuitsHaut === 2 || (nbCircuitsHaut >= 1 && scoreConcentration >= 0.40)) {
     return {
       score:  'MOYENNE',
-      raison: `${nbCircuitsHaut} circuits HAUT, concentration ${scoreConcentration}${clusterDom ? `, cluster dominant ${clusterDom.nb_co_occurrences} co-oc` : ''}.`
+      raison: `${nbCircuitsHaut} circuits HAUT, concentration ${scoreConcentration}.`
     };
   }
-  if (nbCircuitsHaut >= 3 && (scoreConcentration >= 0.35 || clusterDomUnifiee)) {
+  if (nbCircuitsHaut >= 3 && scoreConcentration >= 0.35) {
     return {
       score:  'FORTE',
-      raison: `${nbCircuitsHaut} circuits HAUT, concentration ${scoreConcentration}${clusterDomUnifiee ? ', signature unifiée' : ''}${clusterDom ? `, cluster dominant ${clusterDom.nb_co_occurrences} co-oc` : ''}.`
+      raison: `${nbCircuitsHaut} circuits HAUT, concentration ${scoreConcentration}.`
     };
   }
   return {
@@ -706,7 +585,7 @@ function computeCandidatureResistant({ nbSignauxLimbiques, questionsLimbiques, c
  */
 function buildAnalyseCommentee({
   pilier, circuits, totalActivations, nbCircuitsActifs, nbCircuitsHaut,
-  scoreConcentration, clusterDom, nbSignauxLimbiques
+  scoreConcentration, nbSignauxLimbiques
 }) {
   // Tri par fréquence descendante pour mettre en avant les circuits HAUT
   const sorted = [...circuits].sort((a, b) => b.entry.activations.length - a.entry.activations.length);
@@ -741,13 +620,6 @@ function buildAnalyseCommentee({
     parts.push(`Circuits HAUT : ${enumeration}.`);
   }
 
-  // Lecture du cluster dominant
-  if (clusterDom) {
-    const nomA = clusterDom.circuit_a.circuit_nom || `[ad hoc] ${clusterDom.circuit_a.nom_ad_hoc}`;
-    const nomB = clusterDom.circuit_b.circuit_nom || `[ad hoc] ${clusterDom.circuit_b.nom_ad_hoc}`;
-    parts.push(`Cluster dominant : ${nomA} × ${nomB} sur ${clusterDom.nb_co_occurrences} questions.`);
-  }
-
   // Signal limbique
   if (nbSignauxLimbiques >= 1) {
     parts.push(`${nbSignauxLimbiques} signal(aux) limbique(s) détecté(s) dans cet outil — possible signal de résistance.`);
@@ -762,7 +634,6 @@ function buildAnalyseCommentee({
 
 function buildEtape1T2Rows({
   attributionsParCircuit,
-  clustersParPilier,
   synthesesParPilier,
   candidat_id,
   session_id,
@@ -793,20 +664,6 @@ function buildEtape1T2Rows({
         inflexions: a.inflexions || []
       }));
 
-    // Clusters identifiés (côté de CE circuit) — JSON stringifié
-    const clustersOfThisCircuit = (clustersParPilier[pilier] || [])
-      .filter(c => c.circuit_a === entry || c.circuit_b === entry)
-      .map(c => {
-        const autre = c.circuit_a === entry ? c.circuit_b : c.circuit_a;
-        return {
-          circuit_partenaire: autre.circuit_id || `ADHOC[${autre.nom_ad_hoc}]`,
-          nb_co_occurrences:  c.nb_co_occurrences,
-          questions:          c.questions,
-          rang:               c.rang
-        };
-      })
-      .sort((a, b) => b.nb_co_occurrences - a.nb_co_occurrences);
-
     // id_question = liste des questions où ce circuit a été activé
     const idQuestions = [...new Set(entry.activations.map(a => a.id_question))].sort();
 
@@ -826,8 +683,7 @@ function buildEtape1T2Rows({
       circuit:        entry,
       frequence,
       nbFranches:     franches.length,
-      nbNuancees:     nuancees.length,
-      clusters:       clustersOfThisCircuit
+      nbNuancees:     nuancees.length
     });
 
     const circuit_id  = entry.circuit_id || (entry.nom_ad_hoc ? `ADHOC` : null);
@@ -857,17 +713,12 @@ function buildEtape1T2Rows({
       // Activations doctrinales (JSON stringifiés)
       activations_franches:  JSON.stringify(franches),
       activations_nuancees:  JSON.stringify(nuancees),
-      clusters_identifies:   JSON.stringify(clustersOfThisCircuit),
       commentaire_attribution: commentaire,
 
       // Synthèse par pilier (identique sur toutes les lignes du même pilier)
       nb_circuits_actifs_pilier:           String(synthese.nb_circuits_actifs),
       total_activations_pilier:            synthese.total_activations,
       score_concentration_pilier:          synthese.score_concentration,
-      cluster_dominant_circuits:           synthese.cluster_dominant_circuits,
-      cluster_dominant_co_occurrences:     synthese.cluster_dominant_co_occurrences,
-      cluster_dominant_signature_unifiee:  synthese.cluster_dominant_signature_unifiee,
-      cluster_dominant_lecture:            synthese.cluster_dominant_lecture,
       nb_signaux_limbiques_pilier:         synthese.nb_signaux_limbiques,
       questions_avec_signaux_limbiques_pilier: synthese.questions_avec_signaux_limbiques,
       candidature_socle_score:             synthese.candidature_socle_score,
@@ -928,27 +779,12 @@ function derivePositionNarrative(activation) {
 }
 
 /**
- * Construit le commentaire d'attribution (1-3 phrases factuelles).
+ * Construit le commentaire d'attribution (1-2 phrases factuelles).
  */
-function buildCommentaireAttribution({ circuit, frequence, nbFranches, nbNuancees, clusters }) {
+function buildCommentaireAttribution({ circuit, frequence, nbFranches, nbNuancees }) {
   const parts = [];
   parts.push(`Circuit activé ${frequence}× chez ce candidat (${nbFranches} franches / ${nbNuancees} nuancées).`);
-
-  if (clusters.length === 0) {
-    if (frequence >= SEUIL_HAUT) {
-      parts.push('Aucun cluster détecté au seuil protocole — circuit isolé en niveau HAUT.');
-    } else {
-      parts.push('Niveau MOYEN, pas de cluster détectable.');
-    }
-  } else {
-    const dom = clusters[0];
-    parts.push(`Cluster dominant avec ${dom.circuit_partenaire} (${dom.nb_co_occurrences} co-occurrences).`);
-    if (clusters.length > 1) {
-      const secondaires = clusters.slice(1).map(c => `${c.circuit_partenaire} (${c.nb_co_occurrences})`).join(', ');
-      parts.push(`Cluster(s) secondaire(s) : ${secondaires}.`);
-    }
-  }
-
+  parts.push(frequence >= SEUIL_HAUT ? 'Niveau HAUT.' : 'Niveau MOYEN.');
   return parts.join(' ');
 }
 
@@ -960,14 +796,6 @@ function extractLookup(value) {
   if (value === null || value === undefined) return null;
   if (Array.isArray(value)) return value.length > 0 ? String(value[0]) : null;
   return String(value);
-}
-
-function countClustersTotal(clustersParPilier) {
-  let total = 0;
-  for (const p of ['P1', 'P2', 'P3', 'P4', 'P5']) {
-    total += (clustersParPilier[p] || []).length;
-  }
-  return total;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -982,7 +810,6 @@ module.exports = {
     parseAllAttributions,
     parseAttributionBlocs,
     parseOneAttributionBloc,
-    detectClustersByPilier,
     computeSynthesesByPilier,
     computeCandidatureSocle,
     computeCandidatureResistant,
@@ -990,7 +817,6 @@ module.exports = {
     buildEtape1T2Rows,
     buildCircuitPersonnalise,
     buildCommentaireAttribution,
-    SEUIL_HAUT,
-    SEUIL_CLUSTER_COOCC
+    SEUIL_HAUT
   }
 };
