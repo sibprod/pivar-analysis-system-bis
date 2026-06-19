@@ -209,6 +209,16 @@ const MOTS_INTERDITS = ['impressionnant','impressionnante','remarquable','perfor
 const QUALITES_INTERDITES_MODE = ['analytique','rigoureux','rigoureuse','méthodique','organisé',
   'organisée','curieux','curieuse','créatif','créative','précis','précise','efficace','polyvalent'];
 const PROFONDEURS_VALIDES = ['effleuré','effectif','plein régime'];
+// Rattachement HAUT/MOYEN (assoupli 19/06) : liste FERMÉE de 3 formules autorisées (le pont vers le
+// référentiel reste garanti, mais sans fragilité d'une seule formule au mot près). L'agent doit en utiliser UNE.
+const FORMULES_RATTACHEMENT = [
+  'sont ce que le protocole nomme',
+  'correspondent à ce que le protocole nomme',
+  'relèvent de ce que le protocole nomme',
+];
+function aUneFormuleRattachement(txt) {
+  return FORMULES_RATTACHEMENT.some(f => txt.includes(f));
+}
 
 function valider(pa, entree) {
   const errors = [], warnings = [];
@@ -229,9 +239,9 @@ function valider(pa, entree) {
     const max_svc = Math.max(0, ...Object.values(ic.sortants || {}));
     const niveau  = ic.niveau || 'FAIBLE';
 
-    // T1 : "Vous + verbe" ou amorces autorisées
-    if (!expl.match(/^(Vous\s|Dans |Avant |Ponctuellement|À l'occasion|Il vous arrive|Ce geste ne s'active|Quand |En |Depuis )/i)) {
-      errors.push(`[${code}] n3_nuance ne commence pas par "Vous + verbe". Début : "${expl.slice(0,50)}"`);
+    // T1 : "Vous + verbe" ou amorces autorisées (assoupli 19/06 : + Dès que/Pendant que/Lorsque/Une fois/Chaque fois)
+    if (!expl.match(/^(Vous\s|Dès que vous |Pendant que vous |Lorsque |Lorsqu'|Une fois |Chaque fois |Dans |Avant |Ponctuellement|À l'occasion|Il vous arrive|Ce geste ne s'active|Quand |En |Depuis )/i)) {
+      errors.push(`[${code}] n3_nuance ne commence pas par "Vous + verbe" ou une amorce autorisée. Début : "${expl.slice(0,50)}"`);
     }
     // Guillemets interdits dans n3_nuance (v10, strict)
     if (/[«»]/.test(expl)) errors.push(`[${code}] n3_nuance contient des guillemets «» — paraphrase pure obligatoire`);
@@ -284,11 +294,11 @@ function valider(pa, entree) {
     const prefixe = n === 'HAUT' ? 'Bloc HAUT cœur' : n === 'MOYEN' ? 'Bloc MOYEN cœur' : 'Bloc FAIBLE';
     if (!tech.trim().startsWith(prefixe)) errors.push(`[Bloc ${n}] synth_technique doit commencer par "${prefixe}"`);
     if (n === 'FAIBLE' && /P[1-5]C\d{1,2}/i.test(cand)) errors.push(`[Bloc FAIBLE] synth_candidat contient un code circuit`);
-    if ((n === 'HAUT' || n === 'MOYEN') && rattach && !rattach.includes('sont ce que le protocole nomme')) {
-      errors.push(`[Bloc ${n}] rattachement doit contenir "sont ce que le protocole nomme"`);
+    if ((n === 'HAUT' || n === 'MOYEN') && rattach && !aUneFormuleRattachement(rattach)) {
+      errors.push(`[Bloc ${n}] rattachement doit contenir une formule autorisée (ex. "sont ce que le protocole nomme")`);
     }
-    if (n === 'FAIBLE' && rattach.includes('sont ce que le protocole nomme')) {
-      errors.push(`[Bloc FAIBLE] rattachement ne doit PAS contenir "sont ce que le protocole nomme"`);
+    if (n === 'FAIBLE' && aUneFormuleRattachement(rattach)) {
+      errors.push(`[Bloc FAIBLE] rattachement ne doit PAS contenir de formule de rattachement au protocole`);
     }
   }
 
@@ -309,7 +319,7 @@ function valider(pa, entree) {
   if (!intro) errors.push('intro_eclate vide');
   if (/\d/.test(intro)) errors.push('intro_eclate contient un chiffre');
   if (/P[1-5]C\d/i.test(intro)) errors.push('intro_eclate contient un code circuit');
-  if ((intro.match(/\S+/g) || []).length > 20) errors.push('intro_eclate > 20 mots');
+  if ((intro.match(/\S+/g) || []).length > 40) errors.push('intro_eclate > 40 mots');
 
   return { ok: errors.length === 0, errors, warnings };
 }
