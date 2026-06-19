@@ -23,7 +23,7 @@ const logger          = require('../../utils/logger');
 
 // ⭐ REFONTE 19/06 — les 2 nouveaux services remplacent É0 + É0b + P-A
 const PREPARATION = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_preparation');
-const REDACTION   = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_redaction_PA');
+const REDACTION   = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_redaction_PA');
 
 // Aval inchangé
 const PB = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_PB_filtre');
