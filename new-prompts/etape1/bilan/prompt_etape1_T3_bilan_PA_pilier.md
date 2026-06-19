@@ -247,7 +247,12 @@ T1 — Le geste en mots simples.
      1 phrase, verbe d'action concret, sujet "Vous".
      Le candidat doit se reconnaître immédiatement dans l'action décrite.
      JAMAIS le nom du circuit comme point de départ.
-     FORMAT IMPOSÉ : "Vous + verbe + complément." (jamais nominatif, jamais infinitif)
+     FORMAT IMPOSÉ : le geste se décrit avec "vous + verbe". La phrase peut commencer soit
+     directement par "Vous + verbe", soit par une courte amorce contextuelle suivie de "vous + verbe"
+     (ajusté 19/06). Amorces autorisées : "Dès que vous…", "Pendant que vous…", "Lorsque vous…",
+     "Une fois … , vous…", "Chaque fois que vous…", "Dans des situations …, vous…", "Avant de …, vous…",
+     "Quand …, vous…". JAMAIS de tournure nominative ("La priorisation signifie…") ni infinitive
+     ("Repartir de…"). Le candidat doit se reconnaître dans une ACTION qu'il fait, pas dans une définition.
 
      INTERDIT : "La priorisation hiérarchique signifie que…"
      INTERDIT : "Repartir de ce qui a été essayé pour construire autrement."
@@ -652,7 +657,11 @@ Son rôle : dire au candidat que le nom du circuit n'est qu'une étiquette.
 
 FORMAT DIFFÉRENT SELON LE NIVEAU — règle absolue :
 
-HAUT et MOYEN → "sont ce que le protocole nomme" :
+HAUT et MOYEN → une formule de rattachement au protocole (ajusté 19/06 : 3 formules autorisées) :
+Tu DOIS utiliser EXACTEMENT l'une de ces trois formules (pas de variante libre) :
+  • "sont ce que le protocole nomme"   ← formule par défaut, à privilégier
+  • "correspondent à ce que le protocole nomme"
+  • "relèvent de ce que le protocole nomme"
 "Ces manières de faire — [verbes extraits des explication_courte, sans "Vous"] — sont ce que le
 protocole nomme : « Nom officiel » (PxCy) pour [geste court], « Nom » (PxCy) pour [geste court]…
 Le nom de chaque circuit n'est que l'étiquette du geste que vos réponses montrent."
@@ -810,7 +819,7 @@ CHAMP 10 — intro_eclate (positionnement dans le schéma ch.IV)
 Champ Airtable : fldomziXNOGf7Ujsb — T3_PILIER
 ═══════════════════════════════════════════════════════════════════════
 
-Une seule phrase. Sans chiffre. Sans code circuit. ≤ 20 mots. (Δ6)
+Une seule phrase. Sans chiffre. Sans code circuit. ≤ 40 mots — viser le plus court possible (Δ6, ajusté 19/06).
 
 GABARITS SELON LE RÔLE :
 
@@ -844,7 +853,9 @@ Rémi P3 (fonctionnel) :
 "Disponible, votre Analyse et diagnostic s'active sous contrainte : quand votre Création de solutions
 a besoin d'un arbitrage ou d'une vérification, vous analysez — jamais spontanément."
 
-ERREUR INTERDITE : dépasser 20 mots / inclure un chiffre / inclure un code circuit.
+ERREUR INTERDITE : dépasser 40 mots / inclure un chiffre / inclure un code circuit.
+REPÈRE DE LONGUEUR : les exemples Cécile ci-dessus (~18-22 mots) sont la cible idéale. L'exemple Rémi
+(~30 mots) est le MAXIMUM acceptable. Ne JAMAIS aller au-delà — une intro courte est toujours préférable.
 
 ═══════════════════════════════════════════════════════════════════════
 CHAMP 11 — ou_outil_revient (lecture verticale des totaux instrumentaux)
