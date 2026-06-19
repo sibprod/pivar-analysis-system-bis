@@ -483,7 +483,8 @@ module.exports = {
     en_svc_P4:           'fldJ76jeasA2KVmdY',
     en_svc_P5:           'fldqMhYYHMy7b2s1n',
     total_activations:   'fldnFNJm6GP0mAGNm',
-
+    profondeur:          'fldrtUgnSVYlsCgq6',   // ⭐ 19/06 — single select effleuré/effectif/plein régime (écrit par l'agent PA)
+    
     // ───────── ⭐ FABLE (13/06/2026) — champs rédactionnels chaîne bilan ─────────
     explication_courte_ch4: 'fld3zZ8SteMWedetW',
     en_renfort:             'fldixMQDcsD7cCyd3',
