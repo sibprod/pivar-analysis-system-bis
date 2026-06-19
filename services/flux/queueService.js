@@ -75,9 +75,9 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'ETAPE2_1REPONSE4DIMENSIONS',
   'ETAPE2_2EXCELLENCE',
   'REPRENDRE_EXCELLENCES',
-  // ⭐ v12.1 — Étape 1.3 : bilan « Fable » (déclencheurs uniquement).
-  //   PAS BILAN_FABLE_PA_OK (pause validation des modes) ni BILAN_FABLE_TERMINE (terminal).
-  'REPRENDRE_BILAN_FABLE',
+  // ⭐ v12.1 — Étape 1.3 : bilan « BILAN » (déclencheurs uniquement).
+  //   PAS BILAN_PA_OK (pause validation des modes) ni BILAN_TERMINE (terminal).
+  'REPRENDRE_BILAN',
   'REPRENDRE_BILAN_PA',
   'REPRENDRE_BILAN_PB',
   'REPRENDRE_BILAN_PC',
