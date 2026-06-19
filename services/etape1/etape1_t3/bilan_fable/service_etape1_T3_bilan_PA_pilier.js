@@ -38,10 +38,22 @@ const logger          = require('../../../../utils/logger');
 const F_PIL = airtableConfig.ETAPE1_T3_PILIER_FIELDS;
 const F_CIR = airtableConfig.ETAPE1_T3_CIRCUIT_FIELDS;
 
-// Le prompt v10 (système rédactionnel de l'agent). Chemin à ajuster au déploiement.
+// Le prompt v10 (système rédactionnel de l'agent). Chemin ajustable par variable d'env.
+// Lecture DIFFÉRÉE (au 1er appel, pas au chargement) : si le fichier manque, le serveur ne
+// crashe pas au démarrage — l'erreur n'apparaît qu'au lancement d'un bilan, avec un message clair.
 const PROMPT_PATH = process.env.PROMPT_PA_PATH
   || path.join(__dirname, '../../../../new-prompts/etape1/bilan/prompt_etape1_T3_bilan_PA_pilier.md');
-const PROMPT = fs.readFileSync(PROMPT_PATH, 'utf8');
+
+let _promptCache = null;
+function chargerPrompt() {
+  if (_promptCache !== null) return _promptCache;
+  try {
+    _promptCache = fs.readFileSync(PROMPT_PATH, 'utf8');
+  } catch (e) {
+    throw new Error(`Prompt PA introuvable au chemin : ${PROMPT_PATH} — vérifier le fichier ou définir PROMPT_PA_PATH. (${e.message})`);
+  }
+  return _promptCache;
+}
 
 const REF = {
   PILIERS:  airtableConfig.TABLES.REFERENTIEL_PILIERS  || 'tblf4OodQ2Qi5xSXs',
@@ -160,10 +172,18 @@ async function appellerClaude(entree, opts = {}) {
   if (!apiKey) throw new Error('CLAUDE_API_KEY / ANTHROPIC_API_KEY manquante');
   const client = new Anthropic({ apiKey });
 
+  // ⭐ OPTIMISATION 19/06 — CACHE DE PROMPT.
+  // Le prompt v10 (~20k tokens) est identique à chaque pilier. On le marque cache_control
+  // ephemeral pour qu'il ne soit facturé/encodé qu'une fois, puis relu à prix réduit sur les
+  // 4 piliers suivants (les 5 appels s'enchaînent dans la fenêtre de cache de 5 min).
+  // Syntaxe vérifiée sur la doc Anthropic : system = tableau de blocs, cache_control sur le bloc.
+  // ⚠️ Le prompt DOIT rester figé (aucune date/variable interpolée) sinon le cache est invalidé.
   const stream = await client.messages.stream({
     model:      'claude-sonnet-4-6',
     max_tokens: opts.max_tokens || 16000,
-    system:     PROMPT,
+    system: [
+      { type: 'text', text: chargerPrompt(), cache_control: { type: 'ephemeral' } }
+    ],
     messages:   [{ role: 'user', content: JSON.stringify(entree, null, 2) }],
   });
   const response = await stream.finalMessage();
@@ -339,8 +359,8 @@ async function ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts) {
       [F_CIR.explication_courte_ch4]: c.explication_courte || '',
       [F_CIR.en_renfort]:             c.en_renfort || '',
     };
-    if (c.n2_verbatims) fc[F_CIR.n2_verbatims] = c.n2_verbatims;
-    if (c.soleil_micro) fc[F_CIR.soleil_micro] = c.soleil_micro;
+    if (c.n2_verbatims && F_CIR.n2_verbatims) fc[F_CIR.n2_verbatims] = c.n2_verbatims;
+    if (c.soleil_micro && F_CIR.soleil_micro) fc[F_CIR.soleil_micro] = c.soleil_micro;
     // v10 — profondeur écrite par l'agent (le lookup la recopiera vers POURBILAN)
     if (c.profondeur && F_CIR.profondeur) fc[F_CIR.profondeur] = c.profondeur;
 
@@ -362,7 +382,7 @@ async function ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts) {
 // Repli si airtableService n'expose pas updateRecordById : update direct via SDK.
 async function updateViaSDK(tableId, recId, fields) {
   const Airtable = require('airtable');
-  const token = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
+  const token = airtableConfig.TOKEN || process.env.AIRTABLE_TOKEN;
   const base  = new Airtable({ apiKey: token }).base(airtableConfig.BASE_ID || 'appgghhXjYBdFRras');
   return new Promise((resolve, reject) => {
     base(tableId).update(recId, fields, { typecast: true }, (err, rec) => err ? reject(err) : resolve(rec));
@@ -430,8 +450,32 @@ async function redigerBilan(prep, opts = {}) {
     .map(code => prep.piliers.find(p => p.pilier_code === code))
     .filter(Boolean);
 
+  // ⭐ OPTIMISATION 19/06 — REPRISE SANS REPAYER.
+  // Si un bilan a planté en cours de route, les piliers déjà rédigés sont écrits en base
+  // (leur vue d'ensemble = champ synth_interpretee est remplie). À la relance, on les SAUTE :
+  // on ne renvoie à l'agent que les piliers dont la vue d'ensemble est encore vide.
+  // opts.force = true rejoue tout (utile pour régénérer un bilan volontairement).
+  let dejaFaits = new Set();
+  if (!opts.force) {
+    try {
+      const t3piliers = await airtableService.getEtape1T3Piliers(prep.candidat_id);
+      for (const p of (t3piliers || [])) {
+        const code = (typeof p.pilier === 'object' ? p.pilier?.name : p.pilier);
+        const vue  = p.synth_interpretee;
+        if (code && vue && String(vue).trim().length > 0) dejaFaits.add(code);
+      }
+    } catch (e) {
+      logger.warn('Rédaction PA — lecture état T3_PILIER impossible (on traite tout)', { error: e.message });
+    }
+  }
+
   const resultats = [];
   for (const pilier of piliersAFaire) {
+    if (dejaFaits.has(pilier.pilier_code)) {
+      logger.info(`Rédaction PA — ${pilier.pilier_code} déjà rédigé, sauté (pas de réappel agent)`, { candidat_id: prep.candidat_id });
+      resultats.push({ pilier_code: pilier.pilier_code, saute: true, mode_statut: 'DEJA_FAIT' });
+      continue;
+    }
     try {
       const res = await redigerPilier(prep, pilier, refs, opts);
       resultats.push(res);
@@ -440,7 +484,11 @@ async function redigerBilan(prep, opts = {}) {
       if (opts.strict) throw err;
     }
   }
-  logger.info('Rédaction PA — terminée', { candidat_id: prep.candidat_id, nb: resultats.length });
+  logger.info('Rédaction PA — terminée', {
+    candidat_id: prep.candidat_id,
+    nb_traites: resultats.filter(r => !r.saute).length,
+    nb_sautes:  resultats.filter(r => r.saute).length
+  });
   return resultats;
 }
 
