@@ -147,7 +147,7 @@ const FT2 = {
 
 async function lireVerbatims(candidat_id) {
   const Airtable = require('airtable');
-  const token = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
+  const token = airtableConfig.TOKEN || process.env.AIRTABLE_TOKEN;
   const base  = new Airtable({ apiKey: token }).base(airtableConfig.BASE_ID || 'appgghhXjYBdFRras');
 
   const recs = await new Promise((resolve, reject) => {
