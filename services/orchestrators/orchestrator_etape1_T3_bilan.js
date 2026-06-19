@@ -3,10 +3,17 @@
 //
 // CTO 17/06/2026 — CORRECTIONS :
 //   A31 : méthodes fantômes remplacées par exports réels
-//         E0 → buildContexteE0({ candidat_id })
-//         PA → lancerAgentPA(candidat_id, opts)
-//         PB/PC/PD → run({ candidat_id })
 //   R1  : civilite lue depuis VISITEUR — prenom jamais transmis aux agents LLM
+//
+// ⭐ REFONTE 19/06/2026 — SIMPLIFICATION DE LA PRÉPARATION DU BILAN :
+//   L'ancienne « usine à gaz » É0 (extraction) + É0b (initialisation) + P-A est remplacée par :
+//     - PREPARATION : service_etape1_T3_preparation.preparerT3({candidat_id})
+//       → lit la table figée CIRCUITS_POURBILAN (aucun recalcul) + crée les coquilles T3
+//     - REDACTION   : service_etape1_T3_redaction_PA.redigerBilan(prep, opts)
+//       → reçoit la structure préparée, appelle l'agent (prompt v10), valide, écrit T3
+//   PB / PC / PD (aval) : INCHANGÉS.
+//   Anciens fichiers É0 / É0b / P-A v9 : conservés dans le dépôt jusqu'à validation du test
+//   réel, puis archivés (old/). NE PAS supprimer avant test concluant.
 
 'use strict';
 
@@ -14,9 +21,11 @@ const airtableService = require('../infrastructure/airtableService');
 const backupService   = require('../infrastructure/backupService');
 const logger          = require('../../utils/logger');
 
-const E0  = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_E0_extraction');
-const E0b = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_E0b_initialisation');
-const PA = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_PA_pilier');
+// ⭐ REFONTE 19/06 — les 2 nouveaux services remplacent É0 + É0b + P-A
+const PREPARATION = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_preparation');
+const REDACTION   = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_redaction_PA');
+
+// Aval inchangé
 const PB = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_PB_filtre');
 const PC = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_PC_boucles');
 const PD = require('../etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_PD_marqueurs');
@@ -43,13 +52,16 @@ async function _setStatut(candidat_id, statut) {
   logger.info('Bilan Fable — statut posé', { candidat_id, statut });
 }
 
-async function _phaseE0etPA(candidat_id, civilite) {
-  // É0 — lecture des sources → payload
-  const { piliers } = await E0.buildContexteE0({ candidat_id });
-  // É0b — création des records T3_BILAN + T3_PILIER + T3_CIRCUIT
-  await E0b.initialiserT3(candidat_id, piliers);
-  // P-A — rédaction et écriture dans les records créés par É0b
-  const resultats = await PA.lancerAgentPA(candidat_id, { civilite, write_mode: true });
+// ⭐ REFONTE 19/06 — préparation (lecture figée + coquilles) puis rédaction (agent v10)
+async function _phasePreparationEtRedaction(candidat_id, civilite) {
+  // PRÉPARATION — lit CIRCUITS_POURBILAN (aucun recalcul) + crée les coquilles T3.
+  // Remplace É0.buildContexteE0 + É0b.initialiserT3.
+  const prep = await PREPARATION.preparerT3({ candidat_id });
+
+  // RÉDACTION — reçoit la structure préparée, appelle l'agent (prompt v10), valide, écrit T3.
+  // Remplace PA.lancerAgentPA. La structure est passée EN MÉMOIRE (pas de relecture).
+  const resultats = await REDACTION.redigerBilan(prep, { civilite, write_mode: true });
+
   const tousValides = (resultats || []).every(r => r.mode_statut !== 'PROPOSITION');
   return { tousValides };
 }
@@ -78,7 +90,7 @@ async function executerBilanFable({
   switch (statut) {
 
     case 'REPRENDRE_BILAN_FABLE': {
-      const { tousValides } = await _phaseE0etPA(candidat_id, civilite);
+      const { tousValides } = await _phasePreparationEtRedaction(candidat_id, civilite);
       if (MODE_VALIDATION_REQUISE && !tousValides) {
         statut_sortie = STATUT_PA_OK;
         break;
@@ -90,7 +102,7 @@ async function executerBilanFable({
     }
 
     case 'REPRENDRE_BILAN_PA': {
-      await _phaseE0etPA(candidat_id, civilite);
+      await _phasePreparationEtRedaction(candidat_id, civilite);
       statut_sortie = STATUT_PA_OK;
       break;
     }
