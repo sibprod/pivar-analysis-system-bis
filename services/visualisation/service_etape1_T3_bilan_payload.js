@@ -396,6 +396,38 @@ async function buildPayload(candidat_id) {
   const prenom   = safeStr(visiteur?.prenom   || bilan.prenom);
   const nom      = safeStr(visiteur?.nom      || bilan.nom);
 
+  // ── tableau_json : données du tableau par pilier, format compact lu par le
+  //    script de rendu du gabarit (clé = code pilier, valeur = liste de rows). ──
+  // Format row circuit : {kind:'circuit', adhoc, code, nom, cap, nivC, nivA, coeur, i:[p1..p5], total}
+  //        sous_total  : {kind:'soustotal', label, coeur, total, i:[...]}
+  //        total_pilier: {kind:'totalpil',  label, coeur, total, i:[...]}
+  const instruArr = (instru) => PILIERS.map(P => {
+    const cell = (instru || []).find(c => c.pilier === P);
+    const v = cell ? parseInt(cell.val, 10) : 0;
+    return Number.isFinite(v) ? v : 0;
+  });
+  const tableauJsonObj = {};
+  for (const s of sections) {
+    const code = s.pilier || s.code;
+    const rowsOut = [];
+    for (const tr of (s.rows || [])) {
+      if (tr.kind === 'circuit') {
+        rowsOut.push({
+          kind: 'circuit', adhoc: !!tr.adhoc, code: tr.code, nom: tr.nom,
+          cap: tr.capacite, nivC: tr.niveau_coeur, nivA: tr.niveau_amplitude,
+          coeur: tr.coeur_num || 0, i: instruArr(tr.instru), total: parseInt(tr.total_aff, 10) || 0,
+        });
+      } else if (tr.kind === 'sous_total') {
+        rowsOut.push({ kind: 'soustotal', label: tr.label,
+          coeur: parseInt(tr.coeur_aff, 10) || 0, total: parseInt(tr.total_aff, 10) || 0, i: instruArr(tr.instru) });
+      } else if (tr.kind === 'total_pilier') {
+        rowsOut.push({ kind: 'totalpil', label: tr.label,
+          coeur: parseInt(tr.coeur_aff, 10) || 0, total: parseInt(tr.total_aff, 10) || 0, i: instruArr(tr.instru) });
+      }
+    }
+    if (code) tableauJsonObj[code] = rowsOut;
+  }
+
   const ctx = {
     candidat: {
       titre_affichage: `${civilite} ${prenom}`.trim(),
@@ -409,6 +441,8 @@ async function buildPayload(candidat_id) {
     tableau: { rows: tableauRows },
     // Sections pilier (ordre doctrinal) — chacune avec son sous-tableau + cartes
     sections: sections,
+    // JSON des tableaux par pilier, injecté tel quel dans <script id="sections-data">
+    tableau_json: JSON.stringify(tableauJsonObj),
     // Communs (masqués si vides)
     ch2: { present: ch2maillons.length > 0, maillons: ch2maillons },
     ch3: {
