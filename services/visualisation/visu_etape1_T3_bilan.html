@@ -1519,7 +1519,7 @@ fois : ce sera <strong>votre boîte à vous</strong>.
   <div class="ph-mode"><span class="ph-mlbl">Mode retenu</span><span class="ph-mval">{{mode}}</span></div>
 </div>
 <div style="background:#f9fafb;border:1px solid var(--rl);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:11.5px;color:#374151;line-height:1.6;"><strong>Comment lire ce tableau</strong> — tous les chiffres sont des <strong>occurrences</strong>, c'est-à-dire le nombre de fois où le circuit a été activé.<span style="display:block;margin-top:5px;">· <strong>Circuits</strong> : ce que vous faites avec l'outil (une façon de vous en servir).</span><span style="display:block;">· <strong>Capacité</strong> : la nature du geste (simple, sophistiquée, intégrative…).</span><span style="display:block;">· <strong>Niveau d'activation</strong> : HAUT (4 fois ou plus) · MOYEN (2-3) · FAIBLE (1).</span><span style="display:block;">· <strong>Amplitude</strong> : portée totale du geste (cœur + instrumental).</span><span style="display:block;">· <strong>Profondeur</strong> : intensité d'engagement (effleuré · effectif · plein régime).</span><span style="display:block;">· <strong>Pilier instrumental P1 … P5</strong> : le nombre de fois où ce circuit a été activé au service d'un autre outil.</span><span style="display:block;">· <strong>Total occurrences</strong> : le total, tous piliers confondus.</span><span style="display:block;margin-top:5px;color:#9ca3af;">La colonne <strong>grisée</strong> est celle de cet outil lui-même.</span></div>
-<table class="circuits-table"><thead><tr><th>Circuit</th><th class="cap-col">Capacité</th><th class="num">Niveau cœur</th><th class="num">Amplitude</th><th class="num">Profondeur</th><th class="num">Activation cœur</th><th class="num">P. instr. P1</th><th class="num">P. instr. P2</th><th class="num">P. instr. P3</th><th class="num">P. instr. P4</th><th class="num">P. instr. P5</th><th class="num">Total occ.</th></tr></thead><tbody>
+<table class="circuits-table" data-pilier="{{pilier}}"><thead><tr><th>Circuit</th><th class="cap-col">Capacité</th><th class="num">Niveau cœur</th><th class="num">Amplitude</th><th class="num">Profondeur</th><th class="num">Activation cœur</th><th class="num">P. instr. P1</th><th class="num">P. instr. P2</th><th class="num">P. instr. P3</th><th class="num">P. instr. P4</th><th class="num">P. instr. P5</th><th class="num">Total occ.</th></tr></thead><tbody class="circuits-tbody">
 {{#each rows}}
 {{#if kind_circuit}}<tr class="{{adhoc_class}}"><td class="nom-c">{{#if adhoc}}<span class="badge-adhoc">AD HOC</span>{{/if}}<strong style="font-family:var(--mono);">{{code}}</strong> — {{nom}}</td><td class="cap-col">{{capacite}}</td><td class="num-c {{niv_coeur_class}}"><span class="niveau-badge nb-{{niv_coeur_class}}">{{niveau_coeur}}</span></td><td class="num-c"><span class="niveau-badge nb-{{niv_ampl_class}}">{{niveau_amplitude}}</span></td><td class="num-c prof-cell">{{#if a_profondeur}}{{profondeur}}{{else}}<span style="color:#ccc;">—</span>{{/if}}</td><td class="num-c {{niv_coeur_class}}"><strong>{{coeur_aff}}</strong></td>{{#each instru}}<td class="num-c {{na_class}}">{{val}}</td>{{/each}}<td class="num-c"><strong>{{total_aff}}</strong></td></tr>{{/if}}
 {{#if kind_sous_total}}<tr style="background:#fbfbfb;"><td class="nom-c" style="text-align:right;font-style:italic;color:var(--muted);font-size:11px;" colspan="2">{{label}} &nbsp;▸</td><td class="num-c" style="color:var(--muted);">—</td><td class="num-c">—</td><td class="num-c">—</td><td class="num-c" style="font-weight:700;border-top:1px dashed var(--rl);">{{coeur_aff}}</td>{{#each instru}}<td class="num-c" style="font-weight:700;border-top:1px dashed var(--rl);">{{val}}</td>{{/each}}<td class="num-c" style="font-weight:700;border-top:1px dashed var(--rl);">{{total_aff}}</td></tr>{{/if}}
@@ -1611,4 +1611,48 @@ fois : ce sera <strong>votre boîte à vous</strong>.
 {{ref.p5.nom}} (P5, aval) · mode : {{p5.mode}}</div>
 <div class="sg-r"><strong>VOTRE FILTRE</strong> — « {{bilan.filtre}} »</div></div></div>
 </div>
+
+<script id="sections-data" type="application/json">{{tableau_json}}</script>
+<script>
+(function(){
+  var PIL_C={P1:'#185FA5',P2:'#534AB7',P3:'#993C1D',P4:'#0F6E56',P5:'#993556'};
+  var PIL_BG={P1:'#E6F1FB',P2:'#EEEDFE',P3:'#FAECE7',P4:'#E1F5EE',P5:'#FBEAF0'};
+  var PILIERS=['P1','P2','P3','P4','P5'];
+  function esc(s){if(s==null)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function nivCls(n){n=(n||'').toUpperCase();return {HAUT:'haut',MOYEN:'moyen',FAIBLE:'faible',EN_SOUTIEN:'soutien'}[n]||'';}
+  function nivLab(n){n=(n||'').toUpperCase();return n==='EN_SOUTIEN'?'EN SOUTIEN':(n||'—');}
+  function chip(n){var c=nivCls(n);return c?'<span class="niveau-badge nb-'+c+'">'+nivLab(n)+'</span>':'<span style="color:#bbb;">—</span>';}
+  function svc(v,na){if(na)return '<td class="num-c" style="background:#f0f0f0;color:#bbb;">—</td>';return v>0?'<td class="num-c">'+v+'</td>':'<td class="num-c" style="color:#ccc;">·</td>';}
+  var data;
+  try{ data=JSON.parse(document.getElementById('sections-data').textContent); }catch(e){ return; }
+  var tables=document.querySelectorAll('table.circuits-table');
+  tables.forEach(function(tbl){
+    var p=tbl.getAttribute('data-pilier'); if(!p||!data[p])return;
+    var tb=tbl.querySelector('tbody.circuits-tbody'); if(!tb)return;
+    if(tb.querySelector('tr'))return; // déjà rempli par le serveur, on ne touche pas
+    var pc=PIL_C[p], bg=PIL_BG[p], html='';
+    data[p].forEach(function(r){
+      if(r.kind==='circuit'){
+        var badge=r.adhoc?'<span class="badge-adhoc">AD HOC</span> ':'';
+        var cells='';for(var k=0;k<5;k++){cells+=svc(r.i[k], PILIERS[k]===p);}
+        html+='<tr><td class="nom-c">'+badge+'<strong style="font-family:var(--mono);color:'+pc+';">'+esc(r.code)+'</strong> — '+esc(r.nom)+'</td>'+
+          '<td class="cap-col">'+esc(r.cap)+'</td>'+
+          '<td class="num-c">'+chip(r.nivC)+'</td>'+
+          '<td class="num-c">'+chip(r.nivA)+'</td>'+
+          '<td class="num-c"><span style="color:#ccc;">—</span></td>'+
+          '<td class="num-c" style="background:'+bg+';color:'+pc+';font-weight:700;">'+(r.coeur>0?r.coeur:'·')+'</td>'+
+          cells+'<td class="num-c"><strong>'+r.total+'</strong></td></tr>';
+      } else if(r.kind==='soustotal'){
+        var cells='';for(var k=0;k<5;k++){cells+='<td class="num-c" style="font-weight:600;border-top:1px dashed var(--rl);">'+(r.i[k]>0?r.i[k]:'')+'</td>';}
+        html+='<tr style="background:#fbfbfb;"><td class="nom-c" colspan="2" style="text-align:right;font-style:italic;color:var(--muted);font-size:11px;">'+esc(r.label)+' ▸</td><td></td><td></td><td></td><td class="num-c" style="font-weight:600;border-top:1px dashed var(--rl);">'+(r.coeur||'')+'</td>'+cells+'<td class="num-c" style="font-weight:600;border-top:1px dashed var(--rl);">'+r.total+'</td></tr>';
+      } else if(r.kind==='totalpil'){
+        var cells='';for(var k=0;k<5;k++){cells+='<td class="num-c" style="font-weight:700;border-top:2px solid var(--ink);">'+(r.i[k]>0?r.i[k]:'')+'</td>';}
+        html+='<tr style="background:#ececec;"><td class="nom-c" colspan="2" style="text-align:right;font-weight:700;">'+esc(r.label)+' ▸</td><td></td><td></td><td></td><td class="num-c" style="font-weight:700;border-top:2px solid var(--ink);">'+r.coeur+'</td>'+cells+'<td class="num-c" style="font-weight:700;border-top:2px solid var(--ink);">'+r.total+'</td></tr>';
+      }
+    });
+    tb.innerHTML=html;
+  });
+})();
+</script>
+
 </body></html>
