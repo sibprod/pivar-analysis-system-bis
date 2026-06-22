@@ -462,145 +462,138 @@ function renderTotalGeneralRow(row) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TRI PAR TOTAL OCCURRENCES (22/06/2026)
+// REGROUPEMENT PAR TOTAL OCCURRENCES (22/06/2026)
 // ───────────────────────────────────────────────────────────────────────────
-// Seule modification par rapport à la version d'origine : on réordonne les
-// lignes reçues avant de les afficher, pour que le classement se fasse par
-// TOTAL occurrences (et non plus par cœur).
-//   • Ordre des piliers : inchangé (par rôle socle→amont→aval→fonctionnel).
-//   • À l'intérieur d'un pilier : les blocs sont ordonnés du total le plus
-//     fort au plus faible, les circuits triés par total décroissant, et chaque
-//     SOUS_TOTAL reste collé à la fin de son bloc.
-//   • TOTAL_PILIER en bas de chaque pilier, TOTAL_GENERAL tout à la fin.
-// Aucune valeur n'est recalculée : on ne change que l'ordre d'affichage.
+// Les circuits sont regroupés en TROIS blocs définis par le TOTAL occurrences :
+//     HAUT   : total ≥ 8
+//     MOYEN  : total 4 à 7
+//     FAIBLE : total 1 à 3
+// Chaque circuit est rangé dans le bloc correspondant à SON total. Pour chaque
+// bloc, un SOUS-TOTAL est recalculé sur TOUTES les colonnes (cœur, svc P1..P5,
+// total) à partir des circuits qu'il contient — les lignes SOUS_TOTAL de la
+// table figée (calculées sur le cœur) ne sont donc plus utilisées.
+//   • Ordre des piliers : par rôle (socle→amont→aval→fonctionnel), repli P1..P5.
+//   • Dans un pilier : blocs HAUT→MOYEN→FAIBLE ; circuits par total décroissant.
+//   • TOTAL_PILIER et TOTAL_GENERAL : repris tels quels de la table figée.
 // ═══════════════════════════════════════════════════════════════════════════
-function trierParTotal(rows) {
-  const num = (v) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  };
-  const ROLE_ORDRE = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
-  const BLOC_ORDRE = {
-    'très souvent (4+)': 0,
-    'régulièrement (2-3)': 1,
-    'de temps en temps (1)': 2,
-    "au service d'un autre outil": 3
-  };
 
-  // Ordre des piliers : rôle d'abord (fiable, présent partout), repli P1..P5.
-  const infoPilier = {};
-  for (const r of rows) {
-    const po = fval(r.pilier_owner);
-    if (!po) continue;
-    if (!(po in infoPilier)) infoPilier[po] = { role: fval(r.role_pilier) || null };
-    else if (!infoPilier[po].role && fval(r.role_pilier)) infoPilier[po].role = fval(r.role_pilier);
+// Bloc d'un circuit selon son total occurrences.
+const BLOCS_TOTAL = [
+  { id: 'HAUT',   libelle: 'très souvent (8+)',    min: 8,  max: Infinity },
+  { id: 'MOYEN',  libelle: 'régulièrement (4-7)',  min: 4,  max: 7 },
+  { id: 'FAIBLE', libelle: 'de temps en temps (1-3)', min: 1, max: 3 }
+];
+function blocDuTotal(total) {
+  for (const b of BLOCS_TOTAL) { if (total >= b.min && total <= b.max) return b; }
+  return BLOCS_TOTAL[BLOCS_TOTAL.length - 1]; // total 0 → rattaché à FAIBLE (cas limite)
+}
+
+// Sous-total recalculé d'un bloc (somme sur toutes les colonnes des circuits).
+function renderSousTotalCalcule(libelle, circuits) {
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  let coeur = 0, total = 0;
+  const instru = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
+  for (const c of circuits) {
+    coeur += num(c.activation_coeur);
+    total += num(c.total_occurrences);
+    for (const P of PILIERS) instru[P] += num(c['instru_' + P]);
   }
-  const posPilier = {};
-  Object.keys(infoPilier)
-    .sort((a, b) => {
-      const ra = (infoPilier[a].role in ROLE_ORDRE) ? ROLE_ORDRE[infoPilier[a].role] : 50;
-      const rb = (infoPilier[b].role in ROLE_ORDRE) ? ROLE_ORDRE[infoPilier[b].role] : 50;
-      if (ra !== rb) return ra - rb;
-      return PILIERS.indexOf(a) - PILIERS.indexOf(b);
-    })
-    .forEach((po, i) => { posPilier[po] = i; });
-
-  // Ordre d'un bloc d'origine (pour départager à total égal).
-  const ordreBlocOf = (r) => {
-    const n = Number(r.ordre_bloc);
-    if (Number.isFinite(n)) return n;
-    const lib = fval(r.bloc);
-    return (lib in BLOC_ORDRE) ? BLOC_ORDRE[lib] : 9;
-  };
-
-  // Total de chaque bloc : depuis le SOUS_TOTAL si présent, sinon somme des circuits.
-  const blocKey = (r) => fval(r.pilier_owner) + '#' + ordreBlocOf(r);
-  const totalSousTotal = {};
-  const sommeCircuits = {};
-  for (const r of rows) {
-    const t = fval(r.type_ligne);
-    if (t !== 'CIRCUIT' && t !== 'SOUS_TOTAL') continue;
-    const k = blocKey(r);
-    if (t === 'SOUS_TOTAL') totalSousTotal[k] = num(r.total_occurrences);
-    else sommeCircuits[k] = (sommeCircuits[k] || 0) + num(r.total_occurrences);
-  }
-  const totalBlocOf = (r) => {
-    const k = blocKey(r);
-    return (k in totalSousTotal) ? totalSousTotal[k] : (sommeCircuits[k] || 0);
-  };
-
-  const enriched = rows.map((row, idx) => {
-    const t = fval(row.type_ligne);
-    const po = fval(row.pilier_owner);
-    return {
-      row, idx,
-      isTG: t === 'TOTAL_GENERAL',
-      pilierPos: (po in posPilier) ? posPilier[po] : 99,
-      phase: (t === 'TOTAL_PILIER') ? 1 : 0,        // corps avant total pilier
-      blocRang: -totalBlocOf(row),                   // bloc au plus gros total d'abord
-      blocTie: ordreBlocOf(row),                     // tie-break déterministe
-      sousPhase: (t === 'SOUS_TOTAL') ? 1 : 0,       // circuits avant sous-total
-      circRang: (t === 'SOUS_TOTAL') ? 1e9 : -num(row.total_occurrences) // total décroissant
-    };
-  });
-
-  enriched.sort((a, b) => {
-    if (a.isTG !== b.isTG) return a.isTG ? 1 : -1;
-    if (a.isTG && b.isTG) return a.idx - b.idx;
-    if (a.pilierPos !== b.pilierPos) return a.pilierPos - b.pilierPos;
-    if (a.phase !== b.phase) return a.phase - b.phase;
-    if (a.phase === 0) {
-      if (a.blocRang !== b.blocRang) return a.blocRang - b.blocRang;
-      if (a.blocTie !== b.blocTie) return a.blocTie - b.blocTie;
-      if (a.sousPhase !== b.sousPhase) return a.sousPhase - b.sousPhase;
-      if (a.circRang !== b.circRang) return a.circRang - b.circRang;
-    }
-    return a.idx - b.idx;
-  });
-
-  return enriched.map(e => e.row);
+  const instruCells = PILIERS.map(P => `<td class="num">${instru[P] > 0 ? instru[P] : ''}</td>`).join('');
+  return `<tr class="sous-total">
+    <td class="circuit-label" colspan="2">Sous-total — bloc « ${escapeHtml(libelle)} »</td>
+    <td class="niv-col"></td><td class="niv-col"></td><td class="prof-col"></td>
+    <td class="num">${coeur || ''}</td>
+    ${instruCells}
+    <td class="num total-col">${total}</td>
+    <td class="bloc-col"></td>
+  </tr>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Tableau : on trie les lignes par total occurrences (cf. trierParTotal),
-// puis on insère les dividers de pilier au changement de pilier.
+// Tableau : regroupement par total, sous-totaux recalculés, dividers de pilier.
 // ═══════════════════════════════════════════════════════════════════════════
 function renderTableau(rowsRecues) {
-  const rows = trierParTotal(rowsRecues);
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const ROLE_ORDRE = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
 
-  let bodyHtml = '';
-  let lastPilier = null;
-
-  for (const row of rows) {
-    const type = fval(row.type_ligne);
-    const po = fval(row.pilier_owner);
-
-    // Divider de pilier (au premier CIRCUIT d'un nouveau pilier)
-    if (type === 'CIRCUIT' && po !== lastPilier) {
-      const colors = PILIER_COLORS[po] || PILIER_COLORS.P3;
-      const role = fval(row.role_pilier) || '';
-      const roleColor = ROLE_COLORS[role] || { bg: '#eee', c: '#666' };
-      bodyHtml += `<tr class="owner-divider" style="background:${colors.bg};">
-        <td colspan="14" style="color:${colors.c};">
-          Pilier ${escapeHtml(po)} — ${escapeHtml(fval(row.pilier_nom))}
-          <span class="role-badge" style="background:${roleColor.bg};color:${roleColor.c};">${escapeHtml(role)}</span>
-        </td>
-      </tr>`;
-      lastPilier = po;
-    }
-
-    if (type === 'CIRCUIT')            bodyHtml += renderCircuitRow(row);
-    else if (type === 'SOUS_TOTAL')    bodyHtml += renderSousTotalRow(row);
-    else if (type === 'TOTAL_PILIER')  bodyHtml += renderTotalPilierRow(row);
-    else if (type === 'TOTAL_GENERAL') bodyHtml += renderTotalGeneralRow(row);
+  // 1. Séparer circuits / totaux pilier / total général.
+  const circuits = [];
+  const totauxPilier = {};   // pilier_owner → row TOTAL_PILIER (repris tel quel)
+  let totalGeneral = null;
+  for (const row of rowsRecues) {
+    const t = fval(row.type_ligne);
+    if (t === 'CIRCUIT')            circuits.push(row);
+    else if (t === 'TOTAL_PILIER')  totauxPilier[fval(row.pilier_owner)] = row;
+    else if (t === 'TOTAL_GENERAL') totalGeneral = row;
+    // les SOUS_TOTAL de la table figée sont volontairement ignorés (recalcul).
   }
 
-  const nbCircuits = rows.filter(r => fval(r.type_ligne) === 'CIRCUIT').length;
+  // 2. Ordre des piliers : par rôle, repli P1..P5.
+  const roleParPilier = {};
+  for (const r of circuits) {
+    const po = fval(r.pilier_owner);
+    if (po && !(po in roleParPilier)) roleParPilier[po] = fval(r.role_pilier) || '';
+  }
+  const ordrePiliers = Object.keys(roleParPilier).sort((a, b) => {
+    const ra = (roleParPilier[a] in ROLE_ORDRE) ? ROLE_ORDRE[roleParPilier[a]] : 50;
+    const rb = (roleParPilier[b] in ROLE_ORDRE) ? ROLE_ORDRE[roleParPilier[b]] : 50;
+    if (ra !== rb) return ra - rb;
+    return PILIERS.indexOf(a) - PILIERS.indexOf(b);
+  });
+
+  // 3. Construire le corps pilier par pilier.
+  let bodyHtml = '';
+  for (const po of ordrePiliers) {
+    const circuitsPilier = circuits.filter(c => fval(c.pilier_owner) === po);
+    if (circuitsPilier.length === 0) continue;
+
+    // Divider de pilier
+    const refRow = circuitsPilier[0];
+    const colors = PILIER_COLORS[po] || PILIER_COLORS.P3;
+    const role = fval(refRow.role_pilier) || '';
+    const roleColor = ROLE_COLORS[role] || { bg: '#eee', c: '#666' };
+    bodyHtml += `<tr class="owner-divider" style="background:${colors.bg};">
+      <td colspan="14" style="color:${colors.c};">
+        Pilier ${escapeHtml(po)} — ${escapeHtml(fval(refRow.pilier_nom))}
+        <span class="role-badge" style="background:${roleColor.bg};color:${roleColor.c};">${escapeHtml(role)}</span>
+      </td>
+    </tr>`;
+
+    // Blocs HAUT → MOYEN → FAIBLE
+    for (const bloc of BLOCS_TOTAL) {
+      const dansBloc = circuitsPilier
+        .filter(c => blocDuTotal(num(c.total_occurrences)).id === bloc.id)
+        .sort((a, b) => num(b.total_occurrences) - num(a.total_occurrences));
+      if (dansBloc.length === 0) continue;
+
+      for (const c of dansBloc) bodyHtml += renderCircuitRow(c);
+      bodyHtml += renderSousTotalCalcule(bloc.libelle, dansBloc);
+    }
+
+    // Total pilier (repris tel quel de la table figée)
+    if (totauxPilier[po]) bodyHtml += renderTotalPilierRow(totauxPilier[po]);
+  }
+
+  // 4. Total général (repris tel quel)
+  if (totalGeneral) bodyHtml += renderTotalGeneralRow(totalGeneral);
+
+  const nbCircuits = circuits.length;
+  // Compteur de lignes affichées (circuits + 1 sous-total par bloc non vide
+  // + 1 total pilier par pilier + total général).
+  let nbSousTotaux = 0;
+  for (const po of ordrePiliers) {
+    const cp = circuits.filter(c => fval(c.pilier_owner) === po);
+    for (const bloc of BLOCS_TOTAL) {
+      if (cp.some(c => blocDuTotal(num(c.total_occurrences)).id === bloc.id)) nbSousTotaux++;
+    }
+  }
+  const nbLignes = nbCircuits + nbSousTotaux +
+                   Object.keys(totauxPilier).length + (totalGeneral ? 1 : 0);
 
   return `
     <div class="inv-header">
       <span class="inv-title">📋 Circuits pour bilan — vue complète</span>
-      <span class="inv-stats">${nbCircuits} circuits · ${rows.length} lignes (circuits + totaux)</span>
+      <span class="inv-stats">${nbCircuits} circuits · ${nbLignes} lignes (circuits + totaux)</span>
     </div>
     <table class="inv-table">
       <thead>
