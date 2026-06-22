@@ -205,103 +205,131 @@ async function buildPayload(candidat_id) {
   //   - pilierGroupes : par pilier, les circuits groupés par bloc cœur (cartes détail)
   // ═══════════════════════════════════════════════════════════════════════════
   const tableauRows = [];
-  let lastPilier = null;
+  const cartesByPilier = {}; // code pilier -> { HAUT:[], MOYEN:[], FAIBLE:[], SOUTIEN:[] }
 
-  // accumulation par pilier pour les cartes détail
-  const cartesByPilier = {}; // code pilier -> { HAUT:[], MOYEN:[], FAIBLE:[] }
+  // ── Étape 1 : ne garder que les CIRCUITS de la table figée (on ignore les lignes
+  //    de totaux d'Airtable car elles sont en désordre ; on RECALCULE les totaux nous-mêmes). ──
+  const circuitsPB = (pourbilanRaw || []).filter(
+    r => safeStr(r.type_ligne).toUpperCase() === 'CIRCUIT'
+  );
 
-  for (const r of (pourbilanRaw || [])) {
-    const type = safeStr(r.type_ligne).toUpperCase();
-    const po   = safeStr(r.pilier_owner).toUpperCase();
-    const role = safeStr(r.role_pilier).toLowerCase();
+  // ── Étape 2 : indexer les circuits par pilier owner, en mémorisant rôle + ordre des blocs. ──
+  const ORDRE_BLOCS = ['très souvent (4+)', 'régulièrement (2-3)', 'de temps en temps (1)', "au service d'un autre outil"];
+  const blocRank = (b) => { const i = ORDRE_BLOCS.indexOf(safeStr(b)); return i < 0 ? 99 : i; };
+  const byPilier = {}; // P -> { role, circuits: [] }
+  for (const r of circuitsPB) {
+    const po = safeStr(r.pilier_owner).toUpperCase();
+    if (!byPilier[po]) byPilier[po] = { role: safeStr(r.role_pilier).toLowerCase(), circuits: [] };
+    byPilier[po].circuits.push(r);
+  }
+
+  // ── Étape 3 : ordre d'affichage des piliers = ordre des rôles (socle, amont, aval, fonctionnels). ──
+  const ROLE_ORDER = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
+  const piliersOrdonnes = Object.keys(byPilier).sort(
+    (a, b) => (ROLE_ORDER[byPilier[a].role] ?? 9) - (ROLE_ORDER[byPilier[b].role] ?? 9)
+  );
+
+  // helper : ligne de cellules instrumentales
+  const instruCells = (r, po, blank) => PILIERS.map(P => ({
+    pilier: P, na: (P === po),
+    val: blank ? (num(r['instru_' + P]) > 0 ? String(num(r['instru_' + P])) : '')
+               : svcAff(r['instru_' + P]),
+  }));
+
+  // accumulateur total général
+  const gen = { coeur: 0, total: 0, iP1: 0, iP2: 0, iP3: 0, iP4: 0, iP5: 0 };
+
+  for (const po of piliersOrdonnes) {
+    const { role, circuits } = byPilier[po];
     const roleClass = roleClassFromRole(role);
 
-    // Divider de pilier au 1er CIRCUIT d'un nouveau pilier
-    if (type === 'CIRCUIT' && po !== lastPilier) {
+    // divider de pilier
+    tableauRows.push({
+      kind: 'divider', pilier: po,
+      pilier_nom: safeStr(pilierByCode[po]?.pilier_label),
+      role, role_class: roleClass, role_label: role,
+    });
+
+    // trier les circuits du pilier par bloc (ordre fixe) puis cœur décroissant puis total décroissant
+    circuits.sort((a, b) =>
+      blocRank(a.bloc) - blocRank(b.bloc)
+      || num(b.activation_coeur) - num(a.activation_coeur)
+      || num(b.total_occurrences) - num(a.total_occurrences)
+    );
+
+    // accumulateurs pilier + par bloc
+    const pil = { coeur: 0, total: 0, iP1: 0, iP2: 0, iP3: 0, iP4: 0, iP5: 0 };
+    let blocCourant = null;
+    let st = null;
+    const flushSousTotal = () => {
+      if (!st) return;
       tableauRows.push({
-        kind: 'divider',
-        pilier: po,
-        pilier_nom: safeStr(r.circuit_nom_clair) || safeStr(pilierByCode[po]?.pilier_label),
-        role: role,
+        kind: 'sous_total', label: 'Sous-total — bloc « ' + st.bloc + ' »',
+        coeur_aff: st.coeur > 0 ? String(st.coeur) : '', total_aff: String(st.total),
+        instru: PILIERS.map(P => ({ pilier: P, na: false, val: st['iP' + P.slice(1)] > 0 ? String(st['iP' + P.slice(1)]) : '' })),
         role_class: roleClass,
-        role_label: role,
       });
-      lastPilier = po;
-    }
+      st = null;
+    };
 
-    // Cellules instrumentales (NA sur la colonne du pilier owner)
-    const instru = PILIERS.map(P => ({
-      pilier: P,
-      na: (P === po),
-      val: svcAff(r['instru_' + P]),
-    }));
+    for (const r of circuits) {
+      const bloc = safeStr(r.bloc);
+      if (bloc !== blocCourant) { flushSousTotal(); blocCourant = bloc; st = { bloc, coeur: 0, total: 0, iP1: 0, iP2: 0, iP3: 0, iP4: 0, iP5: 0 }; }
 
-    const coeurNum = num(r.activation_coeur);
-    const totalNum = num(r.total_occurrences);
-    const isAdhoc = safeStr(r.circuit_origine).toUpperCase() === 'AD_HOC';
-    const codeAff = safeStr(r.circuit_code);
+      const coeurNum = num(r.activation_coeur);
+      const totalNum = num(r.total_occurrences);
+      const codeAff  = safeStr(r.circuit_code);
+      const isAdhoc  = safeStr(r.circuit_origine).toUpperCase() === 'AD_HOC';
+      const profondeur = safeStr(detailByCode[codeAff]?.profondeur);
 
-    if (type === 'CIRCUIT') {
-      const row = {
-        kind: 'circuit',
-        adhoc: isAdhoc,
-        code: codeAff,
+      tableauRows.push({
+        kind: 'circuit', adhoc: isAdhoc, code: codeAff,
         nom: safeStr(r.circuit_nom_clair) || safeStr(r.nom_ad_hoc),
         capacite: safeStr(r['capacité']),
-        niveau_coeur: nivLabel(r.niveau_coeur),
-        niv_coeur_class: nivCoeurClass(r.niveau_coeur),
-        niveau_amplitude: nivLabel(r.niveau_amplitude),
-        niv_ampl_class: nivCoeurClass(r.niveau_amplitude),
-        profondeur: safeStr(detailByCode[codeAff]?.profondeur), // profondeur via T3_CIRCUIT
-        coeur_aff: coeurNum > 0 ? String(coeurNum) : '·',
-        coeur_num: coeurNum,
-        instru,
-        total_aff: String(totalNum),
-        bloc: safeStr(r.bloc),
-        role_class: roleClass,
-        pilier_owner: po,
-      };
-      row.a_profondeur = row.profondeur.trim() !== '';
-      tableauRows.push(row);
+        niveau_coeur: nivLabel(r.niveau_coeur), niv_coeur_class: nivCoeurClass(r.niveau_coeur),
+        niveau_amplitude: nivLabel(r.niveau_amplitude), niv_ampl_class: nivCoeurClass(r.niveau_amplitude),
+        profondeur, a_profondeur: profondeur.trim() !== '',
+        coeur_aff: coeurNum > 0 ? String(coeurNum) : '·', coeur_num: coeurNum,
+        instru: instruCells(r, po, false),
+        total_aff: String(totalNum), bloc, role_class: roleClass, pilier_owner: po,
+      });
 
-      // Cartes détail — groupées par bloc cœur (HAUT>=4 / MOYEN 2-3 / FAIBLE 1 ; cœur 0 ignoré pour cartes)
+      // cumuls
+      for (const acc of [st, pil, gen]) {
+        acc.coeur += coeurNum; acc.total += totalNum;
+        acc.iP1 += num(r.instru_P1); acc.iP2 += num(r.instru_P2); acc.iP3 += num(r.instru_P3);
+        acc.iP4 += num(r.instru_P4); acc.iP5 += num(r.instru_P5);
+      }
+
+      // cartes détail — par bloc cœur (HAUT≥4 / MOYEN 2-3 / FAIBLE 1 / SOUTIEN 0)
       const det = detailByCode[codeAff] ? buildCircuitDetail(detailByCode[codeAff], coeurNum) : null;
       if (det) {
-        let bloc = null;
-        if (coeurNum >= 4) bloc = 'HAUT';
-        else if (coeurNum >= 2) bloc = 'MOYEN';
-        else if (coeurNum === 1) bloc = 'FAIBLE';
-        if (bloc) {
-          if (!cartesByPilier[po]) cartesByPilier[po] = { HAUT: [], MOYEN: [], FAIBLE: [] };
-          cartesByPilier[po][bloc].push({
-            code: codeAff, capacite: row.capacite,
-            coeur_aff: row.coeur_aff, total_aff: row.total_aff,
-            role_class: roleClass, ...det,
-          });
-        }
+        const blocCarte = coeurNum >= 4 ? 'HAUT' : coeurNum >= 2 ? 'MOYEN' : coeurNum === 1 ? 'FAIBLE' : 'SOUTIEN';
+        if (!cartesByPilier[po]) cartesByPilier[po] = { HAUT: [], MOYEN: [], FAIBLE: [], SOUTIEN: [] };
+        cartesByPilier[po][blocCarte].push({
+          code: codeAff, capacite: safeStr(r['capacité']),
+          coeur_aff: coeurNum > 0 ? String(coeurNum) : '·', total_aff: String(totalNum),
+          role_class: roleClass, ...det,
+        });
       }
-    } else if (type === 'SOUS_TOTAL') {
-      tableauRows.push({
-        kind: 'sous_total', label: 'Sous-total — bloc « ' + safeStr(r.bloc) + ' »',
-        coeur_aff: coeurNum > 0 ? String(coeurNum) : '', total_aff: String(totalNum),
-        instru: PILIERS.map(P => ({ pilier: P, na: false, val: num(r['instru_' + P]) > 0 ? String(num(r['instru_' + P])) : '' })),
-        role_class: roleClassFromRole(role),
-      });
-    } else if (type === 'TOTAL_PILIER') {
-      tableauRows.push({
-        kind: 'total_pilier', label: 'TOTAL PILIER ' + po + ' — ' + safeStr(pilierByCode[po]?.pilier_label),
-        coeur_aff: coeurNum > 0 ? String(coeurNum) : '', total_aff: String(totalNum),
-        instru: PILIERS.map(P => ({ pilier: P, na: false, val: num(r['instru_' + P]) > 0 ? String(num(r['instru_' + P])) : '' })),
-        role_class: roleClassFromRole(role),
-      });
-    } else if (type === 'TOTAL_GENERAL') {
-      tableauRows.push({
-        kind: 'total_general', label: safeStr(r.circuit_nom_clair) || 'TOTAL — toutes les fonctionnalités',
-        coeur_aff: coeurNum > 0 ? String(coeurNum) : '', total_aff: String(totalNum),
-        instru: PILIERS.map(P => ({ pilier: P, na: false, val: num(r['instru_' + P]) > 0 ? String(num(r['instru_' + P])) : '' })),
-      });
     }
+    flushSousTotal();
+
+    // total pilier (calculé)
+    tableauRows.push({
+      kind: 'total_pilier', label: 'TOTAL PILIER ' + po + ' — ' + safeStr(pilierByCode[po]?.pilier_label),
+      coeur_aff: String(pil.coeur), total_aff: String(pil.total),
+      instru: PILIERS.map(P => ({ pilier: P, na: false, val: pil['iP' + P.slice(1)] > 0 ? String(pil['iP' + P.slice(1)]) : '' })),
+      role_class: roleClass,
+    });
   }
+
+  // total général (calculé)
+  tableauRows.push({
+    kind: 'total_general', label: 'TOTAL — toutes les fonctionnalités',
+    coeur_aff: String(gen.coeur), total_aff: String(gen.total),
+    instru: PILIERS.map(P => ({ pilier: P, na: false, val: gen['iP' + P.slice(1)] > 0 ? String(gen['iP' + P.slice(1)]) : '' })),
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SECTIONS PILIER (ordre doctrinal : socle, amont, aval, fonctionnels)
@@ -318,22 +346,23 @@ async function buildPayload(candidat_id) {
       const m = piliersMeta[code];
       if (m.role !== role || seen.has(code)) continue;
       seen.add(code);
-      const cartes = cartesByPilier[code] || { HAUT: [], MOYEN: [], FAIBLE: [] };
+      const cartes = cartesByPilier[code] || { HAUT: [], MOYEN: [], FAIBLE: [], SOUTIEN: [] };
       // blocs de cartes non vides, avec agrégat + rattachement du bon niveau
       const blocsCartes = [];
-      for (const niv of ['HAUT', 'MOYEN', 'FAIBLE']) {
-        if (!cartes[niv].length) continue;
+      for (const niv of ['HAUT', 'MOYEN', 'FAIBLE', 'SOUTIEN']) {
+        if (!cartes[niv] || !cartes[niv].length) continue;
         blocsCartes.push({
           niveau: niv,
           libelle: niv === 'HAUT' ? 'Ce que vous faites très souvent (activé 4 fois ou plus)'
                  : niv === 'MOYEN' ? 'Ce que vous faites régulièrement (activé 2 à 3 fois)'
-                 : 'Ce que vous faites de temps en temps (activé 1 fois)',
+                 : niv === 'FAIBLE' ? 'Ce que vous faites de temps en temps (activé 1 fois)'
+                 : "Au service d'un autre outil (présent en renfort)",
           role_class: m.role_class,
           circuits: cartes[niv],
-          agregat: m['bloc_' + niv + '_agregat'],
-          a_agregat: !!m['bloc_' + niv + '_agregat'],
-          rattachement: m['bloc_' + niv + '_rattachement'],
-          a_rattachement: !!m['bloc_' + niv + '_rattachement'],
+          agregat: niv === 'SOUTIEN' ? '' : m['bloc_' + niv + '_agregat'],
+          a_agregat: niv === 'SOUTIEN' ? false : !!m['bloc_' + niv + '_agregat'],
+          rattachement: niv === 'SOUTIEN' ? '' : m['bloc_' + niv + '_rattachement'],
+          a_rattachement: niv === 'SOUTIEN' ? false : !!m['bloc_' + niv + '_rattachement'],
         });
       }
       // sous-tableau du pilier = lignes POURBILAN de ce pilier (divider→total_pilier)
