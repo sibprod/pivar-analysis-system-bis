@@ -1,0 +1,339 @@
+// services/etape1/service_etape1_T2_phase4_circuits_pourbilan.js
+// MISSION DE FIN D'ÉTAPE 1.2 — Phase 4 — v2.1
+// Profil-Cognitif Sib Prod
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGEMENT v2.1 (23/06/2026) — RANGEMENT DES BLOCS SUR LE TOTAL
+// ─────────────────────────────────────────────────────────────────────────────
+// Décision validée : les blocs de fréquence sont rangés sur le TOTAL occurrences,
+// plus sur le cœur. La Phase 4 pose deux paliers mécaniques :
+//   - « occasionnels » : total 1 ou 2 (frontière fixe)
+//   - « souvent »      : total >= 3
+// La cassure « très souvent » (noyau de tête) à l'intérieur de « souvent » est
+// jugée plus loin par l'agent du bilan (étape 1.3), pas ici.
+// Suppression de l'ancienne fonction blocDepuisCoeur (rangement sur le cœur) et
+// des libellés chiffrés « très souvent (4+) / régulièrement (2-3) / de temps en
+// temps (1) / au service d'un autre outil ».
+// CONSERVÉ : colonnes niveau_coeur et niveau_amplitude (lectures informatives),
+// toute la logique d'addition (sous-total bloc, total pilier, total général),
+// les ad hoc. AUCUN changement de schéma Airtable.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGEMENT v2.0 (18/06/2026) — PASSAGE PAR airtableService.js
+// ─────────────────────────────────────────────────────────────────────────────
+// La v1.1 requêtait Airtable en direct (instance SDK propre + meta API). La v2.0
+// n'utilise PLUS aucune connexion directe : toutes les lectures et l'écriture
+// passent par services/infrastructure/airtableService.js, comme le reste de la
+// prod. Ce service bénéficie ainsi du nettoyage (cleanFields), des lots, des
+// pauses et de la journalisation centralisés.
+//
+// Pré-requis (livrés avec cette version) :
+//   - config/airtable.js : TABLES.ETAPE1_T2_CIRCUITS_POURBILAN_FIELDS + mapping des champs
+//   - airtableService.js : getReferentielCircuits (enrichi capacité),
+//     getReferentielCircuitsCapacites, getEtape1T2CircuitsPourbilan,
+//     writeEtape1T2CircuitsPourbilan
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// RESPONSABILITÉ UNIQUE (inchangée)
+// ─────────────────────────────────────────────────────────────────────────────
+// Projeter l'inventaire figé de l'étape 1.2 en une table PRÊTE À LIRE pour
+// l'agent PA pilier (étape 1.3), sans rien recalculer des chiffres sources.
+// Ajoute, par pur calcul mécanique (ZÉRO LLM) :
+//   - le NOM EN CLAIR du circuit (résolu sur (pilier, circuit_id) / nom ad hoc)
+//   - la CAPACITÉ (valeur cognitive intrinsèque, LUE dans le référentiel —
+//     officiel ou candidats — jamais recalculée ; pas sur les lignes de total)
+//   - le NIVEAU CŒUR     (HAUT>=4 . MOYEN 2-3 . FAIBLE 1 . EN_SOUTIEN 0)
+//   - le NIVEAU AMPLITUDE (HAUT>=8 . MOYEN 4-7 . FAIBLE 1-3, calculé toujours)
+//   - le BLOC + les ADDITIONS (sous-total bloc, total pilier, total général)
+//
+//   La PROFONDEUR D'ACTIVATION n'est PAS produite ici (agent PA pilier 1.3).
+//
+// USAGE :
+//   node service_etape1_T2_phase4_circuits_pourbilan.js <candidat_id> [--dry-run]
+// ─────────────────────────────────────────────────────────────────────────────
+
+'use strict';
+
+const airtableService = require('../infrastructure/airtableService');
+const logger          = require('../../utils/logger');
+
+const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
+
+// rang VENTILATION -> rôle pilier
+const RANG_TO_ROLE = { 1: 'socle', 2: 'amont', 3: 'aval', 4: 'fonctionnel', 5: 'fonctionnel' };
+
+// ═══════════════════════════════════════════════════════════════
+// RÈGLES DE NIVEAU (figées — doctrine validée)
+// ═══════════════════════════════════════════════════════════════
+
+function niveauCoeur(coeur) {
+  if (coeur >= 4) return 'HAUT';
+  if (coeur >= 2) return 'MOYEN';
+  if (coeur === 1) return 'FAIBLE';
+  return 'EN_SOUTIEN';                 // cœur 0 : jamais gouvernant
+}
+
+function niveauAmplitude(total) {       // calculé TOUJOURS, même si cœur 0
+  if (total >= 8) return 'HAUT';
+  if (total >= 4) return 'MOYEN';
+  return 'FAIBLE';
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// RANGEMENT EN BLOCS — SUR LE TOTAL (rectifié 23/06/2026)
+// ─────────────────────────────────────────────────────────────────────────
+// Décision validée : on range les circuits par paliers de fréquence sur le
+// TOTAL occurrences, jamais sur le cœur. La Phase 4 (mécanique) pose deux
+// paliers seulement :
+//   - « occasionnels » : total 1 ou 2  (frontière FIXE)
+//   - « souvent »      : total >= 3
+// La distinction « très souvent » (le noyau de tête) à l'intérieur de
+// « souvent » relève d'un JUGEMENT de cassure, fait plus loin par l'agent du
+// bilan (étape 1.3) — la Phase 4 ne la tranche pas.
+// Le rangement ne s'appuie plus sur aucun seuil de niveau : ce qui compte est
+// l'ordre par total. Les colonnes niveau_coeur et niveau_amplitude restent
+// écrites comme lectures informatives (le cœur reste lisible dans l'analyse).
+function blocDepuisTotal(total) {
+  if (total >= 3) return { bloc: 'souvent',       ordre: 0 };
+  return            { bloc: 'occasionnels',       ordre: 1 };
+}
+
+function ordreFromBlocLabel(label) {
+  return { 'souvent': 0, 'occasionnels': 1 }[label] ?? 9;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTRUCTION DES MAPS À PARTIR DES LECTURES airtableService
+// ═══════════════════════════════════════════════════════════════
+
+function fname(v) { return (v && typeof v === 'object' && v.name) ? v.name : v; }
+
+// REFERENTIEL_CIRCUITS (déjà lu par airtableService) -> map "P3C12" -> { nom, cap }
+function indexerReferentiel(circuitsRef) {
+  const map = {};
+  for (const c of circuitsRef) {
+    const p = c.pilier;
+    const id = c.circuit_id;
+    if (p && id) map[`${p}${id}`] = { nom: c.circuit_nom || '', cap: c.capacite || '' };
+  }
+  return map;
+}
+
+// VENTILATION (déjà lue par airtableService) -> map "P3" -> { rang, role }
+function indexerArchitecture(ventilationRows) {
+  const map = {};
+  for (const r of ventilationRows) {
+    const code = fname(r.pilier_coeur);
+    const rang = Number(r.rang_par_frequence || 0);
+    if (code) map[code] = { rang, role: RANG_TO_ROLE[rang] || 'fonctionnel' };
+  }
+  return map;
+}
+
+// REFERENTIEL_PILIERS (déjà lu par airtableService) -> map "P3" -> "Analyse…"
+function indexerNomsPiliers(piliersRef) {
+  const map = {};
+  for (const p of piliersRef) {
+    if (p.pilier_code) map[p.pilier_code] = p.pilier_nom || '';
+  }
+  return map;
+}
+
+// INVENTAIRE (déjà lu par airtableService) -> liste normalisée, ligne à ligne
+function normaliserInventaire(inventaireRows) {
+  return inventaireRows.map(r => ({
+    pilier:      fname(r.pilier_owner),
+    circuit_id:  fname(r.circuit_id),                 // "C12"
+    code:        r.circuit_label || '',               // "P3C12" / "P5·ADHOC …"
+    origine:     fname(r.circuit_origine) || 'OFFICIEL',
+    nom_ad_hoc:  r.nom_ad_hoc || '',
+    coeur:       Number(r.nb_coeur || 0),
+    svc_P1:      Number(r.nb_svc_P1 || 0),
+    svc_P2:      Number(r.nb_svc_P2 || 0),
+    svc_P3:      Number(r.nb_svc_P3 || 0),
+    svc_P4:      Number(r.nb_svc_P4 || 0),
+    svc_P5:      Number(r.nb_svc_P5 || 0),
+    total:       Number(r.total_activations || 0),
+    rang_pilier_circuit: Number(r.rang_dans_pilier || 0),
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTRUCTION DES LIGNES À GRAVER (inchangée vs v1.1)
+// ═══════════════════════════════════════════════════════════════
+
+function vecZero() { return { coeur: 0, P1: 0, P2: 0, P3: 0, P4: 0, P5: 0, total: 0 }; }
+function vecAdd(acc, c) {
+  acc.coeur += c.coeur; acc.P1 += c.svc_P1; acc.P2 += c.svc_P2;
+  acc.P3 += c.svc_P3; acc.P4 += c.svc_P4; acc.P5 += c.svc_P5; acc.total += c.total;
+}
+
+function construireLignes(candidat_id, inventaire, archi, nomsCircuits, nomsPiliers, capacitesAdhoc) {
+  const lignes = [];
+  const general = vecZero();
+
+  const piliersPresents = [...new Set(inventaire.map(c => c.pilier))]
+    .filter(p => PILIERS.includes(p))
+    .sort((a, b) => (archi[a]?.rang || 99) - (archi[b]?.rang || 99));
+
+  for (const P of piliersPresents) {
+    const circuits = inventaire.filter(c => c.pilier === P);
+    const rangP = archi[P]?.rang || 0;
+    const roleP = archi[P]?.role || 'fonctionnel';
+    const nomP  = nomsPiliers[P] || P;
+
+    circuits.sort((a, b) => {
+      // Rangement sur le TOTAL (rectifié 23/06/2026) :
+      // d'abord par bloc (souvent avant occasionnels), puis par total
+      // décroissant à l'intérieur du bloc, puis le cœur comme simple
+      // départage à total égal (le cœur ne reclasse pas, il départage).
+      const ba = blocDepuisTotal(a.total).ordre, bb = blocDepuisTotal(b.total).ordre;
+      if (ba !== bb) return ba - bb;
+      if (b.total !== a.total) return b.total - a.total;
+      return b.coeur - a.coeur;
+    });
+
+    const totalPilier = vecZero();
+    let blocCourant = null;
+    let sousTotal = vecZero();
+
+    const flushSousTotal = () => {
+      if (blocCourant === null) return;
+      lignes.push({
+        candidat_id, type_ligne: 'SOUS_TOTAL', pilier_owner: P, pilier_nom: nomP,
+        rang_pilier: rangP, role_pilier: roleP,
+        bloc: blocCourant, ordre_bloc: ordreFromBlocLabel(blocCourant),
+        activation_coeur: sousTotal.coeur,
+        instru_P1: sousTotal.P1, instru_P2: sousTotal.P2, instru_P3: sousTotal.P3,
+        instru_P4: sousTotal.P4, instru_P5: sousTotal.P5,
+        total_occurrences: sousTotal.total,
+      });
+      sousTotal = vecZero();
+    };
+
+    for (const c of circuits) {
+      const { bloc, ordre } = blocDepuisTotal(c.total);
+      if (bloc !== blocCourant) { flushSousTotal(); blocCourant = bloc; }
+
+      const isAdhoc = (c.origine === 'AD_HOC') || /ADHOC/i.test(c.code);
+      let nomClair, capacite;
+      if (isAdhoc) {
+        nomClair = c.nom_ad_hoc || c.code;
+        capacite = capacitesAdhoc[c.nom_ad_hoc] || '';
+      } else {
+        const cle = `${P}${c.circuit_id}`;
+        const ref = nomsCircuits[cle];
+        nomClair = (ref && ref.nom) || `[nom introuvable ${cle}]`;
+        capacite = (ref && ref.cap) || '';
+      }
+
+      lignes.push({
+        candidat_id, type_ligne: 'CIRCUIT', pilier_owner: P, pilier_nom: nomP,
+        rang_pilier: rangP, role_pilier: roleP,
+        circuit_code: isAdhoc ? `${P}·ADHOC` : `${P}${c.circuit_id}`,
+        circuit_nom_clair: nomClair,
+        'capacité': capacite,                       // report mécanique
+        bloc, ordre_bloc: ordre,
+        niveau_coeur: niveauCoeur(c.coeur),
+        niveau_amplitude: niveauAmplitude(c.total),
+        activation_coeur: c.coeur,
+        instru_P1: P === 'P1' ? 0 : c.svc_P1,
+        instru_P2: P === 'P2' ? 0 : c.svc_P2,
+        instru_P3: P === 'P3' ? 0 : c.svc_P3,
+        instru_P4: P === 'P4' ? 0 : c.svc_P4,
+        instru_P5: P === 'P5' ? 0 : c.svc_P5,
+        total_occurrences: c.total,
+        circuit_origine: isAdhoc ? 'AD_HOC' : 'OFFICIEL',
+        nom_ad_hoc: isAdhoc ? (c.nom_ad_hoc || '') : '',
+        rang_dans_pilier: c.rang_pilier_circuit,
+      });
+
+      vecAdd(sousTotal, c);
+      vecAdd(totalPilier, c);
+      vecAdd(general, c);
+    }
+    flushSousTotal();
+
+    lignes.push({
+      candidat_id, type_ligne: 'TOTAL_PILIER', pilier_owner: P, pilier_nom: nomP,
+      rang_pilier: rangP, role_pilier: roleP,
+      activation_coeur: totalPilier.coeur,
+      instru_P1: totalPilier.P1, instru_P2: totalPilier.P2, instru_P3: totalPilier.P3,
+      instru_P4: totalPilier.P4, instru_P5: totalPilier.P5,
+      total_occurrences: totalPilier.total,
+    });
+  }
+
+  lignes.push({
+    candidat_id, type_ligne: 'TOTAL_GENERAL',
+    circuit_nom_clair: 'TOTAL — toutes les fonctionnalités',
+    activation_coeur: general.coeur,
+    instru_P1: general.P1, instru_P2: general.P2, instru_P3: general.P3,
+    instru_P4: general.P4, instru_P5: general.P5,
+    total_occurrences: general.total,
+  });
+
+  return lignes;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENTRÉE PRINCIPALE
+// ═══════════════════════════════════════════════════════════════
+
+async function runPhase4({ candidat_id, dry_run = false }) {
+  logger.info('Phase4 CIRCUITS_POURBILAN starting', { candidat_id, dry_run });
+
+  // Toutes les lectures passent par airtableService (aucune connexion directe)
+  const [circuitsRef, capacitesAdhoc, piliersRef, ventilationRows, inventaireRows] =
+    await Promise.all([
+      airtableService.getReferentielCircuits(),
+      airtableService.getReferentielCircuitsCapacites(),
+      airtableService.getReferentielPiliers(),
+      airtableService.getEtape1T2VentilationPiliers(candidat_id),
+      airtableService.getEtape1T2InventaireCircuits(candidat_id),
+    ]);
+
+  const inventaire = normaliserInventaire(inventaireRows);
+  if (!inventaire.length) throw new Error(`Phase 4 : INVENTAIRE vide pour ${candidat_id}`);
+
+  const nomsCircuits = indexerReferentiel(circuitsRef);
+  const nomsPiliers  = indexerNomsPiliers(piliersRef);
+  const archi        = indexerArchitecture(ventilationRows);
+
+  const lignes = construireLignes(candidat_id, inventaire, archi, nomsCircuits, nomsPiliers, capacitesAdhoc);
+  const nbCircuits = lignes.filter(l => l.type_ligne === 'CIRCUIT').length;
+  logger.info('Phase4 lignes construites', { candidat_id, total: lignes.length, circuits: nbCircuits });
+
+  if (dry_run) {
+    logger.info('Phase4 DRY-RUN — aucune écriture', { candidat_id });
+    console.log(JSON.stringify({ candidat_id, nb_lignes: lignes.length, nb_circuits: nbCircuits, apercu: lignes.slice(0, 3) }, null, 2));
+    return { candidat_id, nb_lignes: lignes.length, nb_circuits: nbCircuits, dry_run: true };
+  }
+
+  await airtableService.writeEtape1T2CircuitsPourbilan(candidat_id, lignes);
+  logger.info('Phase4 terminé', { candidat_id, nb_lignes: lignes.length });
+  return { candidat_id, nb_lignes: lignes.length, nb_circuits: nbCircuits };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLI
+// ═══════════════════════════════════════════════════════════════
+
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  if (!args[0] || args[0].startsWith('--')) {
+    console.error('Usage: node service_etape1_T2_phase4_circuits_pourbilan.js <candidat_id> [--dry-run]');
+    process.exit(1);
+  }
+  const candidat_id = args[0];
+  const dry_run = args.includes('--dry-run');
+  runPhase4({ candidat_id, dry_run })
+    .then(r => { console.log('\nTerminé :', JSON.stringify(r)); process.exit(0); })
+    .catch(e => { console.error('\nERREUR FATALE:', e.message); process.exit(1); });
+}
+
+module.exports = { runPhase4, _internal: {
+  niveauCoeur, niveauAmplitude, blocDepuisTotal,
+  indexerReferentiel, indexerArchitecture, indexerNomsPiliers, normaliserInventaire,
+  construireLignes,
+}};
