@@ -1,4 +1,4 @@
-// services/visualisation/bilanFablePayloadService.js
+// services/visualisation/service_etape1_T3_bilan_payload.js
 // Payload service — Bilan Fable cognitif complet (chaîne P-A→P-D)
 // v2.0 — 20/06/2026
 //
