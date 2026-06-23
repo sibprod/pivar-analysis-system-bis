@@ -347,7 +347,13 @@ function renderCircuitRow(row) {
   const total = Number(row.total_occurrences || 0);
   const totalHtml = `<td class="num total-col">${total}</td>`;
 
-  const blocHtml = `<td class="bloc-col">${escapeHtml(fval(row.bloc) || '')}</td>`;
+  // Colonne Bloc : le champ brut s'il est posé (occasionnels, ou ce que l'agent
+  // du bilan aura écrit) ; sinon, pour les circuits sans bloc (total >= 3), on
+  // indique « en attente d'attribution de bloc » plutôt que de laisser vide.
+  const blocBrut = fval(row.bloc) || '';
+  const blocAff = blocBrut !== '' ? blocBrut
+                : (total >= 3 ? "en attente d'attribution de bloc" : '');
+  const blocHtml = `<td class="bloc-col">${escapeHtml(blocAff)}</td>`;
 
   return `<tr class="${isAdHoc ? 'adhoc' : ''}">
     <td class="circuit-label">${labelHtml}</td>
