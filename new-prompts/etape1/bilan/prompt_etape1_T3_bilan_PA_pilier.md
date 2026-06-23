@@ -160,6 +160,12 @@ DOCTRINE DE CLASSEMENT — RANGER SUR LE TOTAL, ATTRIBUER LES BLOCS PAR JUGEMENT
      sans « souvent ». Le nombre de blocs est VARIABLE : la structure épouse le
      candidat, on ne le range pas dans des cases qui ne sont pas les siennes.
 
+   ⚠️ TRI INTERNE OBLIGATOIRE : à l'intérieur de CHAQUE bloc (très souvent, souvent,
+   occasionnels), cite les circuits par TOTAL DÉCROISSANT — le plus grand total en
+   premier, puis en descendant. Le tri « du plus au moins » s'applique partout : entre
+   les blocs ET dans chaque bloc. Avant de rédiger un bloc, ordonne ses circuits par
+   total. Exemple : un bloc contenant des circuits de total 5 et 4 cite le 5 d'abord.
+
 4) SÉQUENCE D'ANALYSE (dans cet ordre, c'est ce qui te permet de juger la cassure) :
    a. lis TOUTE LA LIGNE de chaque circuit — cœur, les 5 instrumentaux (svc P1..P5),
       total, niveau cœur (avec EN SOUTIEN), amplitude, capacité, verbatims. Un même
@@ -417,7 +423,7 @@ Champ Airtable : fld3zZ8SteMWedetW — T3_CIRCUIT
 Condensé de n3_nuance en une phrase courte. Alimente le schéma éclaté du chapitre IV.
 
 RÈGLES :
-- ≤ 18 mots (compter les mots avant de rendre)
+- ≤ 18 mots. VISE 16 pour garder une marge. COMPTE les mots un par un avant de rendre. 19 mots = rejeté.
 - FORMAT IMPOSÉ : "Vous + verbe + complément." (dérivation de T1, mêmes mots d'action)
 - Aucun mot d'action absent de n3_nuance ne peut apparaître ici
 - CAS EN SOUTIEN : "Jamais en propre : [ce que le geste fait au service de l'autre outil]."
@@ -449,6 +455,11 @@ Champ Airtable : fldixMQDcsD7cCyd3 — T3_CIRCUIT
 RÈGLE CONDITIONNELLE STRICTE :
 - Présent SI ET SEULEMENT SI un sortant en_svc_Px (fourni dans l'entrée) est ≥ 2
 - Vide strict ("") si aucun sortant n'atteint 2
+  ⚠️ TEST OBLIGATOIRE AVANT DE RÉDIGER en_renfort :
+  Regarde les sortants en_svc_Px de CE circuit dans l'entrée.
+  - Si AUCUN n'est ≥ 2 → en_renfort = "" (chaîne vide stricte). N'écris RIEN, pas de phrase.
+  - Si un sortant est ≥ 2 → tu écris la ligne « En renfort : … ».
+  Un sortant = 1 ne justifie JAMAIS un en_renfort. Compte avant d'écrire.
 - JAMAIS un texte placeholder, un tiret, ou "Non applicable"
 
 GABARIT OBLIGATOIRE :
@@ -511,7 +522,7 @@ Champ Airtable : flduJoJnNpHRmh6jg — T3_CIRCUIT
 Version micro de explication_courte. Alimente la visualisation §02bis (profil cognitif).
 
 RÈGLES :
-- ≤ 15 mots (compter avant de rendre)
+- ≤ 15 mots. VISE 13 pour garder une marge. COMPTE avant de rendre. 16 mots = rejeté.
 - FORMAT : "Vous + verbe + complément." — mêmes mots d'action que explication_courte
 - HAUT et MOYEN uniquement. FAIBLE et EN SOUTIEN : valeur vide strict ("").
 - Peut être identique à explication_courte si celle-ci tient en ≤ 15 mots.
