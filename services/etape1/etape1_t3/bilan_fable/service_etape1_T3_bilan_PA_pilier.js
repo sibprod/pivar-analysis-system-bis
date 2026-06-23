@@ -1,4 +1,4 @@
-// services/etape1/etape1_t3/bilan_fable/service_etape1_T3_redaction_PA.js
+// services/etape1/etape1_t3/bilan_fable/service_etape1_T3_bilan_PA_pilier.js
 // RÉDACTION PA — v10 (19/06/2026)
 //
 // RÔLE : « le cuisinier ». Reçoit le plan de travail dressé par la PRÉPARATION T3,
@@ -239,8 +239,8 @@ function valider(pa, entree) {
     const max_svc = Math.max(0, ...Object.values(ic.sortants || {}));
     const niveau  = ic.niveau || 'FAIBLE';
 
-    // T1 : "Vous + verbe" ou amorces autorisées (assoupli 19/06 : + Dès que/Pendant que/Lorsque/Une fois/Chaque fois)
-    if (!expl.match(/^(Vous\s|Dès que vous |Pendant que vous |Lorsque |Lorsqu'|Une fois |Chaque fois |Dans |Avant |Ponctuellement|À l'occasion|Il vous arrive|Ce geste ne s'active|Quand |En |Depuis )/i)) {
+    // T1 : "Vous + verbe" ou amorces autorisées (assoupli 23/06 : "Dès " couvre Dès que/Dès la/Dès le/Dès lors ; + Face à/Au moment)
+    if (!expl.match(/^(Vous\s|Dès |Pendant que vous |Lorsque |Lorsqu'|Une fois |Chaque fois |Dans |Avant |Ponctuellement|À l'occasion|Il vous arrive|Ce geste ne s'active|Quand |En |Depuis |Face à |Au moment )/i)) {
       errors.push(`[${code}] n3_nuance ne commence pas par "Vous + verbe" ou une amorce autorisée. Début : "${expl.slice(0,50)}"`);
     }
     // Guillemets interdits dans n3_nuance (v10, strict)
@@ -278,8 +278,8 @@ function valider(pa, entree) {
       if ((expl + ' ' + expl_c + ' ' + renfort).toLowerCase().includes(mot)) errors.push(`[${code}] mot interdit : "${mot}"`);
     }
 
-    // Longueurs n3_nuance (souples = warnings)
-    const seuils = { HAUT:{min:250,max:480}, MOYEN:{min:160,max:320}, FAIBLE:{min:100,max:210}, EN_SOUTIEN:{min:70,max:170} };
+    // Longueurs n3_nuance (souples = warnings). Seuils max relevés le 23/06 (décision A : n3_nuance plus riches, doctrine facettes).
+    const seuils = { HAUT:{min:250,max:1100}, MOYEN:{min:160,max:700}, FAIBLE:{min:100,max:400}, EN_SOUTIEN:{min:70,max:300} };
     const s = seuils[niveau] || seuils.FAIBLE;
     if (expl.length < s.min) warnings.push(`[${code}] n3_nuance courte pour ${niveau} (${expl.length}c)`);
     if (expl.length > s.max) warnings.push(`[${code}] n3_nuance longue pour ${niveau} (${expl.length}c)`);
@@ -459,6 +459,7 @@ async function redigerPilier(prep, pilier, refs, opts) {
 
   return {
     pilier_code:  pilier.pilier_code,
+    pilier_role:  pilier.role_pilier,        // socle/amont/aval/fonctionnel — pour report mode socle dans T3_BILAN
     mode_libelle: pa.synthese_pilier?.mode_libelle || '',
     mode_statut:  pa.synthese_pilier?.mode_statut  || '?',
     erreurs:      validation.errors,
@@ -517,6 +518,25 @@ async function redigerBilan(prep, opts = {}) {
     nb_traites: resultats.filter(r => !r.saute).length,
     nb_sautes:  resultats.filter(r => r.saute).length
   });
+
+  // ⭐ 23/06 — Permanence du mode : reporter le mode du pilier SOCLE dans T3_BILAN
+  // (champ pilier_socle_mode), pour qu'il soit identique partout (têtière du bilan incluse).
+  try {
+    const socle = resultats.find(r => r.pilier_role === 'socle' && r.mode_libelle);
+    if (socle && opts.write_mode !== false) {
+      const F_BILAN = airtableConfig.ETAPE1_T3_BILAN_FIELDS;
+      const bilan = await airtableService.getEtape1T3Bilan(prep.candidat_id);
+      if (bilan && bilan.airtable_id) {
+        await airtableService.upsertEtape1T3Bilan(prep.candidat_id, {
+          [F_BILAN.pilier_socle_mode]: socle.mode_libelle
+        });
+        logger.info('Mode socle reporté dans T3_BILAN', { candidat_id: prep.candidat_id, mode: socle.mode_libelle });
+      }
+    }
+  } catch (e) {
+    logger.warn('Report mode socle T3_BILAN échoué (non bloquant)', { error: e.message });
+  }
+
   return resultats;
 }
 
