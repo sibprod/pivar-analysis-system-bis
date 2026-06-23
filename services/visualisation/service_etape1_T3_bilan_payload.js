@@ -75,6 +75,27 @@ function renfortDiv(text) {
 const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RANGEMENT EN BLOCS — SUR LE TOTAL (figé 23/06/2026)
+// Le service Phase 4 ne pose QUE le bloc « occasionnels » (total 1-2). Les
+// circuits de total >= 3 arrivent SANS bloc (champ bloc vide) : ils sont rangés
+// par total décroissant et c'est l'AGENT du bilan qui leur attribuera ensuite
+// « très souvent » / « souvent ». Tant que l'agent n'a pas tranché, on les
+// regroupe sous l'intitulé neutre « en attente d'attribution de bloc ».
+//   - bloc renseigné « occasionnels » → on l'affiche tel quel.
+//   - bloc vide + total >= 3          → groupe « en attente d'attribution de bloc ».
+// ─────────────────────────────────────────────────────────────────────────────
+const BLOC_EN_ATTENTE = 'en attente d\'attribution de bloc';
+const ORDRE_BLOCS = [BLOC_EN_ATTENTE, 'occasionnels'];
+function blocRank(b) { const i = ORDRE_BLOCS.indexOf(safeStr(b).toLowerCase()); return i < 0 ? 99 : i; }
+// Bloc d'affichage d'un circuit : ce que le service a écrit, sinon déduit du total.
+function blocAffichage(r) {
+  const b = safeStr(r.bloc).toLowerCase();
+  if (b === 'occasionnels') return 'occasionnels';
+  if (b) return b;                                   // bloc déjà attribué par l'agent (très souvent/souvent)
+  return num(r.total_occurrences) >= 3 ? BLOC_EN_ATTENTE : 'occasionnels';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Construire le contexte d'un pilier (têtière + modes + synthèse 4 blocs)
 // ─────────────────────────────────────────────────────────────────────────────
 function buildPilierMeta(p) {
@@ -91,17 +112,11 @@ function buildPilierMeta(p) {
     mode_explication:        safeStr(p.mode_explication),
     intro_eclate:            safeStr(p.intro_eclate),
     // ── SYNTHÈSE DU PILIER — blocs déjà rédigés en base, affichés tels quels ──
-    // Bloc 1 — Profil pur (cœur de l'outil) — langage technique chiffré
     synth_factuelle_coeur:   safeStr(p.synth_factuelle),
-    // Bloc 2 — Profil élargi (débordements & emprunts) — langage technique,
-    // porté par les 3 champs de détail par niveau (services, capacités, profondeurs, débordements).
     bloc_HAUT_technique:     safeStr(p.bloc_haut_technique),
     bloc_MOYEN_technique:    safeStr(p.bloc_moyen_technique),
     bloc_FAIBLE_technique:   safeStr(p.bloc_faible_technique),
-    // Profil — ce que vos gestes disent de vous (vue d'ensemble) — langage candidat,
-    // champ pré-assemblé contenant les 3 sous-blocs HAUT/MOYEN/FAIBLE + le mode + "où cet outil revient".
     vue_ensemble:            safeStr(p.synth_interpretee),
-    // Blocs "ce que ces gestes disent de vous" sous chaque groupe de cartes (mêmes textes candidat) :
     bloc_HAUT_agregat:        safeStr(p.bloc_haut_candidat),
     bloc_HAUT_rattachement:   safeStr(p.bloc_haut_catalogue),
     bloc_MOYEN_agregat:       safeStr(p.bloc_moyen_candidat),
@@ -116,14 +131,12 @@ function buildPilierMeta(p) {
 // Règle exemples : nb = activation_coeur, plafonné à 4.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildCircuitDetail(c, nbCoeur) {
-  // Verbatims présents (jusqu'à 4)
   const allVerbs = [
     { texte: safeStr(c.verbatim_1), ref: safeStr(c.verbatim_1_ref) },
     { texte: safeStr(c.verbatim_2), ref: safeStr(c.verbatim_2_ref) },
     { texte: safeStr(c.verbatim_3), ref: safeStr(c.verbatim_3_ref) },
     { texte: safeStr(c.verbatim_4), ref: safeStr(c.verbatim_4_ref) },
   ].filter(v => v.texte.trim() !== '');
-  // Plafond : min(nbCoeur ou 1, 4, nb dispo). Au moins 1 si un verbatim existe.
   const cap = Math.max(1, Math.min(4, num(nbCoeur) || allVerbs.length));
   const verbs = allVerbs.slice(0, cap);
   const profondeur = safeStr(c.profondeur);
@@ -144,7 +157,7 @@ function buildCircuitDetail(c, nbCoeur) {
 // buildPayload — point d'entrée
 // ─────────────────────────────────────────────────────────────────────────────
 async function buildPayload(candidat_id) {
-  logger.info('bilanFablePayloadService.buildPayload v2.0', { candidat_id });
+  logger.info('bilanFablePayloadService.buildPayload v2.1', { candidat_id });
 
   const [bilan, visiteur, piliersRaw, circuitsRaw, pourbilanRaw, ventilationRaw] =
     await Promise.all([
@@ -152,7 +165,7 @@ async function buildPayload(candidat_id) {
       airtableService.getVisiteurInfoForVisualisation(candidat_id),
       airtableService.getEtape1T3Piliers(candidat_id),
       airtableService.getEtape1T3Circuits(candidat_id),
-      airtableService.getEtape1T2CircuitsPourbilan(candidat_id),  // ⭐ table figée
+      airtableService.getEtape1T2CircuitsPourbilan(candidat_id),  // table figée
       airtableService.getEtape1T2VentilationPiliers(candidat_id),
     ]);
 
@@ -200,22 +213,14 @@ async function buildPayload(candidat_id) {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TABLEAU — à partir de la table figée POURBILAN, dans l'ordre.
-  // On produit :
-  //   - tableau.rows : lignes prêtes pour la boucle (CIRCUIT + totaux + dividers)
-  //   - pilierGroupes : par pilier, les circuits groupés par bloc cœur (cartes détail)
   // ═══════════════════════════════════════════════════════════════════════════
   const tableauRows = [];
-  const cartesByPilier = {}; // code pilier -> { HAUT:[], MOYEN:[], FAIBLE:[], SOUTIEN:[] }
+  const cartesByPilier = {}; // code pilier -> { <bloc>: [cartes] } (blocs dynamiques)
 
-  // ── Étape 1 : ne garder que les CIRCUITS de la table figée (on ignore les lignes
-  //    de totaux d'Airtable car elles sont en désordre ; on RECALCULE les totaux nous-mêmes). ──
   const circuitsPB = (pourbilanRaw || []).filter(
     r => safeStr(r.type_ligne).toUpperCase() === 'CIRCUIT'
   );
 
-  // ── Étape 2 : indexer les circuits par pilier owner, en mémorisant rôle + ordre des blocs. ──
-  const ORDRE_BLOCS = ['très souvent (4+)', 'régulièrement (2-3)', 'de temps en temps (1)', "au service d'un autre outil"];
-  const blocRank = (b) => { const i = ORDRE_BLOCS.indexOf(safeStr(b)); return i < 0 ? 99 : i; };
   const byPilier = {}; // P -> { role, circuits: [] }
   for (const r of circuitsPB) {
     const po = safeStr(r.pilier_owner).toUpperCase();
@@ -223,41 +228,37 @@ async function buildPayload(candidat_id) {
     byPilier[po].circuits.push(r);
   }
 
-  // ── Étape 3 : ordre d'affichage des piliers = ordre des rôles (socle, amont, aval, fonctionnels). ──
   const ROLE_ORDER = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
   const piliersOrdonnes = Object.keys(byPilier).sort(
     (a, b) => (ROLE_ORDER[byPilier[a].role] ?? 9) - (ROLE_ORDER[byPilier[b].role] ?? 9)
   );
 
-  // helper : ligne de cellules instrumentales
   const instruCells = (r, po, blank) => PILIERS.map(P => ({
     pilier: P, na: (P === po),
     val: blank ? (num(r['instru_' + P]) > 0 ? String(num(r['instru_' + P])) : '')
                : svcAff(r['instru_' + P]),
   }));
 
-  // accumulateur total général
   const gen = { coeur: 0, total: 0, iP1: 0, iP2: 0, iP3: 0, iP4: 0, iP5: 0 };
 
   for (const po of piliersOrdonnes) {
     const { role, circuits } = byPilier[po];
     const roleClass = roleClassFromRole(role);
 
-    // divider de pilier
     tableauRows.push({
       kind: 'divider', pilier: po,
       pilier_nom: safeStr(pilierByCode[po]?.pilier_label),
       role, role_class: roleClass, role_label: role,
     });
 
-    // trier les circuits du pilier par bloc (ordre fixe) puis cœur décroissant puis total décroissant
+    // Tri sur le TOTAL : bloc d'abord (en attente avant occasionnels), puis total
+    // décroissant, puis cœur en simple départage à total égal.
     circuits.sort((a, b) =>
-      blocRank(a.bloc) - blocRank(b.bloc)
-      || num(b.activation_coeur) - num(a.activation_coeur)
+      blocRank(blocAffichage(a)) - blocRank(blocAffichage(b))
       || num(b.total_occurrences) - num(a.total_occurrences)
+      || num(b.activation_coeur) - num(a.activation_coeur)
     );
 
-    // accumulateurs pilier + par bloc
     const pil = { coeur: 0, total: 0, iP1: 0, iP2: 0, iP3: 0, iP4: 0, iP5: 0 };
     let blocCourant = null;
     let st = null;
@@ -273,7 +274,7 @@ async function buildPayload(candidat_id) {
     };
 
     for (const r of circuits) {
-      const bloc = safeStr(r.bloc);
+      const bloc = blocAffichage(r);
       if (bloc !== blocCourant) { flushSousTotal(); blocCourant = bloc; st = { bloc, coeur: 0, total: 0, iP1: 0, iP2: 0, iP3: 0, iP4: 0, iP5: 0 }; }
 
       const coeurNum = num(r.activation_coeur);
@@ -294,18 +295,18 @@ async function buildPayload(candidat_id) {
         total_aff: String(totalNum), bloc, role_class: roleClass, pilier_owner: po,
       });
 
-      // cumuls
       for (const acc of [st, pil, gen]) {
         acc.coeur += coeurNum; acc.total += totalNum;
         acc.iP1 += num(r.instru_P1); acc.iP2 += num(r.instru_P2); acc.iP3 += num(r.instru_P3);
         acc.iP4 += num(r.instru_P4); acc.iP5 += num(r.instru_P5);
       }
 
-      // cartes détail — par bloc cœur (HAUT≥4 / MOYEN 2-3 / FAIBLE 1 / SOUTIEN 0)
+      // cartes détail — même regroupement que le tableau (en attente / occasionnels)
       const det = detailByCode[codeAff] ? buildCircuitDetail(detailByCode[codeAff], coeurNum) : null;
       if (det) {
-        const blocCarte = coeurNum >= 4 ? 'HAUT' : coeurNum >= 2 ? 'MOYEN' : coeurNum === 1 ? 'FAIBLE' : 'SOUTIEN';
-        if (!cartesByPilier[po]) cartesByPilier[po] = { HAUT: [], MOYEN: [], FAIBLE: [], SOUTIEN: [] };
+        const blocCarte = blocAffichage(r); // 'en attente…' | 'occasionnels' | (agent: très souvent/souvent)
+        if (!cartesByPilier[po]) cartesByPilier[po] = {};
+        if (!cartesByPilier[po][blocCarte]) cartesByPilier[po][blocCarte] = [];
         cartesByPilier[po][blocCarte].push({
           code: codeAff, capacite: safeStr(r['capacité']),
           coeur_aff: coeurNum > 0 ? String(coeurNum) : '·', total_aff: String(totalNum),
@@ -315,7 +316,6 @@ async function buildPayload(candidat_id) {
     }
     flushSousTotal();
 
-    // total pilier (calculé)
     tableauRows.push({
       kind: 'total_pilier', label: 'TOTAL PILIER ' + po + ' — ' + safeStr(pilierByCode[po]?.pilier_label),
       coeur_aff: String(pil.coeur), total_aff: String(pil.total),
@@ -324,7 +324,6 @@ async function buildPayload(candidat_id) {
     });
   }
 
-  // total général (calculé)
   tableauRows.push({
     kind: 'total_general', label: 'TOTAL — toutes les fonctionnalités',
     coeur_aff: String(gen.coeur), total_aff: String(gen.total),
@@ -333,7 +332,6 @@ async function buildPayload(candidat_id) {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SECTIONS PILIER (ordre doctrinal : socle, amont, aval, fonctionnels)
-  // Chacune : meta (têtière/mode/synthèse) + son sous-tableau + ses cartes par bloc.
   // ═══════════════════════════════════════════════════════════════════════════
   const ORDRE = ['socle', 'amont', 'aval', 'fonctionnel'];
   const piliersMeta = {};
@@ -346,26 +344,32 @@ async function buildPayload(candidat_id) {
       const m = piliersMeta[code];
       if (m.role !== role || seen.has(code)) continue;
       seen.add(code);
-      const cartes = cartesByPilier[code] || { HAUT: [], MOYEN: [], FAIBLE: [], SOUTIEN: [] };
-      // blocs de cartes non vides, avec agrégat + rattachement du bon niveau
+      const cartes = cartesByPilier[code] || {};
+      // Ordre d'affichage des blocs de cartes : ce que l'agent a pu écrire
+      // (très souvent, souvent) d'abord, puis « en attente », puis « occasionnels ».
+      const ORDRE_CARTES = ['très souvent', 'souvent', BLOC_EN_ATTENTE, 'occasionnels'];
+      const nomsBlocs = Object.keys(cartes);
+      nomsBlocs.sort((a, b) => {
+        const ia = ORDRE_CARTES.indexOf(a); const ib = ORDRE_CARTES.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      });
+      const libelleBloc = (niv) => {
+        if (niv === 'très souvent')  return 'Ce que vous faites très souvent';
+        if (niv === 'souvent')       return 'Ce que vous faites souvent';
+        if (niv === 'occasionnels')  return 'Ce que vous faites occasionnellement';
+        if (niv === BLOC_EN_ATTENTE) return 'Vos gestes les plus activés (en attente d\'attribution de bloc)';
+        return niv;
+      };
       const blocsCartes = [];
-      for (const niv of ['HAUT', 'MOYEN', 'FAIBLE', 'SOUTIEN']) {
+      for (const niv of nomsBlocs) {
         if (!cartes[niv] || !cartes[niv].length) continue;
         blocsCartes.push({
           niveau: niv,
-          libelle: niv === 'HAUT' ? 'Ce que vous faites très souvent (activé 4 fois ou plus)'
-                 : niv === 'MOYEN' ? 'Ce que vous faites régulièrement (activé 2 à 3 fois)'
-                 : niv === 'FAIBLE' ? 'Ce que vous faites de temps en temps (activé 1 fois)'
-                 : "Au service d'un autre outil (présent en renfort)",
+          libelle: libelleBloc(niv),
           role_class: m.role_class,
           circuits: cartes[niv],
-          agregat: niv === 'SOUTIEN' ? '' : m['bloc_' + niv + '_agregat'],
-          a_agregat: niv === 'SOUTIEN' ? false : !!m['bloc_' + niv + '_agregat'],
-          rattachement: niv === 'SOUTIEN' ? '' : m['bloc_' + niv + '_rattachement'],
-          a_rattachement: niv === 'SOUTIEN' ? false : !!m['bloc_' + niv + '_rattachement'],
         });
       }
-      // sous-tableau du pilier = lignes POURBILAN de ce pilier (divider→total_pilier)
       const rowsPilier = [];
       let capture = false;
       for (const tr of tableauRows) {
@@ -396,11 +400,6 @@ async function buildPayload(candidat_id) {
   const prenom   = safeStr(visiteur?.prenom   || bilan.prenom);
   const nom      = safeStr(visiteur?.nom      || bilan.nom);
 
-  // ── tableau_json : données du tableau par pilier, format compact lu par le
-  //    script de rendu du gabarit (clé = code pilier, valeur = liste de rows). ──
-  // Format row circuit : {kind:'circuit', adhoc, code, nom, cap, nivC, nivA, coeur, i:[p1..p5], total}
-  //        sous_total  : {kind:'soustotal', label, coeur, total, i:[...]}
-  //        total_pilier: {kind:'totalpil',  label, coeur, total, i:[...]}
   const instruArr = (instru) => PILIERS.map(P => {
     const cell = (instru || []).find(c => c.pilier === P);
     const v = cell ? parseInt(cell.val, 10) : 0;
@@ -437,13 +436,9 @@ async function buildPayload(candidat_id) {
       socle_libelle: safeStr(bilan.socle_libelle),
       signature_courte: safeStr(bilan.sig_resultat_ligne1),
     },
-    // Tableau global (toutes lignes) — disponible si besoin d'une vue complète
     tableau: { rows: tableauRows },
-    // Sections pilier (ordre doctrinal) — chacune avec son sous-tableau + cartes
     sections: sections,
-    // JSON des tableaux par pilier, injecté tel quel dans <script id="sections-data">
     tableau_json: JSON.stringify(tableauJsonObj),
-    // Communs (masqués si vides)
     ch2: { present: ch2maillons.length > 0, maillons: ch2maillons },
     ch3: {
       signaux_present: registres.length > 0,
@@ -456,7 +451,7 @@ async function buildPayload(candidat_id) {
     ch4: { present: preuves.length > 0, revelation: safeStr(bilan.ch4_filtre_revelation), preuves },
   };
 
-  logger.info('bilanFablePayloadService v2.0 — contexte construit', {
+  logger.info('bilanFablePayloadService v2.1 — contexte construit', {
     candidat_id,
     nb_lignes_tableau: tableauRows.length,
     nb_sections: sections.length,
