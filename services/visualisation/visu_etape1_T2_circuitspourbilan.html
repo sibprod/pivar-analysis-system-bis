@@ -1,343 +1,579 @@
-// services/etape1/service_etape1_T2_phase4_circuits_pourbilan.js
-// MISSION DE FIN D'ÉTAPE 1.2 — Phase 4 — v2.1
-// Profil-Cognitif Sib Prod
-//
-// ─────────────────────────────────────────────────────────────────────────────
-// CHANGEMENT v2.1 (23/06/2026) — RANGEMENT DES BLOCS SUR LE TOTAL
-// ─────────────────────────────────────────────────────────────────────────────
-// Décision validée : on range sur le TOTAL occurrences, plus sur le cœur.
-// Le service (mécanique) ne pose QUE le bloc « occasionnels » :
-//   - « occasionnels » : total 1 ou 2 → bloc posé (frontière fixe), avec sous-total.
-//   - total >= 3       : bloc NON ATTRIBUÉ (vide), circuits rangés par total
-//     décroissant, en tête. C'est l'AGENT du bilan (étape 1.3) qui les assignera
-//     à un bloc (« très souvent » / « souvent ») après lecture (jugement de cassure).
-// Suppression de l'ancienne fonction blocDepuisCoeur (rangement sur le cœur) et
-// des libellés chiffrés « très souvent (4+) / régulièrement (2-3) / de temps en
-// temps (1) / au service d'un autre outil ».
-// CONSERVÉ : colonnes niveau_coeur et niveau_amplitude (lectures informatives),
-// la logique d'addition (sous-total occasionnels, total pilier, total général),
-// les ad hoc. AUCUN changement de schéma Airtable.
-//
-// ─────────────────────────────────────────────────────────────────────────────
-// CHANGEMENT v2.0 (18/06/2026) — PASSAGE PAR airtableService.js
-// ─────────────────────────────────────────────────────────────────────────────
-// La v1.1 requêtait Airtable en direct (instance SDK propre + meta API). La v2.0
-// n'utilise PLUS aucune connexion directe : toutes les lectures et l'écriture
-// passent par services/infrastructure/airtableService.js, comme le reste de la
-// prod. Ce service bénéficie ainsi du nettoyage (cleanFields), des lots, des
-// pauses et de la journalisation centralisés.
-//
-// Pré-requis (livrés avec cette version) :
-//   - config/airtable.js : TABLES.ETAPE1_T2_CIRCUITS_POURBILAN_FIELDS + mapping des champs
-//   - airtableService.js : getReferentielCircuits (enrichi capacité),
-//     getReferentielCircuitsCapacites, getEtape1T2CircuitsPourbilan,
-//     writeEtape1T2CircuitsPourbilan
-//
-// ─────────────────────────────────────────────────────────────────────────────
-// RESPONSABILITÉ UNIQUE (inchangée)
-// ─────────────────────────────────────────────────────────────────────────────
-// Projeter l'inventaire figé de l'étape 1.2 en une table PRÊTE À LIRE pour
-// l'agent PA pilier (étape 1.3), sans rien recalculer des chiffres sources.
-// Ajoute, par pur calcul mécanique (ZÉRO LLM) :
-//   - le NOM EN CLAIR du circuit (résolu sur (pilier, circuit_id) / nom ad hoc)
-//   - la CAPACITÉ (valeur cognitive intrinsèque, LUE dans le référentiel —
-//     officiel ou candidats — jamais recalculée ; pas sur les lignes de total)
-//   - le NIVEAU CŒUR     (HAUT>=4 . MOYEN 2-3 . FAIBLE 1 . EN_SOUTIEN 0)
-//   - le NIVEAU AMPLITUDE (HAUT>=8 . MOYEN 4-7 . FAIBLE 1-3, calculé toujours)
-//   - le BLOC + les ADDITIONS (sous-total bloc, total pilier, total général)
-//
-//   La PROFONDEUR D'ACTIVATION n'est PAS produite ici (agent PA pilier 1.3).
-//
-// USAGE :
-//   node service_etape1_T2_phase4_circuits_pourbilan.js <candidat_id> [--dry-run]
-// ─────────────────────────────────────────────────────────────────────────────
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circuits pour bilan — Profil-Cognitif</title>
+<style>
+  :root {
+    --p1c: #185FA5; --p1bg: #E6F1FB; --p1bd: #B5D4F4;
+    --p2c: #534AB7; --p2bg: #EEEDFE; --p2bd: #C9C5F0;
+    --p3c: #993C1D; --p3bg: #FAECE7; --p3bd: #F0C9B8;
+    --p4c: #0F6E56; --p4bg: #E1F5EE; --p4bd: #B0E0CD;
+    --p5c: #993556; --p5bg: #FBEAF0; --p5bd: #EFC4D2;
 
+    --text:  #1a1a1a;
+    --text2: #555;
+    --text3: #888;
+    --bg:    #fafafa;
+    --white: #fff;
+    --border: #ddd;
+    --border-light: #eee;
+    --grey-na: #f0f0f0;
+    --grey-na-text: #bbb;
+
+    --haut-bg: #d6f5e3;  --haut-c: #0f6e56;
+    --moyen-bg: #fdf3d4; --moyen-c: #9a7b15;
+    --faible-bg: #f3e6e6; --faible-c: #993556;
+    --soutien-bg: #ececf6; --soutien-c: #534AB7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    padding: 1.5rem 1rem;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.3rem; }
+  .meta { font-size: 12px; color: var(--text2); margin-bottom: 1.5rem; }
+
+  #loading, #error, #empty {
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; min-height: 60vh; gap: 12px;
+    font-size: 14px; color: var(--text2);
+  }
+  #loading .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border); border-top-color: var(--p3c);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #error { color: #993556; }
+  #error .icon, #empty .icon { font-size: 32px; }
+  #empty { color: var(--text2); }
+  #empty .icon { opacity: 0.5; }
+  #empty .hint {
+    font-size: 12px; color: var(--text3); margin-top: 8px;
+    text-align: center; max-width: 560px; line-height: 1.6;
+  }
+  code {
+    background: #f0f0f0; padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", Monaco, "Cascadia Mono", monospace; font-size: 11px;
+  }
+
+  .synthese {
+    font-size: 13px; color: var(--text2);
+    background: #f0f0f0; padding: 10px 14px; border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+  .synthese .pilier-mention { font-weight: 600; margin: 0 3px; }
+  .synthese .ad-hoc-mention { font-style: italic; color: var(--p5c); }
+
+  .legende {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-size: 11px; color: var(--text2);
+    background: var(--white); border: 1px solid var(--border-light);
+    padding: 10px 14px; border-radius: 6px; margin-bottom: 1.5rem;
+  }
+  .legende .grp { display: flex; align-items: center; gap: 6px; }
+  .legende .chip {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 10px; font-weight: 700;
+  }
+  .chip.haut    { background: var(--haut-bg);    color: var(--haut-c); }
+  .chip.moyen   { background: var(--moyen-bg);   color: var(--moyen-c); }
+  .chip.faible  { background: var(--faible-bg);  color: var(--faible-c); }
+  .chip.soutien { background: var(--soutien-bg); color: var(--soutien-c); }
+
+  .inv-header {
+    margin-top: 1.5rem; padding: 12px 16px;
+    background: #2c2c2a; color: white; border-radius: 6px 6px 0 0;
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  .inv-title { font-size: 15px; font-weight: 600; }
+  .inv-stats { font-size: 12px; opacity: 0.85; }
+
+  table.inv-table {
+    width: 100%; border-collapse: collapse;
+    background: var(--white); border-radius: 0 0 6px 6px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    font-size: 12px; table-layout: fixed;
+  }
+  table.inv-table th, table.inv-table td {
+    padding: 7px 8px; text-align: center; vertical-align: middle;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  table.inv-table th {
+    background: #f5f5f5; font-weight: 600; font-size: 10.5px;
+    color: var(--text2); border-bottom: 1px solid var(--border);
+  }
+  table.inv-table th.circuit-label, table.inv-table td.circuit-label {
+    text-align: left; width: 22%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  table.inv-table th.cap-col, table.inv-table td.cap-col {
+    text-align: left; width: 15%; font-size: 11px; color: var(--text2);
+  }
+  table.inv-table th.niv-col, table.inv-table td.niv-col { width: 8%; }
+  table.inv-table th.prof-col, table.inv-table td.prof-col { width: 8%; font-size: 11px; }
+  table.inv-table th.bloc-col, table.inv-table td.bloc-col {
+    text-align: left; width: 11%; font-size: 10.5px; color: var(--text3);
+  }
+  table.inv-table th.num, table.inv-table td.num { width: 5.2%; }
+  table.inv-table td.num {
+    font-family: ui-monospace, "SF Mono", Monaco, monospace; font-size: 12px;
+  }
+  table.inv-table td.total-col { font-weight: 700; }
+  table.inv-table td.na { background: var(--grey-na); color: var(--grey-na-text); }
+
+  .niv-chip {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.2px;
+  }
+  .niv-chip.haut    { background: var(--haut-bg);    color: var(--haut-c); }
+  .niv-chip.moyen   { background: var(--moyen-bg);   color: var(--moyen-c); }
+  .niv-chip.faible  { background: var(--faible-bg);  color: var(--faible-c); }
+  .niv-chip.soutien { background: var(--soutien-bg); color: var(--soutien-c); }
+
+  table.inv-table tr.owner-divider td {
+    padding: 9px 12px; text-align: left;
+    font-weight: 700; font-size: 12.5px; border-bottom: 1px solid var(--border);
+  }
+  table.inv-table tr.owner-divider .role-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 8px; border-radius: 10px; margin-left: 10px;
+    vertical-align: middle; letter-spacing: 0.3px;
+  }
+
+  table.inv-table tr.bloc-divider td {
+    padding: 5px 12px; text-align: left; font-size: 10.5px;
+    font-style: italic; color: var(--text3); background: #fcfcfc;
+  }
+
+  table.inv-table tr.sous-total td {
+    background: #f7f7f7; font-size: 11px; color: var(--text2); font-weight: 600;
+  }
+  table.inv-table tr.total-pilier td {
+    background: #ececec; font-weight: 700; border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  table.inv-table tr.total-general td {
+    background: #2c2c2a; color: white; font-weight: 700; font-size: 12.5px;
+  }
+
+  table.inv-table tr.adhoc td.circuit-label { font-style: italic; }
+  table.inv-table tr.adhoc .badge-adhoc {
+    display: inline-block; font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 8px;
+    background: var(--p5bg); color: var(--p5c);
+    margin-right: 6px; vertical-align: middle; font-style: normal; letter-spacing: 0.3px;
+  }
+
+  .footer {
+    margin-top: 2rem; padding-top: 1rem;
+    border-top: 1px solid var(--border-light);
+    font-size: 10px; color: var(--text3); text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div>Chargement des circuits pour bilan…</div>
+</div>
+
+<div id="error" style="display:none">
+  <div class="icon">⚠️</div>
+  <div id="error-message">Erreur de chargement</div>
+</div>
+
+<div id="empty" style="display:none">
+  <div class="icon">📋</div>
+  <div>Aucun circuit pour bilan disponible pour ce candidat.</div>
+  <div class="hint">
+    La Phase 4 de l'étape 1.2 n'a pas encore été exécutée pour ce candidat,
+    ou la table figée est vide.<br>
+    Pour générer ces données, repasse le statut <code>REPRENDRE_AGENT2</code>
+    dans la table VISITEUR.
+  </div>
+</div>
+
+<div id="content" style="display:none">
+  <h1>Circuits pour bilan</h1>
+  <p class="meta">
+    Profil-Cognitif · Candidat : <code id="candidat-label">—</code> ·
+    Source : ETAPE1_T2_CIRCUITS_POURBILAN (table figée, prête à lire)
+  </p>
+
+  <div id="synthese-bandeau"></div>
+  <div id="legende"></div>
+  <div id="tableau-container"></div>
+
+  <div class="footer"><span id="meta-footer"></span></div>
+</div>
+
+<script>
 'use strict';
 
-const airtableService = require('../infrastructure/airtableService');
-const logger          = require('../../utils/logger');
-
+const PILIER_COLORS = {
+  P1: { c: '#185FA5', bg: '#E6F1FB', bd: '#B5D4F4' },
+  P2: { c: '#534AB7', bg: '#EEEDFE', bd: '#C9C5F0' },
+  P3: { c: '#993C1D', bg: '#FAECE7', bd: '#F0C9B8' },
+  P4: { c: '#0F6E56', bg: '#E1F5EE', bd: '#B0E0CD' },
+  P5: { c: '#993556', bg: '#FBEAF0', bd: '#EFC4D2' }
+};
 const PILIERS = ['P1', 'P2', 'P3', 'P4', 'P5'];
 
-// rang VENTILATION -> rôle pilier
-const RANG_TO_ROLE = { 1: 'socle', 2: 'amont', 3: 'aval', 4: 'fonctionnel', 5: 'fonctionnel' };
+const ROLE_COLORS = {
+  socle:       { bg: '#fde0e0', c: '#c0392b' },
+  amont:       { bg: '#ffe8d6', c: '#d35400' },
+  aval:        { bg: '#fdf3d4', c: '#9a7b15' },
+  fonctionnel: { bg: '#e3f3e8', c: '#1e8449' }
+};
 
-// ═══════════════════════════════════════════════════════════════
-// RÈGLES DE NIVEAU (figées — doctrine validée)
-// ═══════════════════════════════════════════════════════════════
-
-function niveauCoeur(coeur) {
-  if (coeur >= 4) return 'HAUT';
-  if (coeur >= 2) return 'MOYEN';
-  if (coeur === 1) return 'FAIBLE';
-  return 'EN_SOUTIEN';                 // cœur 0 : jamais gouvernant
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function niveauAmplitude(total) {       // calculé TOUJOURS, même si cœur 0
-  if (total >= 8) return 'HAUT';
-  if (total >= 4) return 'MOYEN';
-  return 'FAIBLE';
+function extractCandidatIdFromUrl() {
+  const path = window.location.pathname;
+  const m = path.match(/\/visualiser\/tableau2circuitspourbilan\/([^\/\?]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// RANGEMENT EN BLOCS — SUR LE TOTAL (rectifié 23/06/2026)
-// ─────────────────────────────────────────────────────────────────────────
-// Décision validée : le service (mécanique) ne pose QUE le bloc « occasionnels ».
-//   - « occasionnels » : total 1 ou 2  → bloc posé (frontière FIXE).
-//   - total >= 3       : bloc NON ATTRIBUÉ (champ bloc vide). Ces circuits sont
-//     simplement rangés dans l'ordre du total décroissant. C'est l'AGENT du
-//     bilan (étape 1.3) qui les assignera à un bloc (« très souvent » / « souvent »)
-//     parce qu'il doit LIRE pour juger la cassure — le service ne peut pas le faire.
-// Le rangement ne s'appuie sur aucun seuil de niveau : ce qui compte est l'ordre
-// par total. Les colonnes niveau_coeur et niveau_amplitude restent écrites comme
-// lectures informatives (le cœur reste lisible dans l'analyse).
-//
-// Retourne ordre = 0 pour les circuits sans bloc (total >= 3, en tête), ordre = 1
-// pour les occasionnels (en fin de pilier).
-function blocDepuisTotal(total) {
-  if (total >= 3) return { bloc: '',             ordre: 0 };  // non attribué : l'agent tranchera
-  return            { bloc: 'occasionnels',       ordre: 1 };
+function fval(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object' && v.name !== undefined) return v.name;
+  return v;
 }
 
-function ordreFromBlocLabel(label) {
-  return { '': 0, 'occasionnels': 1 }[label] ?? 9;
+function nivClass(niveau) {
+  const n = String(niveau || '').toUpperCase();
+  if (n === 'HAUT') return 'haut';
+  if (n === 'MOYEN') return 'moyen';
+  if (n === 'FAIBLE') return 'faible';
+  if (n === 'EN_SOUTIEN' || n === 'EN SOUTIEN') return 'soutien';
+  return '';
+}
+function nivLabel(niveau) {
+  const n = String(niveau || '').toUpperCase();
+  if (n === 'EN_SOUTIEN') return 'EN SOUTIEN';
+  return n || '—';
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CONSTRUCTION DES MAPS À PARTIR DES LECTURES airtableService
-// ═══════════════════════════════════════════════════════════════
+function renderNiveauCell(niveau) {
+  const cls = nivClass(niveau);
+  const lab = nivLabel(niveau);
+  if (!cls) return `<td class="niv-col"><span style="color:#bbb;">—</span></td>`;
+  return `<td class="niv-col"><span class="niv-chip ${cls}">${lab}</span></td>`;
+}
 
-function fname(v) { return (v && typeof v === 'object' && v.name) ? v.name : v; }
+function renderInstruCell(n, color, isNA) {
+  if (isNA) return `<td class="num na">—</td>`;
+  if (!n || n === 0) return `<td class="num" style="color:${color};opacity:0.3;">·</td>`;
+  return `<td class="num" style="color:${color};font-weight:600;">${n}</td>`;
+}
 
-// REFERENTIEL_CIRCUITS (déjà lu par airtableService) -> map "P3C12" -> { nom, cap }
-function indexerReferentiel(circuitsRef) {
-  const map = {};
-  for (const c of circuitsRef) {
-    const p = c.pilier;
-    const id = c.circuit_id;
-    if (p && id) map[`${p}${id}`] = { nom: c.circuit_nom || '', cap: c.capacite || '' };
+function renderSynthese(circuits) {
+  const compteurs = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
+  let nbAdHoc = 0;
+  for (const r of circuits) {
+    const po = fval(r.pilier_owner);
+    if (compteurs[po] !== undefined) compteurs[po]++;
+    if (fval(r.circuit_origine) === 'AD_HOC') nbAdHoc++;
   }
-  return map;
+  const mentions = PILIERS
+    .filter(P => compteurs[P] > 0)
+    .map(P => `<span class="pilier-mention" style="color:${PILIER_COLORS[P].c};">${P}</span> : ${compteurs[P]}`)
+    .join(' · ');
+  const adhocMention = nbAdHoc > 0
+    ? ` · <span class="ad-hoc-mention">+ ${nbAdHoc} ad hoc</span>` : '';
+  return `<div class="synthese">
+    Circuits par pilier : ${mentions} ·
+    <strong>${circuits.length} circuits distincts</strong>${adhocMention}
+  </div>`;
 }
 
-// VENTILATION (déjà lue par airtableService) -> map "P3" -> { rang, role }
-function indexerArchitecture(ventilationRows) {
-  const map = {};
-  for (const r of ventilationRows) {
-    const code = fname(r.pilier_coeur);
-    const rang = Number(r.rang_par_frequence || 0);
-    if (code) map[code] = { rang, role: RANG_TO_ROLE[rang] || 'fonctionnel' };
-  }
-  return map;
+function renderLegende() {
+  return `<div class="legende">
+    <div class="grp"><strong>Niveau cœur</strong> (combien le geste gouverne) :</div>
+    <div class="grp"><span class="chip haut">HAUT</span> ≥ 4</div>
+    <div class="grp"><span class="chip moyen">MOYEN</span> 2–3</div>
+    <div class="grp"><span class="chip faible">FAIBLE</span> 1</div>
+    <div class="grp"><span class="chip soutien">EN SOUTIEN</span> cœur 0, sert ailleurs</div>
+    <div class="grp" style="margin-left:18px;"><strong>Amplitude</strong> (cœur + instrumental) : HAUT ≥ 8 · MOYEN 4–7 · FAIBLE 1–3</div>
+  </div>`;
 }
 
-// REFERENTIEL_PILIERS (déjà lu par airtableService) -> map "P3" -> "Analyse…"
-function indexerNomsPiliers(piliersRef) {
-  const map = {};
-  for (const p of piliersRef) {
-    if (p.pilier_code) map[p.pilier_code] = p.pilier_nom || '';
-  }
-  return map;
-}
+function renderCircuitRow(row) {
+  const po = fval(row.pilier_owner);
+  const ownerColor = PILIER_COLORS[po] || PILIER_COLORS.P3;
+  const isAdHoc = fval(row.circuit_origine) === 'AD_HOC';
 
-// INVENTAIRE (déjà lu par airtableService) -> liste normalisée, ligne à ligne
-function normaliserInventaire(inventaireRows) {
-  return inventaireRows.map(r => ({
-    pilier:      fname(r.pilier_owner),
-    circuit_id:  fname(r.circuit_id),                 // "C12"
-    code:        r.circuit_label || '',               // "P3C12" / "P5·ADHOC …"
-    origine:     fname(r.circuit_origine) || 'OFFICIEL',
-    nom_ad_hoc:  r.nom_ad_hoc || '',
-    coeur:       Number(r.nb_coeur || 0),
-    svc_P1:      Number(r.nb_svc_P1 || 0),
-    svc_P2:      Number(r.nb_svc_P2 || 0),
-    svc_P3:      Number(r.nb_svc_P3 || 0),
-    svc_P4:      Number(r.nb_svc_P4 || 0),
-    svc_P5:      Number(r.nb_svc_P5 || 0),
-    total:       Number(r.total_activations || 0),
-    rang_pilier_circuit: Number(r.rang_dans_pilier || 0),
-  }));
-}
-
-// ═══════════════════════════════════════════════════════════════
-// CONSTRUCTION DES LIGNES À GRAVER (inchangée vs v1.1)
-// ═══════════════════════════════════════════════════════════════
-
-function vecZero() { return { coeur: 0, P1: 0, P2: 0, P3: 0, P4: 0, P5: 0, total: 0 }; }
-function vecAdd(acc, c) {
-  acc.coeur += c.coeur; acc.P1 += c.svc_P1; acc.P2 += c.svc_P2;
-  acc.P3 += c.svc_P3; acc.P4 += c.svc_P4; acc.P5 += c.svc_P5; acc.total += c.total;
-}
-
-function construireLignes(candidat_id, inventaire, archi, nomsCircuits, nomsPiliers, capacitesAdhoc) {
-  const lignes = [];
-  const general = vecZero();
-
-  const piliersPresents = [...new Set(inventaire.map(c => c.pilier))]
-    .filter(p => PILIERS.includes(p))
-    .sort((a, b) => (archi[a]?.rang || 99) - (archi[b]?.rang || 99));
-
-  for (const P of piliersPresents) {
-    const circuits = inventaire.filter(c => c.pilier === P);
-    const rangP = archi[P]?.rang || 0;
-    const roleP = archi[P]?.role || 'fonctionnel';
-    const nomP  = nomsPiliers[P] || P;
-
-    circuits.sort((a, b) => {
-      // Rangement sur le TOTAL (rectifié 23/06/2026) :
-      // d'abord par bloc (souvent avant occasionnels), puis par total
-      // décroissant à l'intérieur du bloc, puis le cœur comme simple
-      // départage à total égal (le cœur ne reclasse pas, il départage).
-      const ba = blocDepuisTotal(a.total).ordre, bb = blocDepuisTotal(b.total).ordre;
-      if (ba !== bb) return ba - bb;
-      if (b.total !== a.total) return b.total - a.total;
-      return b.coeur - a.coeur;
-    });
-
-    const totalPilier = vecZero();
-    let blocCourant = null;
-    let sousTotal = vecZero();
-
-    const flushSousTotal = () => {
-      // Sous-total uniquement pour le bloc « occasionnels » (seul bloc posé par
-      // le service). Les circuits sans bloc (total >= 3) sont listés sans
-      // sous-total : c'est l'agent du bilan qui les regroupera.
-      if (blocCourant !== 'occasionnels') { sousTotal = vecZero(); return; }
-      lignes.push({
-        candidat_id, type_ligne: 'SOUS_TOTAL', pilier_owner: P, pilier_nom: nomP,
-        rang_pilier: rangP, role_pilier: roleP,
-        bloc: blocCourant, ordre_bloc: ordreFromBlocLabel(blocCourant),
-        activation_coeur: sousTotal.coeur,
-        instru_P1: sousTotal.P1, instru_P2: sousTotal.P2, instru_P3: sousTotal.P3,
-        instru_P4: sousTotal.P4, instru_P5: sousTotal.P5,
-        total_occurrences: sousTotal.total,
-      });
-      sousTotal = vecZero();
-    };
-
-    for (const c of circuits) {
-      const { bloc, ordre } = blocDepuisTotal(c.total);
-      if (bloc !== blocCourant) { flushSousTotal(); blocCourant = bloc; }
-
-      const isAdhoc = (c.origine === 'AD_HOC') || /ADHOC/i.test(c.code);
-      let nomClair, capacite;
-      if (isAdhoc) {
-        nomClair = c.nom_ad_hoc || c.code;
-        capacite = capacitesAdhoc[c.nom_ad_hoc] || '';
-      } else {
-        const cle = `${P}${c.circuit_id}`;
-        const ref = nomsCircuits[cle];
-        nomClair = (ref && ref.nom) || `[nom introuvable ${cle}]`;
-        capacite = (ref && ref.cap) || '';
-      }
-
-      lignes.push({
-        candidat_id, type_ligne: 'CIRCUIT', pilier_owner: P, pilier_nom: nomP,
-        rang_pilier: rangP, role_pilier: roleP,
-        circuit_code: isAdhoc ? `${P}·ADHOC` : `${P}${c.circuit_id}`,
-        circuit_nom_clair: nomClair,
-        'capacité': capacite,                       // report mécanique
-        bloc, ordre_bloc: ordre,
-        niveau_coeur: niveauCoeur(c.coeur),
-        niveau_amplitude: niveauAmplitude(c.total),
-        activation_coeur: c.coeur,
-        instru_P1: P === 'P1' ? 0 : c.svc_P1,
-        instru_P2: P === 'P2' ? 0 : c.svc_P2,
-        instru_P3: P === 'P3' ? 0 : c.svc_P3,
-        instru_P4: P === 'P4' ? 0 : c.svc_P4,
-        instru_P5: P === 'P5' ? 0 : c.svc_P5,
-        total_occurrences: c.total,
-        circuit_origine: isAdhoc ? 'AD_HOC' : 'OFFICIEL',
-        nom_ad_hoc: isAdhoc ? (c.nom_ad_hoc || '') : '',
-        rang_dans_pilier: c.rang_pilier_circuit,
-      });
-
-      vecAdd(sousTotal, c);
-      vecAdd(totalPilier, c);
-      vecAdd(general, c);
-    }
-    flushSousTotal();
-
-    lignes.push({
-      candidat_id, type_ligne: 'TOTAL_PILIER', pilier_owner: P, pilier_nom: nomP,
-      rang_pilier: rangP, role_pilier: roleP,
-      activation_coeur: totalPilier.coeur,
-      instru_P1: totalPilier.P1, instru_P2: totalPilier.P2, instru_P3: totalPilier.P3,
-      instru_P4: totalPilier.P4, instru_P5: totalPilier.P5,
-      total_occurrences: totalPilier.total,
-    });
+  let labelHtml;
+  if (isAdHoc) {
+    labelHtml = `<span class="badge-adhoc">AD HOC</span>${escapeHtml(fval(row.circuit_nom_clair) || fval(row.nom_ad_hoc))}`;
+  } else {
+    const code = fval(row.circuit_code) || '';
+    const nom  = fval(row.circuit_nom_clair) || '';
+    labelHtml = `<strong style="color:${ownerColor.c};">${escapeHtml(code)}</strong> ${escapeHtml(nom)}`;
   }
 
-  lignes.push({
-    candidat_id, type_ligne: 'TOTAL_GENERAL',
-    circuit_nom_clair: 'TOTAL — toutes les fonctionnalités',
-    activation_coeur: general.coeur,
-    instru_P1: general.P1, instru_P2: general.P2, instru_P3: general.P3,
-    instru_P4: general.P4, instru_P5: general.P5,
-    total_occurrences: general.total,
+  const capHtml = `<td class="cap-col">${escapeHtml(fval(row['capacité']) || fval(row.capacite) || '—')}</td>`;
+
+  const coeurCell = renderNiveauCell(fval(row.niveau_coeur));
+  const amplCell  = renderNiveauCell(fval(row.niveau_amplitude));
+
+  const prof = fval(row.profondeur_activation);
+  const profHtml = `<td class="prof-col">${prof ? escapeHtml(prof) : '<span style="color:#ccc;">—</span>'}</td>`;
+
+  const coeurNum = Number(row.activation_coeur || 0);
+  const coeurNumHtml = `<td class="num" style="background:${ownerColor.bg};color:${ownerColor.c};font-weight:700;">${coeurNum > 0 ? coeurNum : '·'}</td>`;
+
+  const instruCells = PILIERS.map(P => {
+    const isNA = (P === po);
+    const n = Number(row['instru_' + P] || 0);
+    return renderInstruCell(n, PILIER_COLORS[P].c, isNA);
+  }).join('');
+
+  const total = Number(row.total_occurrences || 0);
+  const totalHtml = `<td class="num total-col">${total}</td>`;
+
+  const blocHtml = `<td class="bloc-col">${escapeHtml(fval(row.bloc) || '')}</td>`;
+
+  return `<tr class="${isAdHoc ? 'adhoc' : ''}">
+    <td class="circuit-label">${labelHtml}</td>
+    ${capHtml}
+    ${coeurCell}
+    ${amplCell}
+    ${profHtml}
+    ${coeurNumHtml}
+    ${instruCells}
+    ${totalHtml}
+    ${blocHtml}
+  </tr>`;
+}
+
+function renderTotalPilierRow(row) {
+  const po = fval(row.pilier_owner);
+  const coeur = Number(row.activation_coeur || 0);
+  const total = Number(row.total_occurrences || 0);
+  const instruCells = PILIERS.map(P => {
+    const n = Number(row['instru_' + P] || 0);
+    return `<td class="num">${n > 0 ? n : ''}</td>`;
+  }).join('');
+  return `<tr class="total-pilier">
+    <td class="circuit-label" colspan="2">TOTAL PILIER ${escapeHtml(po)} — ${escapeHtml(fval(row.pilier_nom))}</td>
+    <td class="niv-col"></td><td class="niv-col"></td><td class="prof-col"></td>
+    <td class="num">${coeur || ''}</td>
+    ${instruCells}
+    <td class="num total-col">${total}</td>
+    <td class="bloc-col"></td>
+  </tr>`;
+}
+
+function renderTotalGeneralRow(row) {
+  const coeur = Number(row.activation_coeur || 0);
+  const total = Number(row.total_occurrences || 0);
+  const instruCells = PILIERS.map(P => {
+    const n = Number(row['instru_' + P] || 0);
+    return `<td class="num">${n > 0 ? n : ''}</td>`;
+  }).join('');
+  return `<tr class="total-general">
+    <td class="circuit-label" colspan="2">${escapeHtml(fval(row.circuit_nom_clair) || 'TOTAL — toutes les fonctionnalités')}</td>
+    <td class="niv-col"></td><td class="niv-col"></td><td class="prof-col"></td>
+    <td class="num">${coeur || ''}</td>
+    ${instruCells}
+    <td class="num total-col">${total}</td>
+    <td class="bloc-col"></td>
+  </tr>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGROUPEMENT PAR TOTAL OCCURRENCES (figé 23/06/2026)
+// ───────────────────────────────────────────────────────────────────────────
+// Règle figée : le service Phase 4 ne pose QUE le bloc « occasionnels » (total 1-2).
+// Les circuits de total >= 3 arrivent SANS bloc : c'est l'agent du bilan qui leur
+// attribuera « très souvent » / « souvent » après lecture. Tant qu'il n'a pas
+// tranché, on les regroupe sous « en attente d'attribution de bloc », rangés par
+// total décroissant.
+//   • Ordre des piliers : par rôle (socle→amont→aval→fonctionnel), repli P1..P5.
+//   • Dans un pilier : « en attente » (total>=3) puis « occasionnels » (1-2).
+//   • Sous-total recalculé par bloc. TOTAL_PILIER et TOTAL_GENERAL repris tels quels.
+// ═══════════════════════════════════════════════════════════════════════════
+const BLOCS_TOTAL = [
+  { id: 'EN_ATTENTE',   libelle: "en attente d'attribution de bloc", min: 3, max: Infinity },
+  { id: 'occasionnels', libelle: 'occasionnels',                     min: 1, max: 2 }
+];
+function blocDuTotal(total) {
+  for (const b of BLOCS_TOTAL) { if (total >= b.min && total <= b.max) return b; }
+  return BLOCS_TOTAL[BLOCS_TOTAL.length - 1]; // total 0 → occasionnels (cas limite)
+}
+
+function renderSousTotalCalcule(libelle, circuits) {
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  let coeur = 0, total = 0;
+  const instru = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 };
+  for (const c of circuits) {
+    coeur += num(c.activation_coeur);
+    total += num(c.total_occurrences);
+    for (const P of PILIERS) instru[P] += num(c['instru_' + P]);
+  }
+  const instruCells = PILIERS.map(P => `<td class="num">${instru[P] > 0 ? instru[P] : ''}</td>`).join('');
+  return `<tr class="sous-total">
+    <td class="circuit-label" colspan="2">Sous-total — bloc « ${escapeHtml(libelle)} »</td>
+    <td class="niv-col"></td><td class="niv-col"></td><td class="prof-col"></td>
+    <td class="num">${coeur || ''}</td>
+    ${instruCells}
+    <td class="num total-col">${total}</td>
+    <td class="bloc-col"></td>
+  </tr>`;
+}
+
+function renderTableau(rowsRecues) {
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const ROLE_ORDRE = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
+
+  const circuits = [];
+  const totauxPilier = {};
+  let totalGeneral = null;
+  for (const row of rowsRecues) {
+    const t = fval(row.type_ligne);
+    if (t === 'CIRCUIT')            circuits.push(row);
+    else if (t === 'TOTAL_PILIER')  totauxPilier[fval(row.pilier_owner)] = row;
+    else if (t === 'TOTAL_GENERAL') totalGeneral = row;
+  }
+
+  const roleParPilier = {};
+  for (const r of circuits) {
+    const po = fval(r.pilier_owner);
+    if (po && !(po in roleParPilier)) roleParPilier[po] = fval(r.role_pilier) || '';
+  }
+  const ordrePiliers = Object.keys(roleParPilier).sort((a, b) => {
+    const ra = (roleParPilier[a] in ROLE_ORDRE) ? ROLE_ORDRE[roleParPilier[a]] : 50;
+    const rb = (roleParPilier[b] in ROLE_ORDRE) ? ROLE_ORDRE[roleParPilier[b]] : 50;
+    if (ra !== rb) return ra - rb;
+    return PILIERS.indexOf(a) - PILIERS.indexOf(b);
   });
 
-  return lignes;
-}
+  let bodyHtml = '';
+  for (const po of ordrePiliers) {
+    const circuitsPilier = circuits.filter(c => fval(c.pilier_owner) === po);
+    if (circuitsPilier.length === 0) continue;
 
-// ═══════════════════════════════════════════════════════════════
-// ENTRÉE PRINCIPALE
-// ═══════════════════════════════════════════════════════════════
+    const refRow = circuitsPilier[0];
+    const colors = PILIER_COLORS[po] || PILIER_COLORS.P3;
+    const role = fval(refRow.role_pilier) || '';
+    const roleColor = ROLE_COLORS[role] || { bg: '#eee', c: '#666' };
+    bodyHtml += `<tr class="owner-divider" style="background:${colors.bg};">
+      <td colspan="13" style="color:${colors.c};">
+        Pilier ${escapeHtml(po)} — ${escapeHtml(fval(refRow.pilier_nom))}
+        <span class="role-badge" style="background:${roleColor.bg};color:${roleColor.c};">${escapeHtml(role)}</span>
+      </td>
+    </tr>`;
 
-async function runPhase4({ candidat_id, dry_run = false }) {
-  logger.info('Phase4 CIRCUITS_POURBILAN starting', { candidat_id, dry_run });
+    for (const bloc of BLOCS_TOTAL) {
+      const dansBloc = circuitsPilier
+        .filter(c => blocDuTotal(num(c.total_occurrences)).id === bloc.id)
+        .sort((a, b) => num(b.total_occurrences) - num(a.total_occurrences));
+      if (dansBloc.length === 0) continue;
 
-  // Toutes les lectures passent par airtableService (aucune connexion directe)
-  const [circuitsRef, capacitesAdhoc, piliersRef, ventilationRows, inventaireRows] =
-    await Promise.all([
-      airtableService.getReferentielCircuits(),
-      airtableService.getReferentielCircuitsCapacites(),
-      airtableService.getReferentielPiliers(),
-      airtableService.getEtape1T2VentilationPiliers(candidat_id),
-      airtableService.getEtape1T2InventaireCircuits(candidat_id),
-    ]);
+      bodyHtml += `<tr class="bloc-divider"><td colspan="13">${escapeHtml(bloc.libelle)}</td></tr>`;
+      for (const c of dansBloc) bodyHtml += renderCircuitRow(c);
+      bodyHtml += renderSousTotalCalcule(bloc.libelle, dansBloc);
+    }
 
-  const inventaire = normaliserInventaire(inventaireRows);
-  if (!inventaire.length) throw new Error(`Phase 4 : INVENTAIRE vide pour ${candidat_id}`);
-
-  const nomsCircuits = indexerReferentiel(circuitsRef);
-  const nomsPiliers  = indexerNomsPiliers(piliersRef);
-  const archi        = indexerArchitecture(ventilationRows);
-
-  const lignes = construireLignes(candidat_id, inventaire, archi, nomsCircuits, nomsPiliers, capacitesAdhoc);
-  const nbCircuits = lignes.filter(l => l.type_ligne === 'CIRCUIT').length;
-  logger.info('Phase4 lignes construites', { candidat_id, total: lignes.length, circuits: nbCircuits });
-
-  if (dry_run) {
-    logger.info('Phase4 DRY-RUN — aucune écriture', { candidat_id });
-    console.log(JSON.stringify({ candidat_id, nb_lignes: lignes.length, nb_circuits: nbCircuits, apercu: lignes.slice(0, 3) }, null, 2));
-    return { candidat_id, nb_lignes: lignes.length, nb_circuits: nbCircuits, dry_run: true };
+    if (totauxPilier[po]) bodyHtml += renderTotalPilierRow(totauxPilier[po]);
   }
 
-  await airtableService.writeEtape1T2CircuitsPourbilan(candidat_id, lignes);
-  logger.info('Phase4 terminé', { candidat_id, nb_lignes: lignes.length });
-  return { candidat_id, nb_lignes: lignes.length, nb_circuits: nbCircuits };
-}
+  if (totalGeneral) bodyHtml += renderTotalGeneralRow(totalGeneral);
 
-// ═══════════════════════════════════════════════════════════════
-// CLI
-// ═══════════════════════════════════════════════════════════════
-
-if (require.main === module) {
-  const args = process.argv.slice(2);
-  if (!args[0] || args[0].startsWith('--')) {
-    console.error('Usage: node service_etape1_T2_phase4_circuits_pourbilan.js <candidat_id> [--dry-run]');
-    process.exit(1);
+  const nbCircuits = circuits.length;
+  let nbSousTotaux = 0;
+  for (const po of ordrePiliers) {
+    const cp = circuits.filter(c => fval(c.pilier_owner) === po);
+    for (const bloc of BLOCS_TOTAL) {
+      if (cp.some(c => blocDuTotal(num(c.total_occurrences)).id === bloc.id)) nbSousTotaux++;
+    }
   }
-  const candidat_id = args[0];
-  const dry_run = args.includes('--dry-run');
-  runPhase4({ candidat_id, dry_run })
-    .then(r => { console.log('\nTerminé :', JSON.stringify(r)); process.exit(0); })
-    .catch(e => { console.error('\nERREUR FATALE:', e.message); process.exit(1); });
+  const nbLignes = nbCircuits + nbSousTotaux +
+                   Object.keys(totauxPilier).length + (totalGeneral ? 1 : 0);
+
+  return `
+    <div class="inv-header">
+      <span class="inv-title">📋 Circuits pour bilan — vue complète</span>
+      <span class="inv-stats">${nbCircuits} circuits · ${nbLignes} lignes (circuits + totaux)</span>
+    </div>
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th class="circuit-label">Circuit</th>
+          <th class="cap-col">Capacité</th>
+          <th class="niv-col">Niv. cœur</th>
+          <th class="niv-col">Amplitude</th>
+          <th class="prof-col">Profondeur</th>
+          <th class="num">Cœur</th>
+          <th class="num" style="color:${PILIER_COLORS.P1.c};">svc P1</th>
+          <th class="num" style="color:${PILIER_COLORS.P2.c};">svc P2</th>
+          <th class="num" style="color:${PILIER_COLORS.P3.c};">svc P3</th>
+          <th class="num" style="color:${PILIER_COLORS.P4.c};">svc P4</th>
+          <th class="num" style="color:${PILIER_COLORS.P5.c};">svc P5</th>
+          <th class="num">TOTAL</th>
+          <th class="bloc-col">Bloc</th>
+        </tr>
+      </thead>
+      <tbody>${bodyHtml}</tbody>
+    </table>
+  `;
 }
 
-module.exports = { runPhase4, _internal: {
-  niveauCoeur, niveauAmplitude, blocDepuisTotal,
-  indexerReferentiel, indexerArchitecture, indexerNomsPiliers, normaliserInventaire,
-  construireLignes,
-}};
+(async function init() {
+  const candidat_id = extractCandidatIdFromUrl();
+  try {
+    const response = await fetch(window.location.href, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status + ' — ' + response.statusText);
+
+    const data = await response.json();
+    const rows = (data && Array.isArray(data.rows)) ? data.rows : [];
+
+    if (rows.length === 0) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('empty').style.display = 'flex';
+      return;
+    }
+
+    const circuits = rows.filter(r => fval(r.type_ligne) === 'CIRCUIT');
+
+    document.getElementById('candidat-label').textContent = candidat_id || '?';
+    document.getElementById('synthese-bandeau').innerHTML = renderSynthese(circuits);
+    document.getElementById('legende').innerHTML = renderLegende();
+    document.getElementById('tableau-container').innerHTML = renderTableau(rows);
+    document.getElementById('meta-footer').textContent =
+      circuits.length + ' circuits · ' + rows.length + ' lignes · généré le ' +
+      new Date().toLocaleString('fr-FR');
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+  } catch (err) {
+    console.error('Erreur chargement circuitspourbilan :', err);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'flex';
+    document.getElementById('error-message').textContent =
+      'Erreur de chargement : ' + (err.message || 'erreur inconnue');
+  }
+})();
+</script>
+
+</body>
+</html>
