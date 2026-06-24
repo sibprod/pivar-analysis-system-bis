@@ -5,17 +5,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // CHANGEMENT v2.1 (23/06/2026) — RANGEMENT DES BLOCS SUR LE TOTAL
 // ─────────────────────────────────────────────────────────────────────────────
-// Décision validée : les blocs de fréquence sont rangés sur le TOTAL occurrences,
-// plus sur le cœur. La Phase 4 pose deux paliers mécaniques :
-//   - « occasionnels » : total 1 ou 2 (frontière fixe)
-//   - « souvent »      : total >= 3
-// La cassure « très souvent » (noyau de tête) à l'intérieur de « souvent » est
-// jugée plus loin par l'agent du bilan (étape 1.3), pas ici.
+// Décision validée : on range sur le TOTAL occurrences, plus sur le cœur.
+// Le service (mécanique) ne pose QUE le bloc « occasionnels » :
+//   - « occasionnels » : total 1 ou 2 → bloc posé (frontière fixe), avec sous-total.
+//   - total >= 3       : bloc NON ATTRIBUÉ (vide), circuits rangés par total
+//     décroissant, en tête. C'est l'AGENT du bilan (étape 1.3) qui les assignera
+//     à un bloc (« très souvent » / « souvent ») après lecture (jugement de cassure).
 // Suppression de l'ancienne fonction blocDepuisCoeur (rangement sur le cœur) et
 // des libellés chiffrés « très souvent (4+) / régulièrement (2-3) / de temps en
 // temps (1) / au service d'un autre outil ».
 // CONSERVÉ : colonnes niveau_coeur et niveau_amplitude (lectures informatives),
-// toute la logique d'addition (sous-total bloc, total pilier, total général),
+// la logique d'addition (sous-total occasionnels, total pilier, total général),
 // les ad hoc. AUCUN changement de schéma Airtable.
 //
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,24 +82,28 @@ function niveauAmplitude(total) {       // calculé TOUJOURS, même si cœur 0
 // ─────────────────────────────────────────────────────────────────────────
 // RANGEMENT EN BLOCS — SUR LE TOTAL (rectifié 23/06/2026)
 // ─────────────────────────────────────────────────────────────────────────
-// Décision validée : on range les circuits par paliers de fréquence sur le
-// TOTAL occurrences, jamais sur le cœur. La Phase 4 (mécanique) pose deux
-// paliers seulement :
-//   - « occasionnels » : total 1 ou 2  (frontière FIXE)
-//   - « souvent »      : total >= 3
-// La distinction « très souvent » (le noyau de tête) à l'intérieur de
-// « souvent » relève d'un JUGEMENT de cassure, fait plus loin par l'agent du
-// bilan (étape 1.3) — la Phase 4 ne la tranche pas.
-// Le rangement ne s'appuie plus sur aucun seuil de niveau : ce qui compte est
-// l'ordre par total. Les colonnes niveau_coeur et niveau_amplitude restent
-// écrites comme lectures informatives (le cœur reste lisible dans l'analyse).
+// Décision validée : le service (mécanique) ne pose QUE le bloc « occasionnels ».
+//   - « occasionnels » : total 1 ou 2  → bloc posé (frontière FIXE).
+//   - total >= 3       : bloc NON ATTRIBUÉ (champ bloc vide). Ces circuits sont
+//     simplement rangés dans l'ordre du total décroissant. C'est l'AGENT du
+//     bilan (étape 1.3) qui les assignera à un bloc (« très souvent » / « souvent »)
+//     parce qu'il doit LIRE pour juger la cassure — le service ne peut pas le faire.
+// Le rangement ne s'appuie sur aucun seuil de niveau : ce qui compte est l'ordre
+// par total. Les colonnes niveau_coeur et niveau_amplitude restent écrites comme
+// lectures informatives (le cœur reste lisible dans l'analyse).
+//
+// Retourne ordre = 0 pour les circuits sans bloc (total >= 3, en tête), ordre = 1
+// pour les occasionnels (en fin de pilier).
 function blocDepuisTotal(total) {
-  if (total >= 3) return { bloc: 'souvent',       ordre: 0 };
-  return            { bloc: 'occasionnels',       ordre: 1 };
+  // total >= 3 → BLOC_EN_ATTENTE : la cassure très souvent/souvent est un JUGEMENT
+  // de l'agent du bilan (1.3), pas un calcul ici (contrat de frontière). On pose une
+  // valeur NEUTRE, qui est l'une des 3 valeurs autorisées du single-select POURBILAN.
+  if (total >= 3) return { bloc: 'BLOC_EN_ATTENTE', ordre: 0 };
+  return            { bloc: 'occasionnels',         ordre: 1 };
 }
 
 function ordreFromBlocLabel(label) {
-  return { 'souvent': 0, 'occasionnels': 1 }[label] ?? 9;
+  return { 'BLOC_EN_ATTENTE': 0, 'occasionnels': 1 }[label] ?? 9;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -198,7 +202,10 @@ function construireLignes(candidat_id, inventaire, archi, nomsCircuits, nomsPili
     let sousTotal = vecZero();
 
     const flushSousTotal = () => {
-      if (blocCourant === null) return;
+      // Sous-total uniquement pour le bloc « occasionnels » (seul bloc posé par
+      // le service). Les circuits sans bloc (total >= 3) sont listés sans
+      // sous-total : c'est l'agent du bilan qui les regroupera.
+      if (blocCourant !== 'occasionnels') { sousTotal = vecZero(); return; }
       lignes.push({
         candidat_id, type_ligne: 'SOUS_TOTAL', pilier_owner: P, pilier_nom: nomP,
         rang_pilier: rangP, role_pilier: roleP,
@@ -303,6 +310,30 @@ async function runPhase4({ candidat_id, dry_run = false }) {
   const lignes = construireLignes(candidat_id, inventaire, archi, nomsCircuits, nomsPiliers, capacitesAdhoc);
   const nbCircuits = lignes.filter(l => l.type_ligne === 'CIRCUIT').length;
   logger.info('Phase4 lignes construites', { candidat_id, total: lignes.length, circuits: nbCircuits });
+
+  // ── C2 (Verrou 1 du contrat de frontière) — cohérence bloc ↔ total avant écriture ──
+  // On n'écrit que les valeurs autorisées du single-select POURBILAN, et on vérifie la
+  // frontière : total 1-2 → occasionnels ; total ≥3 → BLOC_EN_ATTENTE. En cas de
+  // violation, on REFUSE d'écrire (filet anti-bug : empêche des données fausses d'entrer
+  // dans la table figée et indique précisément quel circuit est en cause).
+  const BLOCS_AUTORISES = new Set(['occasionnels', 'BLOC_EN_ATTENTE', "au service d'un autre outil"]);
+  const violations = [];
+  for (const l of lignes) {
+    if (l.type_ligne !== 'CIRCUIT') continue;
+    const bloc  = l.bloc;
+    const total = Number(l.total_occurrences || 0);
+    if (!BLOCS_AUTORISES.has(bloc)) {
+      violations.push(`${l.circuit_code} : bloc "${bloc}" hors liste autorisée`);
+    } else if (bloc === 'occasionnels' && total >= 3) {
+      violations.push(`${l.circuit_code} : total ${total} (≥3) mais bloc occasionnels`);
+    } else if (bloc === 'BLOC_EN_ATTENTE' && total <= 2) {
+      violations.push(`${l.circuit_code} : total ${total} (≤2) mais bloc BLOC_EN_ATTENTE`);
+    }
+  }
+  if (violations.length > 0) {
+    logger.error('Phase4 — VIOLATION frontière des blocs, écriture refusée', { candidat_id, violations });
+    throw new Error(`Phase 4 : frontière des blocs violée (${violations.length}) — ${violations.join(' ; ')}`);
+  }
 
   if (dry_run) {
     logger.info('Phase4 DRY-RUN — aucune écriture', { candidat_id });
