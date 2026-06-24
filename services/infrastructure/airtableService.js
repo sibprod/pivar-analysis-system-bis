@@ -1,7 +1,13 @@
 // services/infrastructure/airtableService.js
-// Service Airtable v12.0-fable — Profil-Cognitif
+// Service Airtable v12.1-fable — Profil-Cognitif
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// PHASE v12.1 (2026-06-24) — RÔLES DE PILIERS (agent Phase 4b) :
+//   ⭐ ADDITIF PUR. Une seule fonction ajoutée, aucun appelant existant modifié :
+//     (E) patchEtape1T2CircuitsPourbilanRoles : patch ciblé du SEUL champ
+//         role_pilier sur les lignes de la table figée POURBILAN. Modèle =
+//         patchEtape1T1Rows. Utilisée par agent_etape1_T2_phase4b_roles_piliers.
 //
 // PHASE v12.0 (2026-06-18) — TABLE FIGÉE CIRCUITS_POURBILAN (Phase 4 étape 1.2) :
 //   ⭐ ADDITIF. Une seule fonction existante modifiée (getReferentielCircuits),
@@ -956,6 +962,36 @@ async function writeEtape1T2CircuitsPourbilan(candidat_id, rows) {
   }
 }
 
+// ⭐ 24/06/2026 — Patch ciblé de role_pilier sur les lignes POURBILAN (agent rôles, Phase 4b).
+//   Ne touche QUE le champ role_pilier — aucun chiffre, bloc, capacité ou total n'est modifié.
+//   Modèle = patchEtape1T1Rows / patchEtape2T5ARows. patchPlan : [{ airtable_id, role_pilier }].
+async function patchEtape1T2CircuitsPourbilanRoles(candidat_id, patchPlan) {
+  if (!Array.isArray(patchPlan) || patchPlan.length === 0) {
+    logger.info('patchEtape1T2CircuitsPourbilanRoles — rien à écrire', { candidat_id });
+    return 0;
+  }
+  try {
+    const tableName  = airtableConfig.TABLES.ETAPE1_T2_CIRCUITS_POURBILAN;
+    const BATCH_SIZE = 10;
+    const records = patchPlan.map(p => ({
+      id:     p.airtable_id,
+      fields: cleanFields({ role_pilier: p.role_pilier })
+    }));
+    let total = 0;
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      await getBase()(tableName).update(batch, { typecast: true });
+      total += batch.length;
+      if (i + BATCH_SIZE < records.length) await sleep(200);
+    }
+    logger.info('ETAPE1_T2_CIRCUITS_POURBILAN role_pilier patched', { candidat_id, count: total });
+    return total;
+  } catch (error) {
+    logger.error('Failed to patch POURBILAN role_pilier', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
 async function getEtape1T3(candidat_id, options = {}) {
   try {
     const conditions = [`{candidat_id} = "${candidat_id}"`];
@@ -1730,6 +1766,7 @@ module.exports = {
   // ⭐ 18/06/2026 — Table figée Phase 4
   getEtape1T2CircuitsPourbilan,
   writeEtape1T2CircuitsPourbilan,
+  patchEtape1T2CircuitsPourbilanRoles,   // ⭐ 24/06/2026 — patch role_pilier (agent rôles 4b)
 
   // ETAPE1_T3
   getEtape1T3,
