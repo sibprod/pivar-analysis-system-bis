@@ -16,6 +16,13 @@
 // PHASE ETAPE1.1 (2026-05-07) — v10.6 :
 //   - Ajout du service agent_prompt_etape1 pour la pré-étape 1.1 (lecture cognitive)
 //   - max_tokens 16000, thinking false (5 questions × 10 champs = ~7-10k output, marge x1.6)
+//
+// ⭐ PHASE v10.12 (2026-06-24) — AGENT RÔLES DE PILIERS (Phase 4b étape 1.2) :
+//   - Ajout du service agent_t2_roles (attribution socle/amont/aval/fonctionnel).
+//   - max_tokens 16000, thinking false : sortie = 5 rôles + raisonnement étape par
+//     étape en JSON (~2-4k output). 16000 donne une marge large sans troncature.
+//     Pas de thinking : le raisonnement est explicite dans le JSON de sortie
+//     (la matière est pré-mâchée par le service, lecture déterministe).
 
 'use strict';
 
@@ -49,6 +56,7 @@ module.exports = {
     agent_t1:                64000,  // 5 appels par scénario, thinking ON
     agent_t1_verificateur:   96000,  // ⭐ v10 : renommé depuis agent_t1_certificateur (Décision n°10)
     agent_t2:                48000,  // ⭐ A22 — aligné sur déclaration prompt etape1_t2_phase1 (48000)
+    agent_t2_roles:          16000,  // ⭐ v10.12 — agent rôles de piliers (4b) : 5 rôles + raisonnement, pas de thinking
     agent_t3:                64000,  // 75 lignes pilier × circuit, thinking ON
 
     // ── Étape 3 — le bilan (v11.0, 28/05/2026) ────────────────────────────
@@ -104,6 +112,7 @@ module.exports = {
     agent_t1:                true,   // DOCTRINE Pilier 1
     agent_t1_verificateur:   true,   // ⭐ v10 : vérification doctrinale stricte
     agent_t2:                false,  // pas de thinking requis (redistribution mécanique)
+    agent_t2_roles:          false,  // ⭐ v10.12 — lecture déterministe pré-mâchée, pas de thinking
     agent_t3:                true,   // nuances + clusters
     agent_t3_bilan:          false,  // ⭐ v11.0 — assemblage rédactionnel du bilan, pas de raisonnement complexe
     agent_t5a:               true,   // ⭐ v11.7 — distinction fine des niveaux par excellence
