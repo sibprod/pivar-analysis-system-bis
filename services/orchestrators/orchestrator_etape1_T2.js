@@ -148,7 +148,11 @@ const STATUT_FIN_PHASE4_ISOLEE     = 'ETAPE2_TERMINEE';                         
 // ⭐ v10.11 — Sentinelle si la Phase 4 enchaînée (mode COMPLET) échoue ou si
 // l'inventaire est vide : on conserve les données métier (Phases 1-3 OK) et on
 // permet de rejouer la Phase 4 seule via REPRENDRE_AGENT2_CIRCUITPOURBILAN.
-const STATUT_SENTINELLE_PHASE4_KO  = 'ETAPE2_PHASE4_A_REJOUER';
+// ⭐ v10.12 — On réutilise ETAPE2_PHASE2_TERMINEE (valeur DÉJÀ autorisée dans le
+// single-select VISITEUR), au lieu d'un statut hors-liste qui ferait échouer
+// l'écriture Airtable. Même esprit que la sentinelle Phase 3 KO : amont valide,
+// arrêt propre, rejouable via REPRENDRE_AGENT2_CIRCUITPOURBILAN.
+const STATUT_SENTINELLE_PHASE4_KO  = 'ETAPE2_PHASE2_TERMINEE';
 
 // Modes de run
 const MODE_COMPLET        = 'COMPLET';
