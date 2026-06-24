@@ -68,18 +68,21 @@ Tu ne recomptes rien : les chiffres sont posés. Tu les LIS et tu les INTERPRÈT
 
 ## 5. TA DÉMARCHE — PAS À PAS (verbalise chaque étape avant de conclure)
 
-### ÉTAPE 1 — Poser le SOCLE (DOUBLE SIGNAL — sécurité absolue)
-Le socle se confirme par DEUX signaux indépendants qui doivent pointer le MÊME pilier :
-  (1) le CŒUR le plus haut : le pilier qui gouverne le plus (activation cœur la plus
-      élevée, confirmé par cog_pilier_gouverne dominant) ;
-  (2) la COLONNE INSTRUMENTALE la plus alimentée : le pilier le plus SERVI par les autres
-      (le total de sa colonne svc-{pilier} est le plus élevé des cinq) — celui autour
-      duquel toute l'activité inter-piliers tourne.
-Quand les deux convergent, le socle est certain. Écris : « Le socle est Px : il gouverne
-N fois (cœur le plus haut) ET sa colonne instrumentale totalise M (la plus alimentée) —
-toute l'activité tourne autour de lui. »
-SI les deux signaux divergent (cas atypique) : ne conclus pas vite, signale-le et
-appuie-toi sur les circuits/verbatims. Une seule conclusion à cette étape : le socle.
+### ÉTAPE 1 — Poser le SOCLE (DOUBLE SIGNAL — l'instrumental prime)
+Le socle se lit par DEUX signaux qui n'ont PAS le même poids :
+  (1) SIGNAL PRINCIPAL — la COLONNE INSTRUMENTALE la plus alimentée : le pilier le plus
+      SERVI par les autres (total de sa colonne svc-{pilier} le plus élevé des cinq) —
+      le pilier autour duquel toute l'activité tourne. C'EST LUI LE SOCLE.
+  (2) SIGNAL DE CONFIRMATION — le CŒUR : le pilier qui gouverne le plus. Il confirme
+      normalement, mais peut être trompeur (un pilier d'exécution gouverne beaucoup sans
+      être le socle).
+Tu reçois les deux signaux pré-calculés (`signal_instru`, `signal_coeur`) et `socle_pressenti`
+(= le signal instrumental). Écris : « Le socle est Px : il est le plus servi (colonne
+instrumentale = M, la plus alimentée) — toute l'activité tourne autour de lui. »
+⚠️ SI les deux signaux divergent (`signaux_convergent` = false) : c'est le cas où le cœur
+trompe (ex. un pilier qui exécute/teste beaucoup gouverne en nombre sans être le centre).
+RETIENS L'INSTRUMENTAL comme socle, et confirme-le en regardant vers quoi convergent les
+gestes des autres piliers. Une seule conclusion à cette étape : le socle.
 
 ### ÉTAPE 2 — Ouvrir la COLONNE INSTRUMENTALE DU SOCLE
 Pour chacun des 4 autres piliers, lis combien il sert le socle (colonne svc-socle :
@@ -165,11 +168,15 @@ n'est pas une donnée. Configurations possibles :
 - ÉTAPE 4 : P1 avant P3 → amont. P5 après P3 → aval.
 - CONCLUSION : P3 socle · P1 amont · P5 aval · P2 + P4 fonctionnels.
 
-### RÉMI — socle créatif (profil COMPACT : peu de scores, circuits denses)
-- ÉTAPE 1 : cœur dominant = P4 ET svc-P4 le plus alimenté (26) → socle P4 (les deux signaux convergent — toute l'activité tourne autour de P4).
+### RÉMI — socle créatif (profil COMPACT ; illustre la DIVERGENCE des deux signaux)
+- ÉTAPE 1 : signal CŒUR = P5 (cœur 26, le plus haut — il exécute/teste beaucoup) MAIS
+  signal INSTRUMENTAL = P4 (servi 28 fois, la colonne la plus alimentée). Les deux
+  DIVERGENT. C'est l'INSTRUMENTAL qui désigne le socle : toute l'activité converge vers
+  la création P4 ; P5 gouverne en nombre mais n'est pas le centre de gravité.
+  → socle P4 (et on le confirme à l'étape suivante en voyant que tout sert P4).
 - ÉTAPE 2 : colonne svc P4 : P3 = 11 ; P1 = 7 ; P5 = 6 (en aval) ; P2 = 2.
 - ÉTAPE 3 — POINT CLÉ :
-  • P3 sert P4 par 3 circuits HAUT et SOPHISTIQUÉS : P3C12 (priorisation hiérarchique,
+  • P3 sert P4 par des circuits HAUT et SOPHISTIQUÉS : P3C12 (priorisation hiérarchique,
     sophistiquée intégrative), P3C10 (modulation de la profondeur selon l'enjeu,
     sophistiquée), P3C6 (anticipation des conséquences, sophistiquée intégrative).
     Pour un socle CRÉATIF, c'est l'analyse qui RECADRE pour relancer la création
@@ -178,14 +185,18 @@ n'est pas une donnée. Configurations possibles :
     collecte CONTEXTUELLE, qui ne recadre PAS la création → FONCTIONNEL.
     (Le volume seul aurait trompé : P1=7 proche de P3=11. C'est la NATURE qui tranche.)
   • P5 conclut/éprouve les créations (« il teste en exécutant ») → structurant aval.
+    Noter : P5 a le cœur le plus haut du profil et reste AVAL, pas socle — le cœur élevé
+    d'un pilier d'exécution ne fait pas de lui le socle.
   • P2 : service faible → fonctionnel.
 - ÉTAPE 4 : P3 est AVANT P4 → amont. P5 est APRÈS P4 → aval.
 - CONCLUSION : P4 socle · P3 amont · P5 aval · P1 + P2 fonctionnels.
 
-LEÇON des 3 cas : l'amont n'est pas toujours le même pilier. Il dépend du socle et
-de la NATURE des gestes qui l'alimentent. Collecte simple = amont valide pour un socle
-analytique ; analyse sophistiquée = amont pour un socle créatif. Lis toujours la nature
-du geste EN RELATION AU SOCLE, jamais le volume seul.
+LEÇON des 3 cas : (a) le socle se lit d'abord sur la COLONNE INSTRUMENTALE (le plus
+servi), le cœur ne fait que confirmer et peut diverger (Rémi : cœur P5, socle P4).
+(b) L'amont n'est pas toujours le même pilier : il dépend du socle et de la NATURE des
+gestes qui l'alimentent. Collecte simple = amont valide pour un socle analytique ;
+analyse sophistiquée = amont pour un socle créatif. Lis toujours la nature du geste EN
+RELATION AU SOCLE, jamais le volume seul.
 
 ---
 
