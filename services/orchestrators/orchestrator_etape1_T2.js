@@ -1,9 +1,34 @@
 // services/orchestrators/orchestrator_etape1_T2.js
 // Sous-Orchestrateur Étape 2 — Cartographie des circuits cognitifs
-// Profil-Cognitif v10.11 (Phase 4 enchaînée en mode COMPLET — 18/06/2026)
+// Profil-Cognitif v10.12 (Phase 4b rôles de piliers enchaînée — 24/06/2026)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/PLAN_CORRECTION_v10_8.md
 //                       et docs/memo_technique_phase3.md (22/05/2026)
+//
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐ v10.12 (24/06/2026) — PHASE 4b : ATTRIBUTION DES RÔLES DE PILIERS
+// ───────────────────────────────────────────────────────────────────────────
+//
+//   Après chaque gravure de ETAPE1_T2_CIRCUITS_POURBILAN (Phase 4), on enchaîne
+//   l'agent d'attribution des rôles (socle / amont / aval / fonctionnel). Il LIT
+//   la table figée fraîchement gravée, fait la lecture de laboratoire (socle par
+//   la colonne instrumentale, structurant/fonctionnel par la nature des circuits,
+//   amont/aval par la boucle cognitive), et MET À JOUR le seul champ role_pilier
+//   sur les lignes POURBILAN — sans toucher aux chiffres.
+//
+//   Cela REMPLACE l'ancien RANG_TO_ROLE de la Phase 4 (rôle déduit du rang de
+//   fréquence, faux dès qu'un pilier d'exécution gouverne en nombre sans être le
+//   socle — cas Rémi). La Phase 4 continue de poser un rôle provisoire ; l'agent
+//   l'écrase par le bon. 1 appel Claude.
+//
+//   BRANCHÉ AUX DEUX ENDROITS où la Phase 4 grave :
+//     - mode PHASE4_ISOLEE (statut REPRENDRE_AGENT2_CIRCUITPOURBILAN)
+//     - mode COMPLET (Phase 4 enchaînée, v10.11)
+//
+//   GARDE-FOU : l'échec de l'agent rôles NE fait PAS échouer la mission. POURBILAN
+//   est déjà gravée avec des chiffres justes ; seul le rôle resterait provisoire.
+//   On log un avertissement (le rôle est rejouable via REPRENDRE_AGENT2_CIRCUITPOURBILAN),
+//   plutôt que de casser une étape 1.2 par ailleurs valide. Kill-switch PHASE4B_PRETE.
 //
 // ───────────────────────────────────────────────────────────────────────────
 // ⭐ v10.11 (18/06/2026) — PHASE 4 ENCHAÎNÉE EN MODE COMPLET
@@ -62,9 +87,11 @@
 //     │  └─ 3C : écrit ETAPE1_T2_INVENTAIRE_CIRCUITS (~30-60 lignes/candidat)
 //     │     → Données lues par les routes /visualiser/tableau2piliers
 //     │       et /visualiser/tableau2circuits (visualisation HTML dynamique)
-//     └─ Phase 4 : service_etape1_T2_phase4_circuits_pourbilan (0 appel Claude) ⭐ v10.10
-//        └─ Grave ETAPE1_T2_CIRCUITS_POURBILAN (mission de fin d'étape 1.2)
-//        └─ ⭐ v10.11 : enchaînée automatiquement en mode COMPLET
+//     ├─ Phase 4 : service_etape1_T2_phase4_circuits_pourbilan (0 appel Claude) ⭐ v10.10
+//     │  └─ Grave ETAPE1_T2_CIRCUITS_POURBILAN (mission de fin d'étape 1.2)
+//     │  └─ ⭐ v10.11 : enchaînée automatiquement en mode COMPLET
+//     └─ Phase 4b : agent_etape1_T2_phase4b_roles_piliers (1 appel Claude) ⭐ v10.12
+//        └─ Met à jour role_pilier sur POURBILAN (socle/amont/aval/fonctionnel)
 //   étape 3   (synthèse 6 sous-agents)  ← orchestratorEtape3 (à coder)
 //
 // ───────────────────────────────────────────────────────────────────────────
@@ -74,11 +101,11 @@
 //   ┌──────────────────────────────────────┬──────────────────────────────────────┐
 //   │ Statut entrant                       │ Mode interne / Comportement          │
 //   ├──────────────────────────────────────┼──────────────────────────────────────┤
-//   │ REPRENDRE_AGENT2                     │ COMPLET : Phase 1 + 2 + 3 + 4 ⭐v10.11│
+//   │ REPRENDRE_AGENT2                     │ COMPLET : Phase 1+2+3+4+4b ⭐v10.12   │
 //   │ REPRENDRE_AGENT2_PHASE1             │ PHASE1_ISOLEE : Phase 1 seule        │
 //   │ REPRENDRE_AGENT2_PHASE2             │ PHASE2_ISOLEE : Phase 2 + 3          │
 //   │ REPRENDRE_AGENT2_PHASE3             │ PHASE3_ISOLEE : Phase 3 seule        │
-//   │ REPRENDRE_AGENT2_CIRCUITPOURBILAN ⭐ │ PHASE4_ISOLEE : Phase 4 seule        │
+//   │ REPRENDRE_AGENT2_CIRCUITPOURBILAN ⭐ │ PHASE4_ISOLEE : Phase 4 + 4b         │
 //   │                                      │ → ETAPE2_TERMINEE                    │
 //   └──────────────────────────────────────┴──────────────────────────────────────┘
 
@@ -89,6 +116,7 @@ const agentT2_phase1_attribution_Service    = require('../etape1/agent_etape1_T2
 const agentT2_phase2_consolidation_Service  = require('../etape1/agent_etape1_T2_phase2_consolidation');
 const agentT2_phase3_enrichissement_Service = require('../etape1/agent_etape1_T2_phase3_enrichissement');  // ⭐ v10.9
 const phase4_circuits_pourbilan_Service     = require('../etape1/service_etape1_T2_phase4_circuits_pourbilan');  // ⭐ v10.10
+const phase4b_roles_piliers_Service         = require('../etape1/agent_etape1_T2_phase4b_roles_piliers');  // ⭐ v10.12
 const backupService                         = require('../infrastructure/backupService');
 const logger                                = require('../../utils/logger');
 
@@ -103,6 +131,11 @@ const PHASE3_PRETE = true;
 //            et la Phase 4 enchaînée en mode COMPLET (v10.11) est sautée.
 //            Aucune autre phase n'est affectée.
 const PHASE4_PRETE = true;
+
+// ⭐ v10.12 — Drapeau d'activation de la Phase 4b (rôles de piliers).
+// Si false : on saute l'agent rôles (POURBILAN garde le rôle provisoire de la
+//            Phase 4). Aucune autre phase n'est affectée.
+const PHASE4B_PRETE = true;
 
 // Statuts de sortie selon le mode
 const STATUT_FIN_COMPLET           = ETAPE3_PRETE ? 'REPRENDRE_AGENT3' : 'ETAPE2_TERMINEE';
@@ -135,6 +168,49 @@ const STATUT_TO_MODE = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ⭐ v10.12 — HELPER : ENCHAÎNEMENT DE L'AGENT RÔLES APRÈS LA PHASE 4
+//
+// Appelé après chaque gravure réussie de POURBILAN (mode isolé + mode COMPLET).
+// NE jette JAMAIS : l'échec de l'agent rôles laisse POURBILAN avec un rôle
+// provisoire (chiffres justes), il est rejouable via REPRENDRE_AGENT2_CIRCUITPOURBILAN.
+// Retourne { roles, socle } en cas de succès, ou null sinon.
+// ═══════════════════════════════════════════════════════════════════════════
+async function _enchainerRolesPiliers(candidat_id) {
+  if (!PHASE4B_PRETE) {
+    logger.warn('⏸️ Phase 4b désactivée (PHASE4B_PRETE = false) — POURBILAN garde le rôle provisoire', { candidat_id });
+    return null;
+  }
+
+  logger.info('─── PHASE 4b — RÔLES DE PILIERS (1 appel Claude) ───', { candidat_id });
+
+  try {
+    const r = await phase4b_roles_piliers_Service.runRolesPiliers({ candidat_id });
+    logger.info('PHASE 4b — Rôles de piliers attribués', {
+      candidat_id,
+      socle:              r?.socle,
+      roles:              r?.roles,
+      nb_lignes_patchees: r?.stats?.nb_lignes_patchees || 0
+    });
+    return r;
+  } catch (err) {
+    // Non bloquant : POURBILAN est gravée avec des chiffres justes ; seul le rôle
+    // reste provisoire. On log et on continue — rejouable via le statut Phase 4.
+    logger.warn('PHASE 4b — agent rôles KO (NON bloquant, POURBILAN garde le rôle provisoire)', {
+      candidat_id,
+      error:     err.message,
+      rejouable: 'OUI — relancer REPRENDRE_AGENT2_CIRCUITPOURBILAN (re-grave + recalcule les rôles)'
+    });
+    try {
+      await backupService.save(candidat_id, 'error_etape2_phase4b_roles', {
+        phase: 'roles_piliers',
+        error: err.message
+      });
+    } catch (e) { /* backup non bloquant */ }
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // POINT D'ENTRÉE
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -154,7 +230,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   }
 
   logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-  logger.info('Pipeline Étape 2 (v10.11) starting', {
+  logger.info('Pipeline Étape 2 (v10.12) starting', {
     candidat_id,
     statut_entrant: visiteur?.statut_analyse_pivar || '?',
     mode:           runMode,
@@ -180,7 +256,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
       session_id:     session_id || candidat_id,
       statut_entrant: visiteur?.statut_analyse_pivar || '?',
       mode:           runMode,
-      version:        'v10.11'
+      version:        'v10.12'
     });
   } catch (e) {
     logger.warn('orchestratorEtape2 — échec backup before_etape2 (non bloquant)', {
@@ -191,7 +267,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   // ═════════════════════════════════════════════════════════════════════════
   // ⭐ v10.10 — MODE PHASE4_ISOLEE : MISSION DE FIN D'ÉTAPE 1.2
   //
-  // Traité en tête, isolé du reste : ce mode n'exécute que la Phase 4 puis
+  // Traité en tête, isolé du reste : ce mode n'exécute que la Phase 4 (+ 4b) puis
   // bascule en ETAPE2_TERMINEE. Aucune autre phase n'est touchée.
   // ═════════════════════════════════════════════════════════════════════════
   if (runMode === MODE_PHASE4_ISOLEE) {
@@ -248,13 +324,17 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
       nb_circuits: phase4Result?.nb_circuits || 0
     });
 
+    // ⭐ v10.12 — PHASE 4b : rôles de piliers (non bloquant) sur POURBILAN fraîche
+    const roles4b = await _enchainerRolesPiliers(candidat_id);
+
     // Backup après Phase 4
     try {
       await backupService.save(candidat_id, 'after_etape2_phase4', {
-        version:     'v10.11',
+        version:     'v10.12',
         mode:        runMode,
         nb_lignes:   phase4Result?.nb_lignes   || 0,
-        nb_circuits: phase4Result?.nb_circuits || 0
+        nb_circuits: phase4Result?.nb_circuits || 0,
+        roles_socle: roles4b?.socle || null
       });
     } catch (e) { /* non bloquant */ }
 
@@ -281,6 +361,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
       mode:            runMode,
       nb_lignes:       phase4Result?.nb_lignes   || 0,
       nb_circuits:     phase4Result?.nb_circuits || 0,
+      roles_socle:     roles4b?.socle || '(rôles non posés)',
       totalElapsedSec: (totalElapsedMs / 1000).toFixed(1),
       nextStatus:      STATUT_FIN_PHASE4_ISOLEE
     });
@@ -288,7 +369,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     return {
       success:       true,
       candidat_id,
-      pipeline:      'etape2_circuits_v10_11',
+      pipeline:      'etape2_circuits_v10_12',
       mode:          runMode,
       phase1:        null,
       phase2:        null,
@@ -297,7 +378,8 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
         nb_lignes:   phase4Result?.nb_lignes   || 0,
         nb_circuits: phase4Result?.nb_circuits || 0
       },
-      totalCostUsd:  0,
+      phase4b: roles4b ? { socle: roles4b.socle, roles: roles4b.roles } : null,
+      totalCostUsd:  roles4b?.cost || 0,
       totalElapsedMs,
       nextStatus:    STATUT_FIN_PHASE4_ISOLEE
     };
@@ -308,6 +390,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   let consolidationResult  = null;
   let enrichissementResult = null;  // ⭐ v10.9 — Phase 3
   let phase4Result         = null;  // ⭐ v10.11 — Phase 4 enchaînée
+  let roles4bResult        = null;  // ⭐ v10.12 — Phase 4b enchaînée
 
   // ═════════════════════════════════════════════════════════════════════════
   // PHASE 1 — ATTRIBUTION (sauf en mode PHASE2_ISOLEE)
@@ -706,6 +789,9 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
         nb_lignes:   phase4Result?.nb_lignes   || 0,
         nb_circuits: phase4Result?.nb_circuits || 0
       });
+
+      // ⭐ v10.12 — PHASE 4b : rôles de piliers (non bloquant) sur POURBILAN fraîche
+      roles4bResult = await _enchainerRolesPiliers(candidat_id);
     }
   }
 
@@ -716,13 +802,14 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   // ─── 3. Backup après étape 2 ────────────────────────────────────────────
   try {
     await backupService.save(candidat_id, 'after_etape2', {
-      version:                  'v10.11',
+      version:                  'v10.12',
       mode:                     runMode,
       phase1_stats:             attributionResult?.stats    || null,
       phase2_stats:             consolidationResult?.stats  || null,
       phase3_stats:             enrichissementResult?.stats || null,  // ⭐ v10.9
       phase4_nb_lignes:         phase4Result?.nb_lignes     || 0,     // ⭐ v10.11
       phase4_nb_circuits:       phase4Result?.nb_circuits   || 0,     // ⭐ v10.11
+      phase4b_socle:            roles4bResult?.socle        || null,  // ⭐ v10.12
       rows_count_etape1_t2:     consolidationResult?.rows?.length || 0,
       rows_count_ventilation:   enrichissementResult?.nb_lignes_ventilation || 0,  // ⭐ v10.9
       rows_count_inventaire:    enrichissementResult?.nb_lignes_inventaire  || 0,  // ⭐ v10.9
@@ -768,10 +855,10 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
 
   // ─── 6. Synthèse finale ─────────────────────────────────────────────────
   const totalElapsedMs = Date.now() - startTime;
-  const totalCostUsd   = attributionResult?.cost || 0;
+  const totalCostUsd   = (attributionResult?.cost || 0) + (roles4bResult?.cost || 0);
 
   logger.info('═══════════════════════════════════════════════════════════', { candidat_id });
-  logger.info(`🎉 Pipeline Étape 2 (v10.11 / mode ${runMode}) terminé`, {
+  logger.info(`🎉 Pipeline Étape 2 (v10.12 / mode ${runMode}) terminé`, {
     candidat_id,
     mode:                          runMode,
     phase1_attributions_totales:  attributionResult?.stats?.nb_attributions_totales  || 0,
@@ -793,6 +880,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     phase3_ad_hoc:                enrichissementResult?.stats?.nb_ad_hoc             || 0,  // ⭐ v10.9
     phase4_nb_lignes:             phase4Result?.nb_lignes   || 0,  // ⭐ v10.11
     phase4_nb_circuits:           phase4Result?.nb_circuits || 0,  // ⭐ v10.11
+    phase4b_socle:                roles4bResult?.socle || '(rôles non posés)',  // ⭐ v10.12
     totalCostUsd:                 totalCostUsd.toFixed(4),
     totalElapsedMs,
     totalElapsedSec:              (totalElapsedMs / 1000).toFixed(1),
@@ -803,7 +891,7 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
   return {
     success:    true,
     candidat_id,
-    pipeline:   'etape2_circuits_v10_11',
+    pipeline:   'etape2_circuits_v10_12',
     mode:       runMode,
     phase1: attributionResult ? {
       attributions_totales:     attributionResult.stats.nb_attributions_totales,
@@ -827,6 +915,10 @@ async function run({ candidat_id, visiteur = null, session_id = null, mode = nul
     phase4: phase4Result ? {                                                      // ⭐ v10.11
       nb_lignes:                phase4Result.nb_lignes,
       nb_circuits:              phase4Result.nb_circuits
+    } : null,
+    phase4b: roles4bResult ? {                                                    // ⭐ v10.12
+      socle:                    roles4bResult.socle,
+      roles:                    roles4bResult.roles
     } : null,
     totalCostUsd,
     totalElapsedMs,
@@ -888,6 +980,7 @@ module.exports = {
   ETAPE3_PRETE,
   PHASE3_PRETE,                       // ⭐ v10.9
   PHASE4_PRETE,                       // ⭐ v10.10
+  PHASE4B_PRETE,                      // ⭐ v10.12
   STATUT_FIN_COMPLET,
   STATUT_FIN_PHASE1_ISOLEE,
   STATUT_FIN_PHASE2_ISOLEE,
@@ -903,6 +996,7 @@ module.exports = {
   STATUT_TO_MODE,
 
   _internal: {
-    identifyFailedStep
+    identifyFailedStep,
+    _enchainerRolesPiliers            // ⭐ v10.12
   }
 };
