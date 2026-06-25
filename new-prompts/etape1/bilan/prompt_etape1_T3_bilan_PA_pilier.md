@@ -643,7 +643,10 @@ Version micro de explication_courte. Alimente la visualisation §02bis (profil c
 RÈGLES :
 - ≤ 15 mots. VISE 13 pour garder une marge. COMPTE avant de rendre. 16 mots = rejeté.
 - FORMAT : "Vous + verbe + complément." — mêmes mots d'action que explication_courte
-- HAUT et MOYEN uniquement. FAIBLE et EN SOUTIEN : valeur vide strict ("").
+- OBLIGATOIRE POUR CHAQUE CIRCUIT, quel que soit le niveau (HAUT, MOYEN, FAIBLE, EN SOUTIEN).
+  JAMAIS vide. Ce micro-texte est réutilisé dans une phase ultérieure du bilan : chaque
+  circuit de la liste DOIT avoir le sien. C'est le geste du circuit en format court, fondé
+  sur le verbatim de l'explication du geste — JAMAIS une paraphrase du libellé du circuit.
 - Peut être identique à explication_courte si celle-ci tient en ≤ 15 mots.
 
 ── EXEMPLES ÉTALON soleil_micro ──
@@ -652,8 +655,8 @@ HAUT Cécile P3C12  : "Vous posez un ordre de priorité — les impératifs non 
 HAUT Cécile P3C10  : "Vous calibrez l'effort sur l'enjeu : creuser ce qui compte."
 HAUT Cécile P3C4   : "Vous filtrez la crédibilité d'une information avant de l'admettre."
 MOYEN Cécile P3C13 : "Vous vous forgez votre propre explication et avancez avec."
-FAIBLE            : ""  (vide strict — ne pas produire de texte)
-EN SOUTIEN        : ""  (vide strict — ne pas produire de texte)
+FAIBLE (exemple)   : "Vous reformulez une recherche qui n'a rien donné."   (le geste en court — JAMAIS vide)
+EN SOUTIEN (ex.)   : "Vous observez l'animal pour nourrir votre diagnostic."  (le geste en court — JAMAIS vide)
 
 ═══════════════════════════════════════════════════════════════════════
 CHAMP 5 — synth_technique (par bloc de fréquence, registre A)
@@ -1220,7 +1223,7 @@ Rien après le JSON.
       ],
       "explication": "<n3_nuance : 3 temps T1+T2+T3, paraphrase pure, zéro guillemets>",
       "explication_courte": "<≤18 mots, Vous+verbe ou Jamais en propre pour EN SOUTIEN>",
-      "soleil_micro": "<≤15 mots, Vous+verbe — HAUT+MOYEN seulement. FAIBLE et EN SOUTIEN : \"\">",
+      "soleil_micro": "<≤15 mots, Vous+verbe — OBLIGATOIRE pour CHAQUE circuit, tous niveaux (HAUT/MOYEN/FAIBLE/EN SOUTIEN), jamais vide>",
       "en_renfort": "<phrase si sortant ≥2, sinon chaîne vide stricte \"\">",
       "profondeur": "<effleuré | effectif | plein régime — jugé sur verbatims, toujours rempli>"
     }
@@ -1288,7 +1291,7 @@ CONTRÔLES OBLIGATOIRES AVANT DE RENDRE
 17. mode_libelle (CAS B) = manière de faire, pas une qualité — relire avant de rendre.
 18. Si un circuit a >4 verbatims disponibles : méthode des facettes appliquée à la sélection.
 19. synth_technique bloc « très souvent » : section "Facettes dominantes" présente pour chaque circuit de ce bloc.
-20. soleil_micro ≤ 15 mots, rempli pour HAUT+MOYEN, chaîne vide ("") pour FAIBLE et EN SOUTIEN.
+20. soleil_micro ≤ 15 mots, OBLIGATOIRE et NON VIDE pour CHAQUE circuit, quel que soit le niveau (HAUT/MOYEN/FAIBLE/EN SOUTIEN).
 21. (v10) Champ "profondeur" rempli pour CHAQUE circuit (effleuré/effectif/plein régime),
     jugé sur les verbatims, jamais sur les chiffres, plus haut degré observé.
 22. (v10) Phrase CAPACITÉ présente dans n3_nuance si capacite ≠ "simple" ; absente si "simple".
