@@ -668,7 +668,19 @@ module.exports = {
     s06_intro:                 'fldxZi0jRCWnXsVng',
     cout_principal:            'fld0nyRitbejCsihG',
     cout_secondaire:           'fld7JUPi80iqSKzzV',
-    s06_cloture:               'fld1nB5UqVklCjikE'
+    s06_cloture:               'fld1nB5UqVklCjikE',
+
+    // ═════════ ⭐ v12.3 (25/06/2026) — CH4 §02 FILTRE & FINALITÉ v2 ═════════
+    //   Ajout additif (AUCUN champ ancien retiré ni renommé). Écrits par service_ch4_v2.js.
+    //   Le filtre réutilise le champ existant `filtre` (fld9vAKpKEMIcRiTB) et
+    //   `ch4_filtre_preuves` (fldXGZ5ijlcGPYc16). Ces 4 champs portent la nouveauté v2 :
+    //   la finalité (3e terme de la signature), sa preuve, le profil de calibrage, la trace labo.
+    //   ⚠️ La technique v2 a son PROPRE champ (filtre_technique_v2) — ne PAS la mettre dans
+    //   filtre_preuve_3 (fldKeQsg0PvyQTOWx), qui est un ancien champ filtre GELÉ.
+    filtre_finalite:           'fldobIgYtfa3Qiy4v',   // le « pour »-but (résultat visé)
+    filtre_finalite_preuve:    'fldLe9NPXIVfsNDjU',   // verbatim portant le « pour »-but + réf
+    filtre_profil_calibrage:   'fldFjcTlLSUjYR8Qy',   // famille + variante (calibrage, jamais écriture)
+    filtre_technique_v2:       'fldFheeASGSqDvqOm'    // registre labo : sources A∩B, dénominateur
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
