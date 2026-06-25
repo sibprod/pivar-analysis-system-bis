@@ -192,10 +192,39 @@ async function appellerClaude(entree, opts = {}) {
     throw new Error(`PA tronqué (max_tokens) — pilier ${entree.pilier_code}. Augmenter max_tokens.`);
   }
   const raw = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const cleaned = raw.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '').trim();
-  try { return JSON.parse(cleaned); }
-  catch (err) {
-    logger.error('Parse JSON PA raté', { debut: raw.slice(0, 300) });
+
+  // ── (v12) EXTRACTION EN DEUX PARTIES : bloc <analyse> + JSON ──
+  // L'agent répond désormais : <analyse>…sa verbalisation…</analyse> puis le JSON.
+  // 1) On isole l'analyse (journal de décision, à stocker dans T3_PILIER pour la reprise).
+  // 2) On extrait le JSON où qu'il commence : premier '{' de niveau racine → dernier '}'.
+  //    Cela rend le parsing robuste à tout préambule/texte autour (fini les plantages
+  //    « Unexpected token 'J' » quand l'agent met de la prose avant le JSON).
+  let analyse = '';
+  const mAnalyse = raw.match(/<analyse>([\s\S]*?)<\/analyse>/i);
+  if (mAnalyse) analyse = mAnalyse[1].trim();
+
+  // Retirer le bloc analyse du flux avant de chercher le JSON, puis nettoyer un éventuel
+  // fence markdown résiduel.
+  let reste = raw.replace(/<analyse>[\s\S]*?<\/analyse>/i, '').trim();
+  reste = reste.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+
+  // Extraction du corps JSON : du premier '{' au dernier '}'.
+  const debutJson = reste.indexOf('{');
+  const finJson   = reste.lastIndexOf('}');
+  if (debutJson === -1 || finJson === -1 || finJson <= debutJson) {
+    logger.error('Parse JSON PA — aucun objet JSON trouvé', { pilier: entree.pilier_code, brut: raw.slice(0, 500) });
+    throw new Error(`Parse JSON PA: aucun objet JSON détecté (pilier ${entree.pilier_code})`);
+  }
+  const cleaned = reste.slice(debutJson, finJson + 1);
+
+  try {
+    const pa = JSON.parse(cleaned);
+    if (!analyse) {
+      logger.warn(`PA ${entree.pilier_code} — bloc <analyse> absent (l'agent n'a pas verbalisé). JSON parsé quand même.`);
+    }
+    return { pa, analyse };
+  } catch (err) {
+    logger.error('Parse JSON PA raté', { pilier: entree.pilier_code, debut: cleaned.slice(0, 300), err: err.message });
     throw new Error(`Parse JSON PA: ${err.message}`);
   }
 }
@@ -257,7 +286,7 @@ function lireChiffresCites(synthTechnique) {
   return out;
 }
 
-function valider(pa, entree) {
+function valider(pa, entree, analyse = '') {
   const errors = [], warnings = [];
 
   const codes_attendus = (entree.circuits || []).map(c => c.code);
@@ -400,6 +429,34 @@ function valider(pa, entree) {
   if (/P[1-5]C\d/i.test(intro)) errors.push('intro_eclate contient un code circuit');
   if ((intro.match(/\S+/g) || []).length > 40) errors.push('intro_eclate > 40 mots');
 
+  // ── (v12) CONTRÔLE DE COHÉRENCE analyse ↔ blocs (warning, non bloquant) ──
+  // L'agent verbalise son rangement dans <analyse>. On vérifie que ce qu'il y a DÉCIDÉ
+  // correspond grossièrement à ce qu'il PRODUIT dans les blocs JSON. L'analyse étant du
+  // texte libre, on reste tolérant : on ne lève qu'un WARNING (signal pour audit), jamais
+  // un rejet — un bilan correct ne doit pas être bloqué sur une formulation d'analyse.
+  if (analyse && analyse.trim()) {
+    // Codes cités dans l'analyse comme "très souvent" : on cherche la zone du texte qui suit
+    // "très souvent" jusqu'au prochain mot-clé de bloc, et on y relève les PxCy.
+    const blocTS = (pa.blocs || []).find(b => /tr[èe]s souvent/i.test(b.niveau || ''));
+    if (blocTS) {
+      const codesJsonTS = new Set(
+        (lireChiffresCites(blocTS.synth_technique || '')) ? Object.keys(lireChiffresCites(blocTS.synth_technique || '')) : []
+      );
+      // Extraire de l'analyse la portion "très souvent"
+      const mZone = analyse.match(/tr[èe]s souvent[^]*?(?=souvent\b|occasionnel|rangement|$)/i);
+      if (mZone) {
+        const codesAnalyseTS = (mZone[0].match(/P[1-5]C\d{1,2}/gi) || []).map(c => c.toUpperCase());
+        for (const code of codesAnalyseTS) {
+          if (codesJsonTS.size && !codesJsonTS.has(code)) {
+            warnings.push(`[cohérence] ${code} annoncé "très souvent" dans l'analyse mais absent du bloc très souvent du JSON`);
+          }
+        }
+      }
+    }
+  } else {
+    warnings.push('[cohérence] bloc <analyse> vide ou absent — verbalisation non fournie (vérifier le prompt/agent)');
+  }
+
   return { ok: errors.length === 0, errors, warnings };
 }
 
@@ -407,7 +464,7 @@ function valider(pa, entree) {
 // SECTION 5 — ÉCRITURE T3 (via pilierMap fourni par la préparation)
 // ═══════════════════════════════════════════════════════════════
 
-async function ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts) {
+async function ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts, analyse = '') {
   // ── T3_PILIER ──
   // Niveau de bloc = ACTIVATION (fréquence) : « très souvent / souvent / occasionnels »
   // (rangement sur le total). Mappé vers les 3 groupes de colonnes T3_PILIER
@@ -444,6 +501,14 @@ async function ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts) {
   if (sp.profil_pur)    fp[F_PIL.synth_factuelle] = sp.profil_pur;
   // mode : écrit seulement si autorisé (validation manuelle)
   if (opts.write_mode && sp.mode_libelle) fp[F_PIL.pilier_mode] = sp.mode_libelle;
+
+  // ── (v12) ANALYSE VERBALISÉE de l'agent → champ d'audit T3_PILIER ──
+  // Journal de décision produit au temps 3 du conducteur (lecture + cassure + rangement).
+  // Stocké pour servir de mémoire si le pilier est repris, et de trace de contrôle qualité.
+  // Field ID lu depuis la config (clé analyse_verbalisee) ; repli sur l'ID direct si la
+  // clé n'est pas encore définie dans airtableConfig.
+  const FIELD_ANALYSE = (F_PIL && F_PIL.analyse_verbalisee) || 'fldGLJRqWUxUoDR5e';
+  if (analyse && analyse.trim()) fp[FIELD_ANALYSE] = analyse.trim();
 
   await airtableService.updateRecordById
     ? await airtableService.updateRecordById(airtableConfig.TABLES.ETAPE1_T3_PILIER, pilierRecId, fp)
@@ -513,10 +578,10 @@ async function redigerPilier(prep, pilier, refs, opts) {
   }
 
   const MAX_RETRY = opts.max_retries || 2;
-  let pa, validation;
+  let pa, analyse = '', validation;
   for (let t = 1; t <= MAX_RETRY; t++) {
-    pa = await appellerClaude(entree, opts);
-    validation = valider(pa, entree);
+    ({ pa, analyse } = await appellerClaude(entree, opts));
+    validation = valider(pa, entree, analyse);
     if (validation.ok) break;
     logger.warn(`Rédaction PA ${pilier.pilier_code} — ${validation.errors.length} erreur(s), tentative ${t}/${MAX_RETRY}`,
       { errors: validation.errors });
@@ -526,7 +591,7 @@ async function redigerPilier(prep, pilier, refs, opts) {
 
   const pilierRecId = prep.pilierMap.get(pilier.pilier_code);
   const circuitRecByCode = await indexerCircuitsCrees(prep.candidat_id, pilier.pilier_code);
-  await ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts);
+  await ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts, analyse);
 
   return {
     pilier_code:  pilier.pilier_code,
