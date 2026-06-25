@@ -249,17 +249,34 @@ async function appelerAgent(entree){
   const prompt=fs.readFileSync(PROMPT_PATH,'utf-8');
   const client=new Anthropic({apiKey:process.env.CLAUDE_API_KEY||process.env.ANTHROPIC_API_KEY});
   const msg=await client.messages.create({
-    model:'claude-sonnet-4-6', max_tokens:4000, system:prompt,
+    model:'claude-sonnet-4-6', max_tokens:8000, system:prompt,
     messages:[{role:'user',content:JSON.stringify(entree,null,2)}],
   });
   const text=msg.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
-  // séparer le bloc <analyse> du JSON
-  const analyse=(text.match(/<analyse>([\s\S]*?)<\/analyse>/)||[])[1]||'';
-  const jsonPart=text.replace(/<analyse>[\s\S]*?<\/analyse>/,'').replace(/```json|```/g,'').trim();
+
+  // Bloc <analyse> (toléré : balise fermante absente) — purement pour la trace.
+  let analyse='';
+  const aMatch = text.match(/<analyse>([\s\S]*?)(?:<\/analyse>|$)/);
+  if(aMatch) analyse = aMatch[1].trim();
+
+  // JSON = objet {...} après l'analyse. On coupe ce qui précède la fin de l'analyse,
+  // puis on prend du 1er '{' au dernier '}' (robuste à l'imbrication profil_calibrage).
   let sortie;
-  try{ sortie=JSON.parse(jsonPart); }
-  catch(e){ throw new Error('Sortie agent non-JSON : '+jsonPart.slice(0,400)); }
-  return { sortie, analyse:analyse.trim() };
+  let zone = text.replace(/```json|```/g,'');
+  const endAnalyse = zone.lastIndexOf('</analyse>');
+  if(endAnalyse >= 0) zone = zone.slice(endAnalyse + '</analyse>'.length);
+  const first = zone.indexOf('{');
+  const last  = zone.lastIndexOf('}');
+  if(first < 0 || last <= first){
+    throw new Error('Sortie agent : aucun objet JSON trouvé après l\'analyse. Réponse : '+text.slice(-400));
+  }
+  try {
+    sortie = JSON.parse(zone.slice(first, last+1));
+  } catch(e){
+    // fallback : peut-être le JSON est tronqué (max_tokens) → message clair
+    throw new Error('Sortie agent : JSON invalide ou tronqué. Fin de réponse : '+text.slice(-400));
+  }
+  return { sortie, analyse };
 }
 
 // ════════════════════════════════════════════════════════════════════════
