@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amendements 13.9–13.13 — Bible du Profil Cognitif (25/06/2026)</title>
+<style>
+  :root{ --rouge:#dc2626; --orange:#ea580c; --encre:#1f2937; --gris:#6b7280;
+         --bord:#e5e7eb; --fond:#fafafa; --bleu:#1d4ed8; --vert:#16a34a; }
+  *{box-sizing:border-box}
+  body{font-family:Georgia,'Times New Roman',serif; color:var(--encre); line-height:1.65;
+    max-width:860px; margin:0 auto; padding:48px 32px; background:#fff;}
+  h1{font-size:26px; border-bottom:3px solid var(--encre); padding-bottom:12px;}
+  h2{font-size:20px; margin-top:36px; border-bottom:1px solid var(--bord); padding-bottom:6px;}
+  h3{font-size:16px; margin-top:24px;}
+  h4{font-size:14.5px; margin-top:18px; color:#374151;}
+  p,li{font-size:15px;}
+  code{background:var(--fond); border:1px solid var(--bord); border-radius:3px; padding:1px 5px; font-size:13px; font-family:'SF Mono',Consolas,monospace;}
+  .sous{color:var(--gris); font-style:italic; margin-top:0;}
+  .doctrine{background:#eff6ff; border:1px solid #bfdbfe; border-left:4px solid var(--bleu); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  .garde{background:#fef2f2; border:1px solid #fecaca; border-left:4px solid var(--rouge); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  .garde strong{color:var(--rouge);}
+  .principe{background:#fff7ed; border:1px solid #fed7aa; border-left:4px solid var(--orange); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  .principe strong{color:var(--orange);}
+  .preuve{background:var(--fond); border:1px solid var(--bord); border-radius:4px; padding:12px 18px; margin:16px 0;}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:13px;}
+  th,td{border:1px solid var(--bord); padding:6px 9px; text-align:left; vertical-align:top;}
+  th{background:var(--fond); font-family:Arial,sans-serif; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:#374151;}
+  .avant{background:#fff7f7;} .apres{background:#f4fbf6;}
+  blockquote{margin:14px 0; padding:10px 18px; border-left:4px solid var(--bleu); background:var(--fond); font-style:italic;}
+  .footer{margin-top:40px; padding-top:16px; border-top:1px solid var(--bord); font-size:12px; color:var(--gris);}
+  .note-agreg{background:#f5f3ff; border:1px solid #ddd6fe; border-left:4px solid #7c3aed; border-radius:4px; padding:12px 18px; margin:16px 0; font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<h1>Amendements 13.9 à 13.13 — Doctrines de la chaîne bilan (étape 1.3)</h1>
+<p class="sous">À insérer dans la Bible du Profil Cognitif, à la suite de l'amendement 13.8. Daté du 25 juin 2026. Validé par Isabelle. Consigné sans réécrire les sections antérieures ; en cas de conflit avec une section plus ancienne, l'amendement le plus récent prime (principe déjà établi par 13.8 sur 13.2).</p>
+
+<div class="note-agreg">
+<strong>Note d'agrégation.</strong> Ce bloc fige les doctrines nées du travail du 25/06 sur l'agent de rédaction du bilan (étape 1.3), validées sur le run complet de Rémi (5 piliers, statut <code>BILAN_FABLE_PA_OK</code>). Il s'articule avec deux documents de référence figés extérieurs à la Bible — <code>CONTRAT_FRONTIERE_BLOCS.md</code> (24/06) et <code>DOCTRINE_ROLES_PILIERS.md</code> (24/06) — auxquels il renvoie plutôt que de les recopier. Section 13.9 = amendement structurant (rectifie 13.1).
+</div>
+
+<h2>13.9 Rectification du critère de rangement des blocs — CŒUR → TOTAL</h2>
+
+<div class="doctrine">
+<strong>Objet.</strong> La section 13.1 posait que l'on <em>classe</em> les circuits en blocs sur le <strong>cœur</strong> (« tant qu'un pilier a du cœur, les blocs se font sur le cœur ; un pilier entièrement sans cœur bascule sur le total »). Ce critère est <strong>périmé</strong>. La doctrine en vigueur, fixée par le Contrat de frontière des blocs du 24/06 et appliquée en production, range les circuits sur le <strong>TOTAL d'occurrences</strong>, toujours, quel que soit le cœur. Le présent amendement rectifie 13.1 en ce sens. 13.1 reste lisible pour mémoire ; en cas de conflit, <strong>13.9 prime</strong>.
+</div>
+
+<h3>13.9.1 Formulation rectifiée (remplace 13.1, alinéa du classement)</h3>
+<table>
+<tr><th>Avant (13.1, périmé)</th><th>Après (13.9, en vigueur)</th></tr>
+<tr>
+<td class="avant">« On classe les circuits sur le cœur, jamais sur le total. Tant qu'un pilier a du cœur, les blocs HAUT/MOYEN/FAIBLE se font sur le cœur. Un pilier entièrement sans cœur bascule sur le total. »</td>
+<td class="apres">« On <strong>range</strong> les circuits en blocs sur le <strong>TOTAL d'occurrences</strong>, toujours (jamais sur le cœur). Le total commande le RANG ; le cœur commande l'INTERPRÉTATION (le texte dit si le geste gouverne en propre ou vient en appui d'un autre pilier). Un circuit EN SOUTIEN (cœur 0) se range sur son total comme les autres, jamais relégué d'office. »</td>
+</tr>
+</table>
+
+<h3>13.9.2 Ce qui reste vrai de 13.1</h3>
+<p>La partie de 13.1 disant que l'on <em>analyse</em> sur les deux chiffres (cœur ET total) et que l'on <em>commente</em> l'écart cœur/total quand il est marqué (écart ≥ 3, ou total ≥ 2 × cœur) <strong>demeure en vigueur</strong>. Seul le critère de <em>rangement</em> change : cœur → total. Commenter l'écart ne reclasse jamais le circuit.</p>
+
+<h3>13.9.3 Les trois blocs et le partage de responsabilité</h3>
+<div class="doctrine">
+<p>Les blocs ne sont plus une notion de valeur (HAUT/MOYEN/FAIBLE) mais d'<strong>activation</strong> : <em>très souvent</em> / <em>souvent</em> / <em>occasionnels</em>. La responsabilité est partagée, sans recouvrement :</p>
+<ul>
+<li>Le <strong>service (étape 1.2)</strong> pose mécaniquement le bloc <em>occasionnels</em> (total 1–2) et le marquage « au service d'un autre outil » (instrumental pur). Frontière fixe.</li>
+<li>L'<strong>agent (étape 1.3)</strong> reçoit les circuits de total ≥ 3 (en <code>BLOC_EN_ATTENTE</code>) et les répartit, par jugement de lecture, entre <em>très souvent</em> et <em>souvent</em>. Il ne touche jamais aux occasionnels.</li>
+</ul>
+<p class="sous">Référence complète : <code>CONTRAT_FRONTIERE_BLOCS.md</code> §1, §2, §6 (les trois verrous). Cohérent avec l'amendement 13.8, qui bâtit déjà le mode sur le total décroissant.</p>
+</div>
+
+<h2>13.10 La cassure très souvent / souvent se juge sur la NATURE, jamais sur la profondeur</h2>
+
+<div class="garde">
+<strong>Règle.</strong> La frontière entre <em>très souvent</em> et <em>souvent</em> est un <strong>jugement de lecture</strong> (jamais un seuil chiffré), porté sur la <strong>nature du geste</strong> : libellé + capacité (terme exact du lexique) + verbatims de chaque réponse répertoriée. Elle ne se juge <strong>JAMAIS sur la profondeur d'activation</strong> (effleuré / effectif / plein régime).
+</div>
+
+<h3>13.10.1 Le rôle de chaque dimension, sans recouvrement</h3>
+<table>
+<tr><th>Dimension</th><th>Rôle dans le rangement</th></tr>
+<tr><td>Total occurrences</td><td><strong>Ordonne le rang</strong> (tri décroissant, à deux niveaux : entre blocs et dans chaque bloc).</td></tr>
+<tr><td>Nature (libellé + capacité + verbatims)</td><td><strong>Tranche la frontière</strong> très souvent / souvent.</td></tr>
+<tr><td>Profondeur d'activation</td><td><strong>Nourrit la rédaction</strong> (demi-phrase « plein régime »), ne classe pas. Jugée en amont, donc disponible — mais délibérément non utilisée pour ranger.</td></tr>
+</table>
+
+<h3>13.10.2 Pourquoi pas la profondeur (preuve par l'absurde)</h3>
+<p>Si la profondeur cassait les blocs, deux circuits de <em>même total</em> mais de profondeur différente tomberaient dans deux blocs distincts — en contradiction directe avec « le total commande le rang » (13.9). Le test mené le 25/06 (version A = nature contre version B = profondeur, joué sur Rémi P4) a tranché pour la nature.</p>
+
+<h3>13.10.3 Profil compact → un seul bloc ; cassure réelle → deux blocs</h3>
+<div class="preuve">
+<p><strong>Plateau (un seul bloc).</strong> Quand des circuits sophistiqués se <em>combinent</em> dans une même réponse (totaux serrés), il n'y a pas de cassure : un seul bloc <em>très souvent</em>, pas de <em>souvent</em>. Forcer une coupure inventerait une rupture que les verbatims démentent. Cas fondateur : Rémi P4 (socle), 6 circuits combinatoires (totaux 5,4,3,3,3,3), un seul bloc. L'agent l'a formulé seul : « la légère pente ne reflète pas une hiérarchie de nature mais une variation d'amplitude ; il n'y a pas de cassure ».</p>
+<p><strong>Cassure réelle (deux blocs).</strong> Rémi P5 (aval) : <em>très souvent</em> = P5C4, P5C6, P5C7 (le mouvement d'adaptation en cours d'exécution, qui se combine dans les mêmes scènes) ; <em>souvent</em> = P5C2, P5C1, P5C15 (préparation, procédure, finalisation — gestes d'une <em>autre nature</em>). La frontière tombe au changement de nature, pas au décroché de chiffre.</p>
+</div>
+
+<p class="sous">Cohérent avec <code>CONTRAT_FRONTIERE_BLOCS.md</code> §4 (la cassure = jugement, jamais calcul ; ne jamais forcer une cassure absente ; plateau Rémi P4) — qu'il précise en fixant <em>sur quoi</em> porte le jugement.</p>
+
+<h2>13.11 Le conducteur de prompt et la verbalisation cadrée de l'agent</h2>
+
+<h3>13.11.1 Tout prompt d'agent s'ouvre par un conducteur chronologique</h3>
+<div class="doctrine">
+<p>Tout prompt d'agent de la chaîne s'ouvre par un <strong>CONDUCTEUR</strong> : l'ordre explicite des temps de travail, placé <em>avant</em> le détail des champs, lexiques et gabarits, qui deviennent la référence détaillée appelée temps par temps. Sans conducteur, l'agent invente son ordre et le verbalise au mauvais endroit, ce qui casse le parsing de la réponse (incident fondateur du 25/06 matin : préambule en texte libre avant le JSON → échec de lecture, le bilan ne sortait pas).</p>
+<p>Le conducteur de l'agent de rédaction du bilan compte 7 temps : (1) lire — (2) juger la profondeur — (3) établir les blocs + verbaliser l'analyse — (4) rédiger chaque circuit — (5) rédiger les blocs — (6) établir le mode — (7) synthèse du pilier. Doctrine générale : tout nouvel agent LLM de la chaîne reçoit un conducteur en tête.</p>
+</div>
+
+<h3>13.11.2 La verbalisation d'analyse est conservée mais cadrée</h3>
+<div class="principe">
+<p>La verbalisation du raisonnement par l'agent est <strong>utile</strong> et doit être <strong>conservée</strong>, mais <strong>cadrée</strong> : produite au temps 3, dans un bloc balisé <code>&lt;analyse&gt;…&lt;/analyse&gt;</code>, <em>avant</em> le JSON. C'est un <strong>journal de décision</strong> (lecture des circuits de tête, jugement de la cassure et son motif, rangement retenu, points d'attention rédaction), <strong>pas un brouillon</strong> des textes du bilan (ceux-ci sont produits dans le JSON).</p>
+<p>Double fonction : <strong>mémoire de reprise</strong> (rejouer la décision sans tout recalculer) et <strong>trace de contrôle qualité</strong> (auditable, et base d'un contrôle de cohérence analyse↔blocs). Stockée dans T3_PILIER, champ <code>analyse_verbalisée_agent</code>.</p>
+</div>
+
+<h2>13.12 Le micro-texte (soleil_micro) est obligatoire pour chaque circuit</h2>
+
+<div class="garde">
+<strong>Règle.</strong> Le micro-texte d'un circuit (<code>soleil_micro</code>) est <strong>obligatoire et non vide pour CHAQUE circuit de la liste</strong>, quel que soit son niveau (HAUT, MOYEN, FAIBLE, EN SOUTIEN). Sans exception. ≤ 15 mots.
+</div>
+
+<p>C'est le <strong>geste du circuit en format court</strong>, fondé sur le <strong>verbatim</strong> de l'explication du geste — jamais une paraphrase du libellé du circuit (cohérent avec la règle anti-facilité 13.4 : le nom du circuit n'est pas la matière de l'explication). Il est <strong>réutilisé dans une phase ultérieure du bilan</strong> : chaque circuit doit donc porter le sien, sinon le texte manque en aval.</p>
+
+<p class="sous">Rectifie la règle ancienne (« micro-texte réservé aux niveaux HAUT et MOYEN, vide pour FAIBLE/EN SOUTIEN »), fausse au regard de cet usage en aval. Corrigée le 25/06 au prompt (CHAMP 4bis, gabarit JSON, contrôle de longueur) et au validateur du service, alignés.</p>
+
+<h2>13.13 Jurisprudence — trois faux négatifs de validation à ne pas réintroduire</h2>
+
+<p>Le run de Rémi a révélé trois contrôles trop rigides qui rejetaient des productions <em>correctes</em> de l'agent et gaspillaient des reprises. <strong>Principe directeur : quand l'agent a raison sur le fond, on assouplit le contrôle, on ne durcit pas l'agent</strong> (cohérent avec <code>CONTRAT_FRONTIERE_BLOCS.md</code> §C6).</p>
+
+<table>
+<tr><th>Cas</th><th>Production correcte de l'agent</th><th>Correctif</th></tr>
+<tr>
+<td>Amorce ADHOC</td>
+<td>Un circuit sur mesure commence légitimement par « Ce geste est propre… »</td>
+<td>Amorce ajoutée à la liste autorisée du contrôle d'explication.</td>
+</tr>
+<tr>
+<td>Rattachement au singulier</td>
+<td>Un bloc à un seul circuit s'écrit « cette manière de faire <strong>est</strong> ce que le protocole nomme » (et non « sont »)</td>
+<td>Le contrôle accepte le singulier (est / correspond à / relève de) en plus du pluriel.</td>
+</tr>
+<tr>
+<td>Micro-texte des FAIBLE / EN SOUTIEN</td>
+<td>L'agent renseigne le micro-texte de tous les circuits (cf. 13.12)</td>
+<td>Le contrôle qui l'interdisait pour FAIBLE/EN SOUTIEN est retiré ; remplacé par : rejet si vide.</td>
+</tr>
+</table>
+
+<h2>13.14 Points laissés ouverts (à trancher avant agrégation définitive)</h2>
+<p>Signalés pour l'arbitrage, non tranchés ici :</p>
+<ul>
+<li><strong>Mode d'un pilier fonctionnel</strong> : rédige-t-on un mode pour un pilier fonctionnel ? Le run de Rémi en a produit un pour P1, P2, P3 (fonctionnels). À confirmer comme doctrine, ou à restreindre. (Lié à A1b / B3 de la TO-DO consolidée.)</li>
+<li><strong>Calibrage du contrôle de cohérence analyse↔blocs</strong> : il peut lire une hésitation intermédiaire du raisonnement au lieu de la décision finale (cas P2C1, run Rémi). Calibrage souhaitable : ne lire que la section « Rangement retenu ».</li>
+<li><strong>Chiffres de l'amendement 13.8.4</strong> (Cécile P3) : conflit 21/13 (amendement) vs 20/12 (capture POURBILAN) à trancher sur pièce.</li>
+</ul>
+
+<div class="footer">
+Amendements 13.9–13.14 — Bible du Profil Cognitif, Sib Prod. Daté du 25/06/2026. 13.9 rectifie 13.1 (rangement cœur → total). Doctrines validées sur le run de Rémi. À ne pas réécrire ; toute évolution ultérieure par amendement daté. Documents de référence liés : CONTRAT_FRONTIERE_BLOCS.md, DOCTRINE_ROLES_PILIERS.md (24/06).
+</div>
+
+</body>
+</html>
