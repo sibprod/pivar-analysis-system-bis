@@ -23,10 +23,14 @@
  * ════════════════════════════════════════════════════════════════════════
  */
 
-const Airtable  = require('airtable');
 const Anthropic = require('@anthropic-ai/sdk');
 const fs   = require('fs');
 const path = require('path');
+
+// Infrastructure prod (lectures/écritures éprouvées, mapping par field ID géré).
+// Depuis services/etape1/etape1_t3/bilan_fable/ → services/infrastructure/
+const airtableService = require('../../../infrastructure/airtableService');
+let logger; try { logger = require('../../../../utils/logger'); } catch(e){ logger = console; }
 
 const BASE_ID = 'appgghhXjYBdFRras';
 
@@ -126,30 +130,26 @@ function _arg(a,n){ const i=a.indexOf(n); return i>=0 && a[i+1] ? a[i+1] : null;
 // 1) BUILDER DÉTERMINISTE
 // ════════════════════════════════════════════════════════════════════════
 
-/** Lit l'architecture : tous les piliers, leurs rôles, labels, modes. Trouve le socle. */
-async function lireArchitecture(cid, at){
+/** Lit l'architecture via l'infra prod : piliers, rôles, labels, modes, blocs. Trouve le socle. */
+async function lireArchitecture(cid){
+  const rows = await airtableService.getEtape1T3Piliers(cid);  // mappé par nom de config
   const piliers = {}; let socle = null;
-  await at(T_PILIER).select({
-    filterByFormula:`{candidat_id}="${cid}"`,
-    fields:[F_PIL.pilier,F_PIL.role,F_PIL.label,F_PIL.mode,F_PIL.bloc_tres_souv,F_PIL.bloc_souvent],
-  }).eachPage((recs,next)=>{
-    for(const r of recs){
-      const code=_sel(r.get(F_PIL.pilier)); const role=_sel(r.get(F_PIL.role)).toLowerCase();
-      piliers[code]={
-        code, role,
-        label:_sel(r.get(F_PIL.label)),
-        mode:r.get(F_PIL.mode)||'',
-        bloc_tres_souvent:r.get(F_PIL.bloc_tres_souv)||'',
-        bloc_souvent:r.get(F_PIL.bloc_souvent)||'',
-      };
-      if(role==='socle') socle=code;
-    }
-    next();
-  });
+  for(const r of rows){
+    const code = _sel(r.pilier);
+    const role = _sel(r.role_pilier).toLowerCase();
+    piliers[code] = {
+      code, role,
+      label: _sel(r.pilier_label),
+      mode:  r.pilier_mode || '',
+      bloc_tres_souvent: r.bloc_tres_souvent_technique || '',
+      bloc_souvent:      r.bloc_souvent_technique || '',
+    };
+    if(role==='socle') socle = code;
+  }
   return { piliers, socle };
 }
 
-/** Présentation des outils = lexique partagé (label, rôle, rappel≈mode, mode). */
+/** Présentation des outils = lexique partagé (label, rôle, mode). */
 function buildPresentationOutils(piliers){
   const out={};
   for(const code of ['P1','P2','P3','P4','P5']){
@@ -161,72 +161,69 @@ function buildPresentationOutils(piliers){
 
 /**
  * SOURCE A — le bloc le plus haut du socle.
- * Lit le champ synth_technique "très souvent" ; à défaut "souvent".
- * Récupère les circuits du bloc avec leurs verbatims complets (T3_CIRCUIT).
+ * Lit la synth_technique "très souvent" (à défaut "souvent"), extrait les codes de circuits,
+ * puis récupère leurs verbatims complets via l'infra (getEtape1T3Circuits).
  */
-async function lireBlocHautSocle(cid, socle, archSocle, at){
-  // déterminer le bloc le plus haut non vide
+async function lireBlocHautSocle(cid, socle, archSocle){
   let nom_bloc='très souvent', synth=archSocle.bloc_tres_souvent;
   if(!synth || !synth.trim()){ nom_bloc='souvent'; synth=archSocle.bloc_souvent; }
 
-  // extraire les codes de circuits cités dans la synth (PxCy)
   const codes=[...new Set((synth.match(/P[1-5]C\d{1,2}/g)||[]))];
 
-  // charger les circuits du socle dans T3_CIRCUIT
+  // Tous les circuits du candidat (mappés par nom de config), on filtre le socle en mémoire.
+  const tous = await airtableService.getEtape1T3Circuits(cid);
   const circuitsByCode={};
-  await at(T_CIRCUIT).select({
-    filterByFormula:`AND({candidat_id}="${cid}",{pilier}="${socle}")`,
-    fields:[F_CIR.code,F_CIR.nom,F_CIR.verb1,F_CIR.verb2,F_CIR.verb3,F_CIR.total,F_CIR.profondeur],
-    pageSize:50,
-  }).eachPage((recs,next)=>{
-    for(const r of recs){
-      const c=_sel(r.get(F_CIR.code)); // "C12"
-      const full=`${socle}${c}`;
-      circuitsByCode[full]={
-        code:full, libelle:_sel(r.get(F_CIR.nom)),
-        profondeur:_sel(r.get(F_CIR.profondeur)),
-        total:_num(r.get(F_CIR.total)),
-        verbatims:[r.get(F_CIR.verb1),r.get(F_CIR.verb2),r.get(F_CIR.verb3)].filter(Boolean),
-      };
-    }
-    next();
-  });
+  for(const r of tous){
+    const pil = _sel(r.pilier);
+    if(pil !== socle) continue;
+    const c = _sel(r.circuit_id);                 // "C12"
+    const full = c.startsWith('P') ? c : `${socle}${c}`;
+    const verbs = [r.verbatim_1, r.verbatim_2, r.verbatim_3, r.verbatim_4,
+                   r.n2_verbatims].filter(Boolean);
+    circuitsByCode[full]={
+      code: full,
+      libelle: _sel(r.circuit_nom),
+      profondeur: _sel(r.profondeur),
+      total: _num(r.total_activations),
+      verbatims: verbs,
+    };
+  }
 
-  // capacité : extraite du texte de la synth (lexique fermé) par circuit
-  const circuits = codes.map(code=>{
-    const c=circuitsByCode[code]||{code,libelle:'',profondeur:'',total:0,verbatims:[]};
-    const capMatch = synth.match(new RegExp(code+'[^;]*?capacité\\s+([^,;]+(?:distinctes|intégrative|sophistiquée|simple)?)','i'));
-    return { ...c, capacite: capMatch ? capMatch[1].trim() : '' };
-  }).sort((a,b)=>b.total-a.total);
-
+  // Si la synth ne cite aucun code (rare), prendre tous les circuits socle triés par total.
+  let circuits;
+  if(codes.length){
+    circuits = codes.map(code=>{
+      const c=circuitsByCode[code]||{code,libelle:'',profondeur:'',total:0,verbatims:[]};
+      const capMatch = synth.match(new RegExp(code+'[^;]*?capacité\\s+([^,;]+)','i'));
+      return { ...c, capacite: capMatch ? capMatch[1].trim() : '' };
+    });
+  } else {
+    circuits = Object.values(circuitsByCode).map(c=>({ ...c, capacite:'' }));
+  }
+  circuits.sort((a,b)=>b.total-a.total);
   return { nom_bloc, circuits, synth };
 }
 
 /**
- * SOURCE B — le socle activé EN INSTRUMENTAL.
- * Les réponses aux questions d'AUTRES outils que le socle gouverne.
- * Lit les réponses brutes INTÉGRALES.
+ * SOURCE B — les réponses brutes du candidat.
+ * RESPONSES ne porte pas de champ « pilier gouvernant » fiable ; on passe donc à l'agent
+ * TOUTES les réponses brutes intégrales, en marquant l'outil de la question (PxQn → Px).
+ * L'agent isole lui-même le réglage d'entrée du socle et les « pour »-but (cf. conducteur).
  */
-async function lireSocleInstrumental(cid, socle, at){
-  const out=[]; const toutes=[];
-  await at(T_RESP).select({
-    filterByFormula:`{session_ID}="${cid}"`,
-    fields:[F_RESP.question,F_RESP.gouverne,F_RESP.reponse],
-    pageSize:50,
-  }).eachPage((recs,next)=>{
-    for(const r of recs){
-      const q=_sel(r.get(F_RESP.question)); const gouv=_sel(r.get(F_RESP.gouverne));
-      const rep=r.get(F_RESP.reponse)||'';
-      if(gouv!==socle) continue;                 // ne garder que ce que le socle gouverne
-      toutes.push({question:q, reponse_brute:rep});
-      const outilQ=q.slice(0,2);                  // "P5" pour "P5Q1"
-      if(outilQ!==socle){                         // INSTRUMENTAL = question d'un AUTRE outil
-        out.push({question:q, outil_question:outilQ, gouverne:socle, reponse_brute:rep});
-      }
+async function lireSocleInstrumental(cid, socle){
+  const resp = await airtableService.getResponses(cid);   // champs par nom
+  const toutes=[]; const instrumental=[];
+  for(const r of resp){
+    const q   = _sel(r.id_question);                       // "P3Q6"
+    const rep = r.response_text || '';
+    if(!q || !rep) continue;
+    toutes.push({ question:q, reponse_brute:rep });
+    const outilQ = q.slice(0,2);                            // "P3"
+    if(outilQ !== socle){
+      instrumental.push({ question:q, outil_question:outilQ, gouverne:socle, reponse_brute:rep });
     }
-    next();
-  });
-  return { instrumental: out, reponses_socle_completes: toutes };
+  }
+  return { instrumental, reponses_socle_completes: toutes };
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -269,28 +266,20 @@ async function appelerAgent(entree){
 // 3) WRITER
 // ════════════════════════════════════════════════════════════════════════
 
-async function ecrire(sortie, bilanRecId, at){
+async function ecrire(cid, sortie){
   if(!sortie.filtre) throw new Error('Sortie agent : champ "filtre" manquant');
   const profilTxt = sortie.profil_calibrage
     ? `${sortie.profil_calibrage.famille} — ${sortie.profil_calibrage.variante||''}`.trim()
     : '(aucun profil ne colle)';
   const fields={
-    [F_BILAN.filtre]:          sortie.filtre,
-    [F_BILAN.filtre_preuves]:  sortie.filtre_preuves||'',
-    [F_BILAN.finalite]:        sortie.finalite || '(non exprimée dans les réponses)',
-    [F_BILAN.finalite_preuve]: sortie.finalite_preuve||'',
+    [F_BILAN.filtre]:           sortie.filtre,
+    [F_BILAN.filtre_preuves]:   sortie.filtre_preuves||'',
+    [F_BILAN.finalite]:         sortie.finalite || '(non exprimée dans les réponses)',
+    [F_BILAN.finalite_preuve]:  sortie.finalite_preuve||'',
     [F_BILAN.profil_calibrage]: profilTxt,
-    [F_BILAN.technique]:       sortie.technique||'',
+    [F_BILAN.technique]:        sortie.technique||'',
   };
-  await at(T_BILAN).update(bilanRecId, fields);
-  return bilanRecId;
-}
-
-async function _findBilan(cid, at){
-  return new Promise((res,rej)=>{
-    at(T_BILAN).select({filterByFormula:`{candidat_id}="${cid}"`,maxRecords:1,fields:[F_BILAN.candidat]})
-      .firstPage((e,r)=> e?rej(e):res(r&&r[0]?r[0]:null));
-  });
+  return await airtableService.upsertEtape1T3Bilan(cid, fields);  // upsert par field ID
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -300,33 +289,29 @@ async function _findBilan(cid, at){
 // ════════════════════════════════════════════════════════════════════════
 
 async function run(opts = {}){
-  // Résolution des arguments selon le mode d'appel
   let cid, doWrite;
   if (opts && opts.candidat_id) {
-    // Appel par l'orchestrateur (comme PA/PC/PD) → on traite et on ÉCRIT.
     cid = opts.candidat_id;
     doWrite = opts.write_mode !== false;   // écriture par défaut en prod
   } else {
-    // Appel en ligne de commande.
     const args = process.argv.slice(2);
     cid = _arg(args, '--candidat');
     doWrite = args.includes('--write');
     if (!cid) { console.error('ERREUR : --candidat <id> obligatoire (ou run({candidat_id}))'); process.exit(1); }
   }
 
-  const at=new Airtable({apiKey:process.env.AIRTABLE_TOKEN||process.env.AIRTABLE_API_KEY}).base(BASE_ID);
-
-  // 1) Architecture + socle
-  const {piliers,socle}=await lireArchitecture(cid,at);
+  // 1) Architecture + socle (via infra prod)
+  const {piliers,socle}=await lireArchitecture(cid);
   if(!socle){ throw new Error('PB filtre : socle introuvable (T3_PILIER.role_pilier) pour '+cid); }
+  logger.info?.('[PB filtre] socle', { cid, socle, label: piliers[socle]?.label });
   console.log(`[PB filtre] Socle = ${socle} (${piliers[socle]?.label})`);
 
   // 2) Builder : présentation + source A + source B
   const presentation=buildPresentationOutils(piliers);
-  const blocHaut=await lireBlocHautSocle(cid,socle,piliers[socle],at);
+  const blocHaut=await lireBlocHautSocle(cid,socle,piliers[socle]);
   console.log(`[PB filtre] Bloc le plus haut = « ${blocHaut.nom_bloc} » · ${blocHaut.circuits.length} circuits : ${blocHaut.circuits.map(c=>c.code+'('+c.total+')').join(', ')}`);
-  const instr=await lireSocleInstrumental(cid,socle,at);
-  console.log(`[PB filtre] Socle gouverne ${instr.reponses_socle_completes.length} réponses · dont ${instr.instrumental.length} en instrumental`);
+  const instr=await lireSocleInstrumental(cid,socle);
+  console.log(`[PB filtre] Réponses lues : ${instr.reponses_socle_completes.length} · dont ${instr.instrumental.length} sur questions d'autres outils`);
 
   // 3) Agent
   const entree=construireEntree(cid,socle,presentation,blocHaut,instr);
@@ -334,13 +319,11 @@ async function run(opts = {}){
 
   // 4) Écriture / dry-run
   if(doWrite){
-    const bilan=await _findBilan(cid,at);
-    if(!bilan){ throw new Error('PB filtre : record T3_BILAN introuvable pour '+cid); }
-    await ecrire(sortie,bilan.id,at);
-    console.log(`[PB filtre] ✅ Filtre + finalité écrits dans T3_BILAN ${bilan.id}`);
+    const recId = await ecrire(cid, sortie);
+    console.log(`[PB filtre] ✅ Filtre + finalité écrits dans T3_BILAN ${recId}`);
     console.log(`[PB filtre]    Filtre   : « ${sortie.filtre} »`);
     console.log(`[PB filtre]    Finalité : ${sortie.finalite ? '« '+sortie.finalite+' »' : '(non exprimée)'}`);
-    return { ok:true, candidat_id:cid, bilanRecId:bilan.id, filtre:sortie.filtre, finalite:sortie.finalite||null };
+    return { ok:true, candidat_id:cid, bilanRecId:recId, filtre:sortie.filtre, finalite:sortie.finalite||null };
   } else {
     console.log('\n── <analyse> de l\'agent ──\n'+analyse);
     console.log('\n── JSON agent ──\n'+JSON.stringify(sortie,null,2));
