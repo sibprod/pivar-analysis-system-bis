@@ -294,27 +294,39 @@ async function _findBilan(cid, at){
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// 4) RUN
+// 4) RUN — compatible DEUX modes d'appel :
+//   • Orchestrateur : run({ candidat_id })  → écrit en base (prod), retourne un résumé.
+//   • CLI           : node service… --candidat <id> [--write]  → dry-run sauf --write.
 // ════════════════════════════════════════════════════════════════════════
 
-async function run(){
-  const args=process.argv.slice(2);
-  const cid=_arg(args,'--candidat'); const doWrite=args.includes('--write');
-  if(!cid){ console.error('ERREUR : --candidat <id> obligatoire'); process.exit(1); }
+async function run(opts = {}){
+  // Résolution des arguments selon le mode d'appel
+  let cid, doWrite;
+  if (opts && opts.candidat_id) {
+    // Appel par l'orchestrateur (comme PA/PC/PD) → on traite et on ÉCRIT.
+    cid = opts.candidat_id;
+    doWrite = opts.write_mode !== false;   // écriture par défaut en prod
+  } else {
+    // Appel en ligne de commande.
+    const args = process.argv.slice(2);
+    cid = _arg(args, '--candidat');
+    doWrite = args.includes('--write');
+    if (!cid) { console.error('ERREUR : --candidat <id> obligatoire (ou run({candidat_id}))'); process.exit(1); }
+  }
 
   const at=new Airtable({apiKey:process.env.AIRTABLE_TOKEN||process.env.AIRTABLE_API_KEY}).base(BASE_ID);
 
   // 1) Architecture + socle
   const {piliers,socle}=await lireArchitecture(cid,at);
-  if(!socle){ console.error('ERREUR : socle introuvable (T3_PILIER.role_pilier).'); process.exit(1); }
-  console.log(`Socle = ${socle} (${piliers[socle]?.label})`);
+  if(!socle){ throw new Error('PB filtre : socle introuvable (T3_PILIER.role_pilier) pour '+cid); }
+  console.log(`[PB filtre] Socle = ${socle} (${piliers[socle]?.label})`);
 
   // 2) Builder : présentation + source A + source B
   const presentation=buildPresentationOutils(piliers);
   const blocHaut=await lireBlocHautSocle(cid,socle,piliers[socle],at);
-  console.log(`Bloc le plus haut = « ${blocHaut.nom_bloc} » · ${blocHaut.circuits.length} circuits : ${blocHaut.circuits.map(c=>c.code+'('+c.total+')').join(', ')}`);
+  console.log(`[PB filtre] Bloc le plus haut = « ${blocHaut.nom_bloc} » · ${blocHaut.circuits.length} circuits : ${blocHaut.circuits.map(c=>c.code+'('+c.total+')').join(', ')}`);
   const instr=await lireSocleInstrumental(cid,socle,at);
-  console.log(`Socle gouverne ${instr.reponses_socle_completes.length} réponses · dont ${instr.instrumental.length} en instrumental (questions d'autres outils)`);
+  console.log(`[PB filtre] Socle gouverne ${instr.reponses_socle_completes.length} réponses · dont ${instr.instrumental.length} en instrumental`);
 
   // 3) Agent
   const entree=construireEntree(cid,socle,presentation,blocHaut,instr);
@@ -323,16 +335,18 @@ async function run(){
   // 4) Écriture / dry-run
   if(doWrite){
     const bilan=await _findBilan(cid,at);
-    if(!bilan){ console.error('ERREUR : record T3_BILAN introuvable'); process.exit(1); }
+    if(!bilan){ throw new Error('PB filtre : record T3_BILAN introuvable pour '+cid); }
     await ecrire(sortie,bilan.id,at);
-    console.log(`\n✅ Filtre + finalité écrits dans T3_BILAN ${bilan.id}`);
-    console.log(`   Filtre   : « ${sortie.filtre} »`);
-    console.log(`   Finalité : ${sortie.finalite ? '« '+sortie.finalite+' »' : '(non exprimée)'}`);
+    console.log(`[PB filtre] ✅ Filtre + finalité écrits dans T3_BILAN ${bilan.id}`);
+    console.log(`[PB filtre]    Filtre   : « ${sortie.filtre} »`);
+    console.log(`[PB filtre]    Finalité : ${sortie.finalite ? '« '+sortie.finalite+' »' : '(non exprimée)'}`);
+    return { ok:true, candidat_id:cid, bilanRecId:bilan.id, filtre:sortie.filtre, finalite:sortie.finalite||null };
   } else {
     console.log('\n── <analyse> de l\'agent ──\n'+analyse);
     console.log('\n── JSON agent ──\n'+JSON.stringify(sortie,null,2));
     console.log('\n── Builder (audit) ──');
     console.log(JSON.stringify({bloc_haut:blocHaut.circuits.map(c=>({code:c.code,total:c.total,cap:c.capacite,prof:c.profondeur})), instrumental:instr.instrumental.map(x=>x.question)},null,2));
+    return { ok:true, candidat_id:cid, dryRun:true, filtre:sortie.filtre, finalite:sortie.finalite||null };
   }
 }
 
