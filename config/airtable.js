@@ -5,6 +5,14 @@
 //                       et docs/CONTRAT_ETAPE1.md (v1.10 prévue)
 //
 // ─────────────────────────────────────────────────────────────────────────────
+// PHASE v12.2 (2026-06-25) — CHAMP D'AUDIT analyse_verbalisee (T3_PILIER)
+// ─────────────────────────────────────────────────────────────────────────────
+//   Ajout additif : ETAPE1_T3_PILIER_FIELDS.analyse_verbalisee (fldGLJRqWUxUoDR5e).
+//   Stocke la verbalisation de l'agent PA (lecture + jugement de cassure + rangement),
+//   produite au temps 3 du conducteur du prompt v12. Sert de mémoire en cas de reprise
+//   et de trace de contrôle qualité. AUCUN champ ancien retiré ni renommé.
+//
+// ─────────────────────────────────────────────────────────────────────────────
 // PHASE v12.1 (2026-06-23) — BLOCS RANGÉS SUR LE TOTAL (activation, pas valeur)
 // ─────────────────────────────────────────────────────────────────────────────
 //   Les 3 groupes de blocs ne sont plus nommés HAUT/MOYEN/FAIBLE (notion de VALEUR)
@@ -467,7 +475,10 @@ module.exports = {
     bloc_tres_souvent_rattachement: 'fldB9fRf8U61z4WZK',   // ex bloc_haut_catalogue
     bloc_souvent_rattachement:      'fldMA46pZRI6Bi0ZU',   // ex bloc_moyen_catalogue
     bloc_occasionnels_rattachement: 'fldZiSdH20uMb5wCY',   // ex bloc_faible_catalogue
-    synth_courte:           'fldaSofvHZk2K2SXw'
+    synth_courte:           'fldaSofvHZk2K2SXw',
+
+    // ───────── ⭐ v12.2 (25/06/2026) — champ d'audit verbalisation agent ─────────
+    analyse_verbalisee:     'fldGLJRqWUxUoDR5e'   // verbalisation PA (lecture + cassure + rangement), temps 3 du conducteur
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
