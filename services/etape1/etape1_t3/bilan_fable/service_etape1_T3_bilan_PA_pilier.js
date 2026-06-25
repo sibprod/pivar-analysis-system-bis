@@ -401,6 +401,22 @@ function valider(pa, entree, analyse = '') {
       }
     }
 
+    // ── (v12.2) VERROU 3 — TOTAL ≥3 INTERDIT EN OCCASIONNELS ──
+    // Le bloc « occasionnels » est réservé aux total 1-2 (posé par le service). Un circuit
+    // de total ≥3 ne doit JAMAIS s'y trouver : il doit être réparti par l'agent en « très
+    // souvent » ou « souvent ». Le contrôle de tri interne (30) n'attrape cette faute que
+    // si l'ordre est faux ; ce verrou l'attrape TOUJOURS, en lisant le total réel de l'entrée.
+    // (Cf. CONTRAT_FRONTIERE_BLOCS §6, VERROU 3. Faute attestée : P4C8 total 4 en occasionnels.)
+    if (nb.startsWith('occasionnel')) {
+      for (const code of Object.keys(chiffresCites)) {
+        const ic = (entree.circuits || []).find(x => (x.code || '').toUpperCase() === code);
+        if (!ic) continue;
+        if (Number(ic.total) >= 3) {
+          errors.push(`[Bloc occasionnels] ${code} (total ${ic.total}) a un total ≥3 — il ne peut PAS être en occasionnels ; il doit être réparti en « très souvent » ou « souvent ».`);
+        }
+      }
+    }
+
     // ── (v11) CONTRÔLE 30 — TRI INTERNE PAR TOTAL DÉCROISSANT ──
     // Dans chaque bloc, les circuits doivent être cités du plus grand total au plus petit.
     // On lit l'ordre d'apparition des circuits dans synth_technique et on vérifie que les
@@ -444,24 +460,32 @@ function valider(pa, entree, analyse = '') {
   // texte libre, on reste tolérant : on ne lève qu'un WARNING (signal pour audit), jamais
   // un rejet — un bilan correct ne doit pas être bloqué sur une formulation d'analyse.
   if (analyse && analyse.trim()) {
-    // Codes cités dans l'analyse comme "très souvent" : on cherche la zone du texte qui suit
-    // "très souvent" jusqu'au prochain mot-clé de bloc, et on y relève les PxCy.
+    // (v12.2) On ne lit QUE la décision finale de l'agent, pas tout son raisonnement.
+    // Le conducteur fait écrire à l'agent une section « Rangement retenu : très souvent = … ;
+    // souvent = … ; occasionnels = … ». On compare cette DÉCISION au JSON, pas les hésitations
+    // intermédiaires (« on pourrait mettre X… finalement non »), qui faisaient des faux
+    // positifs (cas P5C2/P5C1/P5C15, run 25/06 : annoncés dans le raisonnement, rangés
+    // correctement en « souvent » dans le JSON). Repli : si la section « Rangement retenu »
+    // est absente, on ne lève RIEN (mieux vaut rater une incohérence rare que crier au loup).
     const blocTS = (pa.blocs || []).find(b => /tr[èe]s souvent/i.test(b.niveau || ''));
-    if (blocTS) {
+    const mRangement = analyse.match(/rangement\s+retenu\s*:?([\s\S]*)$/i);
+    if (blocTS && mRangement) {
       const codesJsonTS = new Set(
         (lireChiffresCites(blocTS.synth_technique || '')) ? Object.keys(lireChiffresCites(blocTS.synth_technique || '')) : []
       );
-      // Extraire de l'analyse la portion "très souvent"
-      const mZone = analyse.match(/tr[èe]s souvent[^]*?(?=souvent\b|occasionnel|rangement|$)/i);
+      // Dans la section "Rangement retenu", isoler la seule ligne "très souvent = …"
+      // (jusqu'au prochain mot-clé de bloc), et n'y relever que les codes décidés.
+      const mZone = mRangement[1].match(/tr[èe]s souvent[^]*?(?=souvent\b|occasionnel|$)/i);
       if (mZone) {
         const codesAnalyseTS = (mZone[0].match(/P[1-5]C\d{1,2}/gi) || []).map(c => c.toUpperCase());
         for (const code of codesAnalyseTS) {
           if (codesJsonTS.size && !codesJsonTS.has(code)) {
-            warnings.push(`[cohérence] ${code} annoncé "très souvent" dans l'analyse mais absent du bloc très souvent du JSON`);
+            warnings.push(`[cohérence] ${code} décidé "très souvent" dans le Rangement retenu mais absent du bloc très souvent du JSON`);
           }
         }
       }
     }
+    // (pas de section "Rangement retenu" → pas de contrôle : repli silencieux assumé)
   } else {
     warnings.push('[cohérence] bloc <analyse> vide ou absent — verbalisation non fournie (vérifier le prompt/agent)');
   }
