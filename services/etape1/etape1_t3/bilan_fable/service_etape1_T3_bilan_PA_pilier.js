@@ -241,9 +241,14 @@ const PROFONDEURS_VALIDES = ['effleuré','effectif','plein régime'];
 // Rattachement HAUT/MOYEN (assoupli 19/06) : liste FERMÉE de 3 formules autorisées (le pont vers le
 // référentiel reste garanti, mais sans fragilité d'une seule formule au mot près). L'agent doit en utiliser UNE.
 const FORMULES_RATTACHEMENT = [
+  // Pluriel (bloc à plusieurs circuits)
   'sont ce que le protocole nomme',
   'correspondent à ce que le protocole nomme',
   'relèvent de ce que le protocole nomme',
+  // Singulier (bloc à UN seul circuit — ex. pilier pauvre : « cette manière de faire EST ce que… »)
+  'est ce que le protocole nomme',
+  'correspond à ce que le protocole nomme',
+  'relève de ce que le protocole nomme',
 ];
 function aUneFormuleRattachement(txt) {
   return FORMULES_RATTACHEMENT.some(f => txt.includes(f));
@@ -306,7 +311,7 @@ function valider(pa, entree, analyse = '') {
     const niveau  = ic.niveau || 'FAIBLE';
 
     // T1 : "Vous + verbe" ou amorces autorisées (assoupli 23/06 : "Dès " couvre Dès que/Dès la/Dès le/Dès lors ; + Face à/Au moment)
-    if (!expl.match(/^(Vous\s|Dès |Pendant que vous |Lorsque |Lorsqu'|Une fois |Chaque fois |Dans |Avant |Ponctuellement|À l'occasion|Il vous arrive|Ce geste ne s'active|Quand |En |Depuis |Face à |Au moment )/i)) {
+    if (!expl.match(/^(Vous\s|Dès |Pendant que vous |Lorsque |Lorsqu'|Une fois |Chaque fois |Dans |Avant |Ponctuellement|À l'occasion|Il vous arrive|Ce geste ne s'active|Ce geste est propre|Quand |En |Depuis |Face à |Au moment )/i)) {
       errors.push(`[${code}] n3_nuance ne commence pas par "Vous + verbe" ou une amorce autorisée. Début : "${expl.slice(0,50)}"`);
     }
     // Guillemets interdits dans n3_nuance (v10, strict)
@@ -326,10 +331,14 @@ function valider(pa, entree, analyse = '') {
     if (max_svc < 2 && renfort.trim()) errors.push(`[${code}] en_renfort devrait être vide (aucun sortant ≥2)`);
     if (renfort.trim() && !renfort.trim().startsWith('En renfort :')) errors.push(`[${code}] en_renfort doit commencer par "En renfort :"`);
 
-    // soleil_micro : HAUT+MOYEN seulement, ≤15 mots
-    if (micro) {
-      if (niveau === 'FAIBLE' || niveau === 'EN_SOUTIEN') errors.push(`[${code}] soleil_micro non vide pour ${niveau}`);
-      if ((micro.match(/\S+/g) || []).length > 15) errors.push(`[${code}] soleil_micro > 15 mots`);
+    // soleil_micro : OBLIGATOIRE pour CHAQUE circuit (quel que soit le niveau, y compris
+    // FAIBLE et EN_SOUTIEN). C'est le geste du circuit en format court, fondé sur le verbatim
+    // de l'explication du geste — jamais une paraphrase du libellé. Réutilisé en phase aval,
+    // donc ne peut JAMAIS être vide. ≤15 mots.
+    if (!micro || !micro.trim()) {
+      errors.push(`[${code}] soleil_micro vide — obligatoire pour chaque circuit, quel que soit le niveau`);
+    } else if ((micro.match(/\S+/g) || []).length > 15) {
+      errors.push(`[${code}] soleil_micro > 15 mots`);
     }
 
     // v10 — profondeur : toujours remplie, valeur du lexique fermé
