@@ -117,7 +117,7 @@ function chargerPrompt(){
 
 async function appelerAgent(entree){
   const prompt = chargerPrompt();
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY });
   const resp = await client.messages.create({
     model:'claude-sonnet-4-6', max_tokens:16000, system:prompt,
     messages:[{ role:'user', content: JSON.stringify(entree, null, 2) }],
