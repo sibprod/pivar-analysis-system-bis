@@ -669,6 +669,7 @@ module.exports = {
     cout_principal:            'fld0nyRitbejCsihG',
     cout_secondaire:           'fld7JUPi80iqSKzzV',
     s06_cloture:               'fld1nB5UqVklCjikE',
+    pd_analyse_verbalisee:     'fld0IrJZ4Pe9dDHhG',   // ⭐ 26/06 — trace <analyse> T1→T? de l'agent PD (audit, comme filtre)
 
     // ═════════ ⭐ v12.3 (25/06/2026) — CH4 §02 FILTRE & FINALITÉ v2 ═════════
     //   Ajout additif (AUCUN champ ancien retiré ni renommé). Écrits par service_ch4_v2.js.
