@@ -728,7 +728,6 @@ module.exports = {
       'REPRENDRE_BILAN_FABLE',
       'REPRENDRE_BILAN_PA',
       'REPRENDRE_BILAN_PB',
-      'REPRENDRE_BILAN_PC',
       'REPRENDRE_BILAN_PD',
       'BILAN_FABLE_PA_OK',
       'BILAN_FABLE_TERMINE'
