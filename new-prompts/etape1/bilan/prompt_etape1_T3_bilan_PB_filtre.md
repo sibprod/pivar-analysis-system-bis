@@ -1,7 +1,8 @@
 ═══════════════════════════════════════════════════════════════════════
-PROMPT — CHAPITRE IV §02 : LE FILTRE ET LA FINALITÉ (LA RÉVÉLATION)
-Version 2 · 25/06/2026 · Profil-Cognitif Sib Prod
-Périme la v1 (16/06, mécanique « cœur≥4 »). Conforme à la DOCTRINE_FILTRE_FINALITE du 25/06.
+PROMPT — CHAPITRE IV §02 : LE FILTRE (LA RÉVÉLATION)
+Version 3 · 26/06/2026 · Profil-Cognitif Sib Prod
+Périme la v2 (25/06). La FINALITÉ n'est plus traitée (résultat non dit spontanément → non lisible).
+On pose le FILTRE depuis la lecture pilier (PA) + l'instrumental, puis un profil de calibrage.
 ═══════════════════════════════════════════════════════════════════════
 
 UTILISATION : 1 appel = 1 candidat. Tu travailles EN AVEUGLE : tout est dans ce prompt + l'ENTRÉE JSON.
@@ -22,7 +23,6 @@ Le candidat a vu cette présentation en tête de son bilan. Tu la connais dans l
 • Le FILTRE = le réglage de départ du socle : les questions/le geste qu'il applique à TOUTE
   situation, AVANT de travailler. Le « bouton rouge toujours ON ». N'EXISTE QUE SUR LE SOCLE.
 • Le MODE = la façon de travailler PENDANT (chaque outil a le sien).
-• La FINALITÉ = le résultat visé, le « pour quoi » la personne fait les choses.
 
 RÈGLE ABSOLUE : filtre ≠ mode. Le filtre est AVANT (à l'entrée) ; le mode est PENDANT.
 Ne JAMAIS dupliquer la formulation du mode dans le filtre.
@@ -63,17 +63,13 @@ filtres DIFFÉRENTS. Tu sources le filtre sur la lecture PA + les mots de CE can
 un type de pilier.
 
 ═══════════════════════════════════════════════════════════════════════
-CE QU'EST LA FINALITÉ (doctrine — distincte du filtre)
+LE PROFIL DE CALIBRAGE (basé sur le FILTRE — la finalité n'est plus traitée)
 ═══════════════════════════════════════════════════════════════════════
-La finalité = le résultat visé, le « pour quoi ». Rarement exprimée. On ne la lit que dans les
-« pour » (afin de / pour que / l'objectif est / jusqu'à) des verbatims du socle.
-• Distingue DEUX « pour » :
-    – « pour »-DESTINATAIRE (« pour les passagers ») → CE N'EST PAS la finalité. Écarte-le.
-    – « pour »-BUT (« pour le surmonter », « pour résoudre ») → c'est la finalité.
-• NE T'ARRÊTE PAS AU MOYEN : si le « pour » trouvé est un moyen (ex. « comprendre la cause »),
-  demande « et ça, pour quoi ? » jusqu'à la destination finale.
-• POSER OU S'ABSTENIR : un « pour »-but présent → pose la finalité, au mot près. AUCUN « pour »-but
-  → NE L'INVENTE PAS. Pas de finalité.
+On NE cherche PAS de finalité : le résultat visé n'est presque jamais dit spontanément par le
+candidat, et le déduire force une lecture non écrite. On s'en tient au FILTRE, point.
+Le profil de calibrage colore le REGISTRE du filtre : on choisit la famille + la variante (liste
+"profils_familles") dont le registre correspond au geste d'entrée du candidat. Le profil ne fait
+que NOMMER une famille proche — il n'invente aucune finalité.
 
 ═══════════════════════════════════════════════════════════════════════
 CONDUCTEUR — L'ORDRE DANS LEQUEL TU TRAVAILLES (ne saute aucun temps)
@@ -97,30 +93,24 @@ PARTIE A — LE FILTRE
      CONTRÔLE avant d'écrire : ton filtre est-il aussi riche que la vue_ensemble PA ? S'il a perdu
      un élément (« ajuster », « principe », « seuil »…), reprends-le.
 
-PARTIE B — LA FINALITÉ
-  T5 TRAQUER LES « pour »-BUT dans TOUTES les réponses du socle (terrain + instrumental, champ
-     "reponses_socle_completes"). → Trace chaque « pour » trouvé + sa réf.
-  T6 DISTINGUER les deux « pour ». → Trace : destinataire écartés / but retenus.
-  T7 ALLER JUSQU'AU VRAI BOUT (moyen → finalité réelle). → Trace.
-  T8 POSER OU S'ABSTENIR. Présent → champ "finalite" rempli. Absent → "finalite": null +
-     "finalite_absente_raison": "aucun pour-but dans les verbatims".
-  T9 CALIBRER AVEC LES PROFILS (optionnel). Si la finalité ressemble à une FAMILLE de profil
-     (liste fournie "profils_familles"), choisis la famille + la VARIANTE qui colle au registre
-     (ou formule une variante fidèle au verbatim). Le profil CALIBRE le registre, n'ÉCRIT PAS la
-     finalité. Aucun profil ne colle → "profil_calibrage": null. → champ "profil_calibrage".
+PARTIE B — LE PROFIL DE CALIBRAGE (basé sur le filtre)
+  T5 CALIBRER AVEC LES PROFILS. À partir du FILTRE retenu (T4), choisis dans "profils_familles"
+     la FAMILLE + la VARIANTE dont le registre correspond le mieux au geste d'entrée du candidat.
+     Le profil NOMME une famille proche du registre du filtre — il n'invente aucune finalité ni
+     aucun « pour quoi ». Si aucune famille ne colle → "profil_calibrage": null.
+     → champ "profil_calibrage". → Trace : « Profil : famille … / variante … (registre du filtre : …) ».
 
 VÉRIFICATION FINALE
-  Le filtre doit SERVIR la finalité (même tonalité). S'ils ne s'alignent pas, reprends T3 ou T7.
-  → Trace : « Cohérence filtre→finalité : … ».
+  Le profil colle-t-il au registre du filtre (même tonalité) ? Sinon, reprends T5.
+  → Trace : « Cohérence filtre→profil : … ».
 
 ═══════════════════════════════════════════════════════════════════════
 INTERDITS (zéro occurrence)
 ═══════════════════════════════════════════════════════════════════════
-• Inventer un filtre ou une finalité non sourcés sur les verbatims de CE candidat.
+• Inventer un filtre non sourcé sur la lecture PA + les verbatims de CE candidat.
 • Plaquer un filtre-type par pilier (gabarit).
 • Confondre filtre et mode (le filtre est AVANT, le mode PENDANT).
-• Inventer une finalité quand aucun « pour »-but n'est écrit.
-• Faire écrire la finalité par un profil (le profil calibre seulement).
+• Faire écrire une finalité par le profil (le profil calibre le registre du filtre, rien d'autre).
 • Mots évaluatifs : impressionnant, remarquable, performant, fort, précieux.
 • Comparaison à d'autres candidats. Jargon non expliqué. Codes PxCy dans la phrase du filtre
   (autorisés uniquement dans le champ "technique" et le bloc <analyse>).
@@ -172,21 +162,14 @@ T1 geste d'ensemble PA : …
 T2 instrumental : [PxQn (outil Py) : le socle impose …] · ce qui domine hors terrain : …
 T3 réglage d'entrée confirmé : …
 T4 filtre retenu : « … »
-T5 « pour » trouvés : [réf → « … »] …
-T6 destinataire écartés : … | but retenus : …
-T7 moyen → finalité réelle : …
-T8 finalité posée (ou abstention motivée) : …
-T9 profil de calibrage : famille … / variante … (ou aucun)
-Cohérence filtre→finalité : …
+T5 profil de calibrage : famille … / variante … (registre du filtre : …) — ou aucun
+Cohérence filtre→profil : …
 </analyse>
 {
   "filtre": "<phrase courte, présent, ≤ ~18 mots, sourcée verbatims, sans code PxCy>",
   "filtre_preuves": "<2-4 verbatims réels qui fondent le filtre, avec réf PxQn>",
-  "finalite": "<le pour-but, au mot près>"  ou  null,
-  "finalite_absente_raison": "<si null : pourquoi>"  ou  "",
-  "finalite_preuve": "<le verbatim avec le « pour »-but + réf>"  ou  "",
   "profil_calibrage": {"famille":"...","variante":"..."}  ou  null,
-  "technique": "<registre labo : sources A et B, dénominateur, codes autorisés ici>"
+  "technique": "<registre labo : geste PA, instrumental, dénominateur, codes autorisés ici>"
 }
 
 CONTRÔLES AVANT DE RENDRE :
@@ -194,7 +177,5 @@ C1 le filtre est sourcé sur des verbatims réels (filtre_preuves non vide).
 C2 le filtre part de la vue_ensemble PA et la confirme/affine par l'instrumental ; il en garde
    TOUTE la richesse (pas plus pauvre que la lecture PA).
 C3 le filtre ne duplique pas le mode du socle.
-C4 finalité posée SEULEMENT si un « pour »-but existe ; sinon null + raison.
-C5 le « pour » retenu est un but, pas un destinataire.
-C6 profil = calibrage, jamais écriture ; null si aucun ne colle.
+C6 profil = calibrage du registre du filtre, jamais écriture ; null si aucun ne colle.
 C7 <analyse> complet (tous les temps tracés), puis JSON valide, rien après.
