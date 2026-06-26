@@ -162,6 +162,11 @@ ENTRÉE (fournie par le builder déterministe — FIGÉE)
 ═══════════════════════════════════════════════════════════════════════
 SORTIE — bloc <analyse> PUIS JSON strict (rien après le JSON)
 ═══════════════════════════════════════════════════════════════════════
+RÈGLE DE LONGUEUR : le bloc <analyse> est SYNTHÉTIQUE — une ou deux lignes par temps,
+PAS de recopiage intégral de la lecture PA ni des réponses brutes. Tu réfléchis de façon
+ramassée. IMPÉRATIF : tu termines TOUJOURS par le JSON complet (le bloc <analyse> ne doit
+jamais consommer toute la place au point d'empêcher l'écriture du JSON).
+
 <analyse>
 T1 geste d'ensemble PA : …
 T2 instrumental : [PxQn (outil Py) : le socle impose …] · ce qui domine hors terrain : …
