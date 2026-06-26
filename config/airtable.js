@@ -680,7 +680,8 @@ module.exports = {
     filtre_finalite:           'fldobIgYtfa3Qiy4v',   // le « pour »-but (résultat visé)
     filtre_finalite_preuve:    'fldLe9NPXIVfsNDjU',   // verbatim portant le « pour »-but + réf
     filtre_profil_calibrage:   'fldFjcTlLSUjYR8Qy',   // famille + variante (calibrage, jamais écriture)
-    filtre_technique_v2:       'fldFheeASGSqDvqOm'    // registre labo : sources A∩B, dénominateur
+    filtre_technique_v2:       'fldFheeASGSqDvqOm',   // registre labo : sources A∩B, dénominateur
+    filtre_analyse_verbalisee: 'fldduLP9UN4tVRnPE'    // trace <analyse> T1→T9 de l'agent (audit, comme PA)
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
