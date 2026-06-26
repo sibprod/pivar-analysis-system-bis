@@ -174,9 +174,16 @@ async function ecrire(cid, sortie, analyse){
 async function run(opts){
   opts = opts || {};
   const argv = process.argv.slice(2);
-  const cid = opts.candidat_id
-           || (argv.includes('--candidat') ? argv[argv.indexOf('--candidat')+1] : null);
-  const doWrite = opts.write === true || argv.includes('--write');
+  let cid, doWrite;
+  if(opts && opts.candidat_id){
+    // Appel programmatique (orchestrateur) : ÉCRITURE PAR DÉFAUT en prod, comme le filtre PB.
+    cid = opts.candidat_id;
+    doWrite = opts.write_mode !== false && opts.write !== false;
+  } else {
+    // Appel CLI : dry-run sauf --write.
+    cid = argv.includes('--candidat') ? argv[argv.indexOf('--candidat')+1] : null;
+    doWrite = argv.includes('--write');
+  }
   if(!cid) throw new Error('run : candidat_id requis (opts.candidat_id ou --candidat <id>)');
 
   console.log('[PD marqueurs] Candidat ' + cid);
