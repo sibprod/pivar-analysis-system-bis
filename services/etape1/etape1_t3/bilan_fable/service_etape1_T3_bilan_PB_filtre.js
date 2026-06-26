@@ -265,7 +265,7 @@ async function appelerAgent(entree){
   const prompt=fs.readFileSync(PROMPT_PATH,'utf-8');
   const client=new Anthropic({apiKey:process.env.CLAUDE_API_KEY||process.env.ANTHROPIC_API_KEY});
   const msg=await client.messages.create({
-    model:'claude-sonnet-4-6', max_tokens:8000, system:prompt,
+    model:'claude-sonnet-4-6', max_tokens:16000, system:prompt,
     messages:[{role:'user',content:JSON.stringify(entree,null,2)}],
   });
   const text=msg.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
