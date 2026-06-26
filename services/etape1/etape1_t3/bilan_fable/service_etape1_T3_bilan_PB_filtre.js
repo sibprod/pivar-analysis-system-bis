@@ -95,8 +95,8 @@ const F_BILAN = {
   candidat:          'fldk66gddYGCREOV4',
   filtre:            'fld9vAKpKEMIcRiTB',   // COMMUN — config: filtre (permanence)
   filtre_preuves:    'fldXGZ5ijlcGPYc16',   // COMMUN — config: ch4_filtre_preuves
-  finalite:          'fldobIgYtfa3Qiy4v',   // NOUVEAU — filtre_finalite
-  finalite_preuve:   'fldLe9NPXIVfsNDjU',   // NOUVEAU — filtre_finalite_preuve
+  finalite:          'fldobIgYtfa3Qiy4v',   // OBSOLÈTE v3 — non écrit (finalité abandonnée)
+  finalite_preuve:   'fldLe9NPXIVfsNDjU',   // OBSOLÈTE v3 — non écrit
   profil_calibrage:  'fldFjcTlLSUjYR8Qy',   // NOUVEAU — filtre_profil_calibrage
   technique:         'fldFheeASGSqDvqOm',   // NOUVEAU — filtre_technique_v2 (PAS filtre_preuve_3 !)
   analyse_verbalisee:'fldduLP9UN4tVRnPE',   // NOUVEAU — filtre_analyse_verbalisee (trace <analyse> T1→T9, audit, comme PA)
@@ -307,8 +307,6 @@ async function ecrire(cid, sortie, analyse){
   const fields={
     [F_BILAN.filtre]:            sortie.filtre,
     [F_BILAN.filtre_preuves]:    sortie.filtre_preuves||'',
-    [F_BILAN.finalite]:          sortie.finalite || '(non exprimée dans les réponses)',
-    [F_BILAN.finalite_preuve]:   sortie.finalite_preuve||'',
     [F_BILAN.profil_calibrage]:  profilTxt,
     [F_BILAN.technique]:         sortie.technique||'',
     [F_BILAN.analyse_verbalisee]: analyse || '(verbalisation absente)',
@@ -354,16 +352,16 @@ async function run(opts = {}){
   // 4) Écriture / dry-run
   if(doWrite){
     const recId = await ecrire(cid, sortie, analyse);
-    console.log(`[PB filtre] ✅ Filtre + finalité écrits dans T3_BILAN ${recId}`);
-    console.log(`[PB filtre]    Filtre   : « ${sortie.filtre} »`);
-    console.log(`[PB filtre]    Finalité : ${sortie.finalite ? '« '+sortie.finalite+' »' : '(non exprimée)'}`);
-    return { ok:true, candidat_id:cid, bilanRecId:recId, filtre:sortie.filtre, finalite:sortie.finalite||null };
+    console.log(`[PB filtre] ✅ Filtre + profil écrits dans T3_BILAN ${recId}`);
+    console.log(`[PB filtre]    Filtre : « ${sortie.filtre} »`);
+    console.log(`[PB filtre]    Profil : ${sortie.profil_calibrage ? sortie.profil_calibrage.famille+' / '+(sortie.profil_calibrage.variante||'') : '(aucun)'}`);
+    return { ok:true, candidat_id:cid, bilanRecId:recId, filtre:sortie.filtre, profil:sortie.profil_calibrage||null };
   } else {
     console.log('\n── <analyse> de l\'agent ──\n'+analyse);
     console.log('\n── JSON agent ──\n'+JSON.stringify(sortie,null,2));
     console.log('\n── Builder (audit) ──');
     console.log(JSON.stringify({bloc_haut:blocHaut.circuits.map(c=>({code:c.code,total:c.total,cap:c.capacite,prof:c.profondeur})), instrumental:instr.instrumental.map(x=>x.question)},null,2));
-    return { ok:true, candidat_id:cid, dryRun:true, filtre:sortie.filtre, finalite:sortie.finalite||null };
+    return { ok:true, candidat_id:cid, dryRun:true, filtre:sortie.filtre, profil:sortie.profil_calibrage||null };
   }
 }
 
