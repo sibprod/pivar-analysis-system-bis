@@ -99,6 +99,7 @@ const F_BILAN = {
   finalite_preuve:   'fldLe9NPXIVfsNDjU',   // NOUVEAU — filtre_finalite_preuve
   profil_calibrage:  'fldFjcTlLSUjYR8Qy',   // NOUVEAU — filtre_profil_calibrage
   technique:         'fldFheeASGSqDvqOm',   // NOUVEAU — filtre_technique_v2 (PAS filtre_preuve_3 !)
+  analyse_verbalisee:'fldduLP9UN4tVRnPE',   // NOUVEAU — filtre_analyse_verbalisee (trace <analyse> T1→T9, audit, comme PA)
 };
 
 // ── Les 8 familles de profils (calibrage) — doctrine 25/06 ────────────────
@@ -133,7 +134,7 @@ function _arg(a,n){ const i=a.indexOf(n); return i>=0 && a[i+1] ? a[i+1] : null;
 /** Lit l'architecture via l'infra prod : piliers, rôles, labels, modes, blocs. Trouve le socle. */
 async function lireArchitecture(cid){
   const rows = await airtableService.getEtape1T3Piliers(cid);  // mappé par nom de config
-  const piliers = {}; let socle = null;
+  const piliers = {}; let socle = null; let pa_socle = null;
   for(const r of rows){
     const code = _sel(r.pilier);
     const role = _sel(r.role_pilier).toLowerCase();
@@ -144,9 +145,17 @@ async function lireArchitecture(cid){
       bloc_tres_souvent: r.bloc_tres_souvent_technique || '',
       bloc_souvent:      r.bloc_souvent_technique || '',
     };
-    if(role==='socle') socle = code;
+    if(role==='socle'){
+      socle = code;
+      // ⭐ Synthèse PA déjà posée sur le socle : SOURCE du filtre (geste d'ensemble),
+      //   l'instrumental viendra l'arbitrer/confirmer (cf. construireEntree).
+      pa_socle = {
+        verbalisation_gestes: r.analyse_verbalisee || '',  // lecture geste par geste + cassure
+        vue_ensemble:         r.synth_interpretee || '',   // le geste d'ensemble + le mode retenu
+      };
+    }
   }
-  return { piliers, socle };
+  return { piliers, socle, pa_socle };
 }
 
 /** Présentation des outils = lexique partagé (label, rôle, mode). */
@@ -230,15 +239,22 @@ async function lireSocleInstrumental(cid, socle){
 // 2) AGENT
 // ════════════════════════════════════════════════════════════════════════
 
-function construireEntree(cid, socle, presentation, blocHaut, instr){
+function construireEntree(cid, socle, presentation, blocHaut, instr, pa_socle){
   return {
     candidat_id: cid,
     socle,
     presentation_outils: presentation,
+    // ⭐ POINT DE DÉPART DU FILTRE : la lecture PA déjà faite et validée sur le socle.
+    //   L'agent reformule le geste d'ensemble en une phrase (filtre), il ne re-déduit pas.
+    pa_lecture_socle: pa_socle ? {
+      vue_ensemble:        pa_socle.vue_ensemble,        // le geste d'ensemble + mode (source du filtre)
+      verbalisation_gestes: pa_socle.verbalisation_gestes, // détail geste par geste (appui)
+    } : null,
     bloc_haut_socle: { nom_bloc: blocHaut.nom_bloc, circuits: blocHaut.circuits.map(c=>({
       code:c.code, libelle:c.libelle, capacite:c.capacite, profondeur:c.profondeur,
       total:c.total, verbatims:c.verbatims,
     })) },
+    // SOURCE B : l'instrumental ARBITRE le filtre (ce qui domine hors terrain) et le CONFIRME.
     socle_instrumental: instr.instrumental,
     reponses_socle_completes: instr.reponses_socle_completes,
     profils_familles: PROFILS_FAMILLES,
@@ -283,18 +299,19 @@ async function appelerAgent(entree){
 // 3) WRITER
 // ════════════════════════════════════════════════════════════════════════
 
-async function ecrire(cid, sortie){
+async function ecrire(cid, sortie, analyse){
   if(!sortie.filtre) throw new Error('Sortie agent : champ "filtre" manquant');
   const profilTxt = sortie.profil_calibrage
     ? `${sortie.profil_calibrage.famille} — ${sortie.profil_calibrage.variante||''}`.trim()
     : '(aucun profil ne colle)';
   const fields={
-    [F_BILAN.filtre]:           sortie.filtre,
-    [F_BILAN.filtre_preuves]:   sortie.filtre_preuves||'',
-    [F_BILAN.finalite]:         sortie.finalite || '(non exprimée dans les réponses)',
-    [F_BILAN.finalite_preuve]:  sortie.finalite_preuve||'',
-    [F_BILAN.profil_calibrage]: profilTxt,
-    [F_BILAN.technique]:        sortie.technique||'',
+    [F_BILAN.filtre]:            sortie.filtre,
+    [F_BILAN.filtre_preuves]:    sortie.filtre_preuves||'',
+    [F_BILAN.finalite]:          sortie.finalite || '(non exprimée dans les réponses)',
+    [F_BILAN.finalite_preuve]:   sortie.finalite_preuve||'',
+    [F_BILAN.profil_calibrage]:  profilTxt,
+    [F_BILAN.technique]:         sortie.technique||'',
+    [F_BILAN.analyse_verbalisee]: analyse || '(verbalisation absente)',
   };
   return await airtableService.upsertEtape1T3Bilan(cid, fields);  // upsert par field ID
 }
@@ -318,7 +335,7 @@ async function run(opts = {}){
   }
 
   // 1) Architecture + socle (via infra prod)
-  const {piliers,socle}=await lireArchitecture(cid);
+  const {piliers,socle,pa_socle}=await lireArchitecture(cid);
   if(!socle){ throw new Error('PB filtre : socle introuvable (T3_PILIER.role_pilier) pour '+cid); }
   logger.info?.('[PB filtre] socle', { cid, socle, label: piliers[socle]?.label });
   console.log(`[PB filtre] Socle = ${socle} (${piliers[socle]?.label})`);
@@ -331,12 +348,12 @@ async function run(opts = {}){
   console.log(`[PB filtre] Réponses lues : ${instr.reponses_socle_completes.length} · dont ${instr.instrumental.length} sur questions d'autres outils`);
 
   // 3) Agent
-  const entree=construireEntree(cid,socle,presentation,blocHaut,instr);
+  const entree=construireEntree(cid,socle,presentation,blocHaut,instr,pa_socle);
   const {sortie,analyse}=await appelerAgent(entree);
 
   // 4) Écriture / dry-run
   if(doWrite){
-    const recId = await ecrire(cid, sortie);
+    const recId = await ecrire(cid, sortie, analyse);
     console.log(`[PB filtre] ✅ Filtre + finalité écrits dans T3_BILAN ${recId}`);
     console.log(`[PB filtre]    Filtre   : « ${sortie.filtre} »`);
     console.log(`[PB filtre]    Finalité : ${sortie.finalite ? '« '+sortie.finalite+' »' : '(non exprimée)'}`);
