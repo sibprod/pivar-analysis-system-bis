@@ -339,7 +339,13 @@ module.exports = {
     total_occurrences:  'total_occurrences',
     circuit_origine:    'circuit_origine',   // OFFICIEL / AD_HOC
     nom_ad_hoc:         'nom_ad_hoc',
-    rang_dans_pilier:   'rang_dans_pilier'
+    rang_dans_pilier:   'rang_dans_pilier',
+    // ⭐ 26/06/2026 — AJOUT ADDITIF (maillon visu définitive « tableau3circuitspourbilandef »).
+    //   Écrits par l'agent bilan-pilier (étape 1.3) APRÈS rangement. Champs DISTINCTS des
+    //   champs d'origine (`bloc` reste BLOC_EN_ATTENTE → lu par la visu AVANT agent).
+    //   La visu DÉFINITIVE lit ces 2 champs. AUCUN champ ancien retiré ni renommé.
+    bloc_final:           'bloc_final',           // fld5caHteonsyxrji — très souvent / souvent / occasionnels
+    profondeur_attribuee: 'profondeur_attribuee'  // fldYEje3RcqSg73FZ — effleuré / effectif / plein régime
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
