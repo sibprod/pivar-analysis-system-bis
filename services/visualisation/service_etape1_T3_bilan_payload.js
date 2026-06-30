@@ -515,11 +515,70 @@ async function buildPayload(candidat_id) {
     if (code) tableauJsonObj[code] = rowsOut;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ 30/06 — CONTENU AVANT CHAPITRE I : page de garde + vue globale
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Page de garde : civilité + socle + filtre (réels). Finalité/signature masquées si vides.
+  const socleLibelleGarde = safeStr(bilan.pilier_socle_label) || safeStr(bilan.socle_libelle) || socleLabel;
+  const finaliteGarde     = safeStr(bilan.filtre_finalite) || safeStr(bilan.sig_finalite);
+  const signatureGarde    = safeStr(bilan.sig_resultat_ligne1);
+  const garde = {
+    civilite:         civilite,
+    socle_libelle:    socleLibelleGarde,
+    filtre:           safeStr(bilan.filtre),
+    a_filtre:         safeStr(bilan.filtre).trim() !== '',
+    finalite:         finaliteGarde,
+    a_finalite:       finaliteGarde.trim() !== '',
+    signature_courte: signatureGarde,
+    a_signature:      signatureGarde.trim() !== '',
+  };
+
+  // Vue globale : 5 têtières condensées, ORDRE BOUCLE NATURELLE P1→P5.
+  const vueGlobale = PILIERS.map(code => {
+    const m = piliersMeta[code];
+    if (!m || !m.pilier) return null;
+    return {
+      pilier:           m.pilier,
+      pilier_lc:        safeStr(m.pilier).toLowerCase(),
+      label:            m.label,
+      role:             m.role,
+      role_class:       m.role_class,
+      role_star:        m.role === 'socle' ? '★ Socle'
+                       : m.role === 'amont' ? 'Amont'
+                       : m.role === 'aval'  ? 'Aval'
+                       : m.role === 'fonctionnel' ? 'Fonctionnel' : '',
+      tetiere_roleband: m.tetiere_roleband,
+      tetiere_rappel:   m.tetiere_rappel,
+      mode:             m.mode,
+    };
+  }).filter(Boolean);
+
+  // ⭐ 30/06 — REF : noms des 5 outils (pour le lexique 7 temps). Labels réels si présents, sinon défaut doctrinal.
+  const NOMS_DEFAUT = { P1:"Collecte d'information", P2:'Tri et organisation', P3:'Analyse et diagnostic', P4:'Création de solutions', P5:'Mise en œuvre et exécution' };
+  const ref = {};
+  for (const code of PILIERS) {
+    ref[code.toLowerCase()] = { nom: safeStr(piliersMeta[code]?.label) || NOMS_DEFAUT[code] };
+  }
+  // carte_role : libellé court de rôle, par pilier (pour le schéma "boîte complète" du temps 7)
+  const carteRoleFromRole = (role) => {
+    const r = safeStr(role).toLowerCase();
+    if (r === 'socle') return 'décide';
+    if (r === 'amont') return 'alimente';
+    if (r === 'aval')  return 'conclut';
+    return 'en appui';
+  };
+  const cartesRole = {};
+  for (const code of PILIERS) cartesRole[code.toLowerCase()] = { carte_role: carteRoleFromRole(piliersMeta[code]?.role) };
+
   const ctx = {
     candidat: {
       titre_affichage: `${civilite} ${prenom}`.trim(),
       nom_complet: `${prenom} ${nom}`.trim(),
     },
+    garde: garde,
+    vueGlobale: vueGlobale,
+    ref: ref,
+    p1: cartesRole.p1, p2: cartesRole.p2, p3: cartesRole.p3, p4: cartesRole.p4, p5: cartesRole.p5,
     bilan: {
       socle_libelle: safeStr(bilan.socle_libelle),
       signature_courte: safeStr(bilan.sig_resultat_ligne1),
