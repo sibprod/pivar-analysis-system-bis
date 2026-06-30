@@ -1206,10 +1206,281 @@ table.inv-table tr.total-pilier td{background:#ececec;font-weight:700;border-top
 .bloc-cartes-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin:22px 0 12px;border-bottom:1px solid var(--rl);padding-bottom:6px;}
 </style></head><body>
 <div class="page">
-<div class="cover" style="padding:44px 56px 30px;">
-  <div class="cover-tag">Profil cognitif — bilan complet</div>
-  <div class="cover-nom" style="font-size:38px;">{{candidat.titre_affichage}}</div>
+<div class="cover-nom" style="font-size:38px;">{{candidat.titre_affichage}}</div>
   <div class="cover-titre">Portrait cognitif — lecture intégrale, outil par outil</div>
+</div>
+
+
+<!-- ═══════════════ PAGE DE GARDE ═══════════════ -->
+<div class="cover" style="padding:48px 56px 34px;">
+  <div class="cover-tag">Profil cognitif — bilan complet · projet Sib Prod</div>
+  <div class="cover-nom" style="font-size:42px;">{{garde.civilite}}</div>
+  <div class="cover-titre">Portrait cognitif sur mesure — lecture intégrale du protocole</div>
+  <div class="cover-meta" style="margin-top:22px;display:flex;gap:28px;flex-wrap:wrap;">
+    <div class="cm"><strong>Pilier socle</strong>{{garde.socle_libelle}}{{#if garde.a_filtre}}<div style="margin-top:4px;font-style:italic;">filtre : «&nbsp;{{garde.filtre}}&nbsp;»</div>{{/if}}</div>
+    {{#if garde.a_finalite}}<div class="cm"><strong>Finalité</strong>«&nbsp;{{garde.finalite}}&nbsp;»</div>{{/if}}
+    {{#if garde.a_signature}}<div class="cm"><strong>Votre signature</strong>{{garde.signature_courte}}</div>{{/if}}
+  </div>
+</div>
+
+<!-- ═══════════════ LEXIQUE — la boîte à outils (7 temps complets) ═══════════════ -->
+<div class="s-label">§ 00 · Lexique — votre boîte à outils cognitive</div>
+  <h1>Comment lit-on votre façon de penser ?</h1>
+  <p class="sous">Avant de lire votre bilan, voici l'image qui sert de fil conducteur du début à la fin : celle d'une
+  <strong>boîte à outils</strong>. Pour réfléchir et agir, votre tête se sert de <strong>5 outils</strong> (on les
+  appelle les piliers, P1 à P5). Voici, en sept temps, comment ils fonctionnent ensemble — puis, juste après, les
+  repères pour lire les tableaux du bilan.</p>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 1 / 7</div>
+  <h2>Le principe : 5 outils, un ordre naturel</h2>
+  <p>Tout le monde possède les 5. Pour mener une tâche à son terme, ils s'enchaînent dans cet ordre : on recueille
+  l'information, on la range, on la comprend, on imagine une solution, puis on la réalise. C'est la
+  <em class="k">boucle naturelle</em> d'une pensée qui aboutit — du besoin brut jusqu'à l'action.</p>
+  <div class="scene">
+    <div class="boucle">
+      <div class="b-outil c1"><div class="picto">picto</div><div class="code">P1</div><div class="nom">Collecte d'information</div><div class="verbe">chercher</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c2"><div class="picto">picto</div><div class="code">P2</div><div class="nom">Tri et organisation</div><div class="verbe">ranger</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c3"><div class="picto">picto</div><div class="code">P3</div><div class="nom">Analyse et diagnostic</div><div class="verbe">comprendre</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c4"><div class="picto">picto</div><div class="code">P4</div><div class="nom">Création de solutions</div><div class="verbe">imaginer</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c5"><div class="picto">picto</div><div class="code">P5</div><div class="nom">Mise en œuvre et exécution</div><div class="verbe">réaliser</div></div>
+    </div>
+    <div class="legende">la boucle naturelle — emplacements de pictos à fournir par le spécialiste</div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 2 / 7</div>
+  <h2>Votre signature : un outil que vous préférez</h2>
+  <p>Personne ne s'en sert à parts égales. Vous avez un outil que vous attrapez <em class="k">toujours en premier</em>,
+  par réflexe : votre <em class="k">socle</em>.</p>
+  <div class="scene">
+    <div class="atelier">
+      <span class="boite"><span class="tuile">P1</span><span class="tuile socle">P2</span><span class="tuile">P3</span><span class="tuile">P4</span><span class="tuile">P5</span></span>
+    </div>
+    <div class="legende" style="margin-top:34px;">les 5 mêmes outils, rangés dans une boîte — celui qui dépasse, c'est le socle.
+    Ici, l'exemple d'un candidat fictif dont le socle est le Tri <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 3 / 7</div>
+  <h2>On sort toujours le même outil en premier</h2>
+  <p>Quelle que soit la situation, la main va d'abord vers le même outil : le <em class="k">socle</em> —
+  exactement la tuile qui dépassait dans la boîte. On la sort, telle quelle.</p>
+  <div class="scene">
+    <div class="atelier">
+      <span class="boite"><span class="tuile">P1</span><span class="tuile" style="opacity:.45;border:2px dashed #cbd5e1;background:transparent;color:#94a3b8;">P2</span><span class="tuile">P3</span><span class="tuile">P4</span><span class="tuile">P5</span></span>
+      <span class="main-fl">⟶</span>
+      <span class="outil-sorti"><span class="corps">P2 · TRI</span><span class="leg">l'outil sorti — toujours le même</span></span>
+    </div>
+    <div class="legende" style="margin-top:34px;">la place vide dans la boîte : c'est bien la tuile qui dépassait qu'on a sortie</div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 4 / 7</div>
+  <h2>Cet outil sort déjà réglé : c'est le filtre</h2>
+  <p>C'est <em class="k">le même outil</em> qu'au temps 3, mais regardez son réglage. Il sort toujours réglé pareil —
+  comme une perceuse bloquée sur une vitesse. Ce réglage, c'est le <em class="k">filtre</em> :
+  <em class="k">les questions que vous vous posez automatiquement</em> devant toute situation, avant même d'y réfléchir.</p>
+  <div class="scene">
+    <div class="atelier">
+      <span class="outil-sorti"><span class="corps">P2 · TRI<span class="bouton on"></span></span><span class="leg">le bouton rouge = le filtre. Personne ne l'a réglé ce matin : il sort comme ça, toujours.</span></span>
+    </div>
+    <div class="qrow">
+      <span class="qpill">Ça va où ?</span>
+      <span class="qpill">C'est de quel type ?</span>
+      <span class="qpill">Qu'est-ce qui va ensemble ?</span>
+    </div>
+    <div class="synthese">→ Notre candidat fictif <strong>range donc toute situation avant même d'y penser</strong> — son filtre
+    pose ces 3 questions, à chaque fois. <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 5 / 7</div>
+  <h2>Ce qui sort de l'outil : les circuits</h2>
+  <p>Chaque outil produit ses propres actions. Quand notre candidat prend son Tri, il en sort des
+  <em class="k">actions de tri</em> — les <em class="k">circuits</em> — et on compte combien de fois on les a vues :
+  <span class="badge bh">HAUT</span> (4 fois ou plus) · <span class="badge bm">MOYEN</span> (2 à 3) ·
+  <span class="badge bf">FAIBLE</span> (1). On repère un circuit dans les propres mots du candidat.</p>
+  <div class="scene">
+    <div class="sortie">
+      <span class="outil-sorti"><span class="corps">P2 · TRI<span class="bouton"></span></span></span>
+      <div class="circuits">
+        <div class="circ"><span class="fl">→</span> Classer par catégories <span class="badge bh">HAUT</span> <span class="vb">« je range tout par thèmes »</span></div>
+        <div class="circ"><span class="fl">→</span> Noter l'essentiel en synthèse <span class="badge bm">MOYEN</span> <span class="vb">« je note les points importants »</span></div>
+        <div class="circ"><span class="fl">→</span> Étiqueter pour retrouver <span class="badge bf">FAIBLE</span> <span class="vb">« je mets une étiquette dessus »</span></div>
+      </div>
+    </div>
+    <div class="contre"><strong>Un autre outil produit de tout autres actions.</strong> Exemple, si on partait de
+    l'Analyse : <span class="vb">« je compare les options », « je vérifie si c'est fiable », « je hiérarchise ce qui
+    compte »</span>… Un outil = des actions qui lui sont propres.</div>
+    <div class="legende">les actions sont fictives, pour l'exemple <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 6 / 7</div>
+  <h2>Chaque outil a sa manière de travailler : le mode</h2>
+  <p>Regardez maintenant <em class="k">comment</em> notre candidat fait ses actions de tri : toujours de la même
+  manière. C'est son <em class="k">mode</em> — sa façon de s'en servir, toujours la même. On ne l'invente pas :
+  on la lit dans ses actions les plus fréquentes, et on la résume en quelques mots.
+  <em class="k">Chaque outil a son mode</em> — pas seulement le socle.</p>
+  <p><em class="k">Et le filtre, lui, n'existe que sur le socle.</em> Retenez bien la règle :
+  le socle a <em class="k">deux choses</em> — un filtre <em class="k">et</em> un mode.
+  Les quatre autres outils n'ont <em class="k">qu'un mode</em> — pas de filtre.</p>
+  <div class="scene">
+    <div class="deduction">
+      <div class="mini-circs">
+        <div class="circ"><span class="fl">→</span> Classer par catégories <span class="badge bh">HAUT</span></div>
+        <div class="circ"><span class="fl">→</span> Noter l'essentiel en synthèse <span class="badge bm">MOYEN</span></div>
+      </div>
+      <span class="dfl">⟹</span>
+      <div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--mode);font-weight:700;letter-spacing:.08em;">LE MODE — déduit des actions dominantes</div>
+        <span class="etiq-mode"><span class="pico-m"></span>« Méthodique et visuel · tout doit avoir sa place »</span>
+      </div>
+    </div>
+    <div class="legende">le mode se déduit, il ne se décrète pas — c'est la manière qui revient dans les actions les plus vues <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+
+  <p style="margin-top:16px;"><em class="k">Filtre et mode, ne les confondez pas</em> — ils décrivent deux choses
+  différentes du même outil :</p>
+  <div class="versus">
+    <div class="col f">
+      <span class="ct">● Le filtre — le réglage de départ</span>
+      <li>Ce que l'outil <strong>demande à la situation</strong> avant de travailler : les questions automatiques.</li>
+      <li>S'observe <strong>à l'entrée</strong>, avant tout traitement.</li>
+      <li>N'existe que sur <strong>le socle</strong> — c'est le bouton rouge, toujours ON.</li>
+      <li>Exemple : <span class="vb">« Ça va où ? C'est de quel type ? »</span></li>
+    </div>
+    <div class="col m">
+      <span class="ct">● Le mode — la façon de travailler</span>
+      <li><strong>Comment</strong> l'outil travaille une fois en main : sa façon de faire, toujours la même.</li>
+      <li>S'observe <strong>pendant le geste</strong>, dans les actions les plus fréquentes.</li>
+      <li><strong>Chaque outil</strong> a le sien — le socle comme les autres.</li>
+      <li>Exemple : <span class="vb">« méthodique et visuel, tout doit avoir sa place »</span></li>
+    </div>
+  </div>
+  <div class="mnemo"><strong>À retenir :</strong> le filtre, ce sont <em>les questions posées avant</em> — il n'existe
+  que sur le socle. Le mode, c'est <em>la façon de travailler pendant</em> — chaque outil a le sien.
+  <em class="k">Le socle a donc un filtre et un mode ; les quatre autres outils ont seulement un mode.</em></div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 7 / 7</div>
+  <h2>Au final : la boîte complète du candidat</h2>
+  <p>Reprenez le schéma du temps 1 — la boucle de vos 5 outils, chacun avec sa couleur. Le voici
+  <em class="k">enrichi de tout ce que vous venez d'apprendre</em> : le <em class="k">rôle</em> de chaque outil
+  (le socle décide ; les renforts l'aident à finir ; le reste est fonctionnel), le <em class="k">bouton du filtre
+  allumé</em> sur le socle (<span class="pico-f"></span> — sur lui seul), et le <em class="k">mode</em> de chaque
+  outil (<span class="pico-m"></span>).</p>
+  <div class="scene">
+    <div class="boucle" style="align-items:flex-end;">
+      <div class="b-outil c1 e renf"><div class="picto">picto</div><div class="code">P1</div><div class="nom">Collecte d'information</div><div class="role">renfort</div><div class="lm"><span class="pico-m"></span>juste ce qu'il faut, jamais plus</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c2 e soc"><span class="btn-on"></span><div class="picto">picto</div><div class="code">P2</div><div class="nom">Tri et organisation</div><div class="role">socle</div><div class="lf"><span class="pico-f"></span>« Ça va où ? C'est de quel type ? Qu'est-ce qui va ensemble ? »</div><div class="lm"><span class="pico-m"></span>méthodique et visuel · tout doit avoir sa place</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c3 e"><div class="picto">picto</div><div class="code">P3</div><div class="nom">Analyse et diagnostic</div><div class="role">fonctionnel</div><div class="lm"><span class="pico-m"></span>au coup par coup</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c4 e"><div class="picto">picto</div><div class="code">P4</div><div class="nom">Création de solutions</div><div class="role">fonctionnel</div><div class="lm"><span class="pico-m"></span>au coup par coup</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c5 e renf"><div class="picto">picto</div><div class="code">P5</div><div class="nom">Mise en œuvre et exécution</div><div class="role">renfort</div><div class="lm"><span class="pico-m"></span>pas à pas, une chose à la fois</div></div>
+    </div>
+    <div class="v-fleches">le socle dépasse — c'est lui qui appelle les renforts, jamais l'inverse</div>
+    <div class="legende">le schéma du temps 1, enrichi : les rôles · <span class="pico-f"></span> le filtre allumé sur le socle · <span class="pico-m"></span> le mode sur chaque outil <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="suite">
+<strong>Et maintenant, votre bilan.</strong> Tout ce que vous venez de voir — la boîte, le socle, le filtre, les
+circuits, les modes — vous allez le retrouver dans les pages qui suivent, rempli pièce par pièce avec
+<strong>vos propres mots</strong>. Pour vous, l'outil principal est <strong><span class="perso">{{garde.socle_libelle}}</span></strong>, et son
+réglage de départ est <strong>« <span class="perso">filtre</span> »</strong>. Et à la fin du bilan, ce même schéma reviendra une dernière
+fois : ce sera <strong>votre boîte à vous</strong>.
+</div>
+
+
+<!-- ═══════════════ RÉFÉRENCE — 5 outils + verbes signatures (fixe) ═══════════════ -->
+<div class="section">
+<div class="temps">
+  <div class="t-num">Référence</div>
+  <h2>Les 5 outils de votre boîte mentale — et leurs verbes signatures</h2>
+  <div class="scene" style="text-align:left;padding:0;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <tr style="background:var(--ink);color:white;font-family:var(--mono);font-size:10px;letter-spacing:.07em;">
+        <th style="padding:8px 12px;text-align:left;">CODE</th><th style="padding:8px 12px;text-align:left;">OUTIL</th>
+        <th style="padding:8px 12px;text-align:left;">CE QUE FAIT CET OUTIL</th><th style="padding:8px 12px;text-align:left;">VERBES SIGNATURES À RECONNAÎTRE</th></tr>
+      <tr><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p1);">P1</td><td style="padding:8px 12px;font-weight:700;">Collecte d'information</td><td style="padding:8px 12px;">Va chercher l'information auprès d'une source</td><td style="padding:8px 12px;font-style:italic;color:#475569;">chercher · explorer · contacter · interroger · consulter · appeler</td></tr>
+      <tr style="background:var(--paper2);"><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p2);">P2</td><td style="padding:8px 12px;font-weight:700;">Tri et organisation</td><td style="padding:8px 12px;">Structure et organise l'information</td><td style="padding:8px 12px;font-style:italic;color:#475569;">trier · classer · ranger · catégoriser · structurer · noter · organiser</td></tr>
+      <tr><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p3);">P3</td><td style="padding:8px 12px;font-weight:700;">Analyse et diagnostic</td><td style="padding:8px 12px;">Évalue, comprend, diagnostique</td><td style="padding:8px 12px;font-style:italic;color:#475569;">analyser · évaluer · comprendre · diagnostiquer · raisonner · identifier</td></tr>
+      <tr style="background:var(--paper2);"><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p4);">P4</td><td style="padding:8px 12px;font-weight:700;">Création de solutions</td><td style="padding:8px 12px;">Conçoit des options, construit des scénarios</td><td style="padding:8px 12px;font-style:italic;color:#475569;">imaginer · concevoir · créer · planifier · combiner · envisager</td></tr>
+      <tr><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p5);">P5</td><td style="padding:8px 12px;font-weight:700;">Mise en œuvre et exécution</td><td style="padding:8px 12px;">Fait, met en œuvre, délègue, coordonne</td><td style="padding:8px 12px;font-style:italic;color:#475569;">faire · agir · exécuter · coordonner · déléguer · mettre en place</td></tr>
+    </table>
+  </div>
+
+  <h2 style="margin-top:26px;">Les repères pour lire les tableaux du bilan</h2>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Comment lire un code comme P3C12</strong> · C'est juste une
+  étiquette de rangement. Le premier nombre désigne l'<strong>outil</strong> (P1 à P5), le second le
+  <strong>tour de main</strong> (C1 à C15). P3C12 se lit donc « outil 3 (Analyse), tour de main n°12 » — ici
+  « hiérarchiser les problèmes par importance ».</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Les colonnes du tableau de chaque outil</strong> · Tous les
+  chiffres sont des <strong>occurrences</strong> : une occurrence = une fois où le circuit a été activé.
+  — <strong>Circuits</strong> : une façon de vous servir de l'outil (un tour de main).
+  — <strong>Niveau d'activation</strong> : HAUT (4 fois ou plus) · MOYEN (2-3) · FAIBLE (1).
+  — <strong>Activation cœur</strong> : « cœur » désigne l'outil quand c'est lui qui gouverne ; le chiffre est le nombre
+  de fois où le circuit est activé sur les 25 questions du test.
+  — <strong>Pilier instrumental P1 … P5</strong> : le nombre de fois où ce circuit a été activé avec un autre outil,
+  qui s'en sert en renfort. — <strong>Total occurrences (5 piliers)</strong> : le total, tous piliers confondus.</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Le mode</strong> · La façon dont vous vous servez d'un outil,
+  toujours la même — on la lit dans vos actions les plus fréquentes, et on la résume en quelques mots.
+  Chaque outil a son mode ; <strong>seul le socle a, en plus, un filtre</strong>.</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Glissement</strong> · Quand on vous demande une chose et que
+  vous répondez avec un autre outil que celui attendu. Ça montre quel outil vous prenez spontanément.</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Ressenti (« signal limbique »)</strong> · L'émotion qui
+  transparaît dans vos mots quand vous faites quelque chose (du plaisir, de l'aisance, ou au contraire de l'agacement).</div>
+
+  <h2 style="margin-top:26px;">Comment ce bilan est organisé — les chapitres</h2>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Vue globale</strong> · L'architecture d'ensemble : votre
+  socle, ce qui l'alimente, ce qui le prolonge, et ses outils d'appui.<br>
+  <strong>Chapitre I — Les 5 outils de votre boîte mentale</strong> · Le détail de chacun de vos cinq outils, un par
+  un : les tours de main que vous en faites, ce que ça donne concrètement dans vos mots, et ce que ça signifie.<br>
+  <strong>Chapitre III — Marqueurs affectifs et zones de coût</strong> · Ce que votre cerveau ressent pendant qu'il
+  fonctionne, et les zones qui vous coûtent.<br>
+  <strong>Chapitre IV — La révélation</strong> · La synthèse de tout ce qui précède : votre filtre cognitif, démontré
+  preuve par preuve, puis <strong>votre boîte à outils complète</strong> — le schéma ci-dessus, rempli avec vos
+  données. Le bilan se referme sur votre signature cognitive.
+  <span style="display:block;margin-top:8px;font-family:var(--mono);font-size:10px;color:#9a3412;">Note inventaire : le « Chapitre II — boucle cognitive » du template d'origine est retiré (maillon P-C supprimé de la chaîne).</span></div>
+</div>
+
+</div><!-- /.page -->
+
+</div>
+
+<!-- ═══════════════ VUE GLOBALE — 5 têtières, ordre P1→P5 ═══════════════ -->
+<div class="section" id="vue-globale">
+  <div class="s-label">Vue globale</div>
+  <div class="s-title">Vos 5 outils en un coup d'œil</div>
+  <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:16px;max-width:680px;">Les cinq têtières qui suivent résument chaque outil — son rôle dans votre boîte, ses chiffres, son mode. Chacune est reprise en tête de sa section détaillée, au chapitre I. Ordre = la boucle cognitive naturelle, P1 → P5.</p>
+  {{#each vueGlobale}}
+  <div style="margin-bottom:12px;"><div class="ph">
+    <div class="ph-badge {{pilier_lc}}"><div class="ph-id">{{pilier}}</div></div>
+    <div class="ph-body">
+      {{#if role_star}}<div class="ph-star">{{role_star}}</div>{{/if}}
+      <div class="ph-nom">{{label}}</div>
+      <div class="ph-rb {{role_class}}">{{tetiere_roleband}}</div>
+      {{#if tetiere_rappel}}<div class="ph-rappel">{{tetiere_rappel}}</div>{{/if}}
+    </div>
+    <div class="ph-mode"><span class="ph-mlbl">Mode retenu</span><span class="ph-mval">{{mode}}</span></div>
+  </div></div>
+  {{/each}}
 </div>
 
 <div class="chapitre-divider">
