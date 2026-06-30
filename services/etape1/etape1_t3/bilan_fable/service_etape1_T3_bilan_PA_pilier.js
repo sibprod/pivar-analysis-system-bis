@@ -490,6 +490,36 @@ function valider(pa, entree, analyse = '') {
     warnings.push('[cohérence] bloc <analyse> vide ou absent — verbalisation non fournie (vérifier le prompt/agent)');
   }
 
+  // ── (26/06) CONTRÔLE — le champ "bloc" par circuit doit coïncider avec le bloc où le
+  //    circuit est cité dans synth_technique (le maillon visu définitive en dépend).
+  //    Non bloquant (warning) : on signale toute divergence sans casser un bilan correct.
+  {
+    // Quel bloc cite quel code, d'après les synth_technique ?
+    const blocParCode = {}; // "P3C3" -> "souvent"
+    for (const bloc of (pa.blocs || [])) {
+      const nb = (bloc.niveau || '').trim().toLowerCase();
+      const nbNorm = nb === 'occasionnel' ? 'occasionnels' : nb;
+      const cites = lireChiffresCites(bloc.synth_technique || '');
+      for (const code of Object.keys(cites)) blocParCode[code] = nbNorm;
+    }
+    for (const c of (pa.circuits || [])) {
+      const declared = (c.bloc || '').trim().toLowerCase();
+      const declaredNorm = declared === 'occasionnel' ? 'occasionnels' : declared;
+      if (!declaredNorm) {
+        warnings.push(`[bloc] ${c.code} : champ "bloc" vide en sortie (la visu définitive attend très souvent/souvent/occasionnels)`);
+        continue;
+      }
+      if (!['très souvent', 'souvent', 'occasionnels'].includes(declaredNorm)) {
+        warnings.push(`[bloc] ${c.code} : "bloc" = "${c.bloc}" hors lexique (très souvent/souvent/occasionnels)`);
+        continue;
+      }
+      const attendu = blocParCode[(c.code || '').toUpperCase()];
+      if (attendu && attendu !== declaredNorm) {
+        warnings.push(`[bloc] ${c.code} : "bloc" déclaré "${declaredNorm}" ≠ bloc de synth_technique "${attendu}" (incohérence de rangement)`);
+      }
+    }
+  }
+
   return { ok: errors.length === 0, errors, warnings };
 }
 
@@ -602,6 +632,68 @@ async function indexerCircuitsCrees(candidat_id, pilier_code) {
   return map;
 }
 
+// ── (26/06) MAILLON VISU DÉFINITIVE ───────────────────────────────────────────
+// Recopie, dans la table figée POURBILAN, le bloc et la profondeur que l'agent vient
+// d'attribuer, mais dans des CHAMPS DISTINCTS (bloc_final / profondeur_attribuee).
+//   • POURQUOI re-lire POURBILAN : la préparation ne conserve pas l'airtable_id des
+//     lignes POURBILAN ; on les ré-indexe ici par circuit_code (comme indexerCircuitsCrees
+//     pour T3_CIRCUIT). Lecture seule + 1 update par circuit.
+//   • SÉCURITÉ : on N'écrit JAMAIS le champ `bloc` d'origine (lu par la visu AVANT agent).
+//     Champs visés = bloc_final + profondeur_attribuee uniquement. Additif, jamais destructif.
+//   • Si les clés de config sont absentes (déploiement partiel), on ne fait rien (repli silencieux).
+const POURBILAN_FF = airtableConfig.ETAPE1_T2_CIRCUITS_POURBILAN_FIELDS || {};
+async function ecrirePourbilanFinal(pa, candidat_id, pilier_code) {
+  // Garde : si les champs cibles ne sont pas mappés, on ne tente rien.
+  if (!POURBILAN_FF.bloc_final && !POURBILAN_FF.profondeur_attribuee) {
+    logger.warn('PA POURBILAN def : clés bloc_final/profondeur_attribuee absentes de la config — écriture sautée');
+    return { written: 0, skipped: 'no_config_keys' };
+  }
+  const TABLE_PB = airtableConfig.TABLES.ETAPE1_T2_CIRCUITS_POURBILAN;
+
+  // 1) Ré-indexer les lignes POURBILAN du candidat par circuit_code (lignes CIRCUIT du pilier courant).
+  let rows;
+  try {
+    rows = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id);
+  } catch (e) {
+    logger.warn(`PA POURBILAN def : lecture POURBILAN impossible (${e.message}) — écriture sautée`);
+    return { written: 0, skipped: 'read_failed' };
+  }
+  const recByCode = {};
+  for (const r of (rows || [])) {
+    const tl = (typeof r[POURBILAN_FF.type_ligne] === 'object' ? r[POURBILAN_FF.type_ligne]?.name : r[POURBILAN_FF.type_ligne]);
+    if (tl !== 'CIRCUIT') continue;
+    const owner = (typeof r[POURBILAN_FF.pilier_owner] === 'object' ? r[POURBILAN_FF.pilier_owner]?.name : r[POURBILAN_FF.pilier_owner]);
+    if (owner !== pilier_code) continue;
+    const code = (typeof r[POURBILAN_FF.circuit_code] === 'object' ? r[POURBILAN_FF.circuit_code]?.name : r[POURBILAN_FF.circuit_code]);
+    if (code) recByCode[code] = r.airtable_id || r.id;
+  }
+
+  // 2) Écrire bloc_final + profondeur_attribuee sur la bonne ligne, circuit par circuit.
+  let written = 0;
+  const BLOCS_OK = ['très souvent', 'souvent', 'occasionnels'];
+  for (const c of (pa.circuits || [])) {
+    const recId = recByCode[c.code];
+    if (!recId) { logger.warn(`PA POURBILAN def : ligne POURBILAN introuvable pour ${c.code} (${pilier_code})`); continue; }
+    const fields = {};
+    const bloc = (c.bloc || '').trim().toLowerCase();
+    if (POURBILAN_FF.bloc_final && BLOCS_OK.includes(bloc)) {
+      fields[POURBILAN_FF.bloc_final] = bloc;
+    }
+    if (POURBILAN_FF.profondeur_attribuee && c.profondeur && String(c.profondeur).trim()) {
+      fields[POURBILAN_FF.profondeur_attribuee] = String(c.profondeur).trim();
+    }
+    if (Object.keys(fields).length === 0) continue;
+    try {
+      await updateViaSDK(TABLE_PB, recId, fields);
+      written++;
+    } catch (e) {
+      logger.warn(`PA POURBILAN def : update ${c.code} échoué (${e.message})`);
+    }
+  }
+  logger.info(`PA POURBILAN def — ${pilier_code} : ${written} ligne(s) mises à jour (bloc_final/profondeur_attribuee)`);
+  return { written };
+}
+
 async function redigerPilier(prep, pilier, refs, opts) {
   const entree = construireEntree(pilier, refs.piliers, refs.profils, opts.civilite);
 
@@ -625,6 +717,15 @@ async function redigerPilier(prep, pilier, refs, opts) {
   const pilierRecId = prep.pilierMap.get(pilier.pilier_code);
   const circuitRecByCode = await indexerCircuitsCrees(prep.candidat_id, pilier.pilier_code);
   await ecrireT3(pa, pilier, pilierRecId, circuitRecByCode, opts, analyse);
+
+  // (26/06) Maillon visu définitive : recopier bloc + profondeur dans POURBILAN
+  // (champs distincts bloc_final / profondeur_attribuee). Non bloquant : un échec ici
+  // ne doit pas invalider une rédaction T3 réussie.
+  try {
+    await ecrirePourbilanFinal(pa, prep.candidat_id, pilier.pilier_code);
+  } catch (e) {
+    logger.warn(`Rédaction PA — écriture POURBILAN def ${pilier.pilier_code} échouée (non bloquant) : ${e.message}`);
+  }
 
   return {
     pilier_code:  pilier.pilier_code,
