@@ -231,6 +231,13 @@ DOCTRINE DE CLASSEMENT — RANGER SUR LE TOTAL, ATTRIBUER LES BLOCS PAR JUGEMENT
    • « très souvent » et « souvent » = parmi les circuits de total ≥ 3 (que le
      service t'a transmis SANS bloc). C'est TOI qui les attribues, en jugeant la cassure.
 
+   ⮕ REPORT OBLIGATOIRE PAR CIRCUIT (sortie) : pour CHAQUE circuit, renseigne aussi son
+     champ "bloc" dans la liste "circuits" — avec EXACTEMENT le bloc où tu l'as rangé
+     ("très souvent", "souvent" ou "occasionnels"). Cette valeur doit être IDENTIQUE au
+     bloc dans lequel tu cites ce circuit en synth_technique (un circuit ne peut pas être
+     dans deux blocs). Pour les circuits "occasionnels" (total 1-2), recopie simplement
+     "occasionnels" : c'est déjà posé par le service, tu ne le recalcules pas.
+
 3) LA CASSURE SE JUGE SUR LE FOND, COMME LE MODE (jamais sur le seul chiffre).
    Le total donne l'ORDRE des circuits (décroissant) ; il ne décide jamais à lui seul
    où tombe la frontière entre « très souvent » et « souvent ». Ce qui décide, c'est la
@@ -1225,7 +1232,8 @@ Rien après le JSON.
       "explication_courte": "<≤18 mots, Vous+verbe ou Jamais en propre pour EN SOUTIEN>",
       "soleil_micro": "<≤15 mots, Vous+verbe — OBLIGATOIRE pour CHAQUE circuit, tous niveaux (HAUT/MOYEN/FAIBLE/EN SOUTIEN), jamais vide>",
       "en_renfort": "<phrase si sortant ≥2, sinon chaîne vide stricte \"\">",
-      "profondeur": "<effleuré | effectif | plein régime — jugé sur verbatims, toujours rempli>"
+      "profondeur": "<effleuré | effectif | plein régime — jugé sur verbatims, toujours rempli>",
+      "bloc": "<très souvent | souvent | occasionnels — le bloc où tu ranges CE circuit ; même valeur que dans synth_technique ; pour total 1-2 recopie \"occasionnels\">"
     }
   ],
   "blocs": [
