@@ -1200,6 +1200,30 @@ table.inv-table tr.total-pilier td{background:#ececec;font-weight:700;border-top
 .cm-verb .cm-ref{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);font-style:normal;margin-top:2px;}
 .cm-expl{font-size:12.5px;color:#374151;line-height:1.6;margin-top:6px;}
 .cm-renfort{font-size:11.5px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px dashed var(--rl);}
+.s-intro{font-size:13px;color:#374151;line-height:1.7;max-width:680px;margin-bottom:16px;font-style:italic;}
+.s-cloture{background:#f9fafb;border-left:3px solid var(--rule,#9ca3af);border-radius:0 6px 6px 0;padding:13px 18px;margin-top:16px;font-size:12.5px;color:#374151;line-height:1.7;}
+.registres{display:flex;flex-direction:column;gap:14px;}
+.flux-transition{background:#f5f3ff;border:1px dashed #a78bfa;border-radius:8px;padding:12px 18px;margin:20px 0;font-size:12.5px;color:#5b21b6;line-height:1.6;}
+.flux-transition strong{color:#4c1d95;}
+.cout-strat{background:#ecfdf5;border-left:3px solid #10b981;border-radius:0 5px 5px 0;padding:8px 12px;margin-top:7px;font-size:12px;color:#065f46;line-height:1.55;}
+.cout-strat-lbl{display:block;font-family:var(--mono,monospace);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:3px;color:#047857;}
+.reg-signif{background:#f0f9ff;border-left:3px solid #0ea5e9;border-radius:0 5px 5px 0;padding:8px 12px;margin-top:7px;font-size:12px;color:#075985;line-height:1.55;}
+.reg-signif-lbl{display:block;font-family:var(--mono,monospace);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:3px;color:#0369a1;}
+.reg-constat{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:5px;}
+.reg-vig-globale{margin-top:14px;}
+.reg-vigilance{background:#fffbeb;border:1px solid #fcd34d;border-radius:5px;padding:8px 12px;margin-top:8px;font-size:12px;color:#92400e;line-height:1.55;}
+.reg-vig-lbl{display:block;font-family:var(--mono,monospace);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:3px;color:#b45309;}
+.reg-bloc{background:white;border:1px solid var(--rl,#e5e7eb);border-left:4px solid #d97706;border-radius:5px;padding:13px 18px;}
+.reg-titre{font-size:14px;font-weight:700;color:var(--ink,#1a1a18);margin-bottom:7px;}
+.reg-texte{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:5px;}
+.reg-verb{font-size:12px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl,#e5e7eb);padding:5px 10px;margin:5px 0;line-height:1.5;color:#4b5563;}
+.cout-bloc{background:white;border:1px solid var(--rl,#e5e7eb);border-radius:5px;padding:14px 18px;margin-bottom:14px;}
+.cout-principal{border-left:4px solid #b91c1c;}
+.cout-secondaire{border-left:4px solid #ea9a4c;}
+.cout-rang{font-family:var(--mono,monospace);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted,#9ca3af);margin-bottom:6px;font-weight:700;}
+.cout-titre{font-size:14px;font-weight:700;color:var(--ink,#1a1a18);margin-bottom:7px;}
+.cout-texte{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:5px;}
+.cout-verb{font-size:12px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl,#e5e7eb);padding:5px 10px;margin:5px 0;line-height:1.5;color:#4b5563;}
 .sp-sub{font-weight:700;color:var(--ink);margin:12px 0 5px;font-size:13px;}
 .sp-para{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:6px;}
 .sp-vue .sp-sub:first-child{margin-top:0;}
@@ -1547,6 +1571,33 @@ fois : ce sera <strong>votre boîte à vous</strong>.
 
 </div>
 {{/each}}
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     CHAPITRE II — MARQUEURS AFFECTIFS ET ZONES DE COÛT
+     ═══════════════════════════════════════════════════════════════════════════ -->
+{{#if ch3.signaux_present}}
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre II — Marqueurs affectifs et zones de coût</div>
+  <div class="chapitre-titre">Ce que vos émotions font à vos gestes — et ce que ça coûte</div>
+  <div class="chapitre-soustitre">Là où ça fluidifie, là où ça résiste, et comment vous composez</div>
+</div>
+
+<!-- FLUX UNIQUE : signal limbique → transition → zones de coût → clôture commune -->
+<div class="section" id="marqueurs">
+  {{#if ch3.s05_intro}}<p class="s-intro">{{ch3.s05_intro}}</p>{{/if}}
+  <div class="registres">{{{ch3.registres_html}}}</div>
+  {{#if ch3.s05_vigilance_globale}}<div class="reg-vigilance reg-vig-globale"><span class="reg-vig-lbl">Point de vigilance — les trois situations ensemble</span>{{ch3.s05_vigilance_globale}}</div>{{/if}}
+
+  {{#if ch3.couts_present}}
+  <div class="flux-transition">Ces résistances ne restent pas sans conséquence : elles dessinent vos <strong>zones de coût</strong> — les endroits où votre fonctionnement dépense plus qu'il ne produit, et où vous avez construit des stratégies pour composer.</div>
+  {{#if ch3.cout_principal.a}}<div class="cout-bloc cout-principal"><div class="cout-rang">Coût principal</div>{{{ch3.cout_principal.html}}}</div>{{/if}}
+  {{#if ch3.cout_secondaire.a}}<div class="cout-bloc cout-secondaire"><div class="cout-rang">Coût secondaire</div>{{{ch3.cout_secondaire.html}}}</div>{{/if}}
+  {{/if}}
+
+  {{#if ch3.s06_cloture}}<div class="s-cloture">{{ch3.s06_cloture}}</div>{{else}}{{#if ch3.s05_cloture}}<div class="s-cloture">{{ch3.s05_cloture}}</div>{{/if}}{{/if}}
+</div>
+{{/if}}
 
 <div class="footer"><span>Profil cognitif — bilan généré</span><span>{{candidat.titre_affichage}}</span></div>
 </div>
