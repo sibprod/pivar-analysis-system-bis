@@ -24,6 +24,16 @@ L'émotion n'est JAMAIS un état (« vous êtes anxieuse »). Elle est une FORCE
   • elle FREINE / fait ÉVITER — l'activité coûte, la personne s'organise pour ne pas la porter seule ;
   • elle DÉCLENCHE UNE STRATÉGIE — le coût engendre une méthode construite autour de lui.
 
+LIGNE ÉDITORIALE (tous les registres) :
+  1. On MONTRE TOUJOURS LA PREUVE — le verbatim exact accompagne chaque registre, systématiquement.
+  2. On EXPLIQUE SANS PARAPHRASER — on ne redit pas le verbatim en d'autres mots ; on dit ce qu'il PRODUIT
+     sur le geste et la décision. Le texte apporte quelque chose que la citation ne dit pas déjà.
+  3. On INTERPRÈTE POSITIVEMENT (par le fonctionnement) — l'objectif est d'identifier PRÉCISÉMENT ce qui se
+     passe ET COMMENT la personne le gère au quotidien. Même une émotion qui freine révèle une manière de
+     faire (elle nomme le coût pour se mettre en route, elle délègue, elle séquence…) : c'est ça qu'on éclaire.
+  4. SI ET SEULEMENT SI c'est réellement BLOQUANT (l'émotion empêche le geste, pas seulement le rend coûteux),
+     on émet un POINT DE VIGILANCE — un repère factuel et utile, jamais un jugement ni un verdict.
+
 RÈGLE D'OR : chaque marqueur retenu est rattaché à UN GESTE / une activité mentale ET à SON EFFET
 sur la façon de faire ou de décider. Une émotion qui flotte (humeur sans effet attesté) = HORS SUJET,
 on ne la retient pas. Test : « en quoi cette émotion change-t-elle sa façon d'agir/de décider ? »
@@ -62,14 +72,42 @@ RÈGLE DE LONGUEUR : l'analyse est SYNTHÉTIQUE (1-2 lignes par temps), tu finis
      → Trace : « Registres candidats : … ».
 
   T4 RETENIR LES REGISTRES. Garde AUTANT de registres que la matière en porte vraiment (0, 1, 2 ou 3 ;
-     plafond 3). NE FORCE RIEN. Si < 1 registre attesté → tu le signales (pas d'invention). Chaque registre
-     retenu : titre « <Émotion verbalisée> — <domaine d'activité> », un texte qui dit l'EFFET sur le geste,
-     1-3 verbatims qui PORTENT l'émotion. → Trace : « Registres retenus : … ».
+     plafond 3). NE FORCE RIEN. Si < 1 registre attesté → tu le signales (pas d'invention).
+     DISTINGUE les émotions de NATURE différente même si elles freinent toutes : une aversion à l'effort
+     (organisation, exécution) et une exigence de qualité (rejet de ce qui est jugé peu rigoureux) sont DEUX
+     registres distincts, pas un seul — ne les fusionne pas si les deux sont attestées.
+     Chaque registre retenu :
+       · titre « <Émotion NOMMÉE> — <domaine d'activité> ». Le titre NOMME l'émotion en UN mot digne et
+         abstrait (Sérénité, Aversion, Exigence, Appréhension, Lassitude…), JAMAIS le verbatim brut ni un
+         empilement de citations. Le verbatim n'est PAS le titre — il est la preuve, plus bas.
+       · un CONSTAT (1 phrase) : l'effet de l'émotion sur le geste, factuel, SANS PARAPHRASER le verbatim.
+       · le verbatim (voir ci-dessous), montré juste après le constat.
+       · « ce que cela signifie pour vous » (1-2 phrases) : l'EXPLICATION — COMMENT la personne compose avec
+         au quotidien (délégation, séquençage, appui, nomination consciente du coût…), interprétée par le
+         FONCTIONNEMENT, jamais par le défaut. C'est la strate qui donne du sens, distincte du constat.
+       IMPORTANT : ne JAMAIS employer le mot « filtre » ici (réservé au chapitre du filtre cognitif) ; dis
+       « votre grille analytique », « votre analyse », « votre exigence » selon le cas.
+       · 1-3 verbatims EXACTS qui PORTENT l'émotion (la preuve, toujours montrée).
+       · vigilance : un POINT D'ATTENTION UTILE, à donner dès que l'émotion peut avoir un revers concret pour
+         la personne (pas seulement un blocage total). Ex. : une exigence qui protège de la médiocrité MAIS peut
+         faire écarter trop vite une source utile mal présentée ; une aversion gérée par délégation MAIS qui,
+         si elle s'installe, fait repousser indéfiniment l'exécution. C'est un CONSEIL DE PILOTAGE bienveillant
+         (« à surveiller quand… »), jamais un jugement ni un défaut. Rempli dès qu'un revers réel existe ;
+         "" (vide) seulement si l'émotion est purement un appui sans aucun revers (ex. une sérénité pure).
+     → Trace : « Registres retenus : … | vigilances : … ».
 
-  T5 SITUER LES ZONES DE COÛT. À partir des marqueurs négatifs (frein/évitement) ET des comptages fournis
-     ("piliers_chiffres"), identifie : le COÛT PRINCIPAL (l'activité la plus coûteuse + sa stratégie de
-     contournement attestée) et, s'il existe, le COÛT SECONDAIRE. Chaque coût doit avoir une STRATÉGIE
-     attestée par verbatim (délégation, séquençage, recours à un tiers, déclenchement sous contrainte).
+  T5 SITUER LES ZONES DE COÛT — EN LISANT LES RÉPONSES COMPLÈTES. À partir des marqueurs négatifs
+     (frein/évitement), des comptages ("piliers_chiffres") ET SURTOUT de "reponse_complete" / "reponses_par_qid",
+     identifie le COÛT PRINCIPAL (l'activité la plus coûteuse) et, s'il existe, le COÛT SECONDAIRE.
+     ⚠️ OBLIGATION : pour chaque coût, cherche LA STRATÉGIE DE GESTION dans la RÉPONSE COMPLÈTE, pas seulement
+     dans le fragment du marqueur. Les stratégies sont souvent une HIÉRARCHIE que le fragment ne montre pas :
+       • DÉLÉGUER / FAIRE FAIRE (« je sollicite de l'aide », « je refile la mission », « je délègue une partie »,
+         « je demande au plus qualifié », « je laisse le groupe décider ») — TRÈS FRÉQUENT, à ne pas rater ;
+       • RECOURS À UN EXPERT / TIERS (« quelqu'un que je considère comme expert ») ;
+       • SÉQUENCER / COMPRIMER (« tout d'une traite »), DÉCOMPTER (« je compte les heures ») ;
+       • ACTIVATION CONSCIENTE (« ça va me coûter » nommé pour se mettre en route).
+     Restitue la stratégie DANS SON ORDRE réel (ex. : d'abord déléguer, et SEULEMENT en dernier recours exécuter
+     seule). Ne réduis JAMAIS la stratégie au seul dernier recours si la délégation est attestée avant.
      Si aucun coût n'est attesté → tu le dis (pas d'invention). → Trace : « Coût principal : … | secondaire : … ».
 
   T6 CONTRÔLE DE SENS. Vérifie que chaque coût est présenté comme un FONCTIONNEMENT (coût ≠ incapacité),
@@ -78,19 +116,57 @@ RÈGLE DE LONGUEUR : l'analyse est SYNTHÉTIQUE (1-2 lignes par temps), tu finis
 ═══════════════════════════════════════════════════════════════════════
 RÉDACTION DES SECTIONS (ce qui part dans le JSON)
 ═══════════════════════════════════════════════════════════════════════
+
+STRUCTURE D'AFFICHAGE (décidée 01/07) : le chapitre est un FLUX UNIQUE « Marqueurs affectifs et zones de
+coût ». Le signal limbique (§05) et les zones de coût (§06) s'enchaînent SANS rupture : d'abord le paysage
+émotionnel (registres), puis les zones de coût qui en DÉCOULENT, puis UNE SEULE clôture commune. Conséquences :
+  • NE RÉPÈTE PAS l'émotion dans les zones de coût. §05 dit CE QUI SE PASSE émotionnellement (registres, avec
+    « ce que cela signifie »). §06 ne re-raconte pas l'émotion : il ne garde que ce qui EN DÉCOULE — l'activité
+    coûteuse + LA STRATÉGIE concrète de gestion (compression, décompte, délégation, activation consciente…).
+  • Un même verbatim peut apparaître dans un registre ET dans une zone de coût SI l'angle diffère (l'émotion
+    en §05, la stratégie de gestion en §06). Évite la redite littérale ; en §06, mets l'accent sur le COMMENT
+    on gère, pas sur le ressenti déjà exposé.
+  • s05_cloture reste FACULTATIVE et COURTE (ou vide) : la clôture qui compte est la COMMUNE (s06_cloture),
+    qui relie limbique + coût en une lecture d'ensemble (« ce qui coûte, c'est l'action sans prise analytique… »).
+
 §05 :
-  • s05_intro (~250-400 c.) : définit « signal limbique » en une phrase (la trace, dans vos mots, d'une
-    émotion liée à une activité mentale, retenue pour son effet sur votre façon de faire), puis annonce le
-    PAYSAGE réel du candidat (contrasté / régulé / sobre — selon la matière).
-  • registres : tableau de 0 à 3 objets { titre, texte, verbatims }. Si 0 : tableau vide + alerte.
-  • s05_cloture (~200-350 c.) : « Ce que ça signifie pour vous. » Lecture d'ensemble de l'économie
-    émotionnelle (où ça fluidifie, où ça freine), strictement déduite des registres retenus.
+  • s05_intro (~300-450 c.) : POSE D'ABORD CLAIREMENT CE DONT ON PARLE. Trois choses, dans l'ordre :
+    (1) ce qu'est un signal limbique — la trace, dans VOS PROPRES MOTS, d'une émotion liée à une ACTIVITÉ
+        MENTALE (jamais « au travail » : le test porte sur des situations de vie, pas professionnelles) ;
+    (2) POURQUOI on le regarde — non pour dire qui vous êtes, mais parce que cette émotion vient influencer,
+        parfois perturber, votre façon de DÉCIDER et d'AGIR — et surtout parce que vous COMPOSEZ avec, vous
+        « faites avec » ; c'est cette interaction (l'émotion + la manière de la gérer) qu'on éclaire ;
+    (3) le PAYSAGE réel du candidat, annoncé en une phrase (contrasté / régulé / sobre selon la matière),
+        p.ex. « Le vôtre est contrasté : une sérénité nette dans l'analyse, une aversion tout aussi nette
+        dès qu'il s'agit d'exécuter ou d'organiser. »
+    INTERDIT dans cette intro : le mot « travail », le mot « filtre » (réservé au chapitre du filtre cognitif).
+  • registres : tableau de 0 à 3 objets { titre, constat, verbatims, signification, vigilance }. Si 0 : vide + alerte.
+    - titre : « <Émotion NOMMÉE> — <domaine> » (un mot digne, pas le verbatim ; ex. « Sérénité — dans l'analyse »).
+    - constat : 1 phrase, l'effet de l'émotion sur le geste, factuel, sans paraphrase du verbatim.
+    - verbatims : citation(s) exacte(s) + réf « PqQn Lieu » (la preuve, toujours montrée).
+    - signification : « ce que cela signifie pour vous » — 1-2 phrases, comment la personne compose au quotidien
+      (interprétation positive par le fonctionnement). NE JAMAIS employer le mot « filtre » ici.
+    - vigilance : point d'attention utile (conseil de pilotage « à surveiller quand… ») dès qu'un revers réel
+      existe, même si le coût est géré ; "" seulement si l'émotion est un appui pur sans revers.
+  • s05_cloture (~200-350 c.) : « Ce que ça signifie pour vous (les trois situations ensemble). » Lecture
+    d'ensemble de l'économie émotionnelle (où ça fluidifie, où ça freine), déduite des registres retenus.
+  • vigilance_globale : UN point d'attention transversal sur l'ensemble (ex. « la sérénité analytique et
+    l'aversion à l'exécution forment un contraste marqué : veillez à ne pas repousser les phases d'exécution
+    que seule votre analyse rend supportables »). Rempli dès qu'un tel point existe ; "" sinon.
 §06 :
   • s06_intro (~200-350 c.) : définit « zone de coût » AVEC la règle de sens (pas une incapacité ; l'endroit
     où le moteur dépense plus parce que l'outil sollicité n'est pas celui qui gouverne).
-  • cout_principal { label:"Coût principal", titre, texte, verbatims } : l'activité + la stratégie attestée.
-  • cout_secondaire { label:"Coût secondaire", titre, texte, verbatims } : OU null si non attesté.
-  • s06_cloture (~250-400 c.) : « Ce que ça signifie pour vous. » Règle de sens appliquée (vous exécutez/
+  • cout_principal { label:"Coût principal", titre, constat, verbatims, strategie, vigilance } :
+    - titre : l'activité coûteuse nommée (ex. « L'exécution prolongée sans prise analytique »).
+    - constat : 1-2 phrases FACTUELLES sur ce qui coûte (l'activité, où elle apparaît), sans re-raconter l'émotion.
+    - verbatims : la preuve (citations exactes + réf).
+    - strategie : « Comment vous gérez » — LA méthode concrète attestée (compression, décompte, délégation,
+      activation consciente…), interprétée positivement.
+    - vigilance : point d'attention utile sur ce coût, si un revers réel existe ; "" sinon.
+  • cout_secondaire : même structure, OU null si non attesté.
+  • s06_cloture (~250-400 c.) — C'EST LA CLÔTURE COMMUNE DU CHAPITRE : « Ce que ça signifie pour vous. »
+    Elle RELIE explicitement le limbique et le coût (« signal et zones de coût racontent une seule chose :
+    l'action sans prise analytique coûte ; vous produisez quand même, avec des méthodes »). Règle de sens (vous exécutez/
     produisez quand il le faut ; le coût délimite ce qui coûte, pas ce que vous ne savez pas faire) + lien
     avec les stratégies attestées.
 SI LE CANDIDAT EST SOBRE/SILENCIEUX (peu ou pas de marqueurs) : tu écris une version courte et honnête —
@@ -107,8 +183,11 @@ ENTRÉE (fournie par le builder déterministe — FIGÉE)
   "modes_valides": { "P3":"<libellé validé>", ... },
   "marqueurs": [            // les signaux limbiques DÉJÀ détectés en étape 1.1 (1 par réponse concernée)
      { "qid":"P5Q1", "lieu":"Week-end", "emotion":"aversion intense à l'exécution",
-       "verbatim":"<EXACT>", "pilier":"P5" }, ...
+       "verbatim":"<fragment EXACT>", "pilier":"P5",
+       "reponse_complete":"<LA RÉPONSE INTÉGRALE du candidat à cette question — contient le contexte ET les
+         stratégies (déléguer, faire faire, demander à un expert, séquencer, comprimer…)>" }, ...
   ],
+  "reponses_par_qid": { "P5Q1":"<réponse intégrale>", "P3Q5":"<...>", ... },  // toutes les réponses, indexées
   "piliers_chiffres": {     // comptages pour situer les coûts (activations cœur par pilier, /25)
      "P1":{...}, ... "P5":{...}, "questions_par_pilier": {...}
   }
@@ -126,6 +205,10 @@ INTERDITS (zéro occurrence)
 • Vocabulaire clinique. Jugement de valeur. Comparaison à d'autres candidats.
 • Mots évaluatifs : impressionnant, remarquable, performant, fort, précieux. Mot « cluster ».
 • Libellés de piliers réinventés ; « Création de solutions » jamais raccourci.
+• Le mot « filtre » dans ce chapitre (réservé au filtre cognitif, chapitre suivant) : employer « grille
+  analytique », « analyse », « exigence » selon le cas.
+• Le mot « travail » / « au travail » : le test porte sur des situations de vie, jamais professionnelles.
+• Paraphraser le verbatim dans le constat OU dans la signification (le texte doit AJOUTER, pas répéter).
 
 ═══════════════════════════════════════════════════════════════════════
 SORTIE — bloc <analyse> PUIS JSON strict (rien après le JSON)
@@ -140,11 +223,12 @@ T6 contrôle sens (coût ≠ incapacité) : OK/corrigé
 </analyse>
 {
   "s05_intro": "...",
-  "registres": [ { "titre":"...", "texte":"...", "verbatims":"<exacts + réf>" } ],
+  "registres": [ { "titre":"<Émotion nommée> — <domaine>", "constat":"<1 phrase, effet sur le geste>", "verbatims":"<exacts + réf>", "signification":"<ce que cela signifie pour vous>", "vigilance":"<'' sauf blocage réel>" } ],
   "s05_cloture": "...",
+  "vigilance_globale": "<point d'attention transversal ; '' si aucun>",
   "s06_intro": "...",
-  "cout_principal": { "label":"Coût principal", "titre":"...", "texte":"...", "verbatims":"..." },
-  "cout_secondaire": { "label":"Coût secondaire", "titre":"...", "texte":"...", "verbatims":"..." },
+  "cout_principal": { "label":"Coût principal", "titre":"<activité coûteuse>", "constat":"<ce qui coûte, factuel>", "verbatims":"<exacts + réf>", "strategie":"<comment vous gérez>", "vigilance":"<'' sauf revers réel>" },
+  "cout_secondaire": { "label":"Coût secondaire", "titre":"...", "constat":"...", "verbatims":"...", "strategie":"...", "vigilance":"..." },
   "s06_cloture": "...",
   "alerte": "<'' si rien à signaler ; sinon : sobriété / manque de matière constaté>"
 }
@@ -152,7 +236,10 @@ T6 contrôle sens (coût ≠ incapacité) : OK/corrigé
 ═══════════════════════════════════════════════════════════════════════
 CONTRÔLES QUE TU APPLIQUES À TOI-MÊME AVANT DE RENDRE
 ═══════════════════════════════════════════════════════════════════════
-C1 Chaque registre = émotion VERBALISÉE (mot du candidat), rattachée à un geste ET à son effet.
+C1 Chaque registre = émotion NOMMÉE en titre (mot digne, pas le verbatim), rattachée à un geste ET à son effet.
+C1b Le texte n'est jamais une paraphrase du verbatim ; il dit l'effet + comment c'est géré. La preuve est toujours montrée.
+C1c « vigilance » n'est remplie QUE si un blocage réel est attesté sur pièces ; jamais un jugement ; "" sinon.
+C1d Deux émotions de nature différente (aversion à l'effort vs exigence de qualité) = deux registres, non fusionnés.
 C2 Aucun registre/coût forcé : le nombre suit la matière (0 à 3 registres ; coût secondaire possiblement null).
 C3 Le silence n'est jamais comblé ni interprété comme un trait ; il est signalé dans "alerte".
 C4 Chaque coût a une STRATÉGIE attestée par verbatim, et est présenté comme un fonctionnement (≠ incapacité).
