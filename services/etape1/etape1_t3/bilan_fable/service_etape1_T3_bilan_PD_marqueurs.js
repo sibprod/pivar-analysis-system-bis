@@ -70,18 +70,26 @@ function parseSignal(raw){
 // 1) BUILDER
 // ════════════════════════════════════════════════════════════════════════
 async function builder(cid){
-  // a) marqueurs limbiques détectés en 1.1
+  // a) marqueurs limbiques détectés en 1.1 — AVEC la réponse COMPLÈTE du candidat pour le contexte
   const t1 = await airtableService.getEtape1T1(cid);
+  // Index qid -> réponse intégrale (verbatim_candidat), pour joindre le contexte complet à chaque marqueur.
+  const reponsesParQid = {};
+  for(const row of t1){
+    const qid = _val(row.id_question);
+    if(qid) reponsesParQid[qid] = _val(row.verbatim_candidat);
+  }
   const marqueurs = [];
   for(const row of t1){
     const sig = parseSignal(row.signal_limbique);
     if(!sig || !sig.emotion) continue;
+    const qid = _val(row.id_question);
     marqueurs.push({
-      qid:      _val(row.id_question),
-      scenario: _val(row.scenario),
-      emotion:  sig.emotion,
-      verbatim: sig.verbatim,
-      pilier:   _val(row.pilier_coeur),
+      qid:              qid,
+      scenario:         _val(row.scenario),
+      emotion:          sig.emotion,
+      verbatim:         sig.verbatim,                 // fragment pré-découpé (marqueur limbique)
+      reponse_complete: _val(row.verbatim_candidat),  // ⭐ 01/07 — RÉPONSE INTÉGRALE (stratégies incluses)
+      pilier:           _val(row.pilier_coeur),
     });
   }
 
@@ -104,7 +112,7 @@ async function builder(cid){
     if(piliers_chiffres[p]) piliers_chiffres[p].coeur += num(c.total_activations);
   }
 
-  return { marqueurs, roles, modes, libelles, piliers_chiffres };
+  return { marqueurs, roles, modes, libelles, piliers_chiffres, reponses_par_qid: reponsesParQid };
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -146,17 +154,33 @@ async function appelerAgent(entree){
 // ════════════════════════════════════════════════════════════════════════
 function blocRegistres(registres){
   if(!Array.isArray(registres) || !registres.length) return '(aucun registre atteste)';
-  return registres.map(r => '### ' + r.titre + '\n' + r.texte + '\n' + (r.verbatims||'')).join('\n\n');
+  return registres.map(r => {
+    // ⭐ 01/07 v3 — structure : ### titre / constat / verbatims / >> signification / ⚠ vigilance
+    let bloc = '### ' + (r.titre||'');
+    if((r.constat||'').trim())       bloc += '\n' + r.constat.trim();
+    else if((r.texte||'').trim())    bloc += '\n' + r.texte.trim();   // rétrocompat ancien champ
+    if((r.verbatims||'').trim())     bloc += '\n' + r.verbatims.trim();
+    if((r.signification||'').trim()) bloc += '\n\u00bb ' + r.signification.trim();   // » = ce que cela signifie
+    if((r.vigilance||'').trim())     bloc += '\n\u26a0 ' + r.vigilance.trim();       // ⚠ = point de vigilance
+    return bloc;
+  }).join('\n\n');
 }
 function blocCout(c){
   if(!c) return '';
-  return ((c.titre||'') + '\n' + (c.texte||'') + '\n' + (c.verbatims||'')).trim();
+  // ⭐ 01/07 v3 — titre / constat / verbatims / » stratégie / ⚠ vigilance (mêmes marqueurs que les registres)
+  let bloc = (c.titre||'');
+  const constat = (c.constat||c.texte||'').trim();   // rétrocompat ancien champ 'texte'
+  if(constat)            bloc += '\n' + constat;
+  if((c.verbatims||'').trim())  bloc += '\n' + c.verbatims.trim();
+  if((c.strategie||'').trim())  bloc += '\n\u00bb ' + c.strategie.trim();   // » = comment vous gérez
+  if((c.vigilance||'').trim())  bloc += '\n\u26a0 ' + c.vigilance.trim();   // ⚠ = point de vigilance
+  return bloc.trim();
 }
 
 async function ecrire(cid, sortie, analyse){
   const fields = {
     [F_BILAN.s05_intro]:       sortie.s05_intro || '',
-    [F_BILAN.registres]:       blocRegistres(sortie.registres),
+    [F_BILAN.registres]:       blocRegistres(sortie.registres) + ((sortie.vigilance_globale||sortie.s05_vigilance_globale||'').trim() ? '\n\n\u26a0\u26a0 ' + (sortie.vigilance_globale||sortie.s05_vigilance_globale).trim() : ''),
     [F_BILAN.s05_cloture]:     sortie.s05_cloture || '',
     [F_BILAN.s06_intro]:       sortie.s06_intro || '',
     [F_BILAN.cout_principal]:  blocCout(sortie.cout_principal),
@@ -194,7 +218,8 @@ async function run(opts){
     candidat_prenom: '',
     piliers_libelles: b.libelles,
     roles: b.roles, modes_valides: b.modes,
-    marqueurs: b.marqueurs,
+    marqueurs: b.marqueurs,                    // chaque marqueur porte désormais reponse_complete
+    reponses_par_qid: b.reponses_par_qid,      // ⭐ 01/07 — toutes les réponses intégrales, indexées par qid
     piliers_chiffres: b.piliers_chiffres,
   };
 
