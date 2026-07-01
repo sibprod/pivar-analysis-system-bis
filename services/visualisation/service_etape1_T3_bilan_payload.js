@@ -56,6 +56,75 @@ function formatVueEnsemble(raw) {
 function escapeHtmlLite(s) {
   return safeStr(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ⭐ 01/07 — REGISTRES limbiques : le service PD écrit un TEXTE avec titres « ### titre »,
+//   chaque bloc = "### titre\n texte + verbatims", blocs séparés par \n\n. On rend en HTML :
+//   ### → sous-titre (.reg-titre), lignes verbatims « ... » → .reg-verb, reste → .reg-texte.
+function formatRegistres(raw) {
+  const txt = safeStr(raw).trim();
+  if (!txt || txt === '(aucun registre atteste)') return '';
+  const blocs = txt.split(/\n{2,}/);
+  let out = '';
+  for (const bloc of blocs) {
+    const lines = bloc.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    out += '<div class="reg-bloc">';
+    for (let line of lines) {
+      if (line.startsWith('###')) {
+        out += '<div class="reg-titre">' + escapeHtmlLite(line.replace(/^#+\s*/, '')) + '</div>';
+      } else if (line.startsWith('\u26a0\u26a0')) {
+        // vigilance GLOBALE (⚠⚠) : traitée hors bloc (voir plus bas), ignorer ici
+        out += '';
+      } else if (line.startsWith('\u26a0')) {
+        // ⭐ point de vigilance par registre : encadré ambre, n'apparaît que si présent
+        out += '<div class="reg-vigilance"><span class="reg-vig-lbl">Point de vigilance</span>' +
+               escapeHtmlLite(line.replace(/^\u26a0\s*/, '')) + '</div>';
+      } else if (line.startsWith('\u00bb')) {
+        // ⭐ « ce que cela signifie pour vous » : strate d'explication distincte
+        out += '<div class="reg-signif"><span class="reg-signif-lbl">Ce que cela signifie pour vous</span>' +
+               escapeHtmlLite(line.replace(/^\u00bb\s*/, '')) + '</div>';
+      } else if (/^«|·\s*«|»$/.test(line) || line.includes('« ')) {
+        out += '<div class="reg-verb">' + escapeHtmlLite(line) + '</div>';
+      } else {
+        out += '<div class="reg-constat">' + escapeHtmlLite(line) + '</div>';
+      }
+    }
+    out += '</div>';
+  }
+  return out;
+}
+// Extrait la vigilance globale (⚠⚠) du champ registres brut, pour affichage séparé en fin de §05.
+function extractVigilanceGlobale(raw) {
+  const m = safeStr(raw).match(/\u26a0\u26a0\s*([^\n]+)/);
+  return m ? m[1].trim() : '';
+}
+
+// ⭐ 01/07 — BLOC COÛT : le service PD écrit "titre\n texte + verbatims". 1re ligne = titre,
+//   lignes « ... » = verbatims, reste = texte courant.
+function formatBlocCout(raw) {
+  const txt = safeStr(raw).trim();
+  if (!txt) return { a: false, html: '' };
+  const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return { a: false, html: '' };
+  const titre = lines.shift();
+  let corps = '';
+  for (let line of lines) {
+    if (line.startsWith('\u00bb')) {
+      // » = « Comment vous gérez » (la stratégie)
+      corps += '<div class="cout-strat"><span class="cout-strat-lbl">Comment vous gérez</span>' +
+               escapeHtmlLite(line.replace(/^\u00bb\s*/, '')) + '</div>';
+    } else if (line.startsWith('\u26a0')) {
+      // ⚠ = point de vigilance sur ce coût
+      corps += '<div class="reg-vigilance"><span class="reg-vig-lbl">Point de vigilance</span>' +
+               escapeHtmlLite(line.replace(/^\u26a0\s*/, '')) + '</div>';
+    } else if (line.startsWith('\u00ab') || line.includes('« ')) {
+      corps += '<div class="cout-verb">' + escapeHtmlLite(line) + '</div>';
+    } else {
+      corps += '<div class="cout-texte">' + escapeHtmlLite(line) + '</div>';
+    }
+  }
+  return { a: true, titre: titre, corps: corps, html: '<div class="cout-titre">' + escapeHtmlLite(titre) + '</div>' + corps };
+}
 function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 function safeJson(raw) {
   if (!raw) return null;
@@ -478,9 +547,10 @@ async function buildPayload(candidat_id) {
     { titre: `Ce qui n'arrive jamais`, texte: safeStr(bilan.maillon_m4_jamais), attest: present(bilan.maillon_m4_jamais) ? `Attesté : 0 réponse` : '' },
   ].filter(m => present(m.texte));
 
-  const registres = (safeJson(bilan.registres) || []).map(r => ({ titre: safeStr(r.titre), texte: safeStr(r.texte) }));
-  const parseCout = (raw) => { const c = safeJson(raw) || {}; return { titre: safeStr(c.titre), texte: safeStr(c.texte) }; };
-  const couts = [parseCout(bilan.cout_principal), parseCout(bilan.cout_secondaire)].filter(c => present(c.texte));
+  // ⭐ 01/07 — registres/coûts = TEXTE (### / titre en 1re ligne), pas JSON. On formate en HTML.
+  const registres_html = formatRegistres(bilan.registres);
+  const coutPrincipal  = formatBlocCout(bilan.cout_principal);
+  const coutSecondaire = formatBlocCout(bilan.cout_secondaire);
   const preuves = (safeJson(bilan.ch4_filtre_preuves) || []).map(p => ({ titre: safeStr(p.titre), texte: safeStr(p.texte) })).filter(p => present(p.texte));
 
   // ── Assemblage final ──────────────────────────────────────────────────────
@@ -588,12 +658,18 @@ async function buildPayload(candidat_id) {
     tableau_json: JSON.stringify(tableauJsonObj),
     ch2: { present: ch2maillons.length > 0, maillons: ch2maillons },
     ch3: {
-      signaux_present: registres.length > 0,
-      s05_intro: safeStr(bilan.s05_intro), s05_cloture: safeStr(bilan.s05_cloture),
-      registres,
-      couts_present: couts.length > 0,
-      s06_intro: safeStr(bilan.s06_intro), s06_cloture: safeStr(bilan.s06_cloture),
-      couts,
+      // § 05 signal limbique
+      signaux_present: present(registres_html),
+      s05_intro:   safeStr(bilan.s05_intro),
+      registres_html: registres_html,
+      s05_vigilance_globale: extractVigilanceGlobale(bilan.registres),
+      s05_cloture: safeStr(bilan.s05_cloture),
+      // § 06 zones de coût
+      couts_present:   coutPrincipal.a || coutSecondaire.a,
+      s06_intro:       safeStr(bilan.s06_intro),
+      cout_principal:  coutPrincipal,
+      cout_secondaire: coutSecondaire,
+      s06_cloture:     safeStr(bilan.s06_cloture),
     },
     ch4: { present: preuves.length > 0, revelation: safeStr(bilan.ch4_filtre_revelation), preuves },
   };
