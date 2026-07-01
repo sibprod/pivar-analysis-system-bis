@@ -2,7 +2,7 @@
 PROMPT — CHAPITRE IV §02 : LE FILTRE (LA RÉVÉLATION)
 Version 3 · 26/06/2026 · Profil-Cognitif Sib Prod
 Périme la v2 (25/06). La FINALITÉ n'est plus traitée (résultat non dit spontanément → non lisible).
-On pose le FILTRE depuis la lecture pilier (PA) + l'instrumental, puis un profil de calibrage.
+On pose le FILTRE depuis la lecture pilier (PA) + l'instrumental.
 ═══════════════════════════════════════════════════════════════════════
 
 UTILISATION : 1 appel = 1 candidat. Tu travailles EN AVEUGLE : tout est dans ce prompt + l'ENTRÉE JSON.
@@ -63,13 +63,10 @@ filtres DIFFÉRENTS. Tu sources le filtre sur la lecture PA + les mots de CE can
 un type de pilier.
 
 ═══════════════════════════════════════════════════════════════════════
-LE PROFIL DE CALIBRAGE (basé sur le FILTRE — la finalité n'est plus traitée)
+PAS DE FINALITÉ, PAS DE PROFIL — ON S'EN TIENT AU FILTRE
 ═══════════════════════════════════════════════════════════════════════
 On NE cherche PAS de finalité : le résultat visé n'est presque jamais dit spontanément par le
 candidat, et le déduire force une lecture non écrite. On s'en tient au FILTRE, point.
-Le profil de calibrage colore le REGISTRE du filtre : on choisit la famille + la variante (liste
-"profils_familles") dont le registre correspond au geste d'entrée du candidat. Le profil ne fait
-que NOMMER une famille proche — il n'invente aucune finalité.
 
 ═══════════════════════════════════════════════════════════════════════
 CONDUCTEUR — L'ORDRE DANS LEQUEL TU TRAVAILLES (ne saute aucun temps)
@@ -93,16 +90,10 @@ PARTIE A — LE FILTRE
      CONTRÔLE avant d'écrire : ton filtre est-il aussi riche que la vue_ensemble PA ? S'il a perdu
      un élément (« ajuster », « principe », « seuil »…), reprends-le.
 
-PARTIE B — LE PROFIL DE CALIBRAGE (basé sur le filtre)
-  T5 CALIBRER AVEC LES PROFILS. À partir du FILTRE retenu (T4), choisis dans "profils_familles"
-     la FAMILLE + la VARIANTE dont le registre correspond le mieux au geste d'entrée du candidat.
-     Le profil NOMME une famille proche du registre du filtre — il n'invente aucune finalité ni
-     aucun « pour quoi ». Si aucune famille ne colle → "profil_calibrage": null.
-     → champ "profil_calibrage". → Trace : « Profil : famille … / variante … (registre du filtre : …) ».
-
 VÉRIFICATION FINALE
-  Le profil colle-t-il au registre du filtre (même tonalité) ? Sinon, reprends T5.
-  → Trace : « Cohérence filtre→profil : … ».
+  Le filtre est-il bien un RÉGLAGE D'ENTRÉE (le AVANT), distinct du mode (le PENDANT) ? Est-il sourcé
+  sur le socle + confirmé par l'instrumental ? Sinon, reprends T4.
+  → Trace : « Cohérence filtre : … ».
 
 ═══════════════════════════════════════════════════════════════════════
 INTERDITS (zéro occurrence)
@@ -110,7 +101,7 @@ INTERDITS (zéro occurrence)
 • Inventer un filtre non sourcé sur la lecture PA + les verbatims de CE candidat.
 • Plaquer un filtre-type par pilier (gabarit).
 • Confondre filtre et mode (le filtre est AVANT, le mode PENDANT).
-• Faire écrire une finalité par le profil (le profil calibre le registre du filtre, rien d'autre).
+• Écrire une finalité ou un « pour quoi » : on s'en tient au filtre (le réglage d'entrée), rien d'autre.
 • Mots évaluatifs : impressionnant, remarquable, performant, fort, précieux.
 • Comparaison à d'autres candidats. Jargon non expliqué. Codes PxCy dans la phrase du filtre
   (autorisés uniquement dans le champ "technique" et le bloc <analyse>).
@@ -141,11 +132,6 @@ ENTRÉE (fournie par le builder déterministe — FIGÉE)
   ],
   "reponses_socle_completes": [       // pour la traque des « pour » (terrain + instrumental)
      {"question":"P3Q1","reponse_brute":"<texte intégral>"}, ...
-  ],
-  "profils_familles": [               // répertoire de calibrage (familles + variantes)
-     {"n":1,"famille":"Éclaireur de chemins","registre":"ouvrir des voies",
-      "variantes":["des voies créatives","du déblocage","des angles neufs","de la sortie d'impasse"]},
-     ... (les 8)
   ]
 }
 
@@ -162,13 +148,11 @@ T1 geste d'ensemble PA : …
 T2 instrumental : [PxQn (outil Py) : le socle impose …] · ce qui domine hors terrain : …
 T3 réglage d'entrée confirmé : …
 T4 filtre retenu : « … »
-T5 profil de calibrage : famille … / variante … (registre du filtre : …) — ou aucun
-Cohérence filtre→profil : …
+Cohérence filtre : réglage d'entrée distinct du mode, sourcé socle + instrumental : …
 </analyse>
 {
   "filtre": "<phrase courte, présent, ≤ ~18 mots, sourcée verbatims, sans code PxCy>",
   "filtre_preuves": "<2-4 verbatims réels qui fondent le filtre, avec réf PxQn>",
-  "profil_calibrage": {"famille":"...","variante":"..."}  ou  null,
   "technique": "<registre labo : geste PA, instrumental, dénominateur, codes autorisés ici>"
 }
 
@@ -177,5 +161,4 @@ C1 le filtre est sourcé sur des verbatims réels (filtre_preuves non vide).
 C2 le filtre part de la vue_ensemble PA et la confirme/affine par l'instrumental ; il en garde
    TOUTE la richesse (pas plus pauvre que la lecture PA).
 C3 le filtre ne duplique pas le mode du socle.
-C6 profil = calibrage du registre du filtre, jamais écriture ; null si aucun ne colle.
 C7 <analyse> complet (tous les temps tracés), puis JSON valide, rien après.
