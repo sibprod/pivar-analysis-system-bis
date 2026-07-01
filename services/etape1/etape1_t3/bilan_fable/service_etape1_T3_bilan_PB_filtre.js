@@ -97,30 +97,11 @@ const F_BILAN = {
   filtre_preuves:    'fldXGZ5ijlcGPYc16',   // COMMUN — config: ch4_filtre_preuves
   finalite:          'fldobIgYtfa3Qiy4v',   // OBSOLÈTE v3 — non écrit (finalité abandonnée)
   finalite_preuve:   'fldLe9NPXIVfsNDjU',   // OBSOLÈTE v3 — non écrit
-  profil_calibrage:  'fldFjcTlLSUjYR8Qy',   // NOUVEAU — filtre_profil_calibrage
   technique:         'fldFheeASGSqDvqOm',   // NOUVEAU — filtre_technique_v2 (PAS filtre_preuve_3 !)
   analyse_verbalisee:'fldduLP9UN4tVRnPE',   // NOUVEAU — filtre_analyse_verbalisee (trace <analyse> T1→T9, audit, comme PA)
 };
 
-// ── Les 8 familles de profils (calibrage) — doctrine 25/06 ────────────────
-const PROFILS_FAMILLES = [
-  {n:1, famille:'Éclaireur de chemins',      registre:'ouvrir des voies, sortir de l\'impasse',
-   variantes:['des voies créatives','du déblocage','des angles neufs','de la sortie d\'impasse']},
-  {n:2, famille:'Catalyseur d\'équilibre',    registre:'rétablir l\'harmonie, apaiser',
-   variantes:['des tensions','des relations','du climat','de la médiation']},
-  {n:3, famille:'Révélateur de potentiels',  registre:'faire émerger des talents ignorés',
-   variantes:['des talents','des possibles','des forces cachées','de la valeur ignorée']},
-  {n:4, famille:'Bâtisseur de ponts',        registre:'relier ce qui était cloisonné',
-   variantes:['des personnes','des idées','des ressources','des silos']},
-  {n:5, famille:'Gardien d\'intégrité',       registre:'rétablir la cohérence, la vérité',
-   variantes:['de la vérité','de l\'éthique','de la rigueur','de la justesse']},
-  {n:6, famille:'Catalyseur de mouvement',   registre:'remettre en marche, débloquer l\'inertie',
-   variantes:['de l\'élan','de l\'action','de la décision exécutée','de l\'inertie vaincue']},
-  {n:7, famille:'Protecteur des vulnérables',registre:'défendre, sécuriser les fragiles',
-   variantes:['des fragiles','du cadre sûr','du soin','de la prévention']},
-  {n:8, famille:'Orchestrateur de l\'ordre',  registre:'structurer, organiser ; poser le principe qui régit',
-   variantes:['de l\'organisation','des règles et des principes','des systèmes','de la méthode']},
-];
+// (profil de calibrage supprimé le 01/07 — trop risqué, cf. décision Isabelle)
 
 // ── helpers ───────────────────────────────────────────────────────────────
 function _sel(v){ if(!v) return ''; if(typeof v==='string') return v; if(Array.isArray(v)) return v[0]?.name||''; return v.name||''; }
@@ -257,7 +238,6 @@ function construireEntree(cid, socle, presentation, blocHaut, instr, pa_socle){
     // SOURCE B : l'instrumental ARBITRE le filtre (ce qui domine hors terrain) et le CONFIRME.
     socle_instrumental: instr.instrumental,
     reponses_socle_completes: instr.reponses_socle_completes,
-    profils_familles: PROFILS_FAMILLES,
   };
 }
 
@@ -276,7 +256,7 @@ async function appelerAgent(entree){
   if(aMatch) analyse = aMatch[1].trim();
 
   // JSON = objet {...} après l'analyse. On coupe ce qui précède la fin de l'analyse,
-  // puis on prend du 1er '{' au dernier '}' (robuste à l'imbrication profil_calibrage).
+  // puis on prend du 1er '{' au dernier '}'.
   let sortie;
   let zone = text.replace(/```json|```/g,'');
   const endAnalyse = zone.lastIndexOf('</analyse>');
@@ -301,13 +281,9 @@ async function appelerAgent(entree){
 
 async function ecrire(cid, sortie, analyse){
   if(!sortie.filtre) throw new Error('Sortie agent : champ "filtre" manquant');
-  const profilTxt = sortie.profil_calibrage
-    ? `${sortie.profil_calibrage.famille} — ${sortie.profil_calibrage.variante||''}`.trim()
-    : '(aucun profil ne colle)';
   const fields={
     [F_BILAN.filtre]:            sortie.filtre,
     [F_BILAN.filtre_preuves]:    sortie.filtre_preuves||'',
-    [F_BILAN.profil_calibrage]:  profilTxt,
     [F_BILAN.technique]:         sortie.technique||'',
     [F_BILAN.analyse_verbalisee]: analyse || '(verbalisation absente)',
   };
@@ -352,16 +328,15 @@ async function run(opts = {}){
   // 4) Écriture / dry-run
   if(doWrite){
     const recId = await ecrire(cid, sortie, analyse);
-    console.log(`[PB filtre] ✅ Filtre + profil écrits dans T3_BILAN ${recId}`);
+    console.log(`[PB filtre] ✅ Filtre écrit dans T3_BILAN ${recId}`);
     console.log(`[PB filtre]    Filtre : « ${sortie.filtre} »`);
-    console.log(`[PB filtre]    Profil : ${sortie.profil_calibrage ? sortie.profil_calibrage.famille+' / '+(sortie.profil_calibrage.variante||'') : '(aucun)'}`);
-    return { ok:true, candidat_id:cid, bilanRecId:recId, filtre:sortie.filtre, profil:sortie.profil_calibrage||null };
+    return { ok:true, candidat_id:cid, bilanRecId:recId, filtre:sortie.filtre };
   } else {
     console.log('\n── <analyse> de l\'agent ──\n'+analyse);
     console.log('\n── JSON agent ──\n'+JSON.stringify(sortie,null,2));
     console.log('\n── Builder (audit) ──');
     console.log(JSON.stringify({bloc_haut:blocHaut.circuits.map(c=>({code:c.code,total:c.total,cap:c.capacite,prof:c.profondeur})), instrumental:instr.instrumental.map(x=>x.question)},null,2));
-    return { ok:true, candidat_id:cid, dryRun:true, filtre:sortie.filtre, profil:sortie.profil_calibrage||null };
+    return { ok:true, candidat_id:cid, dryRun:true, filtre:sortie.filtre };
   }
 }
 
@@ -369,4 +344,4 @@ if(require.main===module) run().catch(e=>{console.error(e);process.exit(1);});
 
 module.exports={ lireArchitecture, buildPresentationOutils, lireBlocHautSocle,
   lireSocleInstrumental, construireEntree, appelerAgent, ecrire, run,
-  PROFILS_FAMILLES, F_PIL, F_CIR, F_RESP, F_BILAN, BASE_ID };
+  F_PIL, F_CIR, F_RESP, F_BILAN, BASE_ID };
