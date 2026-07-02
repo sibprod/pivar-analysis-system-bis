@@ -723,7 +723,37 @@ async function buildPayload(candidat_id) {
     }
     return { a: true, html: html };
   }
+  // ⭐ v4 — parse le JSON filtre_gestes → tableau de gestes prêts pour le template.
+  //   Chaque geste : { code, nom, coeur, rang, dit:[{texte,ref}], fait, revele }.
+  //   dit_html = les verbatims formatés (réutilise le style fp-item). Aucune invention :
+  //   si le champ est vide/illisible, renvoie [] (le template masque alors la section).
+  function formatFiltreGestes(raw) {
+    const arr = safeJson(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map(g => {
+      const dit = Array.isArray(g && g.dit) ? g.dit : [];
+      let dit_html = '';
+      for (const d of dit) {
+        const ref = safeStr(d && d.ref).trim();
+        const txt = safeStr(d && d.texte).trim();
+        if (!txt) continue;
+        dit_html += '<div class="fp-item">'
+          + (ref ? '<div class="fp-ref">' + escapeHtmlLite(ref) + '</div>' : '')
+          + '<div class="fp-txt">' + escapeHtmlLite(txt) + '</div></div>';
+      }
+      return {
+        code:   safeStr(g && g.code),
+        nom:    safeStr(g && g.nom),
+        coeur:  safeStr(g && g.coeur),
+        rang:   safeStr(g && g.rang),
+        dit_html: dit_html,
+        fait:   safeStr(g && g.fait),
+        revele: safeStr(g && g.revele),
+      };
+    }).filter(g => g.fait || g.dit_html);   // garde les gestes réellement remplis
+  }
   const filtrePreuves = formatFiltrePreuves(bilan.filtre_preuves);
+  const filtreGestes = formatFiltreGestes(bilan.filtre_gestes);   // ⭐ v4 — décodage 3 strates
   const filtre = {
     present:     present(bilan.filtre),
     enonce:      safeStr(bilan.filtre),
@@ -732,6 +762,11 @@ async function buildPayload(candidat_id) {
     a_preuves:   filtrePreuves.a,
     preuves_html: filtrePreuves.html,
     technique:   safeStr(bilan.filtre_technique_v2 || bilan.technique),
+    // ⭐ v4 — décodage geste par geste (3 strates) + synthèse (pose du filtre après)
+    a_gestes:    filtreGestes.length > 0,
+    sans_gestes: filtreGestes.length === 0,
+    gestes:      filtreGestes,
+    synthese:    safeStr(bilan.filtre_synthese),
   };
 
   const ctx = {
