@@ -432,6 +432,7 @@ async function getBilanExcellences(candidat_id) {
       combinaison:    c.combinaison || '',
       verdict_enc:    c.verdict_encadrement || '',
       verdict_man:    c.verdict_management || '',
+      verdict_man_niveau: _sel(c.verdict_man_niveau) || '',
       conclusions_enc: c.B4_conclusions_enc || '',
       conclusions_man: c.B4_conclusions_man || '',
       conditions_enc:  c.conditions_encadrement || '',
@@ -1445,6 +1446,146 @@ async function getVisiteurInfoForVisualisation(candidat_id) {
 // HELPERS INTERNES
 // ═══════════════════════════════════════════════════════════════════════════
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ ÉTAPE 2c (02/07/2026) — TEST COMPLÉMENTAIRE DE DÉCENTRATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+const TABLE_TESTDEC     = (airtableConfig.TABLES && airtableConfig.TABLES.ETAPE2_TEST_DECENTRATION) || 'ETAPE2_TEST_DECENTRATION';
+const TABLE_T3_BILAN    = (airtableConfig.TABLES && airtableConfig.TABLES.ETAPE1_T3_BILAN)  || 'ETAPE1_T3_BILAN';
+const TABLE_T3_PILIER   = (airtableConfig.TABLES && airtableConfig.TABLES.ETAPE1_T3_PILIER) || 'ETAPE1_T3_PILIER';
+
+function _sel(v) { return (v && (v.name || v)) || ''; }
+
+// Profil compact du candidat pour le test (socle + structurants + fonctionnels, avec modes).
+async function getEtape1ProfilPourTest(candidat_id) {
+  try {
+    const bilans = await getBase()(TABLE_T3_BILAN)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+      .all();
+    const b = bilans[0] ? bilans[0].fields : {};
+
+    const piliers = await getBase()(TABLE_T3_PILIER)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
+      .all();
+
+    const socle = { pilier: '', label: '', mode: '' };
+    const structurants = [];
+    const fonctionnels = [];
+    for (const r of piliers) {
+      const f = r.fields;
+      const item = { pilier: _sel(f.pilier), label: _sel(f.pilier_label), mode: f.pilier_mode || '' };
+      const role = String(_sel(f.pilier_role)).toLowerCase();
+      if (role === 'socle') Object.assign(socle, item);
+      else if (role === 'amont' || role === 'aval' || role === 'structurant') structurants.push(item);
+      else fonctionnels.push(item);
+    }
+    // Repli sur le bilan si la table pilier est vide.
+    if (!socle.pilier && b.pilier_socle) {
+      socle.pilier = _sel(b.pilier_socle);
+      socle.label  = _sel(b.pilier_socle_label);
+      socle.mode   = b.pilier_socle_mode || '';
+    }
+    return { prenom: b.Prenom || '', socle, structurants, fonctionnels };
+  } catch (error) {
+    logger.error('Failed to get profil Étape 1 pour test', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// Écrit les 10 situations générées (delete + create — jamais appelé si réponses présentes).
+async function writeTestDecentration(candidat_id, situations) {
+  const now = new Date().toISOString();
+  const rows = situations.map(s => ({
+    candidat_id,
+    numero:            Number(s.numero),
+    position_candidat: s.position_candidat || '',
+    compatibilite:     s.compatibilite || '',
+    personnage:        s.personnage || '',
+    personnage_profil: s.personnage_profil || '',
+    situation_text:    s.situation_text || '',
+    question_text:     s.question_text || '',
+    amorce:            s.amorce || '',
+    date_generation:   now
+  }));
+  await deleteRowsByCandidatId(TABLE_TESTDEC, candidat_id);
+  await createRowsInBatches(TABLE_TESTDEC, rows, candidat_id);
+  logger.info('TESTDEC situations écrites', { candidat_id, count: rows.length });
+  return rows.length;
+}
+
+async function getTestDecentrationRows(candidat_id) {
+  try {
+    const records = await getBase()(TABLE_TESTDEC)
+      .select({
+        filterByFormula: `{candidat_id} = "${candidat_id}"`,
+        sort: [{ field: 'numero', direction: 'asc' }]
+      })
+      .all();
+    return records.map(r => ({ airtable_id: r.id, ...r.fields }));
+  } catch (error) {
+    logger.error('Failed to get TESTDEC rows', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// Enregistre les réponses du candidat (patch par numéro).
+async function saveTestDecentrationReponses(candidat_id, reponses) {
+  const rows = await getTestDecentrationRows(candidat_id);
+  const idByNumero = {};
+  for (const r of rows) idByNumero[Number(r.numero)] = r.airtable_id;
+  const now = new Date().toISOString();
+  const updates = [];
+  for (const rep of reponses) {
+    const id = idByNumero[Number(rep.numero)];
+    if (!id) throw new Error(`TESTDEC : situation ${rep.numero} introuvable pour ${candidat_id}`);
+    updates.push({ id, fields: cleanFields({ response_text: rep.response_text, date_response: now }) });
+  }
+  for (let i = 0; i < updates.length; i += 10) {
+    await getBase()(TABLE_TESTDEC).update(updates.slice(i, i + 10), { typecast: true });
+    await sleep(150);
+  }
+  logger.info('TESTDEC réponses enregistrées', { candidat_id, count: updates.length });
+  return updates.length;
+}
+
+// Écrit les codages de l'agent (patch par numéro).
+async function patchTestDecentrationCodage(candidat_id, codages) {
+  const rows = await getTestDecentrationRows(candidat_id);
+  const idByNumero = {};
+  for (const r of rows) idByNumero[Number(r.numero)] = r.airtable_id;
+  const updates = [];
+  for (const c of codages) {
+    const id = idByNumero[Number(c.numero)];
+    if (!id) throw new Error(`TESTDEC codage : situation ${c.numero} introuvable pour ${candidat_id}`);
+    updates.push({ id, fields: cleanFields({
+      DEC_niveau:        c.DEC_niveau || '',
+      DEC_verbatim:      c.DEC_verbatim || '',
+      DEC_manifestation: c.DEC_manifestation || ''
+    }) });
+  }
+  for (let i = 0; i < updates.length; i += 10) {
+    await getBase()(TABLE_TESTDEC).update(updates.slice(i, i + 10), { typecast: true });
+    await sleep(150);
+  }
+  logger.info('TESTDEC codages écrits', { candidat_id, count: updates.length });
+  return updates.length;
+}
+
+// Verdict management seul (déclencheur de la génération du test).
+async function getEtape2T5CVerdictMan(candidat_id) {
+  try {
+    const records = await getBase()(airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES)
+      .select({ filterByFormula: `LOWER({candidat_id}) = "${String(candidat_id).toLowerCase()}"`, maxRecords: 1 })
+      .all();
+    if (!records[0]) return '';
+    return _sel(records[0].fields.verdict_man_niveau);
+  } catch (error) {
+    logger.error('Failed to get verdict_man_niveau', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
 async function deleteRowsByCandidatId(tableName, candidat_id) {
   const records = await getBase()(tableName)
     .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, fields: [] })
@@ -1719,6 +1860,14 @@ module.exports = {
 
   // ⭐ v11.7 — Bilan dynamique des 4 excellences (T5B + T5C)
   getBilanExcellences,
+
+  // ⭐ Étape 2c (02/07) — Test complémentaire de décentration
+  getEtape1ProfilPourTest,
+  writeTestDecentration,
+  getTestDecentrationRows,
+  saveTestDecentrationReponses,
+  patchTestDecentrationCodage,
+  getEtape2T5CVerdictMan,
 
   // ⭐ v11.7 — Production Étape 2 (agents T5A / T5BC)
   getEtape2T5ARows,
