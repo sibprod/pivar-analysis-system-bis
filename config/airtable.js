@@ -688,7 +688,14 @@ module.exports = {
     filtre_finalite_preuve:    'fldLe9NPXIVfsNDjU',   // verbatim portant le « pour »-but + réf
     filtre_profil_calibrage:   'fldFjcTlLSUjYR8Qy',   // famille + variante (calibrage, jamais écriture)
     filtre_technique_v2:       'fldFheeASGSqDvqOm',   // registre labo : sources A∩B, dénominateur
-    filtre_analyse_verbalisee: 'fldduLP9UN4tVRnPE'    // trace <analyse> T1→T9 de l'agent (audit, comme PA)
+    filtre_analyse_verbalisee: 'fldduLP9UN4tVRnPE',   // trace <analyse> T1→T9 de l'agent (audit, comme PA)
+
+    // ═════════ ⭐ v12.4 (02/07/2026) — CH3 FILTRE : décodage geste par geste ═════════
+    //   Écrits par service_etape1_T3_bilan_PB_filtre v4. Créés en base le 02/07.
+    //   filtre_gestes : JSON [{code,nom,coeur,rang,dit[],fait,revele}] (1/circuit bloc très souvent).
+    //   filtre_synthese : texte qui pose le filtre APRÈS les gestes décodés.
+    filtre_gestes:             'fldQr5PWbmaTH2uwv',
+    filtre_synthese:           'fldzYiMkf7HgdBddj'
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
