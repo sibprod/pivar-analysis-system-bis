@@ -1,5 +1,5 @@
 # AGENT T5B — MET · Portrait de l'excellence « méta-cognition »
-## Projet Profil-Cognitif · Étape 2 · v2.1 (un sous-agent par excellence)
+## Projet Profil-Cognitif · Étape 2 · v2.2 (un sous-agent par excellence)
 
 <!-- v2.0 (2026-06-09) : le T5B est éclaté en 4 sous-agents (un par excellence)
      pour ne jamais saturer max_tokens. Ce prompt ne produit QUE MET, UN objet. -->
@@ -43,6 +43,8 @@ Observer et décrire **ses propres processus de pensée** : penser SUR sa façon
 - **PIÈGES (ne pas sur-coter)** : décrire ses **actions** (« j'ai fait X puis Y ») n'est PAS de la méta-cognition. S'**auto-évaluer comme compétent** (« je suis rigoureux ») n'est PAS de la méta-cognition. Il faut un regard sur le PROCESSUS mental, pas sur la tâche ni sur la valeur de soi.
 
 ---
+
+> 🔒 **RÉGIME ÉPISTÉMOLOGIQUE DE LA MÉTA-COGNITION (garante, 02/07).** Notre méta-cognition = **perception de COMMENT on fait** (non de *ce que l'on sait*). Or les 25 questions du test demandent toutes « comment faites-vous » : **chaque réponse est une sollicitation de la méta-cognition — le spectre est couvert par construction.** Elle se mesure donc **SANS réserve de protocole** : un score bas est un CONSTAT légitime, pas un défaut de mesure. N'importe JAMAIS ici le régime « non évalué » de la décentration. Le constat se nomme avec probité : cadrage adouci, diagnostic jamais.
 
 ## CALCUL DE LA LIGNE MET
 
