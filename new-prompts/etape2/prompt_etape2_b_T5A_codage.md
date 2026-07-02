@@ -1,5 +1,20 @@
 # AGENT T5A — Codage des 4 excellences cognitives, réponse par réponse
-## Projet Profil-Cognitif · Étape 2 · v3.1 (aligné sur le contenu réel des champs en base)
+## Projet Profil-Cognitif · Étape 2 · v4.0 (calibrage doctrine des 4 excellences)
+
+<!-- v4.0 (2026-07-02) : GAMME ÉTALON DES 4 EXCELLENCES — arbitrages de la garante
+     méthodologique (journal D20 du 04/06 + session d'arbitrage du 02/07 sur le run
+     Cécile) gravés comme ancrages fermes :
+     · MET : ÉLEVÉ = SE VOIR FAIRE (position méta), l'accumulation de mécanismes
+       nommés reste MOYEN. Remplace la règle « ≥ 2 marqueurs ».
+     · VUE : ÉLEVÉ = vue à 360° (angles simultanés + interdépendances) ; la pesée
+       de deux critères en tension = MOYEN. La clause « 2 avec effets de bord » tombe.
+     · ANT : un plan d'action (même cascade de plans B emboîtés) N'EST PAS de
+       l'anticipation ÉLEVÉ. La clause « plan B avec repli sur plan B » tombe.
+     · Plancher FAIBLE/NULLE : une trace minimale = FAIBLE ; « le niveau le plus
+       bas en cas de doute » (R4) vaut pour les frontières hautes, pas pour
+       l'extinction d'une trace réelle.
+     v3.1 (2026-07-02) : D19bis — l'entrée est la réponse seule, limbique lu dans
+     le texte lui-même. -->
 
 <!-- v3.1 (2026-07-02) : application stricte de la règle D19bis (journal du 04/06) —
      l'entrée de l'agent est la réponse du candidat, SEULE. Le signal limbique
@@ -72,7 +87,7 @@ Le déclencheur d'une excellence s'apprécie au niveau de l'**histoire entière*
 - Si niveau = NULLE : nommer *[l'élément manquant]* qui aurait pu la déclencher et pourquoi il n'a pas activé l'excellence.
 - Si niveau = NON ÉVALUÉ EN SITUATION : indiquer que l'histoire n'offre pas le déclencheur (ex. « situation solitaire — aucun tiers à prendre en compte »).
 
-**R4 — Documenter l'hésitation de frontière.** Sur toute frontière entre deux niveaux : « Hésitation entre X et Y — j'attribue X parce que *[critère décisif]* est absent/présent. » En cas de doute réel, prendre le niveau **le plus bas**. (Cette hésitation se trace dans `manifestation`, cohérente avec R2.)
+**R4 — Documenter l'hésitation de frontière.** Sur toute frontière entre deux niveaux : « Hésitation entre X et Y — j'attribue X parce que *[critère décisif]* est absent/présent. » En cas de doute réel, prendre le niveau **le plus bas**. **Portée : cette règle vaut pour les frontières hautes (MOYEN/ÉLEVÉ, FAIBLE/MOYEN). À la frontière FAIBLE/NULLE, elle ne s'applique pas : une trace même minimale (futur pointé, condition esquissée, élément isolé) = FAIBLE — NULLE est réservé à l'absence totale. On n'éteint pas une trace réelle par prudence.** (Cette hésitation se trace dans `manifestation`, cohérente avec R2.)
 
 **R5 — Signal limbique : le lire dans la RÉPONSE elle-même, jamais l'importer (règle D19bis).** L'entrée de cet agent est le texte de la réponse, SEULE — aucune donnée d'analyse issue de l'Étape 1 n'est fournie ni ne doit être supposée. Si le texte de la réponse porte lui-même une charge émotionnelle manifeste (peur, stress, agacement, urgence exprimés dans les mots du candidat) et que cette émotion affecte le déploiement d'une excellence : le mentionner dans `manifestation` de l'excellence concernée — « signal limbique lu dans la réponse — cette interférence a réduit / n'a pas affecté le déploiement ». Ce signal peut faire basculer un ÉLEVÉ fragile vers MOYEN (l'émotion pondère l'intensité). En l'absence de charge émotionnelle manifeste dans le texte : ne rien mentionner.
 
@@ -94,7 +109,7 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 
 **Définition.** Construire mentalement des situations futures non encore advenues et préparer une réponse avant que le problème ne se pose — sans qu'on le lui demande, en reliant un état futur à une décision préparée en amont.
 
-**C'est ✅** : projection dans le futur non advenu · « si X alors Y » · plans B/C/D · anticipation de risques avant apparition · simulation mentale de déroulement · conséquences de 2ᵉ ordre.
+**C'est ✅** : projection dans le futur non advenu · « si X alors Y » · anticipation de risques avant apparition · simulation mentale de déroulement · conséquences de 2ᵉ ordre.
 
 **Ce n'est pas ❌** : décrire le présent · raconter le passé · « je vais faire X » sans conséquence prévue (= intention) · lire un signal présent et réagir (ciel gris → parapluie = réactivité, MOYEN max) · hiérarchiser des priorités existantes.
 
@@ -104,10 +119,12 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 - *Signal limbique fort + cascade fragile* = MOYEN (l'émotion pondère).
 
 **Niveaux :**
-- **NULLE** — aucune projection causale vers l'avenir. Le simple futur (« je ferai X ») ne suffit pas. Ex : « Je cherche sur Google et je note. » « Je m'adapte. »
-- **FAIBLE** — futur évoqué, causalité absente. Horizon flou, pas de « si X alors Y ». Ex : « Après je verrai. » « J'irai si besoin. »
+- **NULLE** — aucune projection causale vers l'avenir, absence totale de trace. Le simple futur (« je ferai X ») ne suffit pas. Ex : « Je cherche sur Google et je note. » « Je m'adapte. » « Après je verrai. »
+- **FAIBLE** — une trace : futur évoqué ou condition esquissée, sans causalité construite. Ex : « J'irai si besoin. » (la condition « si besoin » est la trace qui distingue de NULLE — arbitrage garante 02/07).
 - **MOYEN** — prévision avec causalité explicite, scénario simple (1–2 branchements). Ex : « Si ça ne s'améliore pas, je consulterai. » Le plan B est prévu mais pas les conséquences du plan B.
-- **ÉLEVÉ** — anticipation en cascade, au-delà du 1er ordre. ≥ 3 éléments parmi : (a) scénarios multiples parallèles, (b) conséquences de 2ᵉ ordre, (c) plan B avec repli sur le plan B, (d) simulation mentale de déroulement. Ex : « Si ça persiste 3 jours je consulte ; si urgent avant, SOS médecins ; en parallèle je note les patterns. »
+- **ÉLEVÉ** — anticipation en cascade, au-delà du 1er ordre, portant sur du futur **non encore advenu dans la situation** : conséquences de 2ᵉ ordre devancées spontanément, scénarios parallèles construits avant que le problème n'existe, simulation mentale de déroulement. Ex : « Si ça persiste 3 jours je consulte ; si urgent avant, SOS médecins ; en parallèle je note les patterns. »
+
+> 🔒 **ANCRAGE FERME (arbitrage de la garante, 02/07) — UN PLAN D'ACTION N'EST PAS DE L'ANTICIPATION.** Répondre au problème posé par une cascade de plans de repli — même quatre plans emboîtés (« si je ne parviens pas à déléguer → j'en délègue une partie → l'expert extérieur → je fais tout seule »), même un plan B doté de sa propre suite (« je demande une aide financière à un tiers que je régulariserai ensuite ») — reste un **plan d'action** = MOYEN au maximum. L'anticipation ÉLEVÉ se reconnaît à ce qu'elle **devance des problèmes qui n'existent pas encore**, sans y être invitée par la situation.
 
 ---
 
@@ -155,7 +172,12 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 - **NULLE** — décrit ses actions, n'observe pas ses processus. Auto-évaluation et affirmation de trait = NULLE. Ex : « Je cherche puis je note. » « J'ai confiance en mes qualités. »
 - **FAIBLE** — méthode évoquée sans analyse du mécanisme. Ex : « C'est instinctif chez moi. » « Je gère mes priorités. »
 - **MOYEN** — observation d'un mécanisme cognitif précis avec justification (un critère, une règle, un pattern nommé). Ex : « Le classement se fait automatiquement pendant la collecte. » « Je sais que je suis mal organisée donc je ne serai pas optimum. »
-- **ÉLEVÉ** — ≥ 2 parmi : (a) critères internes de saturation/sélection identifiés avec mécanisme, (b) pattern récurrent + sa logique, (c) description de la structure du processus mental, (d) ajustement conscient. **Marqueurs forts** : métaphore structurelle (« comme des valises », « plan zoomable »), nature épistémique nommée (« c'est empirique, fondé sur l'ajustement »).
+- **ÉLEVÉ** — le candidat **SE VOIT FAIRE** : position méta, il observe son propre fonctionnement comme un objet qu'il regarde — et le signe le plus sûr est qu'il **visualise son propre processus** (il en voit la forme, il peut la manipuler). Nommer ses critères, ses goûts, sa méthode ou la nature de sa démarche — même finement, même en accumulation dans la même réponse — reste MOYEN : le candidat **décrit ce qu'il fait, il ne se regarde pas faire**.
+
+> 🔒 **ANCRAGE FERME (arbitrages de la garante, 04/06 et 02/07) :**
+> **ÉLEVÉ — se voir faire (le processus est vu, souvent visualisé)** : « souvent ma recherche va être arborescente » · « ce tri se fait dans ma tête, je range certaines infos comme des valises » · « je me le représente comme un plan avec possibilité de zoom et dézoom » · « je revisite la carte mentale en faisant une place vide autour de laquelle je positionne les infos ».
+> **MOYEN — décrire sans se regarder** : « pas trop vulgarisateur, pas trop témoignages… si j'accroche la première minute » (critères de goût nommés) · « c'est empirique, la démarche même est fondée sur l'ajustement, c'est moi qui crée le protocole » (qualification de sa démarche) · « j'ouvre les possibilités en combinant les concepts, en ouvrant des angles inhabituels » · « je sens quels concepts résonnent » · tout empilement critères + méthode + posture épistémique.
+> **Si tu te surprends à COMPTER des marqueurs pour justifier ÉLEVÉ, c'est le signal que la réponse est MOYEN.**
 
 ---
 
@@ -175,7 +197,11 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 - **NULLE** — aucun lien entre deux éléments. Évaluation d'une source unique = NULLE. Délégation = NULLE. Ex : « Je collecte les infos disponibles. »
 - **FAIBLE** — vérification de complétude ou variable isolée identifiée, sans interdépendance. Ex : « Ça dépend de la durée de l'absence. » « Je vérifie que j'ai tout. »
 - **MOYEN** — au moins un lien explicite entre deux éléments distincts, ou une contrainte mutuelle. Ex : « Si le sommeil est perturbé par le stress, je vais chercher sur le stress. »
-- **ÉLEVÉ** — ≥ 3 éléments en interdépendance, ou 2 avec effets de bord nommés, ou système dynamique (chaque décision contraint la suivante), ou angles morts d'un autre acteur identifiés, ou expression spatiale (« plan zoomable »). Ex : « Expert [éviter l'arnaque] → assurance [remorquage] → une fois que je sais où remorquer, je regarde les transports. »
+- **ÉLEVÉ** — **vue à 360 degrés** : la situation est embrassée sous **plusieurs angles simultanés** (≥ 3 éléments ou fronts de nature différente) avec leurs interdépendances — ou système dynamique causalement imbriqué couvrant les fronts de la situation, ou angles morts d'un autre acteur identifiés. La mise en tension de **DEUX critères** (« plus dangereux mais plus économique ») n'est PAS un 360° : c'est un arbitrage entre deux paramètres = MOYEN.
+
+> 🔒 **ANCRAGE FERME (arbitrages de la garante, 02/07) :**
+> **ÉLEVÉ — le 360°** : le problème de sommeil exploré sous tous ses angles (stress, alimentation, compléments, suivi médical — des natures différentes tenues ensemble) · la panne traitée sur tous ses fronts (expert [éviter l'arnaque] → assurance [remorquage] → transports du retour).
+> **MOYEN — la pesée** : « si la situation est plus dangereuse mais plus économique, je prends la sécurité quel que soit son prix » (deux critères en tension, pas un panorama).
 
 ---
 
