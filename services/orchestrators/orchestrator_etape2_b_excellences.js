@@ -1,4 +1,4 @@
-// services/orchestrators/etape2/orchestratorExcellences.js
+// services/orchestrators/orchestrator_etape2_b_excellences.js
 // Sous-orchestrateur Étape 2 — Les 4 excellences cognitives + bilan
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -20,6 +20,14 @@
 //
 // Jalons posés au fil de l'eau (servent de points de reprise) :
 //   A fait → ETAPE2_AGENT_B ; B fait → ETAPE2_AGENT_C ; C fait → ETAPE2_3BILAN4_EXCELLENCES.
+//
+// v3.1 (2026-07-02) — INTÉGRITÉ : ARRÊT SUR ÉCHEC PARTIEL (A et B)
+//   Avant : si l'agent B produisait 3 excellences sur 4, la chaîne enchaînait sur C,
+//   qui calculait profil et verdicts sur un T5B INCOMPLET → bilan silencieusement faux
+//   (ex. MET manquante = verdict management sans une de ses indispensables).
+//   Après : si rA.echecs ou rB.echecs n'est pas vide, la chaîne S'ARRÊTE, pose le
+//   jalon de reprise (ETAPE2_AGENT_A/B_EXCELLENCES) et écrit le détail dans
+//   erreur_analyse. Un verdict ne se calcule JAMAIS sur des données incomplètes.
 //
 // ⚠️ En sortie réussie, run() renvoie { stopReason: 'excellences_done' } et NON
 //   { success:true } : l'orchestrateur principal, sur success:true, écrase le statut
@@ -74,6 +82,17 @@ async function run({ candidat_id, visiteur }) {
     if (plan.a) {
       const rA = await agentT5A.run({ candidat_id });
       totalCost += rA.cost || 0;
+      // v3.1 — INTÉGRITÉ : des réponses n'ont pas pu être codées → on N'ENCHAÎNE PAS
+      // (B agrégerait des lignes non recodées → portraits faux d'apparence normale).
+      if (rA.echecs && rA.echecs.length > 0) {
+        await airtableService.updateVisiteur(candidat_id, {
+          statut_analyse_pivar: 'ETAPE2_AGENT_A_EXCELLENCES',
+          erreur_analyse:       `Agent A partiel — réponses non codées : ${rA.echecs.join(', ')}. Chaîne arrêtée avant B. Relance = reposer ETAPE2_AGENT_A_EXCELLENCES (rejoue les 25 réponses).`,
+          derniere_activite:    new Date().toISOString()
+        });
+        logger.warn('Excellences — Agent A partiel, chaîne ARRÊTÉE avant B', { candidat_id, echecs: rA.echecs });
+        return { stopReason: 'excellences_a_partiel', candidat_id, echecs: rA.echecs, totalCostUsd: totalCost };
+      }
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_AGENT_B_EXCELLENCES',
         derniere_activite:    new Date().toISOString()
@@ -85,6 +104,17 @@ async function run({ candidat_id, visiteur }) {
     if (plan.b) {
       const rB = await agentT5B.run({ candidat_id });
       totalCost += rB.cost || 0;
+      // v3.1 — INTÉGRITÉ : une excellence manque → on N'ENCHAÎNE PAS sur C
+      // (un verdict ne se calcule jamais sur un T5B incomplet).
+      if (rB.echecs && rB.echecs.length > 0) {
+        await airtableService.updateVisiteur(candidat_id, {
+          statut_analyse_pivar: 'ETAPE2_AGENT_B_EXCELLENCES',
+          erreur_analyse:       `Agent B partiel — excellences en échec : ${rB.echecs.join(', ')}. Chaîne arrêtée avant C. Relance = reposer ETAPE2_AGENT_B_EXCELLENCES (l'upsert par excellence réécrit proprement).`,
+          derniere_activite:    new Date().toISOString()
+        });
+        logger.warn('Excellences — Agent B partiel, chaîne ARRÊTÉE avant C', { candidat_id, echecs: rB.echecs });
+        return { stopReason: 'excellences_b_partiel', candidat_id, echecs: rB.echecs, totalCostUsd: totalCost };
+      }
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_AGENT_C_EXCELLENCES',
         derniere_activite:    new Date().toISOString()
