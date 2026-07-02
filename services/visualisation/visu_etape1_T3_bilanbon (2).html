@@ -1,0 +1,1955 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilan cognitif — {{candidat.titre_affichage}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --ink:#1a1a1a; --muted:#6b7280; --rule:#e5e7eb; --paper:#ffffff; --paper2:#f7f6f3;
+  --serif:'Playfair Display',serif; --sans:'DM Sans',sans-serif; --mono:'DM Mono',monospace;
+  --p1:#2563eb; --p2:#0891b2; --p3:#0e7490; --p4:#16a34a; --p5:#ca8a04;
+  --accent:#0e7490; --filtre:#dc2626; --mode:#7c2d12;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);color:var(--ink);background:var(--paper);font-size:14px;line-height:1.65;}
+.page{max-width:880px;margin:0 auto;padding:0 0 80px;}
+
+/* ───── en-tête de section, style étalon ───── */
+.s-head{padding:40px 56px 26px;border-bottom:3px solid var(--ink);background:var(--paper2);}
+.s-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+.s-head h1{font-family:var(--serif);font-size:30px;font-weight:700;line-height:1.2;}
+.s-head .sous{margin-top:10px;font-size:14.5px;color:#374151;max-width:640px;}
+.s-head .sous strong{font-weight:700;}
+
+/* ───── temps ───── */
+.temps{padding:34px 56px 8px;}
+.temps + .temps{border-top:1px solid var(--rule);margin-top:26px;}
+.t-num{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;}
+.temps h2{font-family:var(--serif);font-size:21px;font-weight:600;margin:4px 0 10px;}
+.temps p{max-width:660px;color:#1f2937;}
+.temps p + p{margin-top:8px;}
+em.k{font-style:normal;font-weight:700;}
+
+/* ───── scène visuelle ───── */
+.scene{margin:22px 0 14px;padding:26px 22px;border:1px solid var(--rule);border-radius:10px;background:var(--paper2);text-align:center;}
+.scene .legende{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;letter-spacing:.04em;}
+
+/* T1 — la boucle naturelle */
+.boucle{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
+.b-outil{width:118px;border:1.5px solid var(--rule);border-radius:8px;background:white;padding:10px 6px 9px;}
+.b-outil .picto{width:34px;height:34px;border:1.5px dashed #cbd5e1;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:7.5px;color:#94a3b8;}
+.b-outil .code{font-family:var(--mono);font-size:10px;font-weight:700;}
+.b-outil .nom{font-size:11px;line-height:1.35;color:#374151;}
+.b-outil .verbe{font-size:10px;color:var(--muted);font-style:italic;margin-top:2px;}
+.b-fl{font-size:17px;color:#9ca3af;}
+.c1{border-top:3px solid var(--p1);} .c2{border-top:3px solid var(--p2);} .c3{border-top:3px solid var(--p3);} .c4{border-top:3px solid var(--p4);} .c5{border-top:3px solid var(--p5);}
+
+/* T2/T3 — la boîte et la tuile qui dépasse */
+.atelier{display:flex;align-items:flex-end;justify-content:center;gap:48px;flex-wrap:wrap;}
+.boite{display:inline-flex;align-items:flex-end;gap:6px;padding:14px 18px 0;border:3px solid #475569;border-top:none;border-radius:0 0 10px 10px;background:#e2e8f0;position:relative;}
+.boite::after{content:"la boîte — vos 5 outils";position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:#64748b;white-space:nowrap;}
+.tuile{width:46px;height:40px;background:#94a3b8;border-radius:6px 6px 0 0;font-family:var(--mono);font-size:11px;color:white;display:flex;align-items:center;justify-content:center;}
+.tuile.socle{height:64px;background:var(--accent);font-weight:700;box-shadow:0 -3px 10px rgba(14,116,144,.35);}
+.main-fl{font-size:26px;color:var(--accent);}
+.outil-sorti{display:inline-block;text-align:center;}
+.outil-sorti .corps{width:92px;height:66px;background:var(--accent);border-radius:10px;color:white;font-family:var(--mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;position:relative;margin:0 auto;}
+.outil-sorti .leg{font-family:var(--mono);font-size:9px;color:#64748b;margin-top:8px;max-width:130px;}
+.bouton{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;background:var(--filtre);border:3px solid white;box-shadow:0 0 0 2px var(--filtre);}
+.bouton.on::after{content:"toujours ON";position:absolute;top:-20px;right:-8px;font-family:var(--mono);font-size:8px;color:var(--filtre);font-weight:700;white-space:nowrap;}
+
+/* T4 — les questions du filtre */
+.qrow{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.qpill{border:1.5px solid var(--filtre);color:#991b1b;border-radius:16px;padding:5px 14px;font-size:12.5px;font-style:italic;background:white;}
+.synthese{margin-top:14px;font-size:13px;color:#374151;}
+.synthese strong{font-family:var(--serif);font-size:14.5px;}
+
+/* T5 — circuits */
+.sortie{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;}
+.circuits{display:flex;flex-direction:column;gap:7px;text-align:left;}
+.circ{display:flex;align-items:center;gap:9px;background:white;border:1px solid var(--rule);border-radius:7px;padding:6px 12px;font-size:12px;}
+.circ .fl{color:var(--accent);font-weight:700;}
+.badge{font-family:var(--mono);font-size:8.5px;font-weight:700;border-radius:3px;padding:1px 6px;letter-spacing:.05em;}
+.bh{background:#1f2937;color:white;} .bm{background:#9ca3af;color:white;} .bf{background:#e5e7eb;color:#6b7280;}
+.contre{margin-top:18px;padding:12px 16px;border-left:3px solid #9ca3af;background:white;border-radius:0 7px 7px 0;text-align:left;font-size:12.5px;max-width:560px;margin-left:auto;margin-right:auto;}
+.vb{font-style:italic;color:#374151;}
+
+/* T6 — le mode */
+.etiq-mode{display:inline-block;border:1.5px solid var(--mode);color:var(--mode);background:#fff7ed;border-radius:7px;padding:6px 14px;font-size:13px;font-style:italic;margin-top:6px;}
+.deduction{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+.deduction .dfl{font-size:20px;color:var(--mode);}
+.mini-circs{display:flex;flex-direction:column;gap:5px;text-align:left;}
+.mini-circs .circ{padding:4px 10px;font-size:11px;}
+.versus{display:flex;gap:14px;margin:18px auto 4px;max-width:680px;flex-wrap:wrap;text-align:left;}
+.versus .col{flex:1;min-width:260px;border-radius:9px;padding:13px 16px;font-size:12.5px;line-height:1.65;}
+.versus .col.f{border:2px solid var(--filtre);background:#fef2f2;}
+.versus .col.m{border:2px solid var(--mode);background:#fff7ed;}
+.versus .ct{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px;}
+.versus .col.f .ct{color:var(--filtre);} .versus .col.m .ct{color:var(--mode);}
+.versus li{margin:4px 0 4px 16px;}
+.mnemo{margin:14px auto 0;max-width:640px;border:1.5px solid var(--ink);border-radius:8px;background:white;padding:10px 16px;font-size:13px;text-align:center;}
+.mnemo strong{font-family:var(--serif);}
+
+/* T7 — la valise complète */
+.valise{display:flex;gap:12px;justify-content:center;align-items:stretch;flex-wrap:wrap;}
+.v-outil{width:150px;border:1.5px solid var(--rule);border-radius:9px;background:white;padding:11px 9px;}
+.v-outil.s{border:2.5px solid var(--accent);background:#ecfeff;box-shadow:0 2px 10px rgba(14,116,144,.12);}
+.v-outil.r{border:1.5px solid #94a3b8;background:#f8fafc;}
+.v-outil .role{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.v-outil.s .role{color:var(--accent);} .v-outil.r .role{color:#475569;} .v-outil .role.d{color:#9ca3af;}
+.v-outil .vnom{font-size:12px;font-weight:700;margin:3px 0 4px;}
+.v-outil .vdesc{font-size:10.5px;color:var(--muted);line-height:1.45;}
+.v-outil .vmode{font-size:10px;font-style:italic;color:var(--mode);border-top:1px dashed var(--rule);margin-top:6px;padding-top:5px;line-height:1.4;}
+.v-outil .vmode::before{content:"mode · ";font-family:var(--mono);font-size:8px;font-style:normal;font-weight:700;letter-spacing:.06em;}
+.v-fleches{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:12px;}
+
+/* T7 — la boucle du temps 1, enrichie */
+.b-outil.e{width:148px;position:relative;text-align:center;padding-bottom:9px;}
+.b-outil.e .role{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-top:4px;}
+.b-outil.e.soc{transform:translateY(-12px);border-width:2.5px;border-color:var(--accent);background:#ecfeff;box-shadow:0 5px 14px rgba(14,116,144,.16);}
+.b-outil.e.soc .role{color:var(--accent);}
+.b-outil.e.renf .role{color:#475569;}
+.b-outil.e .lf{font-size:9.5px;font-style:italic;color:#991b1b;border-top:1px dashed var(--rule);margin-top:6px;padding-top:5px;line-height:1.45;text-align:left;}
+.b-outil.e .lm{font-size:9.5px;font-style:italic;color:var(--mode);border-top:1px dashed var(--rule);margin-top:5px;padding-top:5px;line-height:1.45;text-align:left;}
+.pico-f{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--filtre);vertical-align:-1px;margin-right:4px;}
+.pico-m{display:inline-block;width:10px;height:10px;background:var(--mode);vertical-align:-1px;margin-right:5px;transform:rotate(45deg);border-radius:2px;}
+.btn-on{position:absolute;top:-10px;right:-10px;width:20px;height:20px;border-radius:50%;background:var(--filtre);border:3px solid white;box-shadow:0 0 0 2px var(--filtre);}
+.btn-on::after{content:"toujours ON";position:absolute;top:-19px;right:-6px;font-family:var(--mono);font-size:7.5px;color:var(--filtre);font-weight:700;white-space:nowrap;}
+
+/* encart final */
+.suite{margin:38px 56px 0;padding:18px 22px;border:2px solid var(--ink);border-radius:10px;background:var(--paper2);font-size:13.5px;line-height:1.7;}
+.suite strong{font-family:var(--serif);}
+
+/* marqueur exemple fictif */
+.fictif{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:3px;padding:1px 8px;letter-spacing:.06em;vertical-align:middle;margin-left:8px;}
+@media (max-width:640px){.s-head,.temps{padding-left:22px;padding-right:22px;}.suite{margin-left:22px;margin-right:22px;}}
+
+
+:root{
+  --ink:#1a1a18;--paper:#faf8f3;--paper2:#f0ece0;--rule:#d8d0bc;--rl:#e8e2d4;
+  --p1:#2563eb;--p1b:#eff6ff;--p1e:#bfdbfe;
+  --p2:#7c3aed;--p2b:#f5f3ff;--p2e:#ddd6fe;
+  --p3:#059669;--p3b:#ecfdf5;--p3e:#a7f3d0;
+  --p4:#d97706;--p4b:#fffbeb;--p4e:#fde68a;
+  --p5:#dc2626;--p5b:#fef2f2;--p5e:#fecaca;
+  /* COULEURS PAR RÔLE (v5.2) — la couleur dépend du rôle, pas du code pilier */
+  --role-socle:#dc2626;--role-socle-bg:#fef2f2;--role-socle-edge:#fecaca;        /* ROUGE */
+  --role-str1:#ea580c;--role-str1-bg:#fff7ed;--role-str1-edge:#fed7aa;           /* ORANGE */
+  --role-str2:#ca8a04;--role-str2-bg:#fefce8;--role-str2-edge:#fde68a;           /* JAUNE doré */
+  --role-fn1:#16a34a;--role-fn1-bg:#f0fdf4;--role-fn1-edge:#bbf7d0;              /* VERT */
+  --role-fn2:#84cc16;--role-fn2-bg:#f7fee7;--role-fn2-edge:#d9f99d;              /* VERT PÂLE */
+  --sans:'DM Sans',sans-serif;--serif:'Playfair Display',serif;--mono:'DM Mono',monospace;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.75;max-width:900px;margin:0 auto;}
+
+/* CHAPITRE DIVIDERS (v5.2) — séparateurs entre les chapitres du bilan */
+.chapitre-divider{padding:32px 64px 28px;border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);background:linear-gradient(180deg, var(--paper2) 0%, var(--paper) 100%);text-align:center;margin-top:24px;}
+.chapitre-divider .chapitre-tag{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin-bottom:8px;font-weight:600;}
+.chapitre-divider .chapitre-titre{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--ink);line-height:1.3;margin-bottom:6px;}
+.chapitre-divider .chapitre-soustitre{font-size:13px;font-style:italic;color:var(--muted);line-height:1.5;}
+.chapitre-divider.chapitre-final{background:linear-gradient(180deg, var(--ink) 0%, #2a2a28 100%);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);}
+.chapitre-divider.chapitre-final .chapitre-tag{color:rgba(255,255,255,.6);}
+.chapitre-divider.chapitre-final .chapitre-titre{color:white;}
+.chapitre-divider.chapitre-final .chapitre-soustitre{color:rgba(255,255,255,.7);}
+
+/* CLASSES PAR RÔLE (v5.2) — utilisables sur badges, cellules, blocs */
+.role-socle{--c:var(--role-socle);--cb:var(--role-socle-bg);--ce:var(--role-socle-edge);}
+.role-str1{--c:var(--role-str1);--cb:var(--role-str1-bg);--ce:var(--role-str1-edge);}
+.role-str2{--c:var(--role-str2);--cb:var(--role-str2-bg);--ce:var(--role-str2-edge);}
+.role-fn1{--c:var(--role-fn1);--cb:var(--role-fn1-bg);--ce:var(--role-fn1-edge);}
+.role-fn2{--c:var(--role-fn2);--cb:var(--role-fn2-bg);--ce:var(--role-fn2-edge);}
+.role-badge{background:var(--c);color:white;font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;display:inline-block;}
+.role-cell{background:var(--cb);border:1px solid var(--ce);}
+.role-text{color:var(--c);}
+.cover{padding:56px 64px 40px;border-bottom:3px solid var(--ink);position:relative;}
+.cover::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.cover-tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.cover-nom{font-family:var(--serif);font-size:46px;font-weight:700;line-height:1.05;margin-bottom:6px;}
+.cover-titre{font-family:var(--serif);font-size:17px;font-style:italic;color:var(--muted);margin-bottom:28px;}
+.sig-box{border:2px solid var(--ink);padding:18px 24px;background:white;margin-bottom:24px;display:inline-block;}
+.sig-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px;}
+.sig-val{font-family:var(--serif);font-size:20px;font-style:italic;}
+.cover-meta{display:flex;gap:28px;flex-wrap:wrap;}
+.cm{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.cm strong{color:var(--ink);display:block;margin-bottom:1px;}
+.toc{padding:20px 64px;background:var(--paper2);border-bottom:1px solid var(--rule);}
+.toc-title{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;}
+.toc-items{display:flex;flex-wrap:wrap;gap:5px;}
+.toc-item{font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:10px;cursor:pointer;background:white;transition:all .15s;}
+.toc-item:hover{background:var(--ink);color:white;border-color:var(--ink);}
+.section{padding:36px 64px;border-bottom:1px solid var(--rule);}
+.s-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:3px;}
+.s-title{font-family:var(--serif);font-size:25px;font-weight:700;margin-bottom:18px;line-height:1.2;}
+.moteur{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.m-row{display:grid;grid-template-columns:52px 1fr 80px 72px;gap:0;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.m-badge{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;}
+.m-badge.p1{background:var(--p1);}.m-badge.p2{background:var(--p2);}.m-badge.p3{background:var(--p3);}.m-badge.p4{background:var(--p4);}.m-badge.p5{background:var(--p5);}
+/* COULEURS PAR RÔLE v5.2 — ces classes prennent le pas sur p1..p5 quand présentes */
+.m-badge.role-socle{background:var(--role-socle);}
+.m-badge.role-str1{background:var(--role-str1);}
+.m-badge.role-str2{background:var(--role-str2);}
+.m-badge.role-fn1{background:var(--role-fn1);}
+.m-badge.role-fn2{background:var(--role-fn2);}
+.m-body{padding:9px 13px;background:white;}
+.m-nom{font-size:13px;font-weight:500;}
+.m-mode{font-size:11px;font-style:italic;color:var(--muted);}
+.m-role{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:9px;font-weight:500;text-align:center;border-left:1px solid var(--rule);}
+.m-role.socle{background:var(--role-socle-bg);color:var(--role-socle);}
+.m-role.str1{background:var(--role-str1-bg);color:var(--role-str1);}
+.m-role.str2{background:var(--role-str2-bg);color:var(--role-str2);}
+.m-role.fn1{background:var(--role-fn1-bg);color:var(--role-fn1);}
+.m-role.fn2{background:var(--role-fn2-bg);color:var(--role-fn2);}
+.m-role.str{background:#e0f2fe;color:#0c4a6e;}
+.m-role.fn{background:var(--paper2);color:#374151;}
+.m-stat{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:11px;font-weight:500;border-left:1px solid var(--rule);background:var(--paper2);}
+.flow-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:16px 0;}
+.flow-cell{border-radius:5px;padding:10px 8px;text-align:center;border:1px solid;}
+.flow-cell.p1{background:var(--p1b);border-color:var(--p1e);}
+.flow-cell.p2{background:var(--p2b);border-color:var(--p2e);}
+.flow-cell.p3{background:var(--p3b);border-color:var(--p3e);}
+.flow-cell.p4{background:var(--p4b);border-color:var(--p4e);}
+.flow-cell.p5{background:var(--p5b);border-color:var(--p5e);}
+.flow-cell.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle-edge);}
+.flow-cell.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1-edge);}
+.flow-cell.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2-edge);}
+.flow-cell.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1-edge);}
+.flow-cell.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2-edge);}
+.fc-id{font-family:var(--mono);font-size:18px;font-weight:700;}
+.fc-id.p1{color:var(--p1);}.fc-id.p2{color:var(--p2);}.fc-id.p3{color:var(--p3);}.fc-id.p4{color:var(--p4);}.fc-id.p5{color:var(--p5);}
+.fc-id.role-socle{color:var(--role-socle);}
+.fc-id.role-str1{color:var(--role-str1);}
+.fc-id.role-str2{color:var(--role-str2);}
+.fc-id.role-fn1{color:var(--role-fn1);}
+.fc-id.role-fn2{color:var(--role-fn2);}
+.fc-n{font-family:var(--mono);font-size:14px;font-weight:700;display:block;margin:2px 0;}
+.fc-pct{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.fc-lbl{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.3;}
+.filtre-def{background:#fef9e7;border:1px solid #fde68a;border-left:3px solid #f59e0b;padding:13px 16px;border-radius:0 4px 4px 0;margin-bottom:14px;}
+.fd-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#92400e;margin-bottom:4px;}
+.fd-txt{font-size:13px;color:#374151;font-weight:300;line-height:1.65;}
+.filtre-box{background:var(--p4b);border:2px solid var(--p4e);border-radius:6px;padding:18px 22px;margin-bottom:14px;}
+.f-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--p4);margin-bottom:5px;}
+.f-val{font-family:var(--serif);font-size:21px;font-style:italic;color:var(--ink);margin-bottom:10px;line-height:1.3;}
+.f-preuve{display:flex;gap:9px;margin-bottom:7px;font-size:13px;font-weight:300;color:#374151;}
+.fp-num{font-family:var(--mono);font-size:11px;color:var(--p4);font-weight:500;flex-shrink:0;margin-top:1px;}
+.f-cand{font-size:14px;color:var(--ink);line-height:1.8;border-left:3px solid var(--p4e);padding-left:13px;font-style:italic;}
+.ph{display:grid;grid-template-columns:68px 1fr 155px;gap:0;border-radius:7px;overflow:hidden;margin-bottom:18px;border:1px solid var(--rule);}
+.ph-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px;}
+.ph-badge.p1{background:var(--p1);}.ph-badge.p2{background:var(--p2);}.ph-badge.p3{background:var(--p3);}.ph-badge.p4{background:var(--p4);}.ph-badge.p5{background:var(--p5);}
+.ph-id{font-family:var(--mono);font-size:20px;font-weight:700;color:white;}
+.ph-star{font-size:13px;color:rgba(255,255,255,.75);}
+.ph-body{padding:13px 17px;background:white;}
+.ph-nom{font-family:var(--serif);font-size:17px;font-weight:700;margin-bottom:3px;}
+.ph-rb{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 9px;border-radius:9px;margin-bottom:4px;}
+.ph-rb.socle{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.ph-rb.str{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;}
+.ph-rb.fn{background:#f3f4f6;color:#374151;border:1px solid #d1d5db;}
+.ph-rb.res{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.ph-rappel{font-size:11px;color:var(--muted);font-style:italic;}
+.ph-mode{padding:13px 14px;background:var(--paper2);border-left:1px solid var(--rule);display:flex;flex-direction:column;justify-content:center;}
+.ph-mlbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.ph-mval{font-family:var(--serif);font-size:13px;font-style:italic;line-height:1.4;}
+.circuit{margin-bottom:22px;border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.c-head{display:grid;grid-template-columns:auto auto 1fr auto;gap:9px;align-items:center;padding:11px 15px;border-bottom:1px solid var(--rule);}
+.c-head.p1{background:var(--p1b);}.c-head.p2{background:var(--p2b);}.c-head.p3{background:var(--p3b);}.c-head.p4{background:var(--p4b);}.c-head.p5{background:var(--p5b);}.c-head.adhoc{background:#fef3c7;}
+.ci-id{font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;color:white;}
+.ci-id.p1{background:var(--p1);}.ci-id.p2{background:var(--p2);}.ci-id.p3{background:var(--p3);}.ci-id.p4{background:var(--p4);}.ci-id.p5{background:var(--p5);}.ci-id.adhoc{background:#92400e;}
+.ci-freq{font-family:var(--mono);font-size:14px;font-weight:700;}
+.ci-freq.p1{color:var(--p1);}.ci-freq.p2{color:var(--p2);}.ci-freq.p3{color:var(--p3);}.ci-freq.p4{color:var(--p4);}.ci-freq.p5{color:var(--p5);}
+.ci-nom{font-size:13px;font-weight:500;}
+.c-body{padding:0;background:white;}
+.niveau{padding:13px 16px;border-bottom:1px solid var(--rl);}
+.niveau:last-child{border-bottom:none;}
+.n-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.n-lbl::after{content:'';flex:1;height:1px;background:var(--rl);}
+.n1-lbl{color:var(--p4);}.n2-lbl{color:#7c3aed;}.n3-lbl{color:#0c4a6e;}.n4-lbl{color:#059669;}
+.n-txt{font-size:13px;font-weight:300;color:#2a2a26;line-height:1.7;}
+.vblock{margin-top:6px;display:flex;flex-direction:column;gap:5px;}
+.vligne{display:flex;gap:7px;align-items:flex-start;}
+.v-q{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--paper2);padding:1px 6px;border-radius:3px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.v-txt{font-style:italic;color:var(--muted);font-size:13px;line-height:1.55;}
+.v-seq{font-size:11px;color:#374151;font-weight:300;margin-top:3px;padding:5px 8px;background:var(--paper2);border-radius:3px;line-height:1.5;}
+.v-resume{font-size:12px;color:var(--p4);font-weight:500;margin-top:3px;font-style:italic;}
+.v-objectif{font-size:12px;color:#0c4a6e;font-weight:300;margin-top:3px;}
+.nuance{font-size:12px;font-weight:300;color:#374151;line-height:1.65;border-left:2px solid var(--rule);padding-left:9px;font-style:italic;margin-top:4px;}
+.nuance-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);margin-top:4px;}
+.glissement{background:#fefce8;border:1px solid #fde047;border-left:3px solid #eab308;padding:9px 13px;margin-top:8px;border-radius:0 4px 4px 0;}
+.g-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#854d0e;margin-bottom:3px;}
+.g-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.seq-box{background:var(--paper2);border-radius:4px;padding:8px 12px;margin-top:5px;}
+/* B3 (v5.6) — détail du centre du soleil : aligné sur la typo du document (mêmes tailles que .ci-*/.v-*) */
+.scc-card{background:white;border:1px solid var(--role-socle-edge);border-left:3px solid var(--role-socle);border-radius:4px;padding:11px 15px;margin-bottom:8px;}
+.scc-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;}
+.scc-code{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--role-socle);}
+.scc-nom{font-size:13px;font-weight:500;color:var(--ink);margin-left:6px;}
+.scc-coeur{font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;}
+.scc-coeur strong{color:var(--role-socle);}
+.scc-verbatim{font-size:13px;font-style:italic;color:var(--muted);line-height:1.55;margin-top:4px;}
+.scc-source{font-family:var(--mono);font-size:10px;color:var(--muted);font-style:normal;background:var(--paper2);padding:1px 6px;border-radius:3px;margin-left:6px;}
+.scc-perso{font-size:12px;font-weight:300;color:#374151;line-height:1.65;margin-top:5px;}
+/* B-boucles (v5.6) — séquence technique + démonstration de chaque boucle §04 */
+.bcl-seq{background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;line-height:1.6;}
+.bcl-seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;}
+.bcl-demo{background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;}
+.bcl-demo-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;}
+.seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.seq-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.limb-section{background:var(--p4b);border:1px solid var(--p4e);border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.limb-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.limb-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--p4);color:white;}
+.limb-items{display:flex;flex-direction:column;gap:8px;}
+.li{display:flex;flex-direction:column;gap:4px;}
+.li-q{display:inline-block;align-self:flex-start;font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:left;white-space:nowrap;}
+.li-content{font-size:12px;font-weight:300;color:#374151;line-height:1.55;}
+.li-v{font-style:italic;color:#92400e;margin-top:2px;font-size:12px;}
+.boucle-item{margin-bottom:14px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.bi-head{padding:9px 13px;display:flex;align-items:center;gap:9px;background:var(--paper2);}
+.bi-seq-label{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink);}
+.bi-scenario{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:9px;background:var(--ink);color:white;}
+.bi-body{padding:11px 13px;background:white;}
+.bi-reponse{font-size:12px;font-style:italic;color:var(--muted);line-height:1.6;margin-bottom:5px;border-left:2px solid var(--rule);padding-left:7px;}
+.bi-seq-detail{font-size:12px;font-weight:300;color:#374151;line-height:1.6;background:var(--paper2);padding:6px 10px;border-radius:3px;margin-bottom:5px;}
+.bi-labo{font-size:12px;font-weight:300;color:#374151;line-height:1.6;}
+.cout-item{margin-bottom:12px;border:1px solid var(--rule);border-left:3px solid;padding:12px 15px;border-radius:0 5px 5px 0;background:white;}
+.cout-item.fort{border-left-color:#dc2626;}
+.cout-item.moyen{border-left-color:#d97706;}
+.cout-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.cout-titre{font-size:13px;font-weight:500;margin-bottom:4px;}
+.cout-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.cout-v{font-size:12px;font-style:italic;color:var(--muted);margin-top:4px;}
+.gliss-transversal{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.gt-title{font-family:var(--serif);font-size:16px;font-weight:700;margin-bottom:10px;}
+.gt-items{display:flex;flex-direction:column;gap:8px;}
+.gt-item{display:grid;grid-template-columns:56px 1fr;gap:9px;font-size:13px;}
+.gt-q{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:center;align-self:start;margin-top:2px;}
+.gt-txt{font-weight:300;color:#374151;line-height:1.6;}
+.signature-finale{border:3px solid var(--ink);padding:30px 38px;margin:36px 0;position:relative;background:white;}
+.sf-stripe{position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.sf-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:12px;}
+.sf-eq{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center;text-align:center;}
+.sf-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px;}
+.sf-val{font-family:var(--serif);font-size:14px;font-style:italic;line-height:1.5;}
+.sf-val strong{font-style:normal;font-size:13px;display:block;margin-bottom:2px;}
+.sf-op{font-family:var(--serif);font-size:30px;color:var(--rule);}
+.sf-result{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.4;}
+.sf-recit{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);font-size:14px;font-weight:300;color:var(--ink);line-height:1.85;font-style:italic;}
+.v2-note{background:var(--p4b);border:1px solid var(--p4e);border-left:3px solid var(--p4);padding:12px 16px;margin-bottom:20px;border-radius:0 4px 4px 0;}
+.v2-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--p4);margin-bottom:4px;}
+.v2-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.6;}
+.circuits-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+.circuits-table thead tr{background:var(--ink);}
+.circuits-table thead th{color:white;padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;}
+.circuits-table thead th.num{text-align:center;width:60px;}
+.circuits-table tbody tr{border-bottom:1px solid var(--rl);}
+.circuits-table tbody tr:nth-child(even){background:var(--paper2);}
+.circuits-table tbody tr:last-child{border-bottom:none;}
+.circuits-table td{padding:7px 10px;vertical-align:middle;}
+.circuits-table td.nom-c{font-size:12px;font-weight:400;color:var(--ink);}
+.circuits-table td.num-c{text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;}
+.circuits-table td.num-c.haut{color:var(--p4);}
+.circuits-table td.num-c.moyen{color:var(--muted);}
+.niveau-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:2px;font-weight:500;}
+.nb-haut{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.nb-moyen{background:#fef3c7;color:#92400e;border:1px solid var(--p4e);}
+.nb-bas{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;}
+.signal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;}
+.sd-faible{background:var(--p4);}
+.sd-nulle{background:#d1d5db;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}.sp-icon.p2{background:var(--p2);}.sp-icon.p3{background:var(--p3);}.sp-icon.p4{background:var(--p4);}.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.sp-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.sp-col-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-factuel{font-size:13px;font-weight:300;color:#374151;line-height:1.7;}
+.sp-interprete{font-size:13px;font-weight:300;color:var(--ink);line-height:1.7;font-style:italic;}
+.sp-bullet{display:flex;gap:7px;margin-bottom:5px;align-items:flex-start;}
+.sp-bull{flex-shrink:0;margin-top:3px;font-size:11px;}
+.sp-bull.p1{color:var(--p1);}.sp-bull.p2{color:var(--p2);}.sp-bull.p3{color:var(--p3);}.sp-bull.p4{color:var(--p4);}.sp-bull.p5{color:var(--p5);}
+.sp-key{display:inline;font-weight:500;color:var(--ink);}
+
+/* Blocs techniques 1, 2, 3 — sobres, fond clair */
+.sp-tech-block{background:#f7f7f5;border-left:3px solid var(--rl);border-radius:0 4px 4px 0;padding:12px 16px;margin-top:10px;}
+.sp-tech-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:6px;}
+.sp-tech-content{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.sp-tech-content strong{color:var(--ink);font-weight:600;}
+
+/* Bloc 4 INTERPRÉTÉ — visuellement DISTINCT, fond de couleur du rôle */
+.sp-interprete-block{border-radius:6px;padding:18px 22px;margin-top:16px;border:1.5px solid;}
+.sp-interprete-block.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle);color:var(--role-socle);}
+.sp-interprete-block.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1);color:var(--role-str1);}
+.sp-interprete-block.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2);color:var(--role-str2);}
+.sp-interprete-block.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1);color:var(--role-fn1);}
+.sp-interprete-block.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2);color:var(--role-fn2);}
+.sp-interprete-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;}
+.sp-interprete-content{font-size:14px;font-weight:400;color:var(--ink);line-height:1.75;}
+.sp-interprete-content strong{font-weight:600;}
+.sp-interprete-content em{font-style:italic;color:#4b5563;}
+.footer{padding:14px 64px;font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--rule);flex-wrap:wrap;gap:4px;}
+/* Vue globale §01 : piliers empilés en barres horizontales pleine largeur */
+#moteur .ph-grid{display:flex !important;flex-direction:column !important;gap:10px !important;}
+#moteur .ph{display:flex !important;align-items:stretch;width:100%;}
+#moteur .ph-body{display:flex !important;align-items:center;gap:20px;flex:1;flex-wrap:wrap;}
+#moteur .ph-body .ph-nom{min-width:200px;}
+#moteur .ph-mode{margin-left:auto;text-align:right;}
+
+.gen-band{padding:8px 64px;background:#1a1a18;color:#faf8f3;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;}
+@media(max-width:700px){.gen-band{padding:8px 18px;}}
+
+
+:root{
+  --ink:#1a1a18;--paper:#faf8f3;--paper2:#f0ece0;--rule:#d8d0bc;--rl:#e8e2d4;
+  --p1:#2563eb;--p1b:#eff6ff;--p1e:#bfdbfe;
+  --p2:#7c3aed;--p2b:#f5f3ff;--p2e:#ddd6fe;
+  --p3:#059669;--p3b:#ecfdf5;--p3e:#a7f3d0;
+  --p4:#d97706;--p4b:#fffbeb;--p4e:#fde68a;
+  --p5:#dc2626;--p5b:#fef2f2;--p5e:#fecaca;
+  /* COULEURS PAR RÔLE (v5.2) — la couleur dépend du rôle, pas du code pilier */
+  --role-socle:#dc2626;--role-socle-bg:#fef2f2;--role-socle-edge:#fecaca;        /* ROUGE */
+  --role-str1:#ea580c;--role-str1-bg:#fff7ed;--role-str1-edge:#fed7aa;           /* ORANGE */
+  --role-str2:#ca8a04;--role-str2-bg:#fefce8;--role-str2-edge:#fde68a;           /* JAUNE doré */
+  --role-fn1:#16a34a;--role-fn1-bg:#f0fdf4;--role-fn1-edge:#bbf7d0;              /* VERT */
+  --role-fn2:#84cc16;--role-fn2-bg:#f7fee7;--role-fn2-edge:#d9f99d;              /* VERT PÂLE */
+  --sans:'DM Sans',sans-serif;--serif:'Playfair Display',serif;--mono:'DM Mono',monospace;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.75;max-width:900px;margin:0 auto;}
+
+/* CHAPITRE DIVIDERS (v5.2) — séparateurs entre les chapitres du bilan */
+.chapitre-divider{padding:32px 64px 28px;border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);background:linear-gradient(180deg, var(--paper2) 0%, var(--paper) 100%);text-align:center;margin-top:24px;}
+.chapitre-divider .chapitre-tag{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin-bottom:8px;font-weight:600;}
+.chapitre-divider .chapitre-titre{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--ink);line-height:1.3;margin-bottom:6px;}
+.chapitre-divider .chapitre-soustitre{font-size:13px;font-style:italic;color:var(--muted);line-height:1.5;}
+.chapitre-divider.chapitre-final{background:linear-gradient(180deg, var(--ink) 0%, #2a2a28 100%);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);}
+.chapitre-divider.chapitre-final .chapitre-tag{color:rgba(255,255,255,.6);}
+.chapitre-divider.chapitre-final .chapitre-titre{color:white;}
+.chapitre-divider.chapitre-final .chapitre-soustitre{color:rgba(255,255,255,.7);}
+
+/* CLASSES PAR RÔLE (v5.2) — utilisables sur badges, cellules, blocs */
+.role-socle{--c:var(--role-socle);--cb:var(--role-socle-bg);--ce:var(--role-socle-edge);}
+.role-str1{--c:var(--role-str1);--cb:var(--role-str1-bg);--ce:var(--role-str1-edge);}
+.role-str2{--c:var(--role-str2);--cb:var(--role-str2-bg);--ce:var(--role-str2-edge);}
+.role-fn1{--c:var(--role-fn1);--cb:var(--role-fn1-bg);--ce:var(--role-fn1-edge);}
+.role-fn2{--c:var(--role-fn2);--cb:var(--role-fn2-bg);--ce:var(--role-fn2-edge);}
+.role-badge{background:var(--c);color:white;font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;display:inline-block;}
+.role-cell{background:var(--cb);border:1px solid var(--ce);}
+.role-text{color:var(--c);}
+.cover{padding:56px 64px 40px;border-bottom:3px solid var(--ink);position:relative;}
+.cover::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.cover-tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.cover-nom{font-family:var(--serif);font-size:46px;font-weight:700;line-height:1.05;margin-bottom:6px;}
+.cover-titre{font-family:var(--serif);font-size:17px;font-style:italic;color:var(--muted);margin-bottom:28px;}
+.sig-box{border:2px solid var(--ink);padding:18px 24px;background:white;margin-bottom:24px;display:inline-block;}
+.sig-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px;}
+.sig-val{font-family:var(--serif);font-size:20px;font-style:italic;}
+.cover-meta{display:flex;gap:28px;flex-wrap:wrap;}
+.cm{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.cm strong{color:var(--ink);display:block;margin-bottom:1px;}
+.toc{padding:20px 64px;background:var(--paper2);border-bottom:1px solid var(--rule);}
+.toc-title{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;}
+.toc-items{display:flex;flex-wrap:wrap;gap:5px;}
+.toc-item{font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:10px;cursor:pointer;background:white;transition:all .15s;}
+.toc-item:hover{background:var(--ink);color:white;border-color:var(--ink);}
+.section{padding:36px 64px;border-bottom:1px solid var(--rule);}
+.s-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:3px;}
+.s-title{font-family:var(--serif);font-size:25px;font-weight:700;margin-bottom:18px;line-height:1.2;}
+.moteur{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.m-row{display:grid;grid-template-columns:52px 1fr 80px 72px;gap:0;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.m-badge{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;}
+.m-badge.p1{background:var(--p1);}.m-badge.p2{background:var(--p2);}.m-badge.p3{background:var(--p3);}.m-badge.p4{background:var(--p4);}.m-badge.p5{background:var(--p5);}
+/* COULEURS PAR RÔLE v5.2 — ces classes prennent le pas sur p1..p5 quand présentes */
+.m-badge.role-socle{background:var(--role-socle);}
+.m-badge.role-str1{background:var(--role-str1);}
+.m-badge.role-str2{background:var(--role-str2);}
+.m-badge.role-fn1{background:var(--role-fn1);}
+.m-badge.role-fn2{background:var(--role-fn2);}
+.m-body{padding:9px 13px;background:white;}
+.m-nom{font-size:13px;font-weight:500;}
+.m-mode{font-size:11px;font-style:italic;color:var(--muted);}
+.m-role{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:9px;font-weight:500;text-align:center;border-left:1px solid var(--rule);}
+.m-role.socle{background:var(--role-socle-bg);color:var(--role-socle);}
+.m-role.str1{background:var(--role-str1-bg);color:var(--role-str1);}
+.m-role.str2{background:var(--role-str2-bg);color:var(--role-str2);}
+.m-role.fn1{background:var(--role-fn1-bg);color:var(--role-fn1);}
+.m-role.fn2{background:var(--role-fn2-bg);color:var(--role-fn2);}
+.m-role.str{background:#e0f2fe;color:#0c4a6e;}
+.m-role.fn{background:var(--paper2);color:#374151;}
+.m-stat{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:11px;font-weight:500;border-left:1px solid var(--rule);background:var(--paper2);}
+.flow-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:16px 0;}
+.flow-cell{border-radius:5px;padding:10px 8px;text-align:center;border:1px solid;}
+.flow-cell.p1{background:var(--p1b);border-color:var(--p1e);}
+.flow-cell.p2{background:var(--p2b);border-color:var(--p2e);}
+.flow-cell.p3{background:var(--p3b);border-color:var(--p3e);}
+.flow-cell.p4{background:var(--p4b);border-color:var(--p4e);}
+.flow-cell.p5{background:var(--p5b);border-color:var(--p5e);}
+.flow-cell.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle-edge);}
+.flow-cell.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1-edge);}
+.flow-cell.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2-edge);}
+.flow-cell.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1-edge);}
+.flow-cell.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2-edge);}
+.fc-id{font-family:var(--mono);font-size:18px;font-weight:700;}
+.fc-id.p1{color:var(--p1);}.fc-id.p2{color:var(--p2);}.fc-id.p3{color:var(--p3);}.fc-id.p4{color:var(--p4);}.fc-id.p5{color:var(--p5);}
+.fc-id.role-socle{color:var(--role-socle);}
+.fc-id.role-str1{color:var(--role-str1);}
+.fc-id.role-str2{color:var(--role-str2);}
+.fc-id.role-fn1{color:var(--role-fn1);}
+.fc-id.role-fn2{color:var(--role-fn2);}
+.fc-n{font-family:var(--mono);font-size:14px;font-weight:700;display:block;margin:2px 0;}
+.fc-pct{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.fc-lbl{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.3;}
+.filtre-def{background:#fef9e7;border:1px solid #fde68a;border-left:3px solid #f59e0b;padding:13px 16px;border-radius:0 4px 4px 0;margin-bottom:14px;}
+.fd-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#92400e;margin-bottom:4px;}
+.fd-txt{font-size:13px;color:#374151;font-weight:300;line-height:1.65;}
+.filtre-box{background:var(--p4b);border:2px solid var(--p4e);border-radius:6px;padding:18px 22px;margin-bottom:14px;}
+.f-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--p4);margin-bottom:5px;}
+.f-val{font-family:var(--serif);font-size:21px;font-style:italic;color:var(--ink);margin-bottom:10px;line-height:1.3;}
+.f-preuve{display:flex;gap:9px;margin-bottom:7px;font-size:13px;font-weight:300;color:#374151;}
+.fp-num{font-family:var(--mono);font-size:11px;color:var(--p4);font-weight:500;flex-shrink:0;margin-top:1px;}
+.f-cand{font-size:14px;color:var(--ink);line-height:1.8;border-left:3px solid var(--p4e);padding-left:13px;font-style:italic;}
+.ph{display:grid;grid-template-columns:68px 1fr 155px;gap:0;border-radius:7px;overflow:hidden;margin-bottom:18px;border:1px solid var(--rule);}
+.ph-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px;}
+.ph-badge.p1{background:var(--p1);}.ph-badge.p2{background:var(--p2);}.ph-badge.p3{background:var(--p3);}.ph-badge.p4{background:var(--p4);}.ph-badge.p5{background:var(--p5);}
+.ph-id{font-family:var(--mono);font-size:20px;font-weight:700;color:white;}
+.ph-star{font-size:13px;color:rgba(255,255,255,.75);}
+.ph-body{padding:13px 17px;background:white;}
+.ph-nom{font-family:var(--serif);font-size:17px;font-weight:700;margin-bottom:3px;}
+.ph-rb{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 9px;border-radius:9px;margin-bottom:4px;}
+.ph-rb.socle{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.ph-rb.str{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;}
+.ph-rb.fn{background:#f3f4f6;color:#374151;border:1px solid #d1d5db;}
+.ph-rb.res{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.ph-rappel{font-size:11px;color:var(--muted);font-style:italic;}
+.ph-mode{padding:13px 14px;background:var(--paper2);border-left:1px solid var(--rule);display:flex;flex-direction:column;justify-content:center;}
+.ph-mlbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.ph-mval{font-family:var(--serif);font-size:13px;font-style:italic;line-height:1.4;}
+.circuit{margin-bottom:22px;border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.c-head{display:grid;grid-template-columns:auto auto 1fr auto;gap:9px;align-items:center;padding:11px 15px;border-bottom:1px solid var(--rule);}
+.c-head.p1{background:var(--p1b);}.c-head.p2{background:var(--p2b);}.c-head.p3{background:var(--p3b);}.c-head.p4{background:var(--p4b);}.c-head.p5{background:var(--p5b);}.c-head.adhoc{background:#fef3c7;}
+.ci-id{font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;color:white;}
+.ci-id.p1{background:var(--p1);}.ci-id.p2{background:var(--p2);}.ci-id.p3{background:var(--p3);}.ci-id.p4{background:var(--p4);}.ci-id.p5{background:var(--p5);}.ci-id.adhoc{background:#92400e;}
+.ci-freq{font-family:var(--mono);font-size:14px;font-weight:700;}
+.ci-freq.p1{color:var(--p1);}.ci-freq.p2{color:var(--p2);}.ci-freq.p3{color:var(--p3);}.ci-freq.p4{color:var(--p4);}.ci-freq.p5{color:var(--p5);}
+.ci-nom{font-size:13px;font-weight:500;}
+.c-body{padding:0;background:white;}
+.niveau{padding:13px 16px;border-bottom:1px solid var(--rl);}
+.niveau:last-child{border-bottom:none;}
+.n-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.n-lbl::after{content:'';flex:1;height:1px;background:var(--rl);}
+.n1-lbl{color:var(--p4);}.n2-lbl{color:#7c3aed;}.n3-lbl{color:#0c4a6e;}.n4-lbl{color:#059669;}
+.n-txt{font-size:13px;font-weight:300;color:#2a2a26;line-height:1.7;}
+.vblock{margin-top:6px;display:flex;flex-direction:column;gap:5px;}
+.vligne{display:flex;gap:7px;align-items:flex-start;}
+.v-q{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--paper2);padding:1px 6px;border-radius:3px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.v-txt{font-style:italic;color:var(--muted);font-size:13px;line-height:1.55;}
+.v-seq{font-size:11px;color:#374151;font-weight:300;margin-top:3px;padding:5px 8px;background:var(--paper2);border-radius:3px;line-height:1.5;}
+.v-resume{font-size:12px;color:var(--p4);font-weight:500;margin-top:3px;font-style:italic;}
+.v-objectif{font-size:12px;color:#0c4a6e;font-weight:300;margin-top:3px;}
+.nuance{font-size:12px;font-weight:300;color:#374151;line-height:1.65;border-left:2px solid var(--rule);padding-left:9px;font-style:italic;margin-top:4px;}
+.nuance-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);margin-top:4px;}
+.glissement{background:#fefce8;border:1px solid #fde047;border-left:3px solid #eab308;padding:9px 13px;margin-top:8px;border-radius:0 4px 4px 0;}
+.g-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#854d0e;margin-bottom:3px;}
+.g-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.seq-box{background:var(--paper2);border-radius:4px;padding:8px 12px;margin-top:5px;}
+/* B3 (v5.6) — détail du centre du soleil : aligné sur la typo du document (mêmes tailles que .ci-*/.v-*) */
+.scc-card{background:white;border:1px solid var(--role-socle-edge);border-left:3px solid var(--role-socle);border-radius:4px;padding:11px 15px;margin-bottom:8px;}
+.scc-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;}
+.scc-code{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--role-socle);}
+.scc-nom{font-size:13px;font-weight:500;color:var(--ink);margin-left:6px;}
+.scc-coeur{font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;}
+.scc-coeur strong{color:var(--role-socle);}
+.scc-verbatim{font-size:13px;font-style:italic;color:var(--muted);line-height:1.55;margin-top:4px;}
+.scc-source{font-family:var(--mono);font-size:10px;color:var(--muted);font-style:normal;background:var(--paper2);padding:1px 6px;border-radius:3px;margin-left:6px;}
+.scc-perso{font-size:12px;font-weight:300;color:#374151;line-height:1.65;margin-top:5px;}
+/* B-boucles (v5.6) — séquence technique + démonstration de chaque boucle §04 */
+.bcl-seq{background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;line-height:1.6;}
+.bcl-seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;}
+.bcl-demo{background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;}
+.bcl-demo-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;}
+.seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.seq-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.limb-section{background:var(--p4b);border:1px solid var(--p4e);border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.limb-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.limb-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--p4);color:white;}
+.limb-items{display:flex;flex-direction:column;gap:8px;}
+.li{display:flex;flex-direction:column;gap:4px;}
+.li-q{display:inline-block;align-self:flex-start;font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:left;white-space:nowrap;}
+.li-content{font-size:12px;font-weight:300;color:#374151;line-height:1.55;}
+.li-v{font-style:italic;color:#92400e;margin-top:2px;font-size:12px;}
+.boucle-item{margin-bottom:14px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.bi-head{padding:9px 13px;display:flex;align-items:center;gap:9px;background:var(--paper2);}
+.bi-seq-label{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink);}
+.bi-scenario{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:9px;background:var(--ink);color:white;}
+.bi-body{padding:11px 13px;background:white;}
+.bi-reponse{font-size:12px;font-style:italic;color:var(--muted);line-height:1.6;margin-bottom:5px;border-left:2px solid var(--rule);padding-left:7px;}
+.bi-seq-detail{font-size:12px;font-weight:300;color:#374151;line-height:1.6;background:var(--paper2);padding:6px 10px;border-radius:3px;margin-bottom:5px;}
+.bi-labo{font-size:12px;font-weight:300;color:#374151;line-height:1.6;}
+.cout-item{margin-bottom:12px;border:1px solid var(--rule);border-left:3px solid;padding:12px 15px;border-radius:0 5px 5px 0;background:white;}
+.cout-item.fort{border-left-color:#dc2626;}
+.cout-item.moyen{border-left-color:#d97706;}
+.cout-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.cout-titre{font-size:13px;font-weight:500;margin-bottom:4px;}
+.cout-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.cout-v{font-size:12px;font-style:italic;color:var(--muted);margin-top:4px;}
+.gliss-transversal{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.gt-title{font-family:var(--serif);font-size:16px;font-weight:700;margin-bottom:10px;}
+.gt-items{display:flex;flex-direction:column;gap:8px;}
+.gt-item{display:grid;grid-template-columns:56px 1fr;gap:9px;font-size:13px;}
+.gt-q{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:center;align-self:start;margin-top:2px;}
+.gt-txt{font-weight:300;color:#374151;line-height:1.6;}
+.signature-finale{border:3px solid var(--ink);padding:30px 38px;margin:36px 0;position:relative;background:white;}
+.sf-stripe{position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.sf-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:12px;}
+.sf-eq{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center;text-align:center;}
+.sf-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px;}
+.sf-val{font-family:var(--serif);font-size:14px;font-style:italic;line-height:1.5;}
+.sf-val strong{font-style:normal;font-size:13px;display:block;margin-bottom:2px;}
+.sf-op{font-family:var(--serif);font-size:30px;color:var(--rule);}
+.sf-result{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.4;}
+.sf-recit{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);font-size:14px;font-weight:300;color:var(--ink);line-height:1.85;font-style:italic;}
+.v2-note{background:var(--p4b);border:1px solid var(--p4e);border-left:3px solid var(--p4);padding:12px 16px;margin-bottom:20px;border-radius:0 4px 4px 0;}
+.v2-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--p4);margin-bottom:4px;}
+.v2-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.6;}
+.circuits-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+.circuits-table thead tr{background:var(--ink);}
+.circuits-table thead th{color:white;padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;}
+.circuits-table thead th.num{text-align:center;width:60px;}
+.circuits-table tbody tr{border-bottom:1px solid var(--rl);}
+.circuits-table tbody tr:nth-child(even){background:var(--paper2);}
+.circuits-table tbody tr:last-child{border-bottom:none;}
+.circuits-table td{padding:7px 10px;vertical-align:middle;}
+.circuits-table td.nom-c{font-size:12px;font-weight:400;color:var(--ink);}
+.circuits-table td.num-c{text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;}
+.circuits-table td.num-c.haut{color:var(--p4);}
+.circuits-table td.num-c.moyen{color:var(--muted);}
+.niveau-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:2px;font-weight:500;}
+.nb-haut{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.nb-moyen{background:#fef3c7;color:#92400e;border:1px solid var(--p4e);}
+.nb-bas{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;}
+.signal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;}
+.sd-faible{background:var(--p4);}
+.sd-nulle{background:#d1d5db;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}.sp-icon.p2{background:var(--p2);}.sp-icon.p3{background:var(--p3);}.sp-icon.p4{background:var(--p4);}.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.sp-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.sp-col-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-factuel{font-size:13px;font-weight:300;color:#374151;line-height:1.7;}
+.sp-interprete{font-size:13px;font-weight:300;color:var(--ink);line-height:1.7;font-style:italic;}
+.sp-bullet{display:flex;gap:7px;margin-bottom:5px;align-items:flex-start;}
+.sp-bull{flex-shrink:0;margin-top:3px;font-size:11px;}
+.sp-bull.p1{color:var(--p1);}.sp-bull.p2{color:var(--p2);}.sp-bull.p3{color:var(--p3);}.sp-bull.p4{color:var(--p4);}.sp-bull.p5{color:var(--p5);}
+.sp-key{display:inline;font-weight:500;color:var(--ink);}
+
+/* Blocs techniques 1, 2, 3 — sobres, fond clair */
+.sp-tech-block{background:#f7f7f5;border-left:3px solid var(--rl);border-radius:0 4px 4px 0;padding:12px 16px;margin-top:10px;}
+.sp-tech-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:6px;}
+.sp-tech-content{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.sp-tech-content strong{color:var(--ink);font-weight:600;}
+
+/* Bloc 4 INTERPRÉTÉ — visuellement DISTINCT, fond de couleur du rôle */
+.sp-interprete-block{border-radius:6px;padding:18px 22px;margin-top:16px;border:1.5px solid;}
+.sp-interprete-block.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle);color:var(--role-socle);}
+.sp-interprete-block.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1);color:var(--role-str1);}
+.sp-interprete-block.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2);color:var(--role-str2);}
+.sp-interprete-block.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1);color:var(--role-fn1);}
+.sp-interprete-block.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2);color:var(--role-fn2);}
+.sp-interprete-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;}
+.sp-interprete-content{font-size:14px;font-weight:400;color:var(--ink);line-height:1.75;}
+.sp-interprete-content strong{font-weight:600;}
+.sp-interprete-content em{font-style:italic;color:#4b5563;}
+.footer{padding:14px 64px;font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--rule);flex-wrap:wrap;gap:4px;}
+/* Vue globale §01 : piliers empilés en barres horizontales pleine largeur */
+#moteur .ph-grid{display:flex !important;flex-direction:column !important;gap:10px !important;}
+#moteur .ph{display:flex !important;align-items:stretch;width:100%;}
+#moteur .ph-body{display:flex !important;align-items:center;gap:20px;flex:1;flex-wrap:wrap;}
+#moteur .ph-body .ph-nom{min-width:200px;}
+#moteur .ph-mode{margin-left:auto;text-align:right;}
+
+.gen-band{padding:8px 64px;background:#1a1a18;color:#faf8f3;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;}
+@media(max-width:700px){.gen-band{padding:8px 18px;}}
+
+
+:root{
+  --ink:#1a1a18;--paper:#faf8f3;--paper2:#f0ece0;--rule:#d8d0bc;--rl:#e8e2d4;
+  --p1:#2563eb;--p1b:#eff6ff;--p1e:#bfdbfe;
+  --p2:#7c3aed;--p2b:#f5f3ff;--p2e:#ddd6fe;
+  --p3:#059669;--p3b:#ecfdf5;--p3e:#a7f3d0;
+  --p4:#d97706;--p4b:#fffbeb;--p4e:#fde68a;
+  --p5:#dc2626;--p5b:#fef2f2;--p5e:#fecaca;
+  /* COULEURS PAR RÔLE (v5.2) — la couleur dépend du rôle, pas du code pilier */
+  --role-socle:#dc2626;--role-socle-bg:#fef2f2;--role-socle-edge:#fecaca;        /* ROUGE */
+  --role-str1:#ea580c;--role-str1-bg:#fff7ed;--role-str1-edge:#fed7aa;           /* ORANGE */
+  --role-str2:#ca8a04;--role-str2-bg:#fefce8;--role-str2-edge:#fde68a;           /* JAUNE doré */
+  --role-fn1:#16a34a;--role-fn1-bg:#f0fdf4;--role-fn1-edge:#bbf7d0;              /* VERT */
+  --role-fn2:#84cc16;--role-fn2-bg:#f7fee7;--role-fn2-edge:#d9f99d;              /* VERT PÂLE */
+  --sans:'DM Sans',sans-serif;--serif:'Playfair Display',serif;--mono:'DM Mono',monospace;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.75;max-width:900px;margin:0 auto;}
+
+/* CHAPITRE DIVIDERS (v5.2) — séparateurs entre les chapitres du bilan */
+.chapitre-divider{padding:32px 64px 28px;border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);background:linear-gradient(180deg, var(--paper2) 0%, var(--paper) 100%);text-align:center;margin-top:24px;}
+.chapitre-divider .chapitre-tag{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin-bottom:8px;font-weight:600;}
+.chapitre-divider .chapitre-titre{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--ink);line-height:1.3;margin-bottom:6px;}
+.chapitre-divider .chapitre-soustitre{font-size:13px;font-style:italic;color:var(--muted);line-height:1.5;}
+.chapitre-divider.chapitre-final{background:linear-gradient(180deg, var(--ink) 0%, #2a2a28 100%);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);}
+.chapitre-divider.chapitre-final .chapitre-tag{color:rgba(255,255,255,.6);}
+.chapitre-divider.chapitre-final .chapitre-titre{color:white;}
+.chapitre-divider.chapitre-final .chapitre-soustitre{color:rgba(255,255,255,.7);}
+
+/* CLASSES PAR RÔLE (v5.2) — utilisables sur badges, cellules, blocs */
+.role-socle{--c:var(--role-socle);--cb:var(--role-socle-bg);--ce:var(--role-socle-edge);}
+.role-str1{--c:var(--role-str1);--cb:var(--role-str1-bg);--ce:var(--role-str1-edge);}
+.role-str2{--c:var(--role-str2);--cb:var(--role-str2-bg);--ce:var(--role-str2-edge);}
+.role-fn1{--c:var(--role-fn1);--cb:var(--role-fn1-bg);--ce:var(--role-fn1-edge);}
+.role-fn2{--c:var(--role-fn2);--cb:var(--role-fn2-bg);--ce:var(--role-fn2-edge);}
+.role-badge{background:var(--c);color:white;font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;display:inline-block;}
+.role-cell{background:var(--cb);border:1px solid var(--ce);}
+.role-text{color:var(--c);}
+.cover{padding:56px 64px 40px;border-bottom:3px solid var(--ink);position:relative;}
+.cover::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.cover-tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.cover-nom{font-family:var(--serif);font-size:46px;font-weight:700;line-height:1.05;margin-bottom:6px;}
+.cover-titre{font-family:var(--serif);font-size:17px;font-style:italic;color:var(--muted);margin-bottom:28px;}
+.sig-box{border:2px solid var(--ink);padding:18px 24px;background:white;margin-bottom:24px;display:inline-block;}
+.sig-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px;}
+.sig-val{font-family:var(--serif);font-size:20px;font-style:italic;}
+.cover-meta{display:flex;gap:28px;flex-wrap:wrap;}
+.cm{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.cm strong{color:var(--ink);display:block;margin-bottom:1px;}
+.toc{padding:20px 64px;background:var(--paper2);border-bottom:1px solid var(--rule);}
+.toc-title{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;}
+.toc-items{display:flex;flex-wrap:wrap;gap:5px;}
+.toc-item{font-size:12px;padding:3px 10px;border:1px solid var(--rule);border-radius:10px;cursor:pointer;background:white;transition:all .15s;}
+.toc-item:hover{background:var(--ink);color:white;border-color:var(--ink);}
+.section{padding:36px 64px;border-bottom:1px solid var(--rule);}
+.s-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:3px;}
+.s-title{font-family:var(--serif);font-size:25px;font-weight:700;margin-bottom:18px;line-height:1.2;}
+.moteur{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.m-row{display:grid;grid-template-columns:52px 1fr 80px 72px;gap:0;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.m-badge{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;}
+.m-badge.p1{background:var(--p1);}.m-badge.p2{background:var(--p2);}.m-badge.p3{background:var(--p3);}.m-badge.p4{background:var(--p4);}.m-badge.p5{background:var(--p5);}
+/* COULEURS PAR RÔLE v5.2 — ces classes prennent le pas sur p1..p5 quand présentes */
+.m-badge.role-socle{background:var(--role-socle);}
+.m-badge.role-str1{background:var(--role-str1);}
+.m-badge.role-str2{background:var(--role-str2);}
+.m-badge.role-fn1{background:var(--role-fn1);}
+.m-badge.role-fn2{background:var(--role-fn2);}
+.m-body{padding:9px 13px;background:white;}
+.m-nom{font-size:13px;font-weight:500;}
+.m-mode{font-size:11px;font-style:italic;color:var(--muted);}
+.m-role{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:9px;font-weight:500;text-align:center;border-left:1px solid var(--rule);}
+.m-role.socle{background:var(--role-socle-bg);color:var(--role-socle);}
+.m-role.str1{background:var(--role-str1-bg);color:var(--role-str1);}
+.m-role.str2{background:var(--role-str2-bg);color:var(--role-str2);}
+.m-role.fn1{background:var(--role-fn1-bg);color:var(--role-fn1);}
+.m-role.fn2{background:var(--role-fn2-bg);color:var(--role-fn2);}
+.m-role.str{background:#e0f2fe;color:#0c4a6e;}
+.m-role.fn{background:var(--paper2);color:#374151;}
+.m-stat{display:flex;align-items:center;justify-content:center;padding:7px;font-family:var(--mono);font-size:11px;font-weight:500;border-left:1px solid var(--rule);background:var(--paper2);}
+.flow-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:16px 0;}
+.flow-cell{border-radius:5px;padding:10px 8px;text-align:center;border:1px solid;}
+.flow-cell.p1{background:var(--p1b);border-color:var(--p1e);}
+.flow-cell.p2{background:var(--p2b);border-color:var(--p2e);}
+.flow-cell.p3{background:var(--p3b);border-color:var(--p3e);}
+.flow-cell.p4{background:var(--p4b);border-color:var(--p4e);}
+.flow-cell.p5{background:var(--p5b);border-color:var(--p5e);}
+.flow-cell.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle-edge);}
+.flow-cell.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1-edge);}
+.flow-cell.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2-edge);}
+.flow-cell.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1-edge);}
+.flow-cell.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2-edge);}
+.fc-id{font-family:var(--mono);font-size:18px;font-weight:700;}
+.fc-id.p1{color:var(--p1);}.fc-id.p2{color:var(--p2);}.fc-id.p3{color:var(--p3);}.fc-id.p4{color:var(--p4);}.fc-id.p5{color:var(--p5);}
+.fc-id.role-socle{color:var(--role-socle);}
+.fc-id.role-str1{color:var(--role-str1);}
+.fc-id.role-str2{color:var(--role-str2);}
+.fc-id.role-fn1{color:var(--role-fn1);}
+.fc-id.role-fn2{color:var(--role-fn2);}
+.fc-n{font-family:var(--mono);font-size:14px;font-weight:700;display:block;margin:2px 0;}
+.fc-pct{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.fc-lbl{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.3;}
+.filtre-def{background:#fef9e7;border:1px solid #fde68a;border-left:3px solid #f59e0b;padding:13px 16px;border-radius:0 4px 4px 0;margin-bottom:14px;}
+.fd-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#92400e;margin-bottom:4px;}
+.fd-txt{font-size:13px;color:#374151;font-weight:300;line-height:1.65;}
+.filtre-box{background:var(--p4b);border:2px solid var(--p4e);border-radius:6px;padding:18px 22px;margin-bottom:14px;}
+.f-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--p4);margin-bottom:5px;}
+.f-val{font-family:var(--serif);font-size:21px;font-style:italic;color:var(--ink);margin-bottom:10px;line-height:1.3;}
+.f-preuve{display:flex;gap:9px;margin-bottom:7px;font-size:13px;font-weight:300;color:#374151;}
+.fp-num{font-family:var(--mono);font-size:11px;color:var(--p4);font-weight:500;flex-shrink:0;margin-top:1px;}
+.f-cand{font-size:14px;color:var(--ink);line-height:1.8;border-left:3px solid var(--p4e);padding-left:13px;font-style:italic;}
+.ph{display:grid;grid-template-columns:68px 1fr 155px;gap:0;border-radius:7px;overflow:hidden;margin-bottom:18px;border:1px solid var(--rule);}
+.ph-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px;}
+.ph-badge.p1{background:var(--p1);}.ph-badge.p2{background:var(--p2);}.ph-badge.p3{background:var(--p3);}.ph-badge.p4{background:var(--p4);}.ph-badge.p5{background:var(--p5);}
+.ph-id{font-family:var(--mono);font-size:20px;font-weight:700;color:white;}
+.ph-star{font-size:13px;color:rgba(255,255,255,.75);}
+.ph-body{padding:13px 17px;background:white;}
+.ph-nom{font-family:var(--serif);font-size:17px;font-weight:700;margin-bottom:3px;}
+.ph-rb{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 9px;border-radius:9px;margin-bottom:4px;}
+.ph-rb.socle{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.ph-rb.str{background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;}
+.ph-rb.fn{background:#f3f4f6;color:#374151;border:1px solid #d1d5db;}
+.ph-rb.res{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.ph-rappel{font-size:11px;color:var(--muted);font-style:italic;}
+.ph-mode{padding:13px 14px;background:var(--paper2);border-left:1px solid var(--rule);display:flex;flex-direction:column;justify-content:center;}
+.ph-mlbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.ph-mval{font-family:var(--serif);font-size:13px;font-style:italic;line-height:1.4;}
+.circuit{margin-bottom:22px;border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.c-head{display:grid;grid-template-columns:auto auto 1fr auto;gap:9px;align-items:center;padding:11px 15px;border-bottom:1px solid var(--rule);}
+.c-head.p1{background:var(--p1b);}.c-head.p2{background:var(--p2b);}.c-head.p3{background:var(--p3b);}.c-head.p4{background:var(--p4b);}.c-head.p5{background:var(--p5b);}.c-head.adhoc{background:#fef3c7;}
+.ci-id{font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 7px;border-radius:3px;color:white;}
+.ci-id.p1{background:var(--p1);}.ci-id.p2{background:var(--p2);}.ci-id.p3{background:var(--p3);}.ci-id.p4{background:var(--p4);}.ci-id.p5{background:var(--p5);}.ci-id.adhoc{background:#92400e;}
+.ci-freq{font-family:var(--mono);font-size:14px;font-weight:700;}
+.ci-freq.p1{color:var(--p1);}.ci-freq.p2{color:var(--p2);}.ci-freq.p3{color:var(--p3);}.ci-freq.p4{color:var(--p4);}.ci-freq.p5{color:var(--p5);}
+.ci-nom{font-size:13px;font-weight:500;}
+.c-body{padding:0;background:white;}
+.niveau{padding:13px 16px;border-bottom:1px solid var(--rl);}
+.niveau:last-child{border-bottom:none;}
+.n-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.n-lbl::after{content:'';flex:1;height:1px;background:var(--rl);}
+.n1-lbl{color:var(--p4);}.n2-lbl{color:#7c3aed;}.n3-lbl{color:#0c4a6e;}.n4-lbl{color:#059669;}
+.n-txt{font-size:13px;font-weight:300;color:#2a2a26;line-height:1.7;}
+.vblock{margin-top:6px;display:flex;flex-direction:column;gap:5px;}
+.vligne{display:flex;gap:7px;align-items:flex-start;}
+.v-q{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--paper2);padding:1px 6px;border-radius:3px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+.v-txt{font-style:italic;color:var(--muted);font-size:13px;line-height:1.55;}
+.v-seq{font-size:11px;color:#374151;font-weight:300;margin-top:3px;padding:5px 8px;background:var(--paper2);border-radius:3px;line-height:1.5;}
+.v-resume{font-size:12px;color:var(--p4);font-weight:500;margin-top:3px;font-style:italic;}
+.v-objectif{font-size:12px;color:#0c4a6e;font-weight:300;margin-top:3px;}
+.nuance{font-size:12px;font-weight:300;color:#374151;line-height:1.65;border-left:2px solid var(--rule);padding-left:9px;font-style:italic;margin-top:4px;}
+.nuance-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);margin-top:4px;}
+.glissement{background:#fefce8;border:1px solid #fde047;border-left:3px solid #eab308;padding:9px 13px;margin-top:8px;border-radius:0 4px 4px 0;}
+.g-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#854d0e;margin-bottom:3px;}
+.g-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.seq-box{background:var(--paper2);border-radius:4px;padding:8px 12px;margin-top:5px;}
+/* B3 (v5.6) — détail du centre du soleil : aligné sur la typo du document (mêmes tailles que .ci-*/.v-*) */
+.scc-card{background:white;border:1px solid var(--role-socle-edge);border-left:3px solid var(--role-socle);border-radius:4px;padding:11px 15px;margin-bottom:8px;}
+.scc-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;}
+.scc-code{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--role-socle);}
+.scc-nom{font-size:13px;font-weight:500;color:var(--ink);margin-left:6px;}
+.scc-coeur{font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;}
+.scc-coeur strong{color:var(--role-socle);}
+.scc-verbatim{font-size:13px;font-style:italic;color:var(--muted);line-height:1.55;margin-top:4px;}
+.scc-source{font-family:var(--mono);font-size:10px;color:var(--muted);font-style:normal;background:var(--paper2);padding:1px 6px;border-radius:3px;margin-left:6px;}
+.scc-perso{font-size:12px;font-weight:300;color:#374151;line-height:1.65;margin-top:5px;}
+/* B-boucles (v5.6) — séquence technique + démonstration de chaque boucle §04 */
+.bcl-seq{background:#fafafa;border-left:2px solid var(--rl);padding:10px 14px;margin-top:10px;font-size:12px;color:#4b5563;line-height:1.6;}
+.bcl-seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:4px;}
+.bcl-demo{background:var(--role-socle-bg);border-left:3px solid var(--role-socle);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--ink);line-height:1.7;}
+.bcl-demo-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--role-socle);display:block;margin-bottom:4px;}
+.seq-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.seq-txt{font-size:12px;color:#374151;font-weight:300;line-height:1.6;}
+.limb-section{background:var(--p4b);border:1px solid var(--p4e);border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.limb-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.limb-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--p4);color:white;}
+.limb-items{display:flex;flex-direction:column;gap:8px;}
+.li{display:flex;flex-direction:column;gap:4px;}
+.li-q{display:inline-block;align-self:flex-start;font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:left;white-space:nowrap;}
+.li-content{font-size:12px;font-weight:300;color:#374151;line-height:1.55;}
+.li-v{font-style:italic;color:#92400e;margin-top:2px;font-size:12px;}
+.boucle-item{margin-bottom:14px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;}
+.bi-head{padding:9px 13px;display:flex;align-items:center;gap:9px;background:var(--paper2);}
+.bi-seq-label{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink);}
+.bi-scenario{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:9px;background:var(--ink);color:white;}
+.bi-body{padding:11px 13px;background:white;}
+.bi-reponse{font-size:12px;font-style:italic;color:var(--muted);line-height:1.6;margin-bottom:5px;border-left:2px solid var(--rule);padding-left:7px;}
+.bi-seq-detail{font-size:12px;font-weight:300;color:#374151;line-height:1.6;background:var(--paper2);padding:6px 10px;border-radius:3px;margin-bottom:5px;}
+.bi-labo{font-size:12px;font-weight:300;color:#374151;line-height:1.6;}
+.cout-item{margin-bottom:12px;border:1px solid var(--rule);border-left:3px solid;padding:12px 15px;border-radius:0 5px 5px 0;background:white;}
+.cout-item.fort{border-left-color:#dc2626;}
+.cout-item.moyen{border-left-color:#d97706;}
+.cout-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:3px;}
+.cout-titre{font-size:13px;font-weight:500;margin-bottom:4px;}
+.cout-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.cout-v{font-size:12px;font-style:italic;color:var(--muted);margin-top:4px;}
+.gliss-transversal{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 18px;margin-bottom:16px;}
+.gt-title{font-family:var(--serif);font-size:16px;font-weight:700;margin-bottom:10px;}
+.gt-items{display:flex;flex-direction:column;gap:8px;}
+.gt-item{display:grid;grid-template-columns:56px 1fr;gap:9px;font-size:13px;}
+.gt-q{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;background:var(--paper2);border:1px solid var(--rule);text-align:center;align-self:start;margin-top:2px;}
+.gt-txt{font-weight:300;color:#374151;line-height:1.6;}
+.signature-finale{border:3px solid var(--ink);padding:30px 38px;margin:36px 0;position:relative;background:white;}
+.sf-stripe{position:absolute;top:0;left:0;right:0;height:4px;background:repeating-linear-gradient(90deg,var(--p4) 0,var(--p4) 8px,transparent 8px,transparent 16px);}
+.sf-label{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:12px;}
+.sf-eq{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center;text-align:center;}
+.sf-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px;}
+.sf-val{font-family:var(--serif);font-size:14px;font-style:italic;line-height:1.5;}
+.sf-val strong{font-style:normal;font-size:13px;display:block;margin-bottom:2px;}
+.sf-op{font-family:var(--serif);font-size:30px;color:var(--rule);}
+.sf-result{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.4;}
+.sf-recit{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);font-size:14px;font-weight:300;color:var(--ink);line-height:1.85;font-style:italic;}
+.v2-note{background:var(--p4b);border:1px solid var(--p4e);border-left:3px solid var(--p4);padding:12px 16px;margin-bottom:20px;border-radius:0 4px 4px 0;}
+.v2-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--p4);margin-bottom:4px;}
+.v2-txt{font-size:13px;font-weight:300;color:#374151;line-height:1.6;}
+.circuits-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+.circuits-table thead tr{background:var(--ink);}
+.circuits-table thead th{color:white;padding:7px 10px;text-align:left;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;}
+.circuits-table thead th.num{text-align:center;width:60px;}
+.circuits-table tbody tr{border-bottom:1px solid var(--rl);}
+.circuits-table tbody tr:nth-child(even){background:var(--paper2);}
+.circuits-table tbody tr:last-child{border-bottom:none;}
+.circuits-table td{padding:7px 10px;vertical-align:middle;}
+.circuits-table td.nom-c{font-size:12px;font-weight:400;color:var(--ink);}
+.circuits-table td.num-c{text-align:center;font-family:var(--mono);font-size:11px;font-weight:700;}
+.circuits-table td.num-c.haut{color:var(--p4);}
+.circuits-table td.num-c.moyen{color:var(--muted);}
+.niveau-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:2px;font-weight:500;}
+.nb-haut{background:var(--p4b);color:var(--p4);border:1px solid var(--p4e);}
+.nb-moyen{background:#fef3c7;color:#92400e;border:1px solid var(--p4e);}
+.nb-bas{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;}
+.signal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;}
+.sd-faible{background:var(--p4);}
+.sd-nulle{background:#d1d5db;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}.sp-icon.p2{background:var(--p2);}.sp-icon.p3{background:var(--p3);}.sp-icon.p4{background:var(--p4);}.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.sp-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.sp-col-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-factuel{font-size:13px;font-weight:300;color:#374151;line-height:1.7;}
+.sp-interprete{font-size:13px;font-weight:300;color:var(--ink);line-height:1.7;font-style:italic;}
+.sp-bullet{display:flex;gap:7px;margin-bottom:5px;align-items:flex-start;}
+.sp-bull{flex-shrink:0;margin-top:3px;font-size:11px;}
+.sp-bull.p1{color:var(--p1);}.sp-bull.p2{color:var(--p2);}.sp-bull.p3{color:var(--p3);}.sp-bull.p4{color:var(--p4);}.sp-bull.p5{color:var(--p5);}
+.sp-key{display:inline;font-weight:500;color:var(--ink);}
+
+/* Blocs techniques 1, 2, 3 — sobres, fond clair */
+.sp-tech-block{background:#f7f7f5;border-left:3px solid var(--rl);border-radius:0 4px 4px 0;padding:12px 16px;margin-top:10px;}
+.sp-tech-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:6px;}
+.sp-tech-content{font-size:13px;font-weight:300;color:#374151;line-height:1.65;}
+.sp-tech-content strong{color:var(--ink);font-weight:600;}
+
+/* Bloc 4 INTERPRÉTÉ — visuellement DISTINCT, fond de couleur du rôle */
+.sp-interprete-block{border-radius:6px;padding:18px 22px;margin-top:16px;border:1.5px solid;}
+.sp-interprete-block.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle);color:var(--role-socle);}
+.sp-interprete-block.role-str1{background:var(--role-str1-bg);border-color:var(--role-str1);color:var(--role-str1);}
+.sp-interprete-block.role-str2{background:var(--role-str2-bg);border-color:var(--role-str2);color:var(--role-str2);}
+.sp-interprete-block.role-fn1{background:var(--role-fn1-bg);border-color:var(--role-fn1);color:var(--role-fn1);}
+.sp-interprete-block.role-fn2{background:var(--role-fn2-bg);border-color:var(--role-fn2);color:var(--role-fn2);}
+.sp-interprete-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:10px;display:flex;align-items:center;}
+.sp-interprete-content{font-size:14px;font-weight:400;color:var(--ink);line-height:1.75;}
+.sp-interprete-content strong{font-weight:600;}
+.sp-interprete-content em{font-style:italic;color:#4b5563;}
+.footer{padding:14px 64px;font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--rule);flex-wrap:wrap;gap:4px;}
+/* Vue globale §01 : piliers empilés en barres horizontales pleine largeur */
+#moteur .ph-grid{display:flex !important;flex-direction:column !important;gap:10px !important;}
+#moteur .ph{display:flex !important;align-items:stretch;width:100%;}
+#moteur .ph-body{display:flex !important;align-items:center;gap:20px;flex:1;flex-wrap:wrap;}
+#moteur .ph-body .ph-nom{min-width:200px;}
+#moteur .ph-mode{margin-left:auto;text-align:right;}
+
+
+:root{
+  --ink:#1a1a1a; --muted:#6b7280; --rule:#e5e7eb; --paper:#ffffff; --paper2:#f7f6f3;
+  --serif:'Playfair Display',serif; --sans:'DM Sans',sans-serif; --mono:'DM Mono',monospace;
+  --p1:#2563eb; --p2:#0891b2; --p3:#0e7490; --p4:#16a34a; --p5:#ca8a04;
+  --accent:#0e7490; --filtre:#dc2626; --mode:#7c2d12;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);color:var(--ink);background:var(--paper);font-size:14px;line-height:1.65;}
+.page{max-width:880px;margin:0 auto;padding:0 0 80px;}
+
+/* ───── en-tête de section, style étalon ───── */
+.s-head{padding:40px 56px 26px;border-bottom:3px solid var(--ink);background:var(--paper2);}
+.s-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+.s-head h1{font-family:var(--serif);font-size:30px;font-weight:700;line-height:1.2;}
+.s-head .sous{margin-top:10px;font-size:14.5px;color:#374151;max-width:640px;}
+.s-head .sous strong{font-weight:700;}
+
+/* ───── temps ───── */
+.temps{padding:34px 56px 8px;}
+.temps + .temps{border-top:1px solid var(--rule);margin-top:26px;}
+.t-num{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;}
+.temps h2{font-family:var(--serif);font-size:21px;font-weight:600;margin:4px 0 10px;}
+.temps p{max-width:660px;color:#1f2937;}
+.temps p + p{margin-top:8px;}
+em.k{font-style:normal;font-weight:700;}
+
+/* ───── scène visuelle ───── */
+.scene{margin:22px 0 14px;padding:26px 22px;border:1px solid var(--rule);border-radius:10px;background:var(--paper2);text-align:center;}
+.scene .legende{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;letter-spacing:.04em;}
+
+/* T1 — la boucle naturelle */
+.boucle{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
+.b-outil{width:118px;border:1.5px solid var(--rule);border-radius:8px;background:white;padding:10px 6px 9px;}
+.b-outil .picto{width:34px;height:34px;border:1.5px dashed #cbd5e1;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:7.5px;color:#94a3b8;}
+.b-outil .code{font-family:var(--mono);font-size:10px;font-weight:700;}
+.b-outil .nom{font-size:11px;line-height:1.35;color:#374151;}
+.b-outil .verbe{font-size:10px;color:var(--muted);font-style:italic;margin-top:2px;}
+.b-fl{font-size:17px;color:#9ca3af;}
+.c1{border-top:3px solid var(--p1);} .c2{border-top:3px solid var(--p2);} .c3{border-top:3px solid var(--p3);} .c4{border-top:3px solid var(--p4);} .c5{border-top:3px solid var(--p5);}
+
+/* T2/T3 — la boîte et la tuile qui dépasse */
+.atelier{display:flex;align-items:flex-end;justify-content:center;gap:48px;flex-wrap:wrap;}
+.boite{display:inline-flex;align-items:flex-end;gap:6px;padding:14px 18px 0;border:3px solid #475569;border-top:none;border-radius:0 0 10px 10px;background:#e2e8f0;position:relative;}
+.boite::after{content:"la boîte — vos 5 outils";position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:#64748b;white-space:nowrap;}
+.tuile{width:46px;height:40px;background:#94a3b8;border-radius:6px 6px 0 0;font-family:var(--mono);font-size:11px;color:white;display:flex;align-items:center;justify-content:center;}
+.tuile.socle{height:64px;background:var(--accent);font-weight:700;box-shadow:0 -3px 10px rgba(14,116,144,.35);}
+.main-fl{font-size:26px;color:var(--accent);}
+.outil-sorti{display:inline-block;text-align:center;}
+.outil-sorti .corps{width:92px;height:66px;background:var(--accent);border-radius:10px;color:white;font-family:var(--mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;position:relative;margin:0 auto;}
+.outil-sorti .leg{font-family:var(--mono);font-size:9px;color:#64748b;margin-top:8px;max-width:130px;}
+.bouton{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;background:var(--filtre);border:3px solid white;box-shadow:0 0 0 2px var(--filtre);}
+.bouton.on::after{content:"toujours ON";position:absolute;top:-20px;right:-8px;font-family:var(--mono);font-size:8px;color:var(--filtre);font-weight:700;white-space:nowrap;}
+
+/* T4 — les questions du filtre */
+.qrow{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.qpill{border:1.5px solid var(--filtre);color:#991b1b;border-radius:16px;padding:5px 14px;font-size:12.5px;font-style:italic;background:white;}
+.synthese{margin-top:14px;font-size:13px;color:#374151;}
+.synthese strong{font-family:var(--serif);font-size:14.5px;}
+
+/* T5 — circuits */
+.sortie{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;}
+.circuits{display:flex;flex-direction:column;gap:7px;text-align:left;}
+.circ{display:flex;align-items:center;gap:9px;background:white;border:1px solid var(--rule);border-radius:7px;padding:6px 12px;font-size:12px;}
+.circ .fl{color:var(--accent);font-weight:700;}
+.badge{font-family:var(--mono);font-size:8.5px;font-weight:700;border-radius:3px;padding:1px 6px;letter-spacing:.05em;}
+.bh{background:#1f2937;color:white;} .bm{background:#9ca3af;color:white;} .bf{background:#e5e7eb;color:#6b7280;}
+.contre{margin-top:18px;padding:12px 16px;border-left:3px solid #9ca3af;background:white;border-radius:0 7px 7px 0;text-align:left;font-size:12.5px;max-width:560px;margin-left:auto;margin-right:auto;}
+.vb{font-style:italic;color:#374151;}
+
+/* T6 — le mode */
+.etiq-mode{display:inline-block;border:1.5px solid var(--mode);color:var(--mode);background:#fff7ed;border-radius:7px;padding:6px 14px;font-size:13px;font-style:italic;margin-top:6px;}
+.deduction{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+.deduction .dfl{font-size:20px;color:var(--mode);}
+.mini-circs{display:flex;flex-direction:column;gap:5px;text-align:left;}
+.mini-circs .circ{padding:4px 10px;font-size:11px;}
+.versus{display:flex;gap:14px;margin:18px auto 4px;max-width:680px;flex-wrap:wrap;text-align:left;}
+.versus .col{flex:1;min-width:260px;border-radius:9px;padding:13px 16px;font-size:12.5px;line-height:1.65;}
+.versus .col.f{border:2px solid var(--filtre);background:#fef2f2;}
+.versus .col.m{border:2px solid var(--mode);background:#fff7ed;}
+.versus .ct{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px;}
+.versus .col.f .ct{color:var(--filtre);} .versus .col.m .ct{color:var(--mode);}
+.versus li{margin:4px 0 4px 16px;}
+.mnemo{margin:14px auto 0;max-width:640px;border:1.5px solid var(--ink);border-radius:8px;background:white;padding:10px 16px;font-size:13px;text-align:center;}
+.mnemo strong{font-family:var(--serif);}
+
+/* T7 — la valise complète */
+.valise{display:flex;gap:12px;justify-content:center;align-items:stretch;flex-wrap:wrap;}
+.v-outil{width:150px;border:1.5px solid var(--rule);border-radius:9px;background:white;padding:11px 9px;}
+.v-outil.s{border:2.5px solid var(--accent);background:#ecfeff;box-shadow:0 2px 10px rgba(14,116,144,.12);}
+.v-outil.r{border:1.5px solid #94a3b8;background:#f8fafc;}
+.v-outil .role{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.v-outil.s .role{color:var(--accent);} .v-outil.r .role{color:#475569;} .v-outil .role.d{color:#9ca3af;}
+.v-outil .vnom{font-size:12px;font-weight:700;margin:3px 0 4px;}
+.v-outil .vdesc{font-size:10.5px;color:var(--muted);line-height:1.45;}
+.v-outil .vmode{font-size:10px;font-style:italic;color:var(--mode);border-top:1px dashed var(--rule);margin-top:6px;padding-top:5px;line-height:1.4;}
+.v-outil .vmode::before{content:"mode · ";font-family:var(--mono);font-size:8px;font-style:normal;font-weight:700;letter-spacing:.06em;}
+.v-fleches{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:12px;}
+
+/* T7 — la boucle du temps 1, enrichie */
+.b-outil.e{width:148px;position:relative;text-align:center;padding-bottom:9px;}
+.b-outil.e .role{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#9ca3af;margin-top:4px;}
+.b-outil.e.soc{transform:translateY(-12px);border-width:2.5px;border-color:var(--accent);background:#ecfeff;box-shadow:0 5px 14px rgba(14,116,144,.16);}
+.b-outil.e.soc .role{color:var(--accent);}
+.b-outil.e.renf .role{color:#475569;}
+.b-outil.e .lf{font-size:9.5px;font-style:italic;color:#991b1b;border-top:1px dashed var(--rule);margin-top:6px;padding-top:5px;line-height:1.45;text-align:left;}
+.b-outil.e .lm{font-size:9.5px;font-style:italic;color:var(--mode);border-top:1px dashed var(--rule);margin-top:5px;padding-top:5px;line-height:1.45;text-align:left;}
+.pico-f{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--filtre);vertical-align:-1px;margin-right:4px;}
+.pico-m{display:inline-block;width:10px;height:10px;background:var(--mode);vertical-align:-1px;margin-right:5px;transform:rotate(45deg);border-radius:2px;}
+.btn-on{position:absolute;top:-10px;right:-10px;width:20px;height:20px;border-radius:50%;background:var(--filtre);border:3px solid white;box-shadow:0 0 0 2px var(--filtre);}
+.btn-on::after{content:"toujours ON";position:absolute;top:-19px;right:-6px;font-family:var(--mono);font-size:7.5px;color:var(--filtre);font-weight:700;white-space:nowrap;}
+
+/* encart final */
+.suite{margin:38px 56px 0;padding:18px 22px;border:2px solid var(--ink);border-radius:10px;background:var(--paper2);font-size:13.5px;line-height:1.7;}
+.suite strong{font-family:var(--serif);}
+
+/* marqueur exemple fictif */
+.fictif{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:3px;padding:1px 8px;letter-spacing:.06em;vertical-align:middle;margin-left:8px;}
+@media (max-width:640px){.s-head,.temps{padding-left:22px;padding-right:22px;}.suite{margin-left:22px;margin-right:22px;}}
+
+
+.gen-band{padding:8px 64px;background:#1a1a18;color:#faf8f3;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;}
+.fr-enc{border:1.5px solid #b91c1c;border-radius:8px;padding:14px 18px;background:#fff;margin-bottom:18px;}
+.fr-l{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#b91c1c;text-transform:uppercase;margin-bottom:5px;}
+.fr-t{font-size:15px;font-weight:600;color:#1f2937;line-height:1.5;}
+.fr-x{font-size:13px;color:#374151;line-height:1.65;margin-top:8px;}
+.pr-list{display:flex;flex-direction:column;gap:10px;}
+.pr{background:white;border:1px solid var(--rl);border-left:3px solid var(--p3);border-radius:5px;padding:11px 15px;}
+.pr-n{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--p3);margin-bottom:4px;}
+.pr-x{font-size:12.5px;color:#374151;line-height:1.6;}
+.cc-list{display:flex;flex-direction:column;gap:8px;margin:14px 0;}
+.cc{background:#fff;border:1px solid var(--rl);border-left:3px solid #9ca3af;border-radius:4px;padding:9px 13px;}
+.cc-p3{border-left-color:var(--p3);} .cc-p1{border-left-color:var(--p1);} .cc-p5{border-left-color:var(--p5);}
+.cc-p2{border-left-color:var(--p2);} .cc-p4{border-left-color:var(--p4);}
+.cc-h{font-size:12.5px;color:#1f2937;}
+.cc-n{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:6px;}
+.cc-adhoc{display:inline-block;background:#c2410c;color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.08em;font-weight:700;}
+.cc-v{font-size:11.5px;font-style:italic;color:#4b5563;margin-top:3px;line-height:1.5;}
+.cc-ref{font-family:var(--mono);font-size:9px;font-style:normal;color:var(--muted);margin-left:7px;}
+.cc-p{font-size:12px;color:#374151;margin-top:3px;line-height:1.55;}
+.rp{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:13px 16px;margin-top:8px;}
+.rp-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#15803d;margin-bottom:7px;}
+.rp-t{font-family:var(--mono);font-size:11px;color:#15803d;margin-top:9px;}
+.rp-x{font-size:12.5px;color:#374151;line-height:1.65;margin-top:3px;}
+.sg{border:2px solid #1a1a18;border-radius:8px;padding:15px 19px;margin-top:16px;background:#fff;}
+.sg-l{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#1a1a18;margin-bottom:8px;}
+.sg-r{font-size:13px;color:#1f2937;line-height:1.7;margin-top:6px;}
+
+.ecl{display:flex;gap:26px;align-items:center;margin:16px 0 18px;flex-wrap:wrap;}
+.ecl-carte{flex:0 0 auto;}
+.ecl-carte .b-outil.zoomc{width:230px;margin:0;}
+.ecl-carte .b-outil.zoomc .nom{font-size:14px;}
+.ecl-carte .b-outil.zoomc .lf,.ecl-carte .b-outil.zoomc .lm{font-size:11px;}
+.ecl-x{flex:1;min-width:280px;}
+.ecl-x p{font-size:13.5px;color:#374151;line-height:1.7;margin:0;}
+@media(max-width:700px){.ecl{flex-direction:column;align-items:flex-start;}}
+
+.picto svg{width:22px;height:22px;display:block;margin:0 auto 2px;}
+.b-outil .picto{font-size:0;}
+/* === REPÈRES D'INVENTAIRE (ajout) === */
+.perso{background:#ecfdf5;border:1px dashed #10b981;border-radius:3px;padding:0 6px;font-family:var(--mono);font-size:.92em;color:#047857;font-style:normal;}
+.perso::before{content:"⟢ ";font-size:.8em;opacity:.7;}
+.atrancher{background:#fef2f2;border:1px solid #fca5a5;border-radius:3px;padding:0 6px;font-family:var(--mono);font-size:9px;color:#b91c1c;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle;}
+.inv-legende{padding:14px 64px;background:#1f2937;color:#e5e7eb;font-family:'DM Mono',monospace;font-size:11px;line-height:1.7;}
+.inv-legende b{color:#fff;}
+.inv-legende .perso{color:#6ee7b7;background:transparent;border-color:#10b981;}
+
+
+/* niveau EN_SOUTIEN (nouveau nommage) */
+.niveau-badge.nb-soutien{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc;}
+.num-c.soutien{color:#0369a1;}
+
+
+/* ===== CSS du TABLEAU VALIDÉ (inv-table) — repris de la visu def ===== */
+
+:root{
+ --p1c:#185FA5;--p2c:#534AB7;--p3c:#993C1D;--p4c:#0F6E56;--p5c:#993556;
+ --text:#1a1a1a;--text2:#555;--text3:#888;--bg:#fafafa;--white:#fff;--border:#ddd;--border-light:#eee;--grey-na:#f0f0f0;--grey-na-text:#bbb;
+ --haut-bg:#d6f5e3;--haut-c:#0f6e56;--moyen-bg:#fdf3d4;--moyen-c:#9a7b15;--faible-bg:#f3e6e6;--faible-c:#993556;--soutien-bg:#ececf6;--soutien-c:#534AB7;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.5;color:var(--text);background:var(--bg);padding:1.5rem 1rem;max-width:1500px;margin:0 auto;}
+.gen-band{padding:8px 16px;background:#1a1a18;color:#faf8f3;font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.06em;margin-bottom:14px;border-radius:5px;}
+.inv-header{margin-top:.4rem;padding:12px 16px;background:#2c2c2a;color:white;border-radius:6px 6px 0 0;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+.inv-title{font-size:15px;font-weight:600;}
+.inv-stats{font-size:12px;opacity:.85;}
+table.inv-table{width:100%;border-collapse:collapse;background:var(--white);border-radius:0 0 6px 6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);font-size:12px;table-layout:fixed;}
+table.inv-table th,table.inv-table td{padding:7px 8px;text-align:center;vertical-align:middle;border-bottom:.5px solid var(--border-light);}
+table.inv-table th{background:#f5f5f5;font-weight:600;font-size:10.5px;color:var(--text2);border-bottom:1px solid var(--border);}
+table.inv-table th.circuit-label,table.inv-table td.circuit-label{text-align:left;width:22%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+table.inv-table th.cap-col,table.inv-table td.cap-col{text-align:left;width:15%;font-size:11px;color:var(--text2);}
+table.inv-table th.niv-col,table.inv-table td.niv-col{width:8%;}
+table.inv-table th.prof-col,table.inv-table td.prof-col{width:8%;font-size:11px;}
+table.inv-table th.bloc-col,table.inv-table td.bloc-col{text-align:left;width:11%;font-size:10.5px;color:var(--text3);}
+table.inv-table th.num,table.inv-table td.num{width:5.2%;}
+table.inv-table td.num{font-family:ui-monospace,monospace;font-size:12px;}
+table.inv-table td.total-col{font-weight:700;}
+table.inv-table td.na{background:var(--grey-na);color:var(--grey-na-text);}
+.niv-chip{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;}
+.niv-chip.haut{background:var(--haut-bg);color:var(--haut-c);}
+.niv-chip.moyen{background:var(--moyen-bg);color:var(--moyen-c);}
+.niv-chip.faible{background:var(--faible-bg);color:var(--faible-c);}
+.niv-chip.soutien{background:var(--soutien-bg);color:var(--soutien-c);}
+table.inv-table tr.owner-divider td{padding:9px 12px;text-align:left;font-weight:700;font-size:12.5px;border-bottom:1px solid var(--border);}
+table.inv-table tr.owner-divider .role-badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px;margin-left:10px;vertical-align:middle;}
+table.inv-table tr.bloc-divider td{padding:5px 12px;text-align:left;font-size:10.5px;font-style:italic;color:var(--text3);background:#fcfcfc;}
+table.inv-table tr.sous-total td{background:#f7f7f7;font-size:11px;color:var(--text2);font-weight:600;}
+table.inv-table tr.total-pilier td{background:#ececec;font-weight:700;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.inv-legende{padding:14px 16px;background:#1f2937;color:#e5e7eb;font-family:ui-monospace,monospace;font-size:11px;line-height:1.7;border-radius:5px;margin-bottom:14px;}
+.inv-legende b{color:#fff;}
+.footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border-light);font-size:10px;color:var(--text3);text-align:center;}
+
+/* ===== Ajustements d'intégration tableau dans le bilan ===== */
+.inv-wrap{margin:8px 0 24px;}
+.bloc-divider td{background:#f0ece0;font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:#1a1a18;font-weight:700;padding:6px 14px;}
+.sous-total td{background:#faf8f3;font-style:italic;font-size:10px;color:#6b7280;border-top:1px dashed #d8d0bc;}
+.total-pilier td{background:#ececec;font-weight:700;font-size:11px;border-top:2px solid #1a1a18;}
+.lire-tableau{background:#f9fafb;border:1px solid var(--rl);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:11.5px;color:#374151;line-height:1.6;}
+.lire-tableau strong{color:var(--ink);}
+.expl-bloc{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:13px 16px;margin:8px 0 18px;}
+.expl-bloc.role-socle{background:var(--role-socle-bg);border-color:var(--role-socle-edge);}
+.expl-bloc.role-amont{background:var(--role-str1-bg);border-color:var(--role-str1-edge);}
+.expl-bloc.role-aval{background:var(--role-str2-bg);border-color:var(--role-str2-edge);}
+.expl-bloc.role-fonctionnel{background:var(--role-fn1-bg);border-color:var(--role-fn1-edge);}
+.expl-bloc-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#15803d;margin-bottom:6px;font-weight:700;}
+.expl-bloc-txt{font-size:12.5px;color:#374151;line-height:1.65;}
+.expl-bloc-txt + .expl-bloc-txt{margin-top:8px;}
+.cm-card{background:white;border:1px solid var(--rl);border-left:4px solid var(--rule);border-radius:5px;padding:12px 16px;margin-bottom:10px;}
+.cm-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.cm-code{font-family:var(--mono);font-size:12px;font-weight:700;}
+.cm-nom{font-size:13px;font-weight:500;}
+.cm-meta{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;}
+.cm-introverb{font-size:11.5px;color:var(--muted);margin:6px 0 4px;font-style:italic;}
+.cm-verb{font-size:12px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl);padding:6px 10px;margin:4px 0;line-height:1.55;}
+.cm-verb .cm-ref{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);font-style:normal;margin-top:2px;}
+.cm-expl{font-size:12.5px;color:#374151;line-height:1.6;margin-top:6px;}
+.cm-renfort{font-size:11.5px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px dashed var(--rl);}
+.s-intro{font-size:13px;color:#374151;line-height:1.7;max-width:680px;margin-bottom:16px;font-style:italic;}
+.s-cloture{background:#f9fafb;border-left:3px solid var(--rule,#9ca3af);border-radius:0 6px 6px 0;padding:13px 18px;margin-top:16px;font-size:12.5px;color:#374151;line-height:1.7;}
+.registres{display:flex;flex-direction:column;gap:14px;}
+.flux-transition{background:#f5f3ff;border:1px dashed #a78bfa;border-radius:8px;padding:12px 18px;margin:20px 0;font-size:12.5px;color:#5b21b6;line-height:1.6;}
+.flux-transition strong{color:#4c1d95;}
+.cout-strat{background:#ecfdf5;border-left:3px solid #10b981;border-radius:0 5px 5px 0;padding:8px 12px;margin-top:7px;font-size:12px;color:#065f46;line-height:1.55;}
+.cout-strat-lbl{display:block;font-family:var(--mono,monospace);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:3px;color:#047857;}
+.reg-signif{background:#f0f9ff;border-left:3px solid #0ea5e9;border-radius:0 5px 5px 0;padding:8px 12px;margin-top:7px;font-size:12px;color:#075985;line-height:1.55;}
+.reg-signif-lbl{display:block;font-family:var(--mono,monospace);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:3px;color:#0369a1;}
+.reg-constat{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:5px;}
+.reg-vig-globale{margin-top:14px;}
+.reg-vigilance{background:#fffbeb;border:1px solid #fcd34d;border-radius:5px;padding:8px 12px;margin-top:8px;font-size:12px;color:#92400e;line-height:1.55;}
+.reg-vig-lbl{display:block;font-family:var(--mono,monospace);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:3px;color:#b45309;}
+.reg-bloc{background:white;border:1px solid var(--rl,#e5e7eb);border-left:4px solid #d97706;border-radius:5px;padding:13px 18px;}
+.reg-titre{font-size:14px;font-weight:700;color:var(--ink,#1a1a18);margin-bottom:7px;}
+.reg-texte{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:5px;}
+.reg-verb{font-size:12px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl,#e5e7eb);padding:5px 10px;margin:5px 0;line-height:1.5;color:#4b5563;}
+.cout-bloc{background:white;border:1px solid var(--rl,#e5e7eb);border-radius:5px;padding:14px 18px;margin-bottom:14px;}
+.cout-principal{border-left:4px solid #b91c1c;}
+.cout-secondaire{border-left:4px solid #ea9a4c;}
+.cout-rang{font-family:var(--mono,monospace);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted,#9ca3af);margin-bottom:6px;font-weight:700;}
+.cout-titre{font-size:14px;font-weight:700;color:var(--ink,#1a1a18);margin-bottom:7px;}
+.cout-texte{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:5px;}
+.cout-verb{font-size:12px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl,#e5e7eb);padding:5px 10px;margin:5px 0;line-height:1.5;color:#4b5563;}
+.sp-sub{font-weight:700;color:var(--ink);margin:12px 0 5px;font-size:13px;}
+.sp-para{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:6px;}
+.sp-vue .sp-sub:first-child{margin-top:0;}
+.bloc-cartes-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin:22px 0 12px;border-bottom:1px solid var(--rl);padding-bottom:6px;}
+
+/* ===== CHAPITRE IV — CSS AJOUTÉ (agent, tel quel) ===== */
+.scene{margin:22px 0 14px;padding:26px 22px;border:1px solid var(--rule);border-radius:10px;background:var(--paper2);text-align:center;}
+.legende{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;letter-spacing:.04em;}
+.atelier{display:flex;align-items:flex-end;justify-content:center;gap:48px;flex-wrap:wrap;}
+.boite{display:inline-flex;align-items:flex-end;gap:6px;padding:14px 18px 0;border:3px solid #475569;border-top:none;border-radius:0 0 10px 10px;background:#e2e8f0;position:relative;}
+.tuile{width:46px;height:40px;background:#94a3b8;border-radius:6px 6px 0 0;font-family:var(--mono);font-size:11px;color:white;display:flex;align-items:center;justify-content:center;}
+.tuile.socle{height:64px;background:var(--accent);font-weight:700;box-shadow:0 -3px 10px rgba(14,116,144,.35);}
+.outil-sorti{display:inline-block;text-align:center;}
+.qrow{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.synthese{margin-top:14px;font-size:13px;color:#374151;}
+.deduction{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+.dfl{font-size:20px;color:var(--mode);}
+.mini-circs{display:flex;flex-direction:column;gap:5px;text-align:left;}
+.col{flex:1;min-width:260px;border-radius:9px;padding:13px 16px;font-size:12.5px;line-height:1.65;}
+.col.f{border:2px solid var(--filtre);background:#fef2f2;}
+.col.m{border:2px solid var(--mode);background:#fff7ed;}
+.ps-repere{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:10px;padding:10px 14px;background:#fafaf8;border-radius:6px;}
+.mnemo{margin:14px auto 0;max-width:640px;border:1.5px solid var(--ink);border-radius:8px;background:white;padding:10px 16px;font-size:13px;text-align:center;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}
+.sp-icon.p2{background:var(--p2);}
+.sp-icon.p3{background:var(--p3);}
+.sp-icon.p4{background:var(--p4);}
+.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}
+.sp-icon.p2{background:var(--p2);}
+.sp-icon.p3{background:var(--p3);}
+.sp-icon.p4{background:var(--p4);}
+.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.synthese-pilier{border-radius:6px;padding:20px 22px;margin-top:16px;}
+.synthese-pilier.p1{background:linear-gradient(135deg,var(--p1b) 0%,white 100%);border:1px solid var(--p1e);}
+.synthese-pilier.p2{background:linear-gradient(135deg,var(--p2b) 0%,white 100%);border:1px solid var(--p2e);}
+.synthese-pilier.p3{background:linear-gradient(135deg,var(--p3b) 0%,white 100%);border:1px solid var(--p3e);}
+.synthese-pilier.p4{background:linear-gradient(135deg,var(--p4b) 0%,white 100%);border:1px solid var(--p4e);}
+.synthese-pilier.p5{background:linear-gradient(135deg,var(--p5b) 0%,white 100%);border:1px solid var(--p5e);}
+.sp-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,0,0,.07);}
+.sp-icon{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:white;flex-shrink:0;}
+.sp-icon.p1{background:var(--p1);}
+.sp-icon.p2{background:var(--p2);}
+.sp-icon.p3{background:var(--p3);}
+.sp-icon.p4{background:var(--p4);}
+.sp-icon.p5{background:var(--p5);}
+.sp-title{font-family:var(--serif);font-size:16px;font-weight:700;}
+.sp-subtitle{font-size:11px;color:var(--muted);font-style:italic;}
+.scene{margin:22px 0 14px;padding:26px 22px;border:1px solid var(--rule);border-radius:10px;background:var(--paper2);text-align:center;}
+.legende{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:14px;letter-spacing:.04em;}
+.atelier{display:flex;align-items:flex-end;justify-content:center;gap:48px;flex-wrap:wrap;}
+.boite{display:inline-flex;align-items:flex-end;gap:6px;padding:14px 18px 0;border:3px solid #475569;border-top:none;border-radius:0 0 10px 10px;background:#e2e8f0;position:relative;}
+.tuile{width:46px;height:40px;background:#94a3b8;border-radius:6px 6px 0 0;font-family:var(--mono);font-size:11px;color:white;display:flex;align-items:center;justify-content:center;}
+.tuile.socle{height:64px;background:var(--accent);font-weight:700;box-shadow:0 -3px 10px rgba(14,116,144,.35);}
+.outil-sorti{display:inline-block;text-align:center;}
+.qrow{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.synthese{margin-top:14px;font-size:13px;color:#374151;}
+.deduction{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;}
+.dfl{font-size:20px;color:var(--mode);}
+.mini-circs{display:flex;flex-direction:column;gap:5px;text-align:left;}
+.col{flex:1;min-width:260px;border-radius:9px;padding:13px 16px;font-size:12.5px;line-height:1.65;}
+.col.f{border:2px solid var(--filtre);background:#fef2f2;}
+.col.m{border:2px solid var(--mode);background:#fff7ed;}
+.mnemo{margin:14px auto 0;max-width:640px;border:1.5px solid var(--ink);border-radius:8px;background:white;padding:10px 16px;font-size:13px;text-align:center;}
+.pilier-seq{margin:8px 0 18px;}
+.ps-temps{margin-bottom:10px;}
+.ps-h{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--ink);margin-bottom:4px;}
+.ps-p{font-size:12.5px;color:#374151;line-height:1.6;margin-bottom:0;}
+.circ-demo{margin-bottom:10px;}
+.circ-detail{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;margin-left:16px;line-height:1.5;}
+.circ-stats{color:#9ca3af;}
+.outil-sorti{flex-shrink:0;}
+.cm-card{background:white;border:1px solid var(--rl);border-left:4px solid var(--rule);border-radius:5px;padding:12px 16px;margin-bottom:10px;}
+.cm-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.cm-code{font-family:var(--mono);font-size:12px;font-weight:700;}
+.cm-nom{font-size:13px;font-weight:500;}
+.cm-meta{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;}
+.cm-introverb{font-size:11.5px;color:var(--muted);margin:6px 0 4px;font-style:italic;}
+.cm-verb{font-size:12px;font-style:italic;background:#fafafa;border-left:2px solid var(--rl);padding:6px 10px;margin:4px 0;line-height:1.55;}
+.cm-ref{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);font-style:normal;margin-top:2px;}
+.cm-expl{font-size:12.5px;color:#374151;line-height:1.6;margin-top:6px;}
+.cm-renfort{font-size:11.5px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px dashed var(--rl);}
+.sp-sub{font-weight:700;color:var(--ink);margin:12px 0 5px;font-size:13px;}
+.sp-para{font-size:12.5px;color:#374151;line-height:1.65;margin-bottom:6px;}
+.sp-sub:first-child{margin-top:0;}
+.bloc-cartes-lbl{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin:22px 0 12px;border-bottom:1px solid var(--rl);padding-bottom:6px;}
+
+
+/* ===== CHAPITRE III — décodage geste par geste (v4) ===== */
+.filtre-gestes{display:flex;flex-direction:column;gap:16px;margin:18px 0;}
+.fg-geste{border:1px solid var(--rule,#e5e0d8);border-radius:12px;padding:16px 18px;background:var(--paper2,#fbf9f5);}
+.fg-tete{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;border-bottom:1px solid var(--rl,#eee);padding-bottom:8px;}
+.fg-nom{font-weight:700;font-size:15px;}
+.fg-rang{font-size:12px;color:var(--muted,#8a8175);font-style:italic;white-space:nowrap;}
+.fg-strate{margin-top:10px;}
+.fg-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted,#8a8175);margin-bottom:4px;font-weight:600;}
+.fg-txt{font-size:14px;line-height:1.6;}
+.fg-dit .fp-item{margin:4px 0;}
+</style></head><body>
+<div class="page">
+<div class="cover-nom" style="font-size:38px;">{{candidat.titre_affichage}}</div>
+  <div class="cover-titre">Portrait cognitif — lecture intégrale, outil par outil</div>
+</div>
+
+
+<!-- ═══════════════ PAGE DE GARDE ═══════════════ -->
+<div class="cover" style="padding:48px 56px 34px;">
+  <div class="cover-tag">Profil cognitif — bilan complet · projet Sib Prod</div>
+  <div class="cover-nom" style="font-size:42px;">{{garde.civilite}}</div>
+  <div class="cover-titre">Portrait cognitif sur mesure — lecture intégrale du protocole</div>
+  <div class="cover-meta" style="margin-top:22px;display:flex;gap:28px;flex-wrap:wrap;">
+    <div class="cm"><strong>Pilier socle</strong>{{garde.socle_libelle}}{{#if garde.a_filtre}}<div style="margin-top:4px;font-style:italic;">filtre : «&nbsp;{{garde.filtre}}&nbsp;»</div>{{/if}}</div>
+    {{#if garde.a_finalite}}<div class="cm"><strong>Finalité</strong>«&nbsp;{{garde.finalite}}&nbsp;»</div>{{/if}}
+    {{#if garde.a_signature}}<div class="cm"><strong>Votre signature</strong>{{garde.signature_courte}}</div>{{/if}}
+  </div>
+</div>
+
+<!-- ═══════════════ LEXIQUE — la boîte à outils (7 temps complets) ═══════════════ -->
+<div class="s-label">§ 00 · Lexique — votre boîte à outils cognitive</div>
+  <h1>Comment lit-on votre façon de penser ?</h1>
+  <p class="sous">Avant de lire votre bilan, voici l'image qui sert de fil conducteur du début à la fin : celle d'une
+  <strong>boîte à outils</strong>. Pour réfléchir et agir, votre tête se sert de <strong>5 outils</strong> (on les
+  appelle les piliers, P1 à P5). Voici, en sept temps, comment ils fonctionnent ensemble — puis, juste après, les
+  repères pour lire les tableaux du bilan.</p>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 1 / 7</div>
+  <h2>Le principe : 5 outils, un ordre naturel</h2>
+  <p>Tout le monde possède les 5. Pour mener une tâche à son terme, ils s'enchaînent dans cet ordre : on recueille
+  l'information, on la range, on la comprend, on imagine une solution, puis on la réalise. C'est la
+  <em class="k">boucle naturelle</em> d'une pensée qui aboutit — du besoin brut jusqu'à l'action.</p>
+  <div class="scene">
+    <div class="boucle">
+      <div class="b-outil c1"><div class="picto">picto</div><div class="code">P1</div><div class="nom">Collecte d'information</div><div class="verbe">chercher</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c2"><div class="picto">picto</div><div class="code">P2</div><div class="nom">Tri et organisation</div><div class="verbe">ranger</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c3"><div class="picto">picto</div><div class="code">P3</div><div class="nom">Analyse et diagnostic</div><div class="verbe">comprendre</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c4"><div class="picto">picto</div><div class="code">P4</div><div class="nom">Création de solutions</div><div class="verbe">imaginer</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c5"><div class="picto">picto</div><div class="code">P5</div><div class="nom">Mise en œuvre et exécution</div><div class="verbe">réaliser</div></div>
+    </div>
+    <div class="legende">la boucle naturelle — emplacements de pictos à fournir par le spécialiste</div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 2 / 7</div>
+  <h2>Votre signature : un outil que vous préférez</h2>
+  <p>Personne ne s'en sert à parts égales. Vous avez un outil que vous attrapez <em class="k">toujours en premier</em>,
+  par réflexe : votre <em class="k">socle</em>.</p>
+  <div class="scene">
+    <div class="atelier">
+      <span class="boite"><span class="tuile">P1</span><span class="tuile socle">P2</span><span class="tuile">P3</span><span class="tuile">P4</span><span class="tuile">P5</span></span>
+    </div>
+    <div class="legende" style="margin-top:34px;">les 5 mêmes outils, rangés dans une boîte — celui qui dépasse, c'est le socle.
+    Ici, l'exemple d'un candidat fictif dont le socle est le Tri <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 3 / 7</div>
+  <h2>On sort toujours le même outil en premier</h2>
+  <p>Quelle que soit la situation, la main va d'abord vers le même outil : le <em class="k">socle</em> —
+  exactement la tuile qui dépassait dans la boîte. On la sort, telle quelle.</p>
+  <div class="scene">
+    <div class="atelier">
+      <span class="boite"><span class="tuile">P1</span><span class="tuile" style="opacity:.45;border:2px dashed #cbd5e1;background:transparent;color:#94a3b8;">P2</span><span class="tuile">P3</span><span class="tuile">P4</span><span class="tuile">P5</span></span>
+      <span class="main-fl">⟶</span>
+      <span class="outil-sorti"><span class="corps">P2 · TRI</span><span class="leg">l'outil sorti — toujours le même</span></span>
+    </div>
+    <div class="legende" style="margin-top:34px;">la place vide dans la boîte : c'est bien la tuile qui dépassait qu'on a sortie</div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 4 / 7</div>
+  <h2>Cet outil sort déjà réglé : c'est le filtre</h2>
+  <p>C'est <em class="k">le même outil</em> qu'au temps 3, mais regardez son réglage. Il sort toujours réglé pareil —
+  comme une perceuse bloquée sur une vitesse. Ce réglage, c'est le <em class="k">filtre</em> :
+  <em class="k">les questions que vous vous posez automatiquement</em> devant toute situation, avant même d'y réfléchir.</p>
+  <div class="scene">
+    <div class="atelier">
+      <span class="outil-sorti"><span class="corps">P2 · TRI<span class="bouton on"></span></span><span class="leg">le bouton rouge = le filtre. Personne ne l'a réglé ce matin : il sort comme ça, toujours.</span></span>
+    </div>
+    <div class="qrow">
+      <span class="qpill">Ça va où ?</span>
+      <span class="qpill">C'est de quel type ?</span>
+      <span class="qpill">Qu'est-ce qui va ensemble ?</span>
+    </div>
+    <div class="synthese">→ Notre candidat fictif <strong>range donc toute situation avant même d'y penser</strong> — son filtre
+    pose ces 3 questions, à chaque fois. <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 5 / 7</div>
+  <h2>Ce qui sort de l'outil : les circuits</h2>
+  <p>Chaque outil produit ses propres actions. Quand notre candidat prend son Tri, il en sort des
+  <em class="k">actions de tri</em> — les <em class="k">circuits</em> — et on compte combien de fois on les a vues :
+  <span class="badge bh">HAUT</span> (4 fois ou plus) · <span class="badge bm">MOYEN</span> (2 à 3) ·
+  <span class="badge bf">FAIBLE</span> (1). On repère un circuit dans les propres mots du candidat.</p>
+  <div class="scene">
+    <div class="sortie">
+      <span class="outil-sorti"><span class="corps">P2 · TRI<span class="bouton"></span></span></span>
+      <div class="circuits">
+        <div class="circ"><span class="fl">→</span> Classer par catégories <span class="badge bh">HAUT</span> <span class="vb">« je range tout par thèmes »</span></div>
+        <div class="circ"><span class="fl">→</span> Noter l'essentiel en synthèse <span class="badge bm">MOYEN</span> <span class="vb">« je note les points importants »</span></div>
+        <div class="circ"><span class="fl">→</span> Étiqueter pour retrouver <span class="badge bf">FAIBLE</span> <span class="vb">« je mets une étiquette dessus »</span></div>
+      </div>
+    </div>
+    <div class="contre"><strong>Un autre outil produit de tout autres actions.</strong> Exemple, si on partait de
+    l'Analyse : <span class="vb">« je compare les options », « je vérifie si c'est fiable », « je hiérarchise ce qui
+    compte »</span>… Un outil = des actions qui lui sont propres.</div>
+    <div class="legende">les actions sont fictives, pour l'exemple <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 6 / 7</div>
+  <h2>Chaque outil a sa manière de travailler : le mode</h2>
+  <p>Regardez maintenant <em class="k">comment</em> notre candidat fait ses actions de tri : toujours de la même
+  manière. C'est son <em class="k">mode</em> — sa façon de s'en servir, toujours la même. On ne l'invente pas :
+  on la lit dans ses actions les plus fréquentes, et on la résume en quelques mots.
+  <em class="k">Chaque outil a son mode</em> — pas seulement le socle.</p>
+  <p><em class="k">Et le filtre, lui, n'existe que sur le socle.</em> Retenez bien la règle :
+  le socle a <em class="k">deux choses</em> — un filtre <em class="k">et</em> un mode.
+  Les quatre autres outils n'ont <em class="k">qu'un mode</em> — pas de filtre.</p>
+  <div class="scene">
+    <div class="deduction">
+      <div class="mini-circs">
+        <div class="circ"><span class="fl">→</span> Classer par catégories <span class="badge bh">HAUT</span></div>
+        <div class="circ"><span class="fl">→</span> Noter l'essentiel en synthèse <span class="badge bm">MOYEN</span></div>
+      </div>
+      <span class="dfl">⟹</span>
+      <div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--mode);font-weight:700;letter-spacing:.08em;">LE MODE — déduit des actions dominantes</div>
+        <span class="etiq-mode"><span class="pico-m"></span>« Méthodique et visuel · tout doit avoir sa place »</span>
+      </div>
+    </div>
+    <div class="legende">le mode se déduit, il ne se décrète pas — c'est la manière qui revient dans les actions les plus vues <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+
+  <p style="margin-top:16px;"><em class="k">Filtre et mode, ne les confondez pas</em> — ils décrivent deux choses
+  différentes du même outil :</p>
+  <div class="versus">
+    <div class="col f">
+      <span class="ct">● Le filtre — le réglage de départ</span>
+      <li>Ce que l'outil <strong>demande à la situation</strong> avant de travailler : les questions automatiques.</li>
+      <li>S'observe <strong>à l'entrée</strong>, avant tout traitement.</li>
+      <li>N'existe que sur <strong>le socle</strong> — c'est le bouton rouge, toujours ON.</li>
+      <li>Exemple : <span class="vb">« Ça va où ? C'est de quel type ? »</span></li>
+    </div>
+    <div class="col m">
+      <span class="ct">● Le mode — la façon de travailler</span>
+      <li><strong>Comment</strong> l'outil travaille une fois en main : sa façon de faire, toujours la même.</li>
+      <li>S'observe <strong>pendant le geste</strong>, dans les actions les plus fréquentes.</li>
+      <li><strong>Chaque outil</strong> a le sien — le socle comme les autres.</li>
+      <li>Exemple : <span class="vb">« méthodique et visuel, tout doit avoir sa place »</span></li>
+    </div>
+  </div>
+  <div class="mnemo"><strong>À retenir :</strong> le filtre, ce sont <em>les questions posées avant</em> — il n'existe
+  que sur le socle. Le mode, c'est <em>la façon de travailler pendant</em> — chaque outil a le sien.
+  <em class="k">Le socle a donc un filtre et un mode ; les quatre autres outils ont seulement un mode.</em></div>
+</div>
+
+<div class="temps">
+  <div class="t-num">Temps 7 / 7</div>
+  <h2>Au final : la boîte complète du candidat</h2>
+  <p>Reprenez le schéma du temps 1 — la boucle de vos 5 outils, chacun avec sa couleur. Le voici
+  <em class="k">enrichi de tout ce que vous venez d'apprendre</em> : le <em class="k">rôle</em> de chaque outil
+  (le socle décide ; les renforts l'aident à finir ; le reste est fonctionnel), le <em class="k">bouton du filtre
+  allumé</em> sur le socle (<span class="pico-f"></span> — sur lui seul), et le <em class="k">mode</em> de chaque
+  outil (<span class="pico-m"></span>).</p>
+  <div class="scene">
+    <div class="boucle" style="align-items:flex-end;">
+      <div class="b-outil c1 e renf"><div class="picto">picto</div><div class="code">P1</div><div class="nom">Collecte d'information</div><div class="role">renfort</div><div class="lm"><span class="pico-m"></span>juste ce qu'il faut, jamais plus</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c2 e soc"><span class="btn-on"></span><div class="picto">picto</div><div class="code">P2</div><div class="nom">Tri et organisation</div><div class="role">socle</div><div class="lf"><span class="pico-f"></span>« Ça va où ? C'est de quel type ? Qu'est-ce qui va ensemble ? »</div><div class="lm"><span class="pico-m"></span>méthodique et visuel · tout doit avoir sa place</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c3 e"><div class="picto">picto</div><div class="code">P3</div><div class="nom">Analyse et diagnostic</div><div class="role">fonctionnel</div><div class="lm"><span class="pico-m"></span>au coup par coup</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c4 e"><div class="picto">picto</div><div class="code">P4</div><div class="nom">Création de solutions</div><div class="role">fonctionnel</div><div class="lm"><span class="pico-m"></span>au coup par coup</div></div>
+      <div class="b-fl">→</div>
+      <div class="b-outil c5 e renf"><div class="picto">picto</div><div class="code">P5</div><div class="nom">Mise en œuvre et exécution</div><div class="role">renfort</div><div class="lm"><span class="pico-m"></span>pas à pas, une chose à la fois</div></div>
+    </div>
+    <div class="v-fleches">le socle dépasse — c'est lui qui appelle les renforts, jamais l'inverse</div>
+    <div class="legende">le schéma du temps 1, enrichi : les rôles · <span class="pico-f"></span> le filtre allumé sur le socle · <span class="pico-m"></span> le mode sur chaque outil <span class="fictif">EXEMPLE FICTIF</span></div>
+  </div>
+</div>
+
+<div class="suite">
+<strong>Et maintenant, votre bilan.</strong> Tout ce que vous venez de voir — la boîte, le socle, le filtre, les
+circuits, les modes — vous allez le retrouver dans les pages qui suivent, rempli pièce par pièce avec
+<strong>vos propres mots</strong>. Pour vous, l'outil principal est <strong><span class="perso">{{garde.socle_libelle}}</span></strong>, et son
+réglage de départ est <strong>« <span class="perso">filtre</span> »</strong>. Et à la fin du bilan, ce même schéma reviendra une dernière
+fois : ce sera <strong>votre boîte à vous</strong>.
+</div>
+
+
+<!-- ═══════════════ RÉFÉRENCE — 5 outils + verbes signatures (fixe) ═══════════════ -->
+<div class="section">
+<div class="temps">
+  <div class="t-num">Référence</div>
+  <h2>Les 5 outils de votre boîte mentale — et leurs verbes signatures</h2>
+  <div class="scene" style="text-align:left;padding:0;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <tr style="background:var(--ink);color:white;font-family:var(--mono);font-size:10px;letter-spacing:.07em;">
+        <th style="padding:8px 12px;text-align:left;">CODE</th><th style="padding:8px 12px;text-align:left;">OUTIL</th>
+        <th style="padding:8px 12px;text-align:left;">CE QUE FAIT CET OUTIL</th><th style="padding:8px 12px;text-align:left;">VERBES SIGNATURES À RECONNAÎTRE</th></tr>
+      <tr><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p1);">P1</td><td style="padding:8px 12px;font-weight:700;">Collecte d'information</td><td style="padding:8px 12px;">Va chercher l'information auprès d'une source</td><td style="padding:8px 12px;font-style:italic;color:#475569;">chercher · explorer · contacter · interroger · consulter · appeler</td></tr>
+      <tr style="background:var(--paper2);"><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p2);">P2</td><td style="padding:8px 12px;font-weight:700;">Tri et organisation</td><td style="padding:8px 12px;">Structure et organise l'information</td><td style="padding:8px 12px;font-style:italic;color:#475569;">trier · classer · ranger · catégoriser · structurer · noter · organiser</td></tr>
+      <tr><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p3);">P3</td><td style="padding:8px 12px;font-weight:700;">Analyse et diagnostic</td><td style="padding:8px 12px;">Évalue, comprend, diagnostique</td><td style="padding:8px 12px;font-style:italic;color:#475569;">analyser · évaluer · comprendre · diagnostiquer · raisonner · identifier</td></tr>
+      <tr style="background:var(--paper2);"><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p4);">P4</td><td style="padding:8px 12px;font-weight:700;">Création de solutions</td><td style="padding:8px 12px;">Conçoit des options, construit des scénarios</td><td style="padding:8px 12px;font-style:italic;color:#475569;">imaginer · concevoir · créer · planifier · combiner · envisager</td></tr>
+      <tr><td style="padding:8px 12px;font-family:var(--mono);font-weight:700;color:var(--p5);">P5</td><td style="padding:8px 12px;font-weight:700;">Mise en œuvre et exécution</td><td style="padding:8px 12px;">Fait, met en œuvre, délègue, coordonne</td><td style="padding:8px 12px;font-style:italic;color:#475569;">faire · agir · exécuter · coordonner · déléguer · mettre en place</td></tr>
+    </table>
+  </div>
+
+  <h2 style="margin-top:26px;">Les repères pour lire les tableaux du bilan</h2>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Comment lire un code comme P3C12</strong> · C'est juste une
+  étiquette de rangement. Le premier nombre désigne l'<strong>outil</strong> (P1 à P5), le second le
+  <strong>tour de main</strong> (C1 à C15). P3C12 se lit donc « outil 3 (Analyse), tour de main n°12 » — ici
+  « hiérarchiser les problèmes par importance ».</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Les colonnes du tableau de chaque outil</strong> · Tous les
+  chiffres sont des <strong>occurrences</strong> : une occurrence = une fois où le circuit a été activé.
+  — <strong>Circuits</strong> : une façon de vous servir de l'outil (un tour de main).
+  — <strong>Niveau d'activation</strong> : HAUT (4 fois ou plus) · MOYEN (2-3) · FAIBLE (1).
+  — <strong>Activation cœur</strong> : « cœur » désigne l'outil quand c'est lui qui gouverne ; le chiffre est le nombre
+  de fois où le circuit est activé sur les 25 questions du test.
+  — <strong>Pilier instrumental P1 … P5</strong> : le nombre de fois où ce circuit a été activé avec un autre outil,
+  qui s'en sert en renfort. — <strong>Total occurrences (5 piliers)</strong> : le total, tous piliers confondus.</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Le mode</strong> · La façon dont vous vous servez d'un outil,
+  toujours la même — on la lit dans vos actions les plus fréquentes, et on la résume en quelques mots.
+  Chaque outil a son mode ; <strong>seul le socle a, en plus, un filtre</strong>.</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Glissement</strong> · Quand on vous demande une chose et que
+  vous répondez avec un autre outil que celui attendu. Ça montre quel outil vous prenez spontanément.</div>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Ressenti (« signal limbique »)</strong> · L'émotion qui
+  transparaît dans vos mots quand vous faites quelque chose (du plaisir, de l'aisance, ou au contraire de l'agacement).</div>
+
+  <h2 style="margin-top:26px;">Comment ce bilan est organisé — les chapitres</h2>
+  <div class="contre" style="margin:10px 0;max-width:none;"><strong>Vue globale</strong> · L'architecture d'ensemble : votre
+  socle, ce qui l'alimente, ce qui le prolonge, et ses outils d'appui.<br>
+  <strong>Chapitre I — Les 5 outils de votre boîte mentale</strong> · Le détail de chacun de vos cinq outils, un par
+  un : les tours de main que vous en faites, ce que ça donne concrètement dans vos mots, et ce que ça signifie.<br>
+  <strong>Chapitre III — Marqueurs affectifs et zones de coût</strong> · Ce que votre cerveau ressent pendant qu'il
+  fonctionne, et les zones qui vous coûtent.<br>
+  <strong>Chapitre IV — La révélation</strong> · La synthèse de tout ce qui précède : votre filtre cognitif, démontré
+  preuve par preuve, puis <strong>votre boîte à outils complète</strong> — le schéma ci-dessus, rempli avec vos
+  données. Le bilan se referme sur votre signature cognitive.
+  <span style="display:block;margin-top:8px;font-family:var(--mono);font-size:10px;color:#9a3412;">Note inventaire : le « Chapitre II — boucle cognitive » du template d'origine est retiré (maillon P-C supprimé de la chaîne).</span></div>
+</div>
+
+</div><!-- /.page -->
+
+</div>
+
+<!-- ═══════════════ VUE GLOBALE — 5 têtières, ordre P1→P5 ═══════════════ -->
+<div class="section" id="vue-globale">
+  <div class="s-label">Vue globale</div>
+  <div class="s-title">Vos 5 outils en un coup d'œil</div>
+  <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:16px;max-width:680px;">Les cinq têtières qui suivent résument chaque outil — son rôle dans votre boîte, ses chiffres, son mode. Chacune est reprise en tête de sa section détaillée, au chapitre I. Ordre = la boucle cognitive naturelle, P1 → P5.</p>
+  {{#each vueGlobale}}
+  <div style="margin-bottom:12px;"><div class="ph">
+    <div class="ph-badge {{pilier_lc}}"><div class="ph-id">{{pilier}}</div></div>
+    <div class="ph-body">
+      {{#if role_star}}<div class="ph-star">{{role_star}}</div>{{/if}}
+      <div class="ph-nom">{{label}}</div>
+      <div class="ph-rb {{role_class}}">{{tetiere_roleband}}</div>
+      {{#if tetiere_rappel}}<div class="ph-rappel">{{tetiere_rappel}}</div>{{/if}}
+    </div>
+    <div class="ph-mode"><span class="ph-mlbl">Mode retenu</span><span class="ph-mval">{{mode}}</span></div>
+  </div></div>
+  {{/each}}
+</div>
+
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre I — Vos 5 outils en détail</div>
+  <div class="chapitre-titre">Outil par outil : circuits, tableaux et analyses</div>
+  <div class="chapitre-soustitre">Le détail complet de chaque pilier</div>
+</div>
+
+{{#each sections}}
+<div class="section {{role_class}}">
+
+  <!-- 1. TÊTIÈRE -->
+  <div class="ph">
+    <div class="ph-badge {{pilier_lc}}"><div class="ph-id">{{pilier}}</div></div>
+    <div class="ph-body">
+      {{#if role_star}}<div class="ph-star">{{role_star}}</div>{{/if}}
+      <div class="ph-nom">{{label}}</div>
+      <div class="ph-rb {{role_class}}">{{tetiere_roleband}}</div>
+      {{#if tetiere_rappel}}<div class="ph-rappel">{{tetiere_rappel}}</div>{{/if}}
+    </div>
+    <div class="ph-mode"><span class="ph-mlbl">Mode retenu</span><span class="ph-mval">{{mode}}</span></div>
+  </div>
+
+  <!-- 2. COMMENT LIRE CE TABLEAU -->
+  <div class="lire-tableau"><strong>Comment lire ce tableau</strong> — tous les chiffres sont des <strong>occurrences</strong>, c'est-à-dire le nombre de fois où le circuit a été activé.<span style="display:block;margin-top:5px;">· <strong>Circuits</strong> : ce que vous faites avec l'outil (une façon de vous en servir).</span><span style="display:block;">· <strong>Capacité</strong> : la nature du geste (simple, sophistiquée, intégrative…).</span><span style="display:block;">· <strong>Niveau cœur / Amplitude</strong> : HAUT (4 fois ou plus) · MOYEN (2-3) · FAIBLE (1).</span><span style="display:block;">· <strong>Profondeur</strong> : intensité d'engagement (effleuré · effectif · plein régime).</span><span style="display:block;">· <strong>Instrumental P1 … P5</strong> : le nombre de fois où ce circuit a été activé au service d'un autre outil.</span><span style="display:block;">· <strong>Bloc</strong> : la fréquence d'activation attribuée — très souvent · souvent · occasionnels.</span><span style="display:block;margin-top:5px;color:#9ca3af;">La colonne <strong>grisée</strong> (—) est celle de cet outil lui-même.</span></div>
+
+  <!-- 3. TABLEAU VALIDÉ -->
+  <div class="inv-wrap">
+  <table class="inv-table"><thead><tr>
+    <th class="circuit-label">Circuit</th><th class="cap-col">Capacité</th>
+    <th class="niv-col">Niv. cœur</th><th class="niv-col">Amplitude</th><th class="prof-col">Profondeur</th>
+    <th class="num">Cœur</th><th class="num">instr. P1</th><th class="num">instr. P2</th><th class="num">instr. P3</th><th class="num">instr. P4</th><th class="num">instr. P5</th><th class="num">TOTAL</th><th class="bloc-col">Bloc</th>
+  </tr></thead><tbody>
+  {{#each rows}}
+  {{#if is_bloc_header}}<tr class="bloc-divider"><td colspan="13">{{libelle_bloc}}</td></tr>{{/if}}
+  {{#if is_circuit}}<tr><td class="circuit-label">{{#if adhoc}}<span class="cc-adhoc">AD HOC</span> {{/if}}<strong>{{code}}</strong> {{nom}}</td><td class="cap-col">{{capacite}}</td><td class="niv-col"><span class="niv-chip {{niv_coeur_class}}">{{niveau_coeur}}</span></td><td class="niv-col"><span class="niv-chip {{niv_ampl_class}}">{{niveau_amplitude}}</span></td><td class="prof-col">{{#if a_profondeur}}{{profondeur}}{{else}}—{{/if}}</td><td class="num coeur-cell">{{coeur_aff}}</td>{{#each instru}}<td class="num{{#if na}} na{{/if}}">{{#if na}}—{{else}}{{val}}{{/if}}</td>{{/each}}<td class="num total-col">{{total_aff}}</td><td class="bloc-col">{{bloc}}</td></tr>{{/if}}
+  {{#if is_sous_total}}<tr class="sous-total"><td class="circuit-label" colspan="2">{{label}}</td><td class="niv-col"></td><td class="niv-col"></td><td class="prof-col"></td><td class="num">{{coeur_aff}}</td>{{#each instru}}<td class="num">{{val}}</td>{{/each}}<td class="num total-col">{{total_aff}}</td><td class="bloc-col"></td></tr>{{/if}}
+  {{#if is_total_pilier}}<tr class="total-pilier"><td class="circuit-label" colspan="2">{{label}}</td><td class="niv-col"></td><td class="niv-col"></td><td class="prof-col"></td><td class="num">{{coeur_aff}}</td>{{#each instru}}<td class="num">{{val}}</td>{{/each}}<td class="num total-col">{{total_aff}}</td><td class="bloc-col"></td></tr>{{/if}}
+  {{/each}}
+  </tbody></table>
+  </div>
+
+  <!-- 4. CARTES PAR BLOC + EXPLICATION DE BLOC -->
+  {{#each blocsCartes}}
+  <div class="bloc-cartes-lbl {{role_class}}" style="color:inherit;">▸ {{libelle}}</div>
+  {{#each circuits}}
+  <div class="cm-card {{role_class}}">
+    <div class="cm-head"><div><span class="cm-code">{{code}}</span> · <span class="cm-nom">{{nom}}</span></div><div class="cm-meta">cœur {{coeur_aff}} · total {{total_aff}}{{#if a_profondeur}} · {{profondeur}}{{/if}}{{#if capacite}} · {{capacite}}{{/if}}</div></div>
+    {{#if a_verbs}}<div class="cm-introverb">Ce que vous faites, à travers vos réponses :</div>{{#each verbs}}<div class="cm-verb">« {{texte}} »<span class="cm-ref">{{ref}}</span></div>{{/each}}{{/if}}
+    {{#if expl}}<div class="cm-expl">{{expl}}</div>{{/if}}
+    {{#if a_renfort}}{{{renfort}}}{{/if}}
+  </div>
+  {{/each}}
+  {{#if a_expl_bloc}}<div class="expl-bloc {{role_class}}"><div class="expl-bloc-lbl">Ce que ces gestes disent de vous</div>{{#if expl_bloc_agregat}}<div class="expl-bloc-txt">{{expl_bloc_agregat}}</div>{{/if}}{{#if expl_bloc_rattachement}}<div class="expl-bloc-txt">{{expl_bloc_rattachement}}</div>{{/if}}</div>{{/if}}
+  {{/each}}
+
+  <!-- 5. SYNTHÈSE DU PILIER — 3 sous-blocs -->
+  <div class="synthese-pilier {{pilier_lc}}">
+    <div class="sp-header"><div class="sp-icon {{pilier_lc}}">{{pilier}}</div><div><div class="sp-title">{{label}} — Synthèse du pilier</div><div class="sp-subtitle">L'inventaire, ce que vos gestes disent, et où l'outil revient</div></div></div>
+    {{#if synth_factuelle_coeur}}<div class="sp-tech-block"><div class="sp-tech-label">▸ Bloc 1 — Profil pur (cœur de l'outil)</div><div class="sp-tech-content">{{synth_factuelle_coeur}}</div></div>{{/if}}
+    <div class="sp-tech-block"><div class="sp-tech-label">▸ Bloc 2 — Profil élargi (débordements &amp; emprunts)</div><div class="sp-tech-content">{{#if bloc_TS_technique}}{{bloc_TS_technique}}<br><br>{{/if}}{{#if bloc_SV_technique}}{{bloc_SV_technique}}<br><br>{{/if}}{{#if bloc_OC_technique}}{{bloc_OC_technique}}{{/if}}</div></div>
+    {{#if vue_ensemble_html}}<div class="sp-tech-block"><div class="sp-tech-label">▸ Bloc 3 — Profil : ce que vos gestes disent de vous (vue d'ensemble)</div><div class="sp-tech-content sp-vue">{{{vue_ensemble_html}}}</div></div>{{/if}}
+  </div>
+
+</div>
+{{/each}}
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     CHAPITRE II — MARQUEURS AFFECTIFS ET ZONES DE COÛT
+     ═══════════════════════════════════════════════════════════════════════════ -->
+{{#if ch3.signaux_present}}
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre II — Marqueurs affectifs et zones de coût</div>
+  <div class="chapitre-titre">Ce que vos émotions font à vos gestes — et ce que ça coûte</div>
+  <div class="chapitre-soustitre">Là où ça fluidifie, là où ça résiste, et comment vous composez</div>
+</div>
+
+<!-- FLUX UNIQUE : signal limbique → transition → zones de coût → clôture commune -->
+<div class="section" id="marqueurs">
+  {{#if ch3.s05_intro}}<p class="s-intro">{{ch3.s05_intro}}</p>{{/if}}
+  <div class="registres">{{{ch3.registres_html}}}</div>
+  {{#if ch3.s05_vigilance_globale}}<div class="reg-vigilance reg-vig-globale"><span class="reg-vig-lbl">Point de vigilance — les trois situations ensemble</span>{{ch3.s05_vigilance_globale}}</div>{{/if}}
+
+  {{#if ch3.couts_present}}
+  <div class="flux-transition">Ces résistances ne restent pas sans conséquence : elles dessinent vos <strong>zones de coût</strong> — les endroits où votre fonctionnement dépense plus qu'il ne produit, et où vous avez construit des stratégies pour composer.</div>
+  {{#if ch3.cout_principal.a}}<div class="cout-bloc cout-principal"><div class="cout-rang">Coût principal</div>{{{ch3.cout_principal.html}}}</div>{{/if}}
+  {{#if ch3.cout_secondaire.a}}<div class="cout-bloc cout-secondaire"><div class="cout-rang">Coût secondaire</div>{{{ch3.cout_secondaire.html}}}</div>{{/if}}
+  {{/if}}
+
+  {{#if ch3.s06_cloture}}<div class="s-cloture">{{ch3.s06_cloture}}</div>{{else}}{{#if ch3.s05_cloture}}<div class="s-cloture">{{ch3.s05_cloture}}</div>{{/if}}{{/if}}
+</div>
+{{/if}}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     CHAPITRE III — LE FILTRE COGNITIF
+     ═══════════════════════════════════════════════════════════════════════════ -->
+{{#if filtre.present}}
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre III — Le filtre cognitif</div>
+  <div class="chapitre-titre">Votre réglage de départ</div>
+  <div class="chapitre-soustitre">Ce que votre outil socle applique à toute situation, avant même que vous réfléchissiez</div>
+</div>
+
+<div class="section" id="filtre">
+  <p class="s-intro">Souvenez-vous du bouton rouge, au début de ce bilan : le réglage qui sort toujours pareil sur votre outil principal. Votre socle — l'outil que vous sortez en premier, quelle que soit la situation — est <strong>{{filtre.socle_label}}</strong>.</p>
+
+  {{#if filtre.a_gestes}}
+  <p class="s-intro">Cet outil, vous vous en servez de plusieurs manières : ce sont les gestes que vous répétez. Vous ne les activez pas tous autant — ceux qui suivent sont ceux que vous activez <strong>le plus souvent</strong>. C'est là que se lit votre réglage de départ. Regardons-les de près : vous allez sans doute reconnaître des choses que vous n'aviez jamais formulées.</p>
+
+  <div class="filtre-gestes">
+    {{#each filtre.gestes}}
+    <div class="fg-geste">
+      <div class="fg-tete"><span class="fg-nom">{{nom}}</span>{{#if rang}}<span class="fg-rang">{{rang}}</span>{{/if}}</div>
+      {{#if dit_html}}
+      <div class="fg-strate">
+        <div class="fg-lbl">Ce que vous dites</div>
+        <div class="fg-dit">{{{dit_html}}}</div>
+      </div>
+      {{/if}}
+      {{#if fait}}
+      <div class="fg-strate">
+        <div class="fg-lbl">Ce que vous faites, sans forcément le voir</div>
+        <div class="fg-txt">{{fait}}</div>
+      </div>
+      {{/if}}
+      {{#if revele}}
+      <div class="fg-strate">
+        <div class="fg-lbl">Ce que ça révèle</div>
+        <div class="fg-txt">{{revele}}</div>
+      </div>
+      {{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if filtre.synthese}}
+  <div class="s-label" style="margin-top:22px;">Ce que ces gestes, ensemble, révèlent — votre filtre</div>
+  <p class="s-para">{{filtre.synthese}}</p>
+  {{/if}}
+
+  <div class="filtre-card">
+    <div class="filtre-lbl"><span class="filtre-dot"></span>Votre filtre</div>
+    <div class="filtre-phrase">{{filtre.enonce}}</div>
+    <div class="filtre-sub">Ce réglage est permanent : on l'a retrouvé non seulement dans votre analyse, mais aussi quand vous utilisez vos autres outils — signe que c'est un réglage de fond, pas un comportement de circonstance.</div>
+  </div>
+
+  {{#if filtre.sans_gestes}}
+  {{#if filtre.a_preuves}}
+  <div class="s-label" style="margin-top:22px;">Ce qui le prouve — vos propres mots</div>
+  <div class="filtre-preuves">{{{filtre.preuves_html}}}</div>
+  {{/if}}
+  {{/if}}
+
+  <div class="s-label" style="margin-top:22px;">Filtre et mode — deux choses de votre socle</div>
+  <div class="filtre-dist">
+    <div class="fd-col fd-filtre"><div class="fd-when">avant · à l'entrée</div><div class="fd-h">Le filtre</div><div class="fd-txt">{{filtre.enonce}}</div></div>
+    <div class="fd-col fd-mode"><div class="fd-when">pendant · en travaillant</div><div class="fd-h">Le mode</div><div class="fd-txt">{{filtre.mode_socle}}</div></div>
+  </div>
+
+  {{#if filtre.technique}}<div class="filtre-tech"><div class="filtre-tech-lbl">Note technique — traçabilité</div>{{filtre.technique}}</div>{{/if}}
+</div>
+{{/if}}
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     CHAPITRE IV — LA RÉVÉLATION, OUTIL PAR OUTIL
+     ▸ À COLLER À LA SUITE DU CHAPITRE III (filtre cognitif) dans le bilan de production
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="chapitre-divider">
+  <div class="chapitre-tag">Chapitre IV — La révélation, outil par outil</div>
+  <div class="chapitre-titre">Vos 5 outils, révélés un par un</div>
+  <div class="chapitre-soustitre">Pour chaque outil : comment il se déduit de vos réponses, ses circuits, et ce que vos gestes disent de vous</div>
+</div>
+
+{{#each sections}}
+<div class="section {{role_class}}">
+
+  <!-- 1. TÊTIÈRE -->
+  <div class="ph">
+    <div class="ph-badge {{pilier_lc}}"><div class="ph-id">{{pilier}}</div></div>
+    <div class="ph-body">
+      {{#if role_star}}<div class="ph-star">{{role_star}}</div>{{/if}}
+      <div class="ph-nom">{{label}}</div>
+      <div class="ph-rb {{role_class}}">{{tetiere_roleband}}</div>
+      {{#if tetiere_rappel}}<div class="ph-rappel">{{tetiere_rappel}}</div>{{/if}}
+    </div>
+    <div class="ph-mode"><span class="ph-mlbl">Mode retenu</span><span class="ph-mval">{{mode}}</span></div>
+  </div>
+
+  <!-- 1bis. SÉQUENCE PÉDAGOGIQUE PERSONNALISÉE DU PILIER (les temps du lexique, avec SES données) -->
+  <div class="pilier-seq {{#if is_socle}}ps-socle{{/if}}">
+
+  <!-- TEMPS 2 personnalisé : le titre dépend du rôle (socle / amont / aval / fonctionnel) -->
+  <div class="ps-temps">
+    <div class="ps-h">{{titre_temps2}}</div>
+    <p class="ps-p">{{{intro_temps2}}}</p>
+    <div class="scene">
+      <div class="atelier">
+        <span class="boite">{{#each boite_tuiles}}<span class="tuile{{#if est_ce_pilier}} socle{{/if}}">{{code}}</span>{{/each}}</span>
+      </div>
+      <div class="legende">les 5 mêmes outils, rangés dans votre boîte — ici, en surbrillance : <strong>{{pilier}} · {{label}}</strong>{{#if is_socle}}, votre socle (celui qui dépasse){{/if}}.</div>
+    </div>
+  </div>
+
+  {{#if is_socle}}
+  <!-- TEMPS 3 personnalisé : on sort toujours le même -->
+  <div class="ps-temps">
+    <div class="ps-h">On sort toujours le même outil en premier</div>
+    <p class="ps-p">Quelle que soit la situation, votre main va d'abord vers le même outil : votre <strong>socle</strong> — exactement la tuile qui dépasse. On la sort, telle quelle.</p>
+    <div class="scene">
+      <div class="atelier">
+        <span class="boite">{{#each boite_tuiles}}<span class="tuile{{#if est_ce_pilier}}" style="opacity:.45;border:2px dashed #cbd5e1;background:transparent;color:#94a3b8;{{/if}}">{{code}}</span>{{/each}}</span>
+        <span class="main-fl">⟶</span>
+        <span class="outil-sorti"><span class="corps">{{pilier}} · {{label}}</span><span class="leg">votre outil socle — toujours le même</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEMPS 4 personnalisé : le filtre (réglage de départ, en questions) -->
+  <div class="ps-temps">
+    <div class="ps-h">Cet outil sort déjà réglé : c'est le filtre</div>
+    <p class="ps-p">C'est <strong>le même outil</strong> qu'au temps précédent, mais regardez son réglage. Il sort toujours réglé pareil — comme une perceuse bloquée sur une vitesse. Ce réglage, c'est le <strong>filtre</strong> : les questions que vous vous posez automatiquement devant toute situation, avant même d'y réfléchir.</p>
+    <div class="scene">
+      <div class="atelier">
+        <span class="outil-sorti"><span class="corps">{{pilier}} · {{label}}<span class="bouton on"></span></span><span class="leg">le bouton rouge = le filtre. Personne ne l'a réglé ce matin : il sort comme ça, toujours.</span></span>
+      </div>
+      {{#if filtre_questions.a}}
+      <div class="qrow">{{#each filtre_questions.liste}}<span class="qpill">{{this}}</span>{{/each}}</div>
+      {{/if}}
+      <div class="synthese">→ Vous <strong>{{filtre_synthese}}</strong> — votre filtre applique ce réglage à chaque fois.</div>
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- TEMPS 5 personnalisé : ce qui sort de l'outil -->
+  {{#if a_circuits_demo}}
+  <div class="ps-temps">
+    <div class="ps-h">Ce qui sort de l'outil : les circuits</div>
+    <p class="ps-p">Chaque outil produit ses propres actions. De <strong>{{label}}</strong>, il sort ces circuits — repérés dans vos propres mots, et comptés : <span class="badge bh">HAUT</span> (4 fois ou plus) · <span class="badge bm">MOYEN</span> (2 à 3) · <span class="badge bf">FAIBLE</span> (1).</p>
+    <div class="scene" style="text-align:left;">
+      <div class="ps-scene-row">
+        <div class="outil-sorti"><span class="corps">{{pilier}} · {{label}}{{#if is_socle}}<span class="bouton on"></span>{{/if}}</span></div>
+        <div class="circuits">
+          {{#each circuits_demo}}
+          <div class="circ-demo">
+            <div class="circ"><span class="fl">→</span> {{nom}} <span class="badge {{niveau_badge}}">{{niveau}}</span>{{#if a_verbatim}} <span class="vb">« {{verbatim}} »</span>{{/if}}</div>
+            <div class="circ-detail">{{code}} · {{nom}}<br><span class="circ-stats">cœur {{coeur}} · total {{total}} · {{profondeur}} · {{capacite}}</span></div>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- TEMPS 6 personnalisé : le mode (déduit) + filtre/mode -->
+  <div class="ps-temps">
+    <div class="ps-h">Chaque outil a sa manière de travailler : le mode</div>
+    <p class="ps-p">Regardez maintenant <strong>comment</strong> vous faites vos actions : toujours de la même manière. C'est votre <strong>mode</strong> — votre façon de vous en servir, toujours la même. On ne l'invente pas : on le lit dans vos actions les plus fréquentes, et on le résume en quelques mots. <strong>Chaque outil a son mode</strong> — pas seulement le socle.</p>
+    {{#if is_socle}}<p class="ps-p"><strong>Et le filtre, lui, n'existe que sur le socle.</strong> Retenez bien la règle : le socle a <strong>deux choses</strong> — un filtre <strong>et</strong> un mode. Les quatre autres outils n'ont <strong>qu'un mode</strong> — pas de filtre.</p>{{/if}}
+    <div class="scene">
+      <div class="deduction">
+        <div class="mini-circs">
+          {{#each circuits_demo}}<div class="circ"><span class="fl">→</span> {{nom}} <span class="badge {{niveau_badge}}">{{niveau}}</span></div>{{/each}}
+        </div>
+        <span class="dfl">⟹</span>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--mode);font-weight:700;letter-spacing:.08em;">LE MODE — déduit des actions dominantes</div>
+          <span class="etiq-mode"><span class="pico-m"></span>« {{mode}} »</span>
+        </div>
+      </div>
+      <div class="legende">le mode se déduit, il ne se décrète pas — c'est la manière qui revient dans vos actions les plus vues.</div>
+    </div>
+    {{#if is_socle}}
+    <p class="ps-p" style="margin-top:16px;"><strong>Filtre et mode, ne les confondez pas</strong> — ils décrivent deux choses différentes du même outil :</p>
+    <div class="versus">
+      <div class="col f">
+        <span class="ct">● Le filtre — le réglage de départ</span>
+        <li>Ce que l'outil <strong>demande à la situation</strong> avant de travailler : les questions automatiques.</li>
+        <li>S'observe <strong>à l'entrée</strong>, avant tout traitement.</li>
+        <li>N'existe que sur <strong>le socle</strong> — c'est le bouton rouge, toujours ON.</li>
+        <li>Le vôtre : <span class="vb">« {{recap_filtre}} »</span></li>
+      </div>
+      <div class="col m">
+        <span class="ct">● Le mode — la façon de travailler</span>
+        <li><strong>Comment</strong> l'outil travaille une fois en main : sa façon de faire, toujours la même.</li>
+        <li>S'observe <strong>pendant le geste</strong>, dans les actions les plus fréquentes.</li>
+        <li><strong>Chaque outil</strong> a le sien — le socle comme les autres.</li>
+        <li>Le vôtre : <span class="vb">« {{mode}} »</span></li>
+      </div>
+    </div>
+<div class="scene" style="margin-top:14px;">
+      <div class="boucle" style="justify-content:center;gap:40px;">
+        <div class="b-outil e {{pilier_lc}} soc"><span class="btn-on"></span><div class="picto">{{pilier}}</div><div class="code">{{pilier}}</div><div class="role">socle</div><div class="lf"><span class="pico-f"></span>« {{recap_filtre}} »</div><div class="lm"><span class="pico-m"></span>{{mode}}</div></div>
+        <div class="b-outil e"><div class="picto">P?</div><div class="code">AUTRE</div><div class="role">outil</div><div class="lm"><span class="pico-m"></span>juste un mode</div></div>
+      </div>
+      <div class="legende">la règle en un coup d'œil — le bouton rouge n'existe que sur le socle. Le socle : un filtre <strong>et</strong> un mode · les 4 autres outils : un mode, pas de filtre.</div>
+    </div>
+    <div class="mnemo"><strong>À retenir :</strong> le filtre, ce sont <em>les questions posées avant</em> — il n'existe que sur le socle. Le mode, c'est <em>la façon de travailler pendant</em> — chaque outil a le sien. <strong>Le socle a donc un filtre et un mode ; les quatre autres outils ont seulement un mode.</strong></div>
+    <div class="ps-repere"><strong>Chacun a son repère visuel :</strong> le filtre (<span class="pico-f"></span> le bouton rouge, sur le socle seulement) · le mode (<span class="pico-m"></span> le losange brun, sur chaque outil) — vous les retrouverez à la fin, sur votre boîte complète.</div>
+    {{/if}}
+  </div>
+
+  </div>
+
+  <!-- 4. CARTES PAR BLOC + EXPLICATION DE BLOC -->
+  {{#each blocsCartes}}
+  <div class="bloc-cartes-lbl {{role_class}}" style="color:inherit;">▸ {{libelle}}</div>
+  {{#each circuits}}
+  <div class="cm-card {{role_class}}">
+    <div class="cm-head"><div><span class="cm-code">{{code}}</span> · <span class="cm-nom">{{nom}}</span></div><div class="cm-meta">cœur {{coeur_aff}} · total {{total_aff}}{{#if a_profondeur}} · {{profondeur}}{{/if}}{{#if capacite}} · {{capacite}}{{/if}}</div></div>
+    {{#if a_verbs}}<div class="cm-introverb">Ce que vous faites, à travers vos réponses :</div>{{#each verbs}}<div class="cm-verb">« {{texte}} »<span class="cm-ref">{{ref}}</span></div>{{/each}}{{/if}}
+    {{#if courte}}<div class="cm-expl">{{courte}}</div>{{else}}{{#if expl}}<div class="cm-expl">{{expl}}</div>{{/if}}{{/if}}
+    {{#if a_renfort}}{{{renfort}}}{{/if}}
+  </div>
+  {{/each}}
+  {{#if a_expl_bloc}}<div class="expl-bloc {{role_class}}"><div class="expl-bloc-lbl">Ce que ces gestes disent de vous</div>{{#if expl_bloc_agregat}}<div class="expl-bloc-txt">{{expl_bloc_agregat}}</div>{{/if}}{{#if expl_bloc_rattachement}}<div class="expl-bloc-txt">{{expl_bloc_rattachement}}</div>{{/if}}</div>{{/if}}
+  {{/each}}
+
+  <!-- 5. SYNTHÈSE DU PILIER — Bloc 3 uniquement (vue d'ensemble) -->
+  {{#if vue_ensemble_html}}
+  <div class="synthese-pilier {{pilier_lc}}">
+    <div class="sp-header"><div class="sp-icon {{pilier_lc}}">{{pilier}}</div><div><div class="sp-title">{{label}} — Profil : ce que vos gestes disent de vous</div><div class="sp-subtitle">Vue d'ensemble</div></div></div>
+    <div class="sp-tech-content sp-vue">{{{vue_ensemble_html}}}</div>
+  </div>
+  {{/if}}
+
+</div>
+{{/each}}
+
+<div class="footer"><span>Profil cognitif — bilan généré</span><span>{{candidat.titre_affichage}}</span></div>
+</div>
+</body></html>
