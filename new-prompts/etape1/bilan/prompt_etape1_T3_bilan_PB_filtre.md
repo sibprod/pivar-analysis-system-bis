@@ -122,6 +122,9 @@ PARTIE A — LE FILTRE
      l'instrumental. → Trace : « Réglage d'entrée confirmé : … ».
   T4 VERBALISER LE FILTRE. Phrase courte au présent, qui garde TOUTE la richesse du geste PA
      (n'appauvris pas). Ne duplique pas le mode. Pas de code PxCy. → champ "filtre".
+     ⭐ ADRESSE AU CANDIDAT : le filtre est LU PAR le candidat. Écris-le à la 2e personne
+     (« Vous posez… », « Vous calibrez… »), JAMAIS à la 3e (« Elle/Il pose… »). La vue_ensemble
+     PA est souvent au « elle/il » — tu la RÉÉCRIS au « vous » sans en perdre le contenu.
      CONTRÔLE avant d'écrire : ton filtre est-il aussi riche que la vue_ensemble PA ? S'il a perdu
      un élément (« ajuster », « principe », « seuil »…), reprends-le.
   T5 DÉCODER CHAQUE GESTE (⭐ v4). Pour CHAQUE circuit de "bloc_haut_socle.circuits" (TOUS, dans
@@ -197,7 +200,7 @@ T6 synthèse : …
 Cohérence filtre : réglage d'entrée distinct du mode, sourcé socle + instrumental : …
 </analyse>
 {
-  "filtre": "<phrase courte, présent, ≤ ~18 mots, sourcée verbatims, sans code PxCy>",
+  "filtre": "<phrase courte, présent, 2e personne (« Vous… »), ≤ ~18 mots, sourcée verbatims, sans code PxCy>",
   "filtre_preuves": "<2-4 verbatims réels qui fondent le filtre, avec réf PxQn>",
   "gestes": [                          // ⭐ v4 — un objet par circuit du bloc très souvent (TOUS)
     {
