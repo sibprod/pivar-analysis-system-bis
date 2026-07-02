@@ -235,6 +235,7 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
     'ETAPE2_AGENT_A_EXCELLENCES',
     'ETAPE2_AGENT_B_EXCELLENCES',
     'ETAPE2_AGENT_C_EXCELLENCES',
+    'ETAPE2_TESTDEC_COMPLET',
     'ETAPE2_1REPONSE4DIMENSIONS',
     'ETAPE2_2EXCELLENCE',
     'REPRENDRE_EXCELLENCES'
