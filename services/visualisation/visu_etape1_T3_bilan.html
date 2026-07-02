@@ -1371,6 +1371,47 @@ table.inv-table tr.total-pilier td{background:#ececec;font-weight:700;border-top
 .filtre-tech-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px;font-weight:600;}
 
 @media(max-width:640px){.filtre-dist{grid-template-columns:1fr;}}
+
+/* ===== LA BOÎTE COMPLÈTE DU CANDIDAT (ouverture Chapitre IV) ===== */
+.boite-scene{margin:24px 0 12px;padding:24px 16px;background:var(--paper2);border:1px solid var(--rule);border-radius:14px;}
+.boite-boucle{display:flex;align-items:stretch;justify-content:center;gap:8px;flex-wrap:wrap;}
+.bc-outil{position:relative;flex:1 1 150px;min-width:140px;max-width:200px;background:var(--paper);border:1px solid var(--rule);border-top:3px solid var(--muted);border-radius:10px;padding:16px 14px 14px;display:flex;flex-direction:column;gap:5px;}
+.bc-outil.role-socle{border-top-color:var(--filtre);box-shadow:0 2px 12px rgba(220,38,38,.10);}
+.bc-outil.role-amont{border-top-color:var(--p2);}
+.bc-outil.role-aval{border-top-color:var(--p5);}
+.bc-outil.role-fonctionnel{border-top-color:var(--muted);}
+.bc-socle{align-self:flex-start;transform:translateY(-8px);}
+.bc-code{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);}
+.bc-nom{font-family:var(--serif);font-size:15px;font-weight:700;line-height:1.25;color:var(--ink);}
+.bc-role{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:2px;}
+.bc-lm{font-size:11.5px;line-height:1.45;color:#3a352c;display:flex;gap:5px;align-items:flex-start;}
+.bc-pico-m{flex:0 0 auto;width:8px;height:8px;margin-top:4px;display:inline-block;background:var(--mode);transform:rotate(45deg);}
+.bc-pico-f{flex:0 0 auto;width:8px;height:8px;margin-top:4px;display:inline-block;border-radius:50%;background:var(--filtre);}
+/* Ligne filtre du socle : bouton "toujours ON" → flèche → énoncé, le tout en rouge, sous le mode */
+.bc-filtre-line{margin-top:10px;padding-top:10px;border-top:1px dashed var(--filtre);display:flex;align-items:flex-start;gap:6px;}
+.bc-bton{flex:0 0 auto;display:inline-flex;flex-direction:column;align-items:center;color:var(--filtre);line-height:1;}
+.bc-bton::before{content:"●";font-size:14px;}
+.bc-bton-lbl{font-family:var(--mono);font-size:7px;font-weight:700;color:var(--filtre);white-space:nowrap;margin-top:2px;letter-spacing:.02em;}
+.bc-arrow{flex:0 0 auto;color:var(--filtre);font-size:13px;line-height:1;margin-top:2px;}
+.bc-filtre-txt{font-size:11.5px;line-height:1.45;color:var(--filtre);font-weight:500;}
+.boite-legende{margin-top:16px;text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--muted);display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;}
+.boite-legende .bc-pico-f,.boite-legende .bc-pico-m{margin-top:0;}
+/* Légende explicative — rien d'inconnu pour le candidat */
+.boite-legende-box{margin-top:18px;padding:18px 20px;border:1px solid var(--rule);border-radius:12px;background:var(--paper2);}
+.blg-titre{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:14px;}
+.blg-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
+.blg-item{display:flex;gap:12px;align-items:flex-start;font-size:13.5px;line-height:1.55;color:var(--ink);}
+.blg-pic{flex:0 0 auto;width:16px;display:flex;justify-content:center;padding-top:4px;}
+.blg-item .bc-pico-f,.blg-item .bc-pico-m{margin-top:0;}
+.blg-roles{display:flex;flex-direction:column;gap:8px;padding-top:14px;border-top:1px solid var(--rule);}
+.blg-role{display:flex;gap:9px;align-items:baseline;font-size:13px;line-height:1.5;color:#3a352c;}
+.blg-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;margin-top:1px;display:inline-block;}
+.rd-socle{background:var(--filtre);}
+.rd-amont{background:var(--p2);}
+.rd-aval{background:var(--p5);}
+.rd-fonctionnel{background:var(--muted);}
+.boite-suite{margin-top:18px;padding:16px 18px;border-left:3px solid var(--filtre);background:rgba(220,38,38,.03);font-size:14.5px;line-height:1.65;color:var(--ink);border-radius:0 8px 8px 0;}
+@media(max-width:640px){.bc-outil{max-width:none;}.bc-socle{transform:none;}}
 </style></head><body>
 <div class="page">
 <div class="cover-nom" style="font-size:38px;">{{candidat.titre_affichage}}</div>
@@ -1822,6 +1863,42 @@ fois : ce sera <strong>votre boîte à vous</strong>.
   <div class="chapitre-titre">Vos 5 outils, révélés un par un</div>
   <div class="chapitre-soustitre">Pour chaque outil : comment il se déduit de vos réponses, ses circuits, et ce que vos gestes disent de vous</div>
 </div>
+
+{{#if boite}}
+<!-- ═══ LA BOÎTE COMPLÈTE DU CANDIDAT (personnalisée) — avant l'éclaté par pilier ═══ -->
+<div class="section" id="boite-complete">
+  <p class="s-intro">Avant d'entrer dans le détail, voici votre boîte complète — vos 5 outils dans l'ordre où ils s'enchaînent. Chacun a un <strong>rôle</strong> (la place qu'il tient dans votre fonctionnement) et un <strong>mode</strong> (sa manière de travailler). Sur votre outil socle — et sur lui seul — le <strong>bouton du filtre</strong> est allumé.</p>
+
+  <div class="boite-scene">
+    <div class="boite-boucle">
+      {{#each boite.outils}}
+      <div class="bc-outil {{role_class}}{{#if is_socle}} bc-socle{{/if}}">
+        <div class="bc-code">{{code}}</div>
+        <div class="bc-nom">{{label}}</div>
+        <div class="bc-role">{{role}}</div>
+        {{#if mode}}<div class="bc-lm"><span class="bc-pico-m"></span>{{mode}}</div>{{/if}}
+        {{#if filtre}}<div class="bc-filtre-line"><span class="bc-bton"><span class="bc-bton-lbl">toujours ON</span></span><span class="bc-arrow">→</span><span class="bc-filtre-txt">votre filtre (ci-dessus)</span></div>{{/if}}
+      </div>
+      {{/each}}
+    </div>
+  </div>
+
+  <!-- Légende : rien ne doit rester inconnu au candidat -->
+  <div class="boite-legende-box">
+    <div class="blg-titre">Comment lire ce schéma</div>
+    <div class="blg-grid">
+      <div class="blg-item"><span class="blg-pic"><span class="bc-pico-f"></span></span><div><strong>Le filtre</strong> (bouton rouge, sur le socle uniquement) — le réglage de départ que votre outil principal applique à toute situation, avant même de commencer.</div></div>
+      <div class="blg-item"><span class="blg-pic"><span class="bc-pico-m"></span></span><div><strong>Le mode</strong> (losange brun, sur chaque outil) — la manière dont chaque outil travaille une fois lancé.</div></div>
+    </div>
+    <div class="blg-roles">
+      <span class="blg-role"><span class="blg-dot rd-socle"></span><strong>socle</strong> — l'outil que vous sortez en premier, par réflexe ; il gouverne tout le reste</span>
+      <span class="blg-role"><span class="blg-dot rd-amont"></span><strong>amont</strong> — il alimente le socle en amont</span>
+      <span class="blg-role"><span class="blg-dot rd-aval"></span><strong>aval</strong> — il prend le relais du socle, en aval</span>
+      <span class="blg-role"><span class="blg-dot rd-fonctionnel"></span><strong>fonctionnel</strong> — il intervient au coup par coup, quand la situation l'appelle</span>
+    </div>
+  </div>
+</div>
+{{/if}}
 
 {{#each sections}}
 <div class="section {{role_class}}">
