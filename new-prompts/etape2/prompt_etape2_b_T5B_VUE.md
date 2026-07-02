@@ -1,5 +1,5 @@
 # AGENT T5B — VUE · Portrait de l'excellence « vue systémique »
-## Projet Profil-Cognitif · Étape 2 · v2.1 (un sous-agent par excellence)
+## Projet Profil-Cognitif · Étape 2 · v2.2 (un sous-agent par excellence)
 
 <!-- v2.0 (2026-06-09) : le T5B est éclaté en 4 sous-agents (un par excellence)
      pour ne jamais saturer max_tokens. Ce prompt ne produit QUE VUE, UN objet. -->
@@ -43,6 +43,8 @@ Percevoir les **interdépendances** entre éléments : voir un réseau de liens 
 - **PIÈGES (ne pas sur-coter)** : une **liste** d'éléments (« il faut A, B, C ») n'est PAS systémique. Une **séquence** (« d'abord A, puis B ») n'est PAS systémique. Il faut des LIENS entre éléments (réseau), pas une énumération ni une chronologie.
 
 ---
+
+> 🔒 **RÉGIME ÉPISTÉMOLOGIQUE DE LA VUE SYSTÉMIQUE (garante, 02/07).** La vue systémique est une disposition **irrépressible** : ceux qui l'ont la déploient systématiquement — c'est plus fort qu'eux. **L'absence d'expression est donc diagnostique : un score bas est un CONSTAT légitime, pas un défaut de mesure.** N'importe JAMAIS ici le régime « non évalué » de la décentration. Le constat se nomme avec probité : cadrage adouci, diagnostic jamais.
 
 ## CALCUL DE LA LIGNE VUE
 
