@@ -741,4 +741,73 @@ router.get('/visualiser/t3_bilancognitif/:candidat_id', async (req, res) => {
   }
 });
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ ÉTAPE 2c (02/07/2026) — TEST COMPLÉMENTAIRE DE DÉCENTRATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get('/api/test-decentration/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide' });
+  try {
+    const rows = await airtableService.getTestDecentrationRows(candidat_id);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Aucun test généré pour ce candidat', candidat_id });
+    const dejaRepondu = rows.every(r => r.response_text && String(r.response_text).trim() !== '');
+    const situations = rows
+      .sort((a, b) => (a.numero || 0) - (b.numero || 0))
+      .map(r => ({
+        numero:         r.numero,
+        situation_text: r.situation_text || '',
+        question_text:  r.question_text || '',
+        amorce:         r.amorce || ''
+      }));
+    // Ni personnage_profil, ni position, ni compatibilité : le candidat ne voit que la situation.
+    return res.json({ candidat_id, deja_repondu: dejaRepondu, situations });
+  } catch (error) {
+    logger.error('TESTDEC — erreur GET', { candidat_id, error: error.message });
+    return res.status(500).json({ error: error.message, candidat_id });
+  }
+});
+
+router.post('/api/test-decentration/:candidat_id', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide' });
+  try {
+    const reponses = (req.body && req.body.reponses) || [];
+    if (!Array.isArray(reponses) || reponses.length !== 10) {
+      return res.status(400).json({ error: 'Il faut exactement 10 réponses.' });
+    }
+    for (const r of reponses) {
+      if (!r || r.numero === undefined || !r.response_text || String(r.response_text).trim().length < 10) {
+        return res.status(400).json({ error: `Réponse manquante ou trop courte (situation ${r && r.numero}).` });
+      }
+    }
+    // Une seule passation : refuser si des réponses existent déjà.
+    const rows = await airtableService.getTestDecentrationRows(candidat_id);
+    if (!rows || rows.length !== 10) return res.status(404).json({ error: 'Test non généré pour ce candidat.' });
+    if (rows.some(r => r.response_text && String(r.response_text).trim() !== '')) {
+      return res.status(409).json({ error: 'Ce test a déjà été passé.' });
+    }
+    await airtableService.saveTestDecentrationReponses(candidat_id, reponses);
+    await airtableService.updateVisiteur(candidat_id, {
+      statut_analyse_pivar: 'ETAPE2_TESTDEC_COMPLET',
+      derniere_activite:    new Date().toISOString()
+    });
+    logger.info('TESTDEC — réponses reçues, analyse lancée', { candidat_id });
+    return res.json({ success: true, message: 'Réponses transmises — votre bilan sera actualisé sous peu.' });
+  } catch (error) {
+    logger.error('TESTDEC — erreur POST', { candidat_id, error: error.message });
+    return res.status(500).json({ error: error.message, candidat_id });
+  }
+});
+
+router.get('/visualiser/test-decentration/:candidat_id', (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!_isValidCandidatId(candidat_id)) return res.status(400).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Identifiant candidat invalide</h1></body></html>');
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_etape2_c_testdec.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err && !res.headersSent) res.status(500).type('html').send('<html><body><h1>Erreur chargement test</h1></body></html>');
+  });
+});
+
 module.exports = router;
