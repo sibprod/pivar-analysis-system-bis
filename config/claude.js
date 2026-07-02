@@ -88,6 +88,8 @@ module.exports = {
     agent_t5bc:              64000,  // conservé pour compatibilité — non utilisé depuis v2.0
     agent_t5b:               64000,  // ⭐ A11 — portraits par excellence (portrait_excellence long)
     agent_t5c:               64000,  // ⭐ A11 — profil global + verdicts deux faces
+    agent_testdec_gen:       64000,  // ⭐ Étape 2c (02/07) — générateur du test de décentration
+    agent_testdec_cod:       64000,  // ⭐ Étape 2c (02/07) — codeur du test de décentration
 
     // ── Certificateur lexique (objet distinct du vérificateur T1) ─────────
     certificateur_lexique:   64000,
@@ -116,6 +118,8 @@ module.exports = {
     agent_t3:                true,   // nuances + clusters
     agent_t3_bilan:          false,  // ⭐ v11.0 — assemblage rédactionnel du bilan, pas de raisonnement complexe
     agent_t5a:               true,   // ⭐ v11.7 — distinction fine des niveaux par excellence
+    agent_testdec_gen:       true,   // ⭐ Étape 2c — construction calibrée des contrastes
+    agent_testdec_cod:       true,   // ⭐ Étape 2c — codage de l'ancrage contre deux référentiels
     agent_t5bc:              true,   // conservé pour compatibilité — non utilisé depuis v2.0
     agent_t5b:               true,   // ⭐ A11 — portraits par excellence, raisonnement régime
     agent_t5c:               true,   // ⭐ A11 — verdicts deux faces, raisonnement comparatif
