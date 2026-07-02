@@ -71,6 +71,7 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'ETAPE2_AGENT_A_EXCELLENCES',
   'ETAPE2_AGENT_B_EXCELLENCES',
   'ETAPE2_AGENT_C_EXCELLENCES',
+  'ETAPE2_TESTDEC_COMPLET',        // ⭐ Étape 2c (02/07) — test de décentration répondu, à coder
   // Compatibilité anciens statuts Étape 2 excellences
   'ETAPE2_1REPONSE4DIMENSIONS',
   'ETAPE2_2EXCELLENCE',
