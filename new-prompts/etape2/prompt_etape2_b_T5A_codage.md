@@ -1,5 +1,5 @@
 # AGENT T5A — Codage des 4 excellences cognitives, réponse par réponse
-## Projet Profil-Cognitif · Étape 2 · v4.0 (calibrage doctrine des 4 excellences)
+## Projet Profil-Cognitif · Étape 2 · v4.1 (calibrage doctrine des 4 excellences + régime épistémologique)
 
 <!-- v4.0 (2026-07-02) : GAMME ÉTALON DES 4 EXCELLENCES — arbitrages de la garante
      méthodologique (journal D20 du 04/06 + session d'arbitrage du 02/07 sur le run
@@ -157,7 +157,7 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 
 ## EXCELLENCE 3 — MÉTA-COGNITION (MET)
 
-**Définition.** Observer, décrire et analyser ses **propres processus cognitifs**. Pas « penser à ce qu'on fait » — penser *sur la façon dont on pense*. Décrire le mécanisme mental, pas l'action.
+**Définition.** Observer, décrire et analyser ses **propres processus cognitifs**. Pas « penser à ce qu'on fait » — penser *sur la façon dont on pense*. Décrire le mécanisme mental, pas l'action. **Précision de la garante (02/07)** : notre méta-cognition est la **perception de COMMENT on fait** — à distinguer de l'acception neuroscientifique courante (perception de *ce que l'on sait*). Or les 25 questions du test demandent toutes « comment faites-vous » : **chaque réponse sollicite la méta-cognition**. Elle est donc évaluée partout, sans réserve de protocole — un score bas est un constat légitime (cohérent avec D23 : NULLE si absente).
 
 **C'est ✅** : observer ses processus en train de se dérouler · nommer la forme/logique de sa pensée · identifier ses critères internes (saturation, sélection) · reconnaître un pattern cognitif récurrent · relier une résistance émotionnelle à son impact sur le fonctionnement.
 
