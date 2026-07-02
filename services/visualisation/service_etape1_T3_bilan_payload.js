@@ -769,6 +769,28 @@ async function buildPayload(candidat_id) {
     synthese:    safeStr(bilan.filtre_synthese),
   };
 
+  // ⭐ v4 — LA BOÎTE COMPLÈTE DU CANDIDAT (ouverture Chapitre IV) :
+  //   les 5 outils P1→P5 dans l'ordre de la boucle, chacun avec son rôle, son mode,
+  //   le bouton filtre allumé sur le socle (sur lui seul). Données réelles (aucune invention).
+  const boite = {
+    socle_label: socleLabel || safeStr(piliersMeta[socleCode]?.label),
+    filtre_enonce: safeStr(bilan.filtre),
+    outils: ['P1','P2','P3','P4','P5'].map(code => {
+      const p = pilierByCode[code] || {};
+      const role = safeStr(p.role_pilier).toLowerCase();
+      const estSocle = (code === socleCode);
+      return {
+        code,
+        label:     safeStr(p.pilier_label),
+        role:      role,                 // socle / amont / aval / fonctionnel (libellé réel)
+        role_class: roleClassFromRole(role),
+        mode:      safeStr(p.pilier_mode),
+        is_socle:  estSocle,
+        filtre:    estSocle ? safeStr(bilan.filtre) : '',
+      };
+    }),
+  };
+
   const ctx = {
     candidat: {
       titre_affichage: `${civilite} ${prenom}`.trim(),
@@ -777,6 +799,7 @@ async function buildPayload(candidat_id) {
     garde: garde,
     vueGlobale: vueGlobale,
     filtre: filtre,
+    boite: boite,
     ref: ref,
     p1: cartesRole.p1, p2: cartesRole.p2, p3: cartesRole.p3, p4: cartesRole.p4, p5: cartesRole.p5,
     bilan: {
