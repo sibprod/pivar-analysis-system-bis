@@ -1,5 +1,5 @@
 # AGENT T5B — ANT · Portrait de l'excellence « anticipation spontanée »
-## Projet Profil-Cognitif · Étape 2 · v2.1 (un sous-agent par excellence)
+## Projet Profil-Cognitif · Étape 2 · v2.2 (un sous-agent par excellence)
 
 <!-- v2.0 (2026-06-09) : le T5B est éclaté en 4 sous-agents (un par excellence)
      pour ne jamais saturer max_tokens. Ce prompt ne produit QUE ANT, UN objet. -->
@@ -43,6 +43,8 @@ Construire spontanément des situations futures et préparer une réponse AVANT 
 - **PIÈGES (ne pas sur-coter)** : une simple **intention** (« je vais faire X ») n'est PAS de l'anticipation. La **réactivité** (répondre à un problème survenu) n'est PAS de l'anticipation. Décrire une procédure connue n'est pas anticiper.
 
 ---
+
+> 🔒 **RÉGIME ÉPISTÉMOLOGIQUE DE L'ANTICIPATION (garante, 02/07).** Le test a **couvert le spectre** de l'anticipation : les questions la sollicitaient réellement. **Un score bas est donc un CONSTAT légitime — une petitesse manifeste — pas un défaut de mesure.** N'importe JAMAIS ici le régime « non évalué » de la décentration : pas de « le test n'a pas permis de mesurer », pas de test complémentaire. Le constat se nomme avec probité : cadrage adouci, diagnostic jamais.
 
 ## CALCUL DE LA LIGNE ANT
 
