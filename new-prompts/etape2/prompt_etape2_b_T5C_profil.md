@@ -1,5 +1,5 @@
 # AGENT T5C — Profil global + verdicts des deux faces du métier
-## Projet Profil-Cognitif · Étape 2 · v1.0 (issu du découpage de AGENT_T5BC v3.1)
+## Projet Profil-Cognitif · Étape 2 · v1.1 (régime épistémologique par dimension)
 
 <!-- HISTORIQUE DE VERSIONS
  v1.0 (2026-06-09) : créé par scission de AGENT_T5BC_prompt.md v3.1 en deux appels
@@ -58,6 +58,8 @@ Verdicts autorisés en base (valeurs EXACTES) : **TRÈS BON · BON · SUFFISANT 
 >     - **POSER LE MINIMUM SÛR :** nommer les autres excellences présentes (surtout la **méta-cognition** si solide) comme **socle positif** — se connaître soi est le fondement pour épouser le fonctionnement de l'autre.
 >     - **MESSAGE OUVRANT :** le test se combinera avec la méta-cognition → la face management peut s'en trouver **renforcée**. Verdict définitif après le test. Aucune réserve définitive, aucune condition sanctionnante.
 > - **Si la décentration est posée (tranche ≥ 6) :** verdict management normal selon le calage ci-dessous. `DÉFAVORABLE` n'est possible QUE dans ce cas (décentration mesurée ET prérequis constatés inadéquats).
+>
+> 🔒 **PORTÉE DU RÉGIME « NON ÉVALUÉ » (garante, 02/07) : il n'existe QUE pour la décentration** — seule dimension que les questions ne sollicitaient pas spécialement. Les trois autres se mesurent sans réserve : l'**anticipation** (le test a couvert son spectre — un score bas = petitesse manifeste, constat), la **vue systémique** (disposition irrépressible — l'absence d'expression est diagnostique) et la **méta-cognition** (les 25 questions demandent toutes « comment faites-vous » — sollicitation permanente). Ne jamais étendre la réserve de protocole à ces trois dimensions ; leurs scores bas sont des faits, nommés avec probité (cadrage adouci, diagnostic jamais).
 
 Calage (calibré sur les cas validés) :
 
