@@ -1,4 +1,4 @@
-// services/orchestrators/orchestrator_etape2_b_excellences.js
+// services/orchestrators/etape2/orchestratorExcellences.js
 // Sous-orchestrateur Étape 2 — Les 4 excellences cognitives + bilan
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -21,14 +21,6 @@
 // Jalons posés au fil de l'eau (servent de points de reprise) :
 //   A fait → ETAPE2_AGENT_B ; B fait → ETAPE2_AGENT_C ; C fait → ETAPE2_3BILAN4_EXCELLENCES.
 //
-// v3.1 (2026-07-02) — INTÉGRITÉ : ARRÊT SUR ÉCHEC PARTIEL (A et B)
-//   Avant : si l'agent B produisait 3 excellences sur 4, la chaîne enchaînait sur C,
-//   qui calculait profil et verdicts sur un T5B INCOMPLET → bilan silencieusement faux
-//   (ex. MET manquante = verdict management sans une de ses indispensables).
-//   Après : si rA.echecs ou rB.echecs n'est pas vide, la chaîne S'ARRÊTE, pose le
-//   jalon de reprise (ETAPE2_AGENT_A/B_EXCELLENCES) et écrit le détail dans
-//   erreur_analyse. Un verdict ne se calcule JAMAIS sur des données incomplètes.
-//
 // ⚠️ En sortie réussie, run() renvoie { stopReason: 'excellences_done' } et NON
 //   { success:true } : l'orchestrateur principal, sur success:true, écrase le statut
 //   par "terminé" (non éligible → faux ERREUR si repris). Avec stopReason, le principal
@@ -40,6 +32,8 @@ const airtableService = require('../infrastructure/airtableService');
 const agentT5A        = require('../etape2/agent_etape2_b_T5A_codage');
 const agentT5B        = require('../etape2/agent_etape2_b_T5B_portraits');
 const agentT5C        = require('../etape2/agent_etape2_b_T5C_profil');
+const agentTestDecGen = require('../etape2/agent_etape2_c_TESTDEC_generation');
+const agentTestDecCod = require('../etape2/agent_etape2_c_TESTDEC_codage');
 const logger          = require('../../utils/logger');
 
 // Quels agents lancer selon le statut entrant.
@@ -50,6 +44,8 @@ const STATUT_TO_PLAN = {
   'ETAPE2_AGENT_A_EXCELLENCES':  { a: true,  b: false, c: false },
   'ETAPE2_AGENT_B_EXCELLENCES':  { a: false, b: true,  c: false },
   'ETAPE2_AGENT_C_EXCELLENCES':  { a: false, b: false, c: true  },
+  // ⭐ Étape 2c (02/07) — test de décentration répondu : codage → ligne DEC recalculée → verdicts (C)
+  'ETAPE2_TESTDEC_COMPLET':      { a: false, b: false, c: true,  testdec: true },
   // ── Compatibilité anciens statuts ────────────────────────────────────────
   'ETAPE2_1REPONSE4DIMENSIONS':  { a: true,  b: true,  c: true  },
   'ETAPE2_2EXCELLENCE':          { a: false, b: true,  c: true  },
@@ -82,17 +78,6 @@ async function run({ candidat_id, visiteur }) {
     if (plan.a) {
       const rA = await agentT5A.run({ candidat_id });
       totalCost += rA.cost || 0;
-      // v3.1 — INTÉGRITÉ : des réponses n'ont pas pu être codées → on N'ENCHAÎNE PAS
-      // (B agrégerait des lignes non recodées → portraits faux d'apparence normale).
-      if (rA.echecs && rA.echecs.length > 0) {
-        await airtableService.updateVisiteur(candidat_id, {
-          statut_analyse_pivar: 'ETAPE2_AGENT_A_EXCELLENCES',
-          erreur_analyse:       `Agent A partiel — réponses non codées : ${rA.echecs.join(', ')}. Chaîne arrêtée avant B. Relance = reposer ETAPE2_AGENT_A_EXCELLENCES (rejoue les 25 réponses).`,
-          derniere_activite:    new Date().toISOString()
-        });
-        logger.warn('Excellences — Agent A partiel, chaîne ARRÊTÉE avant B', { candidat_id, echecs: rA.echecs });
-        return { stopReason: 'excellences_a_partiel', candidat_id, echecs: rA.echecs, totalCostUsd: totalCost };
-      }
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_AGENT_B_EXCELLENCES',
         derniere_activite:    new Date().toISOString()
@@ -104,22 +89,21 @@ async function run({ candidat_id, visiteur }) {
     if (plan.b) {
       const rB = await agentT5B.run({ candidat_id });
       totalCost += rB.cost || 0;
-      // v3.1 — INTÉGRITÉ : une excellence manque → on N'ENCHAÎNE PAS sur C
-      // (un verdict ne se calcule jamais sur un T5B incomplet).
-      if (rB.echecs && rB.echecs.length > 0) {
-        await airtableService.updateVisiteur(candidat_id, {
-          statut_analyse_pivar: 'ETAPE2_AGENT_B_EXCELLENCES',
-          erreur_analyse:       `Agent B partiel — excellences en échec : ${rB.echecs.join(', ')}. Chaîne arrêtée avant C. Relance = reposer ETAPE2_AGENT_B_EXCELLENCES (l'upsert par excellence réécrit proprement).`,
-          derniere_activite:    new Date().toISOString()
-        });
-        logger.warn('Excellences — Agent B partiel, chaîne ARRÊTÉE avant C', { candidat_id, echecs: rB.echecs });
-        return { stopReason: 'excellences_b_partiel', candidat_id, echecs: rB.echecs, totalCostUsd: totalCost };
-      }
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_AGENT_C_EXCELLENCES',
         derniere_activite:    new Date().toISOString()
       });
       logger.info('Excellences — Agent B (T5B) terminé', { candidat_id, t5b: rB.t5b });
+    }
+
+    // ─── ⭐ Étape 2c — Codage du test de décentration (AVANT le C : la ligne
+    //     DEC recalculée doit être en base quand C relit les 4 lignes T5B) ────
+    if (plan.testdec) {
+      const rT = await agentTestDecCod.run({ candidat_id });
+      totalCost += rT.cost || 0;
+      logger.info('Excellences — TESTDEC codage terminé', {
+        candidat_id, activations: rT.activations
+      });
     }
 
     // ─── Agent C — T5C (profil + verdicts des deux faces) ──────────────────
@@ -131,6 +115,26 @@ async function run({ candidat_id, visiteur }) {
         derniere_activite:    new Date().toISOString()
       });
       logger.info('Excellences — Agent C (T5C) terminé', { candidat_id, t5c: rC.t5c });
+
+      // ⭐ Étape 2c — si le verdict management sort en RÉSERVE DE PROTOCOLE,
+      // pré-générer le test de décentration (best effort : un échec ici ne
+      // bloque JAMAIS le bilan — le service saute si des réponses existent).
+      if (!plan.testdec) {
+        try {
+          const verdict = await airtableService.getEtape2T5CVerdictMan(candidat_id);
+          if (verdict === 'RÉSERVE DE PROTOCOLE') {
+            const rG = await agentTestDecGen.run({ candidat_id });
+            totalCost += rG.cost || 0;
+            logger.info('Excellences — TESTDEC génération', {
+              candidat_id, generated: rG.generated, skipped: rG.skipped || ''
+            });
+          }
+        } catch (eGen) {
+          logger.error('Excellences — TESTDEC génération échouée (non bloquant)', {
+            candidat_id, error: eGen.message
+          });
+        }
+      }
     }
 
     const totalElapsedMs = Date.now() - startTime;
