@@ -1,5 +1,5 @@
 # AGENT T5B — DEC · Portrait de l'excellence « décentration cognitive »
-## Projet Profil-Cognitif · Étape 2 · v2.1 (un sous-agent par excellence)
+## Projet Profil-Cognitif · Étape 2 · v2.2 (un sous-agent par excellence)
 
 <!-- v2.0 (2026-06-09) : le T5B est éclaté en 4 sous-agents (un par excellence)
      pour ne jamais saturer max_tokens. Ce prompt ne produit QUE DEC, UN objet. -->
@@ -48,7 +48,7 @@ Sortir de son propre référentiel pour raisonner **DEPUIS** celui d'un autre (h
 > Soit **A = nb_eleve + nb_moyen sur les 20 situations évaluables**. Applique STRICTEMENT :
 > - **0 ≤ A ≤ 5 → NON ÉVALUÉ.** `niveau_global`=`"Non évalué — test à passer"` (JAMAIS le chiffre brut, JAMAIS « ABSENTE »). `niveau_densite`=`"NON ÉVALUÉE"`. `pattern` laissé neutre/vide.
 >   Rédaction STRICTE (synthese, portrait_excellence, reserve) : **AUCUN scénario négatif** (interdits : « quasi-absente », « n'active pas », « pente à imposer sa solution »…). Dire seulement : la décentration n'a pas été assez sollicitée par ce test pour être mesurée de façon fiable ; un **test complémentaire** court est proposé. POSER LE MINIMUM SÛR : nommer les autres excellences présentes (surtout la méta-cognition) comme socle positif. MESSAGE OUVRANT : le test, combiné à la méta-cognition, peut RENFORCER la face management ; verdict définitif après le test. Aucune réserve définitive.
-> - **6 ≤ A ≤ 10 → POSÉ AVEC RÉSERVE.** Décris la décentration réellement observée (gestes + verbatims), pose le niveau avec réserve, propose le test pour affiner.
+> - **6 ≤ A ≤ 10 → POSÉ AVEC RÉSERVE.** Décris la décentration réellement observée (gestes + verbatims), pose le niveau avec réserve, propose le test pour affiner. **Rédaction : rappeler TOUJOURS la fenêtre de mesure** — la décentration est jaugée sur 20 et n'était pas spécialement sollicitée par les questions ; écrire « la décentration observée sur cette fenêtre », JAMAIS « sa décentration est faible » comme un trait de la personne. Ce que le test n'a pas activé, le candidat peut l'avoir.
 > - **11 ≤ A ≤ 14 → POSÉ.** Décris et pose le niveau, propose le test pour affiner.
 > - **A ≥ 15 → POSÉ, PAS de test.**
 > Le test produit des RÉPONSES À ANALYSER (pas des cases), et REMPLACE l'évaluation manquante (DEC recalculée).
