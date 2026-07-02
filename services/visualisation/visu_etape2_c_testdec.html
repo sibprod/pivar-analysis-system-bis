@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test complémentaire — 10 situations</title>
+<style>
+:root{--bg:#f4f1ea;--paper:#fbfaf6;--ink:#22201b;--mid:#6b6557;--line:#ddd6c8;--accent:#7a3b2e;--ok:#2f7d4f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding:44px 20px 90px}
+h1{font-size:26px;margin-bottom:8px}
+.sub{color:var(--mid);font-size:14px;margin-bottom:34px;line-height:1.55}
+.sit{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:24px 26px;margin-bottom:26px}
+.sit-num{font-size:11px;letter-spacing:.14em;color:var(--accent);font-weight:700;margin-bottom:10px}
+.sit-txt{margin-bottom:14px}
+.sit-q{font-weight:700;margin-bottom:12px}
+textarea{width:100%;min-height:140px;padding:14px;border:1px solid var(--line);border-radius:6px;font-family:inherit;font-size:15px;line-height:1.55;background:#fff;color:var(--ink);resize:vertical}
+textarea:focus{outline:none;border-color:var(--accent)}
+.count{font-size:11px;color:var(--mid);text-align:right;margin-top:4px}
+.actions{margin-top:34px;text-align:center}
+button{font-family:inherit;font-size:16px;padding:14px 34px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600}
+button:disabled{opacity:.45;cursor:default}
+#msg{margin-top:14px;font-size:14px;min-height:20px;text-align:center}
+#msg.err{color:#b03a2e}#msg.ok{color:var(--ok)}
+.fin{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:8px;padding:34px;text-align:center;margin-top:40px}
+.hide{display:none}
+.progress{position:sticky;top:0;background:var(--bg);padding:10px 0;font-size:12px;color:var(--mid);z-index:5;border-bottom:1px solid var(--line);margin-bottom:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Dix situations, votre façon de faire</h1>
+  <div class="sub">Pour compléter votre bilan, voici dix situations courtes. Racontez concrètement comment vous vous y prenez — il n'y a pas de bonne réponse, c'est <b>votre façon de faire</b> qui nous intéresse. Un début de réponse est proposé dans chaque case : poursuivez-le librement. Comptez environ 20 minutes ; vos réponses sont envoyées en une seule fois à la fin.</div>
+  <div class="progress" id="prog">Chargement…</div>
+  <div id="liste"></div>
+  <div class="actions" id="actions" style="display:none">
+    <button id="envoyer" onclick="envoyer()">Envoyer mes réponses</button>
+    <div id="msg"></div>
+  </div>
+  <div class="fin hide" id="fin">
+    <h2 style="margin-bottom:10px">Merci — vos réponses sont transmises.</h2>
+    <p style="color:var(--mid)">L'analyse démarre automatiquement. Votre bilan sera actualisé d'ici une dizaine de minutes — vous pourrez le rouvrir avec le même lien que d'habitude.</p>
+  </div>
+</div>
+<script>
+var CID = location.pathname.split('/').pop();
+var SITUATIONS = [];
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function majProg(){
+  var done=0;
+  SITUATIONS.forEach(function(s,i){
+    var v=document.getElementById('r'+i).value.trim();
+    if(v.length>=10 && v!==s.amorce.trim()) done++;
+  });
+  document.getElementById('prog').textContent=done+' / '+SITUATIONS.length+' situations répondues';
+  return done;
+}
+function charger(){
+  fetch('/api/test-decentration/'+encodeURIComponent(CID))
+    .then(function(r){if(!r.ok)throw new Error(r.status===404?'Aucun test n\'est prévu pour ce lien.':'Erreur de chargement ('+r.status+')');return r.json();})
+    .then(function(d){
+      if(d.deja_repondu){
+        document.getElementById('prog').style.display='none';
+        document.getElementById('fin').classList.remove('hide');
+        document.querySelector('.fin h2').textContent='Ce test a déjà été passé.';
+        document.querySelector('.fin p').textContent='Vos réponses ont bien été prises en compte — votre bilan est actualisé (ou en cours d\'actualisation).';
+        return;
+      }
+      SITUATIONS=d.situations||[];
+      var h='';
+      SITUATIONS.forEach(function(s,i){
+        h+='<div class="sit"><div class="sit-num">SITUATION '+s.numero+' / 10</div>'
+          +'<p class="sit-txt">'+esc(s.situation_text)+'</p>'
+          +'<p class="sit-q">'+esc(s.question_text)+'</p>'
+          +'<textarea id="r'+i+'" oninput="majProg()">'+esc(s.amorce||'')+'</textarea>'
+          +'</div>';
+      });
+      document.getElementById('liste').innerHTML=h;
+      document.getElementById('actions').style.display='block';
+      majProg();
+    })
+    .catch(function(e){document.getElementById('prog').textContent=e.message;});
+}
+function envoyer(){
+  var msg=document.getElementById('msg');
+  var done=majProg();
+  if(done<SITUATIONS.length){
+    msg.className='err';
+    msg.textContent='Il reste '+(SITUATIONS.length-done)+' situation(s) sans réponse — merci de compléter chaque case (au-delà du début proposé).';
+    return;
+  }
+  var reponses=SITUATIONS.map(function(s,i){return {numero:s.numero,response_text:document.getElementById('r'+i).value.trim()};});
+  document.getElementById('envoyer').disabled=true;
+  msg.className='';msg.textContent='Envoi en cours…';
+  fetch('/api/test-decentration/'+encodeURIComponent(CID),{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({reponses:reponses})
+  })
+  .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Erreur '+r.status);return j;});})
+  .then(function(){
+    document.getElementById('liste').innerHTML='';
+    document.getElementById('actions').style.display='none';
+    document.getElementById('prog').style.display='none';
+    document.getElementById('fin').classList.remove('hide');
+    window.scrollTo(0,0);
+  })
+  .catch(function(e){
+    document.getElementById('envoyer').disabled=false;
+    msg.className='err';msg.textContent=e.message;
+  });
+}
+charger();
+</script>
+</body>
+</html>
