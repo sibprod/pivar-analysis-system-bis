@@ -214,7 +214,19 @@ function render(d){
   // ⭐ Étape 2c — test complémentaire de décentration, deux registres (garante 03/07) :
   //   'remede'   (réserve de protocole) : le test COMPLÈTE une mesure manquante
   //   'affinage' (décentration en tranche 6-14) : le bilan est posé, le test l'AFFINE
-  var tdm = p.test_dec_mode || (String(p.verdict_man_niveau||'').toUpperCase()==='RÉSERVE DE PROTOCOLE' ? 'remede' : null);
+  // ⭐ Double mesure (garante, 03/07) : si le test complémentaire a été passé,
+  // afficher ce qu'il a RÉVÉLÉ en plus — l'initiale reste affichée au-dessus.
+  if(p.test_dec && p.test_dec.niveau_global){
+    var td=p.test_dec;
+    html+='<div style="margin:26px 0 6px;padding:22px 26px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #2f7d4f;border-radius:8px;">'
+      +'<div style="font-size:12px;letter-spacing:.14em;color:#2f7d4f;font-weight:700;margin-bottom:8px;">TEST COMPLÉMENTAIRE — CE QU\'IL A RÉVÉLÉ</div>'
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Décentration cognitive : '+esc(td.niveau_global)+'</div>'
+      +'<div style="font-size:12px;color:#6b6557;margin-bottom:12px;">'+esc(td.pattern||'')+' — sur dix situations qui sollicitent directement cette dimension. Cette mesure s\'ajoute à la première analyse, elle ne la remplace pas.</div>'
+      +(td.synthese?'<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">'+esc(td.synthese)+'</p>':'')
+      +(td.portrait_excellence?'<p style="margin:0;font-size:13px;color:#55503f;line-height:1.55;font-style:italic;">'+esc(td.portrait_excellence)+'</p>':'')
+      +'</div>';
+  }
+  var tdm = p.test_dec ? null : (p.test_dec_mode || (String(p.verdict_man_niveau||'').toUpperCase()==='RÉSERVE DE PROTOCOLE' ? 'remede' : null));
   if(tdm){
     var cid=location.pathname.split('/').pop();
     var titre = tdm==='remede' ? 'Un test complémentaire vous est proposé' : 'Affinez votre bilan';
