@@ -445,6 +445,16 @@ async function getBilanExcellences(candidat_id) {
     };
 
     logger.debug('Bilan assemblé', { candidat_id, nb_excellences: excellences.length });
+    // 🔒 MASQUAGE CANDIDAT (garante, 03/07/2026) : le verdict DÉFAVORABLE est
+    // INTERNE (base/recruteur) — le candidat ne le lit JAMAIS. Son bilan affiche
+    // RÉSERVE DE PROTOCOLE + conseil du test complémentaire. Masqué ICI (serveur)
+    // pour que le mot n'atteigne jamais le navigateur, même dans le JSON.
+    if (String(profil.verdict_man_niveau || '').toUpperCase() === 'DÉFAVORABLE') {
+      profil.verdict_man_niveau = 'RÉSERVE DE PROTOCOLE';
+      profil.verdict_man = "🛡️ RÉSERVE DE PROTOCOLE — ce parcours n'a pas permis d'établir cette face : un test complémentaire vous est conseillé pour compléter la mesure.";
+      profil.jauge_rev = { na: true, val: 'à compléter par le test' };
+    }
+
     return { profil, excellences };
   } catch (error) {
     logger.error('Failed to build bilan excellences', { candidat_id, error: error.message });
