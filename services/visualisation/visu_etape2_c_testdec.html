@@ -149,9 +149,9 @@ function sonder(){
   fetch('/api/test-decentration/'+encodeURIComponent(CID))
     .then(function(r){
       if(r.status===404){
-        if(_sondages>=36){prog.innerHTML='La préparation prend plus longtemps que prévu. <button style="margin-left:8px;padding:6px 14px" onclick="location.reload()">Réessayer</button>';return;}
-        prog.textContent='Préparation en cours — vos situations sont construites sur mesure ('+(_sondages*10)+' s)…';
-        setTimeout(sonder,10000);return;
+        if(_sondages>=40){prog.innerHTML='La préparation prend plus longtemps que prévu — elle continue en arrière-plan : vous pouvez fermer cette page et revenir un peu plus tard, rien ne se perd. <button style="margin-left:8px;padding:6px 14px" onclick="location.reload()">Vérifier maintenant</button>';return;}
+        prog.textContent='Préparation en cours — vos situations sont construites sur mesure ('+Math.round(_sondages*15/60*10)/10+' min)…';
+        setTimeout(sonder,15000);return;
       }
       if(!r.ok)throw new Error('Erreur '+r.status);
       return r.json();
