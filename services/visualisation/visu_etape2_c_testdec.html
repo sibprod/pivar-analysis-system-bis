@@ -93,14 +93,30 @@ function proposerPreparation(){
   prog.innerHTML='Ce test n\'est pas encore préparé pour ce lien. '
     +'<button id="prep" style="margin-left:10px;padding:8px 16px;font-size:13px" onclick="preparer()">Préparer le test (~1 minute)</button>';
 }
+var _sondages=0;
 function preparer(){
   var prog=document.getElementById('prog');
-  document.getElementById('prep').disabled=true;
-  prog.textContent='Préparation en cours — vos situations sont construites sur mesure, environ une minute…';
+  var btn=document.getElementById('prep'); if(btn) btn.disabled=true;
+  prog.textContent='Préparation en cours — vos situations sont construites sur mesure (une à trois minutes)…';
   fetch('/api/test-decentration/'+encodeURIComponent(CID)+'/generer',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})
     .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Erreur '+r.status);return j;});})
-    .then(function(){charger();})
+    .then(function(){_sondages=0;setTimeout(sonder,10000);})
     .catch(function(e){prog.textContent='Préparation impossible : '+e.message;});
+}
+function sonder(){
+  _sondages++;
+  var prog=document.getElementById('prog');
+  fetch('/api/test-decentration/'+encodeURIComponent(CID))
+    .then(function(r){
+      if(r.status===404){
+        if(_sondages>=36){prog.innerHTML='La préparation prend plus longtemps que prévu. <button style="margin-left:8px;padding:6px 14px" onclick="location.reload()">Réessayer</button>';return;}
+        prog.textContent='Préparation en cours — vos situations sont construites sur mesure ('+(_sondages*10)+' s)…';
+        setTimeout(sonder,10000);return;
+      }
+      if(!r.ok)throw new Error('Erreur '+r.status);
+      charger();
+    })
+    .catch(function(e){prog.textContent='Erreur pendant la préparation : '+e.message;});
 }
 function envoyer(){
   var msg=document.getElementById('msg');
