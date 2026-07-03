@@ -138,6 +138,17 @@ Le décentré tient les DEUX : le chemin de l'autre ET l'atteinte de l'objectif.
   référentiel (même gentiment), délégation/escalade pure, faire à la place,
   pédagogie descendante (dérouler SA méthode plus lentement).
 
+**🔒 L'ADAPTATION INSTRUMENTALE N'EST PAS DE LA DÉCENTRATION (garante,
+03/07).** Se mettre au format de l'autre pour EN OBTENIR quelque chose —
+« l'angle d'attaque », le mimétisme de style qui fait céder l'information ou
+la décision — est de la tactique d'influence : l'autre y est instrumenté, pas
+compris. À distinguer du perspective getting sincère (comprendre ce que
+l'autre sait, la relation intacte, sa façon accueillie comme valide) et de la
+présentation respectueuse du fonctionnement de l'autre quand on a besoin de
+lui. Le discriminant : ce que devient l'AUTRE dans la manœuvre — un partenaire
+compris, ou un coffre-fort dont on a trouvé la combinaison. L'instrumental se
+SIGNALE dans la manifestation et ne compte jamais comme décentration opérante.
+
 **🔒 L'ANCRE DU RETRAIT — ne pas intervenir n'est JAMAIS automatiquement une
 démission (garante, 03/07 — correction majeure de grille).** Comme le conseil,
 le retrait est un geste dont on lit L'ANCRE :
