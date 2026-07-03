@@ -177,6 +177,18 @@ function renderExc(e){
     +'</div>';
 }
 
+// ⭐ Le 2ᵉ AVIS (garante, 03/07) : pavé du test complémentaire, posé sous le
+// 1ᵉʳ avis de la face management — il s'ajoute, il n'écrase jamais.
+function blocTestDec(p){
+  var td=p.test_dec;
+  return '<div style="margin:18px 0 4px;padding:20px 24px;background:#f6faf6;border:1px solid #cfe0cf;border-left:4px solid #2f7d4f;border-radius:8px;">'
+    +'<div style="font-size:12px;letter-spacing:.14em;color:#2f7d4f;font-weight:700;margin-bottom:8px;">2ᵉ AVIS · TEST COMPLÉMENTAIRE — CE QU\'IL A RÉVÉLÉ</div>'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Décentration cognitive : '+esc(td.niveau_global)+'</div>'
+    +'<div style="font-size:12px;color:#6b6557;margin-bottom:12px;">'+esc(td.pattern||'')+' — sur dix situations qui sollicitent directement cette dimension. Ce second avis s\'ajoute au premier, il ne le remplace pas.</div>'
+    +(td.synthese?'<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">'+esc(td.synthese)+'</p>':'')
+    +(td.portrait_excellence?'<p style="margin:0;font-size:13px;color:#55503f;line-height:1.55;font-style:italic;">'+esc(td.portrait_excellence)+'</p>':'')
+    +'</div>';
+}
 function verdictClass(v){
   v=(v||'').toUpperCase();
   if(v.indexOf('TRÈS BON')>=0||v.indexOf('BON')>=0) return 'v-ok';
@@ -198,7 +210,14 @@ function render(d){
       +'<div class="ordre"><span>Ordre d\'amplitude</span> '+esc(p.ordre)+'</div></div>'
     // 02
     +'<div class="sec"><span class="n">02</span>Les quatre capacités, en détail</div>';
-  excs.forEach(function(e){html+=renderExc(e);});
+  excs.forEach(function(e){
+    html+=renderExc(e);
+    // ⭐ Vue systémique (garante, 03/07) : quand le test est passé, la carte
+    // décentration ne peut pas rester sur « test à passer » — elle renvoie au 2ᵉ avis.
+    if(e.code==='DEC' && p.test_dec && p.test_dec.niveau_global){
+      html+='<div style="margin:-8px 0 18px;padding:10px 16px;background:#f6faf6;border:1px solid #cfe0cf;border-radius:6px;font-size:13px;color:#2f7d4f;"><b>Test complémentaire passé</b> — décentration mesurée : '+esc(p.test_dec.niveau_global)+'. Voir le 2ᵉ avis dans la face « Révéler le potentiel de chacun » ci-dessous.</div>';
+    }
+  });
   // combinaison
   html+='<div class="combi"><div class="combi-h">Ce que ça donne en combinaison</div><p>'+esc(p.combinaison)+'</p></div>';
   // 03
@@ -207,25 +226,35 @@ function render(d){
     +'<div class="face"><div class="face-top face-trav"><span class="face-kick">Le travail</span><span class="face-v '+verdictClass(p.verdict_enc)+'">'+esc(p.verdict_enc)+'</span></div>'
       +'<div class="face-lab">Faire avancer le travail</div><p class="face-why">'+esc(p.conclusions_enc)+'</p>'
       +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_enc)+'</div></div>'
-    +'<div class="face"><div class="face-top face-rev"><span class="face-kick">La personne</span><span class="face-v '+verdictClass(p.verdict_man)+'">'+esc(p.verdict_man)+'</span></div>'
+    +'<div class="face"><div class="face-top face-rev"><span class="face-kick">La personne'+(p.test_dec?' · 1ᵉʳ avis — parcours principal':'')+'</span><span class="face-v '+verdictClass(p.verdict_man)+'">'+esc(p.verdict_man)+'</span></div>'
       +'<div class="face-lab">Révéler le potentiel de chacun</div><p class="face-why">'+esc(p.conclusions_man)+'</p>'
-      +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_man)+'</div></div>'
+      +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_man)+'</div>'
+      +(p.test_dec&&p.test_dec.niveau_global?blocTestDec(p):'')
+      +'</div>'
     +'</div>';
   // ⭐ Étape 2c — test complémentaire de décentration, deux registres (garante 03/07) :
   //   'remede'   (réserve de protocole) : le test COMPLÈTE une mesure manquante
   //   'affinage' (décentration en tranche 6-14) : le bilan est posé, le test l'AFFINE
-  // ⭐ Double mesure (garante, 03/07) : si le test complémentaire a été passé,
-  // afficher ce qu'il a RÉVÉLÉ en plus — l'initiale reste affichée au-dessus.
-  if(p.test_dec && p.test_dec.niveau_global){
-    var td=p.test_dec;
-    html+='<div style="margin:26px 0 6px;padding:22px 26px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #2f7d4f;border-radius:8px;">'
-      +'<div style="font-size:12px;letter-spacing:.14em;color:#2f7d4f;font-weight:700;margin-bottom:8px;">TEST COMPLÉMENTAIRE — CE QU\'IL A RÉVÉLÉ</div>'
-      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Décentration cognitive : '+esc(td.niveau_global)+'</div>'
-      +'<div style="font-size:12px;color:#6b6557;margin-bottom:12px;">'+esc(td.pattern||'')+' — sur dix situations qui sollicitent directement cette dimension. Cette mesure s\'ajoute à la première analyse, elle ne la remplace pas.</div>'
-      +(td.synthese?'<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">'+esc(td.synthese)+'</p>':'')
-      +(td.portrait_excellence?'<p style="margin:0;font-size:13px;color:#55503f;line-height:1.55;font-style:italic;">'+esc(td.portrait_excellence)+'</p>':'')
+  // ⭐ Analyse du test en cours : bannière + rechargement automatique quand la
+  // synthèse arrive (sondage du même endpoint toutes les 30 s).
+  if(!p.test_dec && p.test_dec_statut==='en_analyse'){
+    html+='<div style="margin:26px 0 6px;padding:20px 26px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #b8860b;border-radius:8px;">'
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Votre test complémentaire est en cours d\'analyse</div>'
+      +'<p style="margin:0;color:#55503f;font-size:13px;line-height:1.55;">Comptez une dizaine de minutes — <b>cette page se mettra à jour automatiquement</b> dès que les résultats seront disponibles.</p>'
       +'</div>';
+    setTimeout(function verifierTest(){
+      var id=location.pathname.split('/').pop();
+      fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(d){
+          if(d&&d.profil&&d.profil.test_dec&&d.profil.test_dec.niveau_global){location.reload();}
+          else{setTimeout(verifierTest,30000);}
+        })
+        .catch(function(){setTimeout(verifierTest,30000);});
+    },30000);
   }
+  // (⭐ Double mesure : le 2ᵉ avis s'affiche désormais DANS la face management,
+  //  juste sous le 1ᵉʳ avis — voir blocTestDec.)
   var tdm = p.test_dec ? null : (p.test_dec_mode || (String(p.verdict_man_niveau||'').toUpperCase()==='RÉSERVE DE PROTOCOLE' ? 'remede' : null));
   if(tdm){
     var cid=location.pathname.split('/').pop();
