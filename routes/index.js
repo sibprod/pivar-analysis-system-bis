@@ -760,7 +760,8 @@ router.get('/api/test-decentration/:candidat_id', async (req, res) => {
         numero:         r.numero,
         situation_text: r.situation_text || '',
         question_text:  r.question_text || '',
-        amorce:         r.amorce || ''
+        amorce:         r.amorce || '',
+        repondu:        !!(r.response_text && String(r.response_text).trim() !== '')
       }));
     // Ni personnage_profil, ni position, ni compatibilité : le candidat ne voit que la situation.
     return res.json({ candidat_id, deja_repondu: dejaRepondu, situations });
@@ -826,6 +827,49 @@ router.post('/api/test-decentration/:candidat_id/generer', async (req, res) => {
     }))
     .finally(() => _testdecGenEnCours.delete(candidat_id));
   return res.json({ success: true, lancee: true });
+});
+
+// ⭐ Reprise (garante, 03/07) : chaque réponse validée est enregistrée
+// immédiatement — fermer la page ne perd rien, le test reprend à la première
+// question sans réponse. Une réponse déjà enregistrée ne peut JAMAIS être
+// modifiée (le « pas de retour arrière » est garanti côté serveur). Quand la
+// dixième arrive, le serveur constate la complétude et déclenche l'analyse.
+router.post('/api/test-decentration/:candidat_id/reponse', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide' });
+  try {
+    const numero = req.body && Number(req.body.numero);
+    const response_text = req.body && String(req.body.response_text || '').trim();
+    if (!numero || numero < 1 || numero > 10) return res.status(400).json({ error: 'Numéro de situation invalide.' });
+    if (!response_text || response_text.length < 10) return res.status(400).json({ error: 'Réponse manquante ou trop courte.' });
+
+    const rows = await airtableService.getTestDecentrationRows(candidat_id);
+    if (!rows || rows.length !== 10) return res.status(404).json({ error: 'Test non généré pour ce candidat.' });
+    const row = rows.find(r => Number(r.numero) === numero);
+    if (!row) return res.status(404).json({ error: `Situation ${numero} introuvable.` });
+    if (row.response_text && String(row.response_text).trim() !== '') {
+      return res.status(409).json({ error: 'Cette réponse est déjà enregistrée — elle ne peut plus être modifiée.' });
+    }
+
+    await airtableService.saveTestDecentrationReponses(candidat_id, [{ numero, response_text }]);
+
+    const apres = await airtableService.getTestDecentrationRows(candidat_id);
+    const complet = (apres || []).length === 10 &&
+      apres.every(r => r.response_text && String(r.response_text).trim() !== '');
+    if (complet) {
+      await airtableService.updateVisiteur(candidat_id, {
+        statut_analyse_pivar: 'ETAPE2_TESTDEC_COMPLET',
+        derniere_activite:    new Date().toISOString()
+      });
+      logger.info('TESTDEC — 10/10 réponses reçues, analyse lancée', { candidat_id });
+    } else {
+      logger.info('TESTDEC — réponse enregistrée', { candidat_id, numero });
+    }
+    return res.json({ success: true, complet });
+  } catch (error) {
+    logger.error('TESTDEC — erreur enregistrement réponse', { candidat_id, error: error.message });
+    return res.status(500).json({ error: error.message, candidat_id });
+  }
 });
 
 router.get('/visualiser/test-decentration/:candidat_id', (req, res) => {
