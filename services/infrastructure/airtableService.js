@@ -1483,6 +1483,55 @@ const TABLE_T3_PILIER   = (airtableConfig.TABLES && airtableConfig.TABLES.ETAPE1
 
 function _sel(v) { return (v && (v.name || v)) || ''; }
 
+// Circuits les plus actifs du candidat par pilier de pensée (P1-P4), avec le
+// geste du référentiel (jointure sur pilier + circuit_id). P5 exclu par doctrine.
+async function getCircuitsTopPourTest(candidat_id) {
+  try {
+    const [rows, refc] = await Promise.all([
+      getBase()('ETAPE1_T3_CIRCUIT')
+        .select({ filterByFormula: `AND({candidat_id} = "${candidat_id}", {ordre_circuit} = 1)` })
+        .all(),
+      getReferentielCircuits()
+    ]);
+    const gesteById = {};
+    for (const r of refc) gesteById[`${r.pilier}·${r.circuit_id}`] = r.geste || '';
+    return rows
+      .map(r => ({
+        pilier:      _sel(r.fields.pilier),
+        circuit_id:  r.fields.circuit_id || '',
+        circuit_nom: r.fields.circuit_nom || '',
+        geste:       gesteById[`${_sel(r.fields.pilier)}·${r.fields.circuit_id}`] || '',
+        freq:        r.fields.circuit_freq || 0
+      }))
+      .filter(c => c.pilier && c.pilier !== 'P5')
+      .sort((a, b) => (a.pilier > b.pilier ? 1 : -1));
+  } catch (error) {
+    logger.error('Failed to get circuits top pour test', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// Le référentiel des circuits (palette du générateur) — P1-P4 uniquement.
+let _refCircuitsCache = null;
+async function getReferentielCircuits() {
+  if (_refCircuitsCache) return _refCircuitsCache;
+  try {
+    const records = await getBase()('REFERENTIEL_CIRCUITS').select({}).all();
+    _refCircuitsCache = records
+      .map(r => ({
+        pilier:      (r.fields.pilier || '').trim(),
+        circuit_id:  _sel(r.fields.circuit_id),
+        circuit_nom: r.fields.circuit_nom || '',
+        geste:       r.fields.geste || ''
+      }))
+      .filter(c => c.pilier && c.pilier !== 'P5');
+    return _refCircuitsCache;
+  } catch (error) {
+    logger.error('Failed to get référentiel circuits', { error: error.message });
+    throw error;
+  }
+}
+
 // Profil compact du candidat pour le test (socle + structurants + fonctionnels, avec modes).
 async function getEtape1ProfilPourTest(candidat_id) {
   try {
@@ -1889,6 +1938,8 @@ module.exports = {
 
   // ⭐ Étape 2c (02/07) — Test complémentaire de décentration
   getEtape1ProfilPourTest,
+  getCircuitsTopPourTest,
+  getReferentielCircuits,
   writeTestDecentration,
   getTestDecentrationRows,
   saveTestDecentrationReponses,
