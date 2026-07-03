@@ -78,26 +78,33 @@ async function run({ candidat_id }) {
     compt[niveau]++;
   }
 
-  // ── Ligne DEC : cohérence des comptages recalculée ICI (pas de confiance aveugle)
+  // ── Synthèse du test : SECONDE mesure, séparée — la ligne T5B initiale
+  //    (fenêtre principale) n'est JAMAIS modifiée (garante, 03/07).
   const ligne = (result && result.ligne_DEC) || {};
   const A = compt['ÉLEVÉ'] + compt['MOYEN'];
-  ligne.excellence  = 'DEC';
-  ligne.candidat_id = candidat_id;
-  ligne.nb_eleve  = compt['ÉLEVÉ'];
-  ligne.nb_moyen  = compt['MOYEN'];
-  ligne.nb_faible = compt['FAIBLE'];
-  ligne.nb_nulle  = compt['NULLE'];
-  ligne.pattern        = derivePattern(A);
-  ligne.niveau_densite = A <= 2 ? 'FAIBLE' : (A <= 5 ? 'MOYENNE' : 'DENSE');
-  ligne.niveau_global  = `${A}/10 (${A * 10}%) — mesuré par le test complémentaire de décentration`;
-  ligne.densite_sommeil = 'TEST'; ligne.densite_weekend = 'TEST';
-  ligne.densite_animal  = 'TEST'; ligne.densite_panne   = 'TEST';
-  if (Array.isArray(ligne.verbatims_preuves)) {
-    ligne.verbatims_preuves = JSON.stringify(ligne.verbatims_preuves);
-  }
+  const synthese = {
+    candidat_id,
+    A_sur_10:        A,
+    niveau_global:   `${A}/10 (${A * 10}%) — mesuré par le test complémentaire de décentration`,
+    pattern:         derivePattern(A),
+    niveau_densite:  A <= 2 ? 'FAIBLE' : (A <= 5 ? 'MOYENNE' : 'DENSE'),
+    nb_eleve:  compt['ÉLEVÉ'],
+    nb_moyen:  compt['MOYEN'],
+    nb_faible: compt['FAIBLE'],
+    nb_nulle:  compt['NULLE'],
+    synthese:            ligne.synthese || '',
+    portrait_excellence: ligne.portrait_excellence || '',
+    declencheur:         ligne.declencheur || '',
+    gradient:            ligne.gradient || '',
+    reserve:             ligne.reserve || '',
+    verbatims_preuves:   Array.isArray(ligne.verbatims_preuves)
+                           ? JSON.stringify(ligne.verbatims_preuves)
+                           : (ligne.verbatims_preuves || ''),
+    date_codage: new Date().toISOString()
+  };
 
   await airtableService.patchTestDecentrationCodage(candidat_id, codages);
-  await airtableService.upsertEtape2T5B(candidat_id, [ligne]);
+  await airtableService.writeTestDecSynthese(candidat_id, synthese);
 
   logger.info('Agent TESTDEC-COD — terminé', {
     candidat_id, activations: `${A}/10`,
