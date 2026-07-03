@@ -445,6 +445,15 @@ async function getBilanExcellences(candidat_id) {
     };
 
     logger.debug('Bilan assemblé', { candidat_id, nb_excellences: excellences.length });
+    // ⭐ Double mesure (garante, 03/07) : si le test complémentaire a été passé,
+    // sa synthèse s'AJOUTE au bilan — l'initiale reste affichée telle quelle.
+    try {
+      const synthTest = await getTestDecSynthese(candidat_id);
+      if (synthTest && synthTest.niveau_global) profil.test_dec = synthTest;
+    } catch (eSynth) {
+      logger.error('Bilan — synthèse test non lue (non bloquant)', { candidat_id, error: eSynth.message });
+    }
+
     // 🔒 MASQUAGE CANDIDAT (garante, 03/07/2026) : le verdict DÉFAVORABLE est
     // INTERNE (base/recruteur) — le candidat ne le lit JAMAIS. Son bilan affiche
     // RÉSERVE DE PROTOCOLE + conseil du test complémentaire. Masqué ICI (serveur)
@@ -1647,6 +1656,58 @@ async function patchTestDecentrationCodage(candidat_id, codages) {
   return updates.length;
 }
 
+const TABLE_TESTDEC_SYNTH = (airtableConfig.TABLES && airtableConfig.TABLES.ETAPE2_TESTDEC_SYNTHESE) || 'ETAPE2_TESTDEC_SYNTHESE';
+
+// Écrit (upsert) la synthèse du test — la SECONDE mesure de décentration,
+// séparée de l'initiale (T5B, jamais modifiée).
+async function writeTestDecSynthese(candidat_id, synthese) {
+  try {
+    const existing = await getBase()(TABLE_TESTDEC_SYNTH)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+      .all();
+    const fields = cleanFields(synthese);
+    if (existing[0]) {
+      await getBase()(TABLE_TESTDEC_SYNTH).update([{ id: existing[0].id, fields }], { typecast: true });
+    } else {
+      await getBase()(TABLE_TESTDEC_SYNTH).create([{ fields }], { typecast: true });
+    }
+    logger.info('TESTDEC synthèse écrite', { candidat_id, A_sur_10: synthese.A_sur_10 });
+    return true;
+  } catch (error) {
+    logger.error('Failed to write TESTDEC synthèse', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
+// Lit la synthèse du test (null si le candidat ne l'a pas passé).
+async function getTestDecSynthese(candidat_id) {
+  try {
+    const records = await getBase()(TABLE_TESTDEC_SYNTH)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+      .all();
+    if (!records[0]) return null;
+    const f = records[0].fields;
+    return {
+      A_sur_10:        f.A_sur_10 || 0,
+      niveau_global:   f.niveau_global || '',
+      pattern:         f.pattern || '',
+      niveau_densite:  f.niveau_densite || '',
+      nb_eleve: f.nb_eleve || 0, nb_moyen: f.nb_moyen || 0,
+      nb_faible: f.nb_faible || 0, nb_nulle: f.nb_nulle || 0,
+      synthese:            f.synthese || '',
+      portrait_excellence: f.portrait_excellence || '',
+      declencheur:         f.declencheur || '',
+      gradient:            f.gradient || '',
+      reserve:             f.reserve || '',
+      verbatims_preuves:   f.verbatims_preuves || '',
+      date_codage:         f.date_codage || ''
+    };
+  } catch (error) {
+    logger.error('Failed to get TESTDEC synthèse', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
 // Verdict management seul (déclencheur de la génération du test).
 async function getEtape2T5CVerdictMan(candidat_id) {
   try {
@@ -1945,6 +2006,8 @@ module.exports = {
   saveTestDecentrationReponses,
   patchTestDecentrationCodage,
   getEtape2T5CVerdictMan,
+  writeTestDecSynthese,
+  getTestDecSynthese,
 
   // ⭐ v11.7 — Production Étape 2 (agents T5A / T5BC)
   getEtape2T5ARows,
