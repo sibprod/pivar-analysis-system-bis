@@ -50,6 +50,14 @@ async function run({ candidat_id }) {
   const referentiel_modes = {};
   for (const p of referentiel) referentiel_modes[p.pilier_code] = p.modes_liste || '';
 
+  // v1.2 — les circuits : le geste mesuré du candidat par pilier de pensée,
+  // et la palette du référentiel dans laquelle le générateur pioche l'opposé.
+  const circuits_candidat = await airtableService.getCircuitsTopPourTest(candidat_id);
+  if (!circuits_candidat || circuits_candidat.length === 0) {
+    throw new Error(`TESTDEC-GEN : aucun circuit Étape 1 trouvé pour ${candidat_id}`);
+  }
+  const referentiel_circuits = await airtableService.getReferentielCircuits();
+
   const { result, cost } = await agentBase.callAgent({
     serviceName: SERVICE_NAME,
     promptPath:  PROMPT_PATH,
@@ -61,7 +69,9 @@ async function run({ candidat_id }) {
         structurants: profil.structurants,
         fonctionnels: profil.fonctionnels
       },
-      referentiel_modes
+      circuits_candidat,
+      referentiel_modes,
+      referentiel_circuits
     },
     candidatId: candidat_id
   });
