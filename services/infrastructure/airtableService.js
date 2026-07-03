@@ -455,6 +455,22 @@ async function getBilanExcellences(candidat_id) {
       profil.jauge_rev = { na: true, val: 'à compléter par le test' };
     }
 
+    // ⭐ Option B (garante, 03/07) : registre du test dans le payload.
+    // 'remede'   = verdict management en réserve (vraie réserve ou défavorable masqué)
+    // 'affinage' = décentration posée en tranche 6-14 (« posé + test proposé »)
+    // null       = pas de test proposé par le bilan (accès DRH direct toujours possible)
+    let testDecMode = null;
+    if (String(profil.verdict_man_niveau || '').toUpperCase() === 'RÉSERVE DE PROTOCOLE') {
+      testDecMode = 'remede';
+    } else {
+      const mA = String(c.DEC_densite || '').match(/\((\d+)\/20\)/);
+      if (mA) {
+        const a = parseInt(mA[1], 10);
+        if (a >= 6 && a <= 14) testDecMode = 'affinage';
+      }
+    }
+    profil.test_dec_mode = testDecMode;
+
     return { profil, excellences };
   } catch (error) {
     logger.error('Failed to build bilan excellences', { candidat_id, error: error.message });
