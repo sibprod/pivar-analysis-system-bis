@@ -211,14 +211,21 @@ function render(d){
       +'<div class="face-lab">Révéler le potentiel de chacun</div><p class="face-why">'+esc(p.conclusions_man)+'</p>'
       +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_man)+'</div></div>'
     +'</div>';
-  // ⭐ Étape 2c (02/07) — test complémentaire de décentration : proposé si et
-  // seulement si le verdict management est en RÉSERVE DE PROTOCOLE.
-  if(String(p.verdict_man_niveau||'').toUpperCase()==='RÉSERVE DE PROTOCOLE'){
+  // ⭐ Étape 2c — test complémentaire de décentration, deux registres (garante 03/07) :
+  //   'remede'   (réserve de protocole) : le test COMPLÈTE une mesure manquante
+  //   'affinage' (décentration en tranche 6-14) : le bilan est posé, le test l'AFFINE
+  var tdm = p.test_dec_mode || (String(p.verdict_man_niveau||'').toUpperCase()==='RÉSERVE DE PROTOCOLE' ? 'remede' : null);
+  if(tdm){
     var cid=location.pathname.split('/').pop();
+    var titre = tdm==='remede' ? 'Un test complémentaire vous est proposé' : 'Affinez votre bilan';
+    var texte = tdm==='remede'
+      ? 'Le parcours que vous venez de suivre n\'a pas suffisamment sollicité une dimension pour qu\'elle soit mesurée de façon fiable. Dix situations courtes (environ 20 minutes) permettront de compléter votre bilan — il sera automatiquement actualisé après analyse.'
+      : 'Votre bilan est posé. Dix situations courtes (environ 20 minutes) permettent de l\'affiner sur une dimension — il sera automatiquement actualisé après analyse.';
+    var bouton = tdm==='remede' ? 'Passer le test complémentaire →' : 'Affiner mon bilan →';
     html+='<div style="margin:26px 0 6px;padding:22px 26px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #7a3b2e;border-radius:8px;">'
-      +'<div style="font-size:16px;font-weight:700;margin-bottom:6px;">Un test complémentaire vous est proposé</div>'
-      +'<p style="margin:0 0 14px;color:#55503f;font-size:14px;line-height:1.55;">Le parcours que vous venez de suivre n\'a pas suffisamment sollicité une dimension pour qu\'elle soit mesurée de façon fiable. Dix situations courtes (environ 20 minutes) permettront de compléter votre bilan — il sera automatiquement actualisé après analyse.</p>'
-      +'<a href="/visualiser/test-decentration/'+encodeURIComponent(cid)+'" style="display:inline-block;padding:11px 22px;background:#7a3b2e;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Passer le test complémentaire →</a>'
+      +'<div style="font-size:16px;font-weight:700;margin-bottom:6px;">'+titre+'</div>'
+      +'<p style="margin:0 0 14px;color:#55503f;font-size:14px;line-height:1.55;">'+texte+'</p>'
+      +'<a href="/visualiser/test-decentration/'+encodeURIComponent(cid)+'" style="display:inline-block;padding:11px 22px;background:#7a3b2e;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">'+bouton+'</a>'
       +'</div>';
   }
   // 04
