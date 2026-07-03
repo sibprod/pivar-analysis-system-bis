@@ -116,8 +116,10 @@ Quatre postures possibles, qui recouvrent la grille :
   qui t'a accroché » et non « envoie-moi ta liste ») = marcher à côté (ÉLEVÉ) ·
   exiger un point d'étape dans SON propre format à soi = reprendre le chemin ·
   **le plan B caché** (lancer sa propre collecte en parallèle, en douce) =
-  reprendre la main en préparation, défiance → au mieux FAIBLE · ne rien faire
-  du tout (« il a toujours livré ») = au bord.
+  reprendre la main en préparation, défiance → au mieux FAIBLE · et le
+  NON-AGIR se lit à son ancre (voir 🔒 L'ANCRE DU RETRAIT ci-dessous) : la
+  confiance ancrée dans le fonctionnement démontré de l'autre n'est PAS de
+  l'inaction — c'est du lâcher-prise décentré.
 Le décentré tient les DEUX : le chemin de l'autre ET l'atteinte de l'objectif.
 
 ## LA QUESTION UNIQUE DE CHAQUE CODAGE : OÙ EST L'ANCRAGE ?
@@ -135,6 +137,35 @@ Le décentré tient les DEUX : le chemin de l'autre ET l'atteinte de l'objectif.
 - **NULLE — l'autre est absent ou instrumenté.** Solution imposée depuis son
   référentiel (même gentiment), délégation/escalade pure, faire à la place,
   pédagogie descendante (dérouler SA méthode plus lentement).
+
+**🔒 L'ANCRE DU RETRAIT — ne pas intervenir n'est JAMAIS automatiquement une
+démission (garante, 03/07 — correction majeure de grille).** Comme le conseil,
+le retrait est un geste dont on lit L'ANCRE :
+- **Retrait ANCRÉ** — ne pas intervenir PARCE QUE l'autre fait à sa manière et
+  que sa manière tient l'objectif (« il fait pour lui-même, ce sera parfait
+  comme ça », « je sais comment il fait, inutile de l'appeler », l'historique
+  démontré, la disponibilité offerte sans condition) = **le lâcher-prise
+  décentré : laisser à l'autre toute la latitude de son choix et de son
+  action** → MOYEN, et ÉLEVÉ quand le retrait s'appuie explicitement sur le
+  fonctionnement propre de l'autre. L'objectif n'est pas abandonné : il est
+  tenu À TRAVERS l'autre.
+- **Retrait INDIFFÉRENT** — ne pas intervenir par désengagement (« pas mon
+  affaire », « on verra bien », aucun appui sur l'autre, objectif lâché) =
+  la démission → FAIBLE.
+Ne code JAMAIS un non-agir sans avoir lu son ancre. Coder mécaniquement
+« il ne fait rien » = FAIBLE est l'erreur d'analyse majeure de ce test.
+
+**🔒 LA COORDINATION DÉCENTRÉE — situations à deux protagonistes (garante,
+03/07 — correction de grille).** Quand deux personnes aux façons opposées
+doivent aboutir ensemble : **capitaliser sur ce que chacun a produit à sa
+façon + médier le point de friction + rendre la mission aux protagonistes**
+est une décentration de coordination — personne n'est converti, chacun garde
+son chemin, l'objectif est jalonné → jamais NULLE ; MOYEN au moins, ÉLEVÉ si
+la médiation s'appuie sur les fonctionnements respectifs de chacun. Exiger
+« entrer dans le mode de pensée de chacun » pour échapper à NULLE est une
+SUR-EXIGENCE : c'est le critère du sommet, pas du plancher. La NULLE de
+coordination se réserve au candidat qui impose SA méthode aux deux, refait à
+leur place, ou tranche à leur place sans eux.
 
 **🔒 LA PROCURATION — décider POUR l'autre (garante, 03/07).** Une situation
 place le candidat devant quelqu'un qui ne peut plus organiser ni décider seul
