@@ -74,6 +74,8 @@ function charger(){
       }
       SITUATIONS=(d.situations||[]).sort(function(a,b){return (a.numero||0)-(b.numero||0);});
       if(SITUATIONS.length===0){document.getElementById('prog').textContent='Aucune situation disponible.';return;}
+      IDX=0; while(IDX<SITUATIONS.length && SITUATIONS[IDX].repondu){IDX++;}
+      if(IDX>0){document.getElementById('consigne').innerHTML+=' <b>Reprise : vos '+IDX+' première(s) réponse(s) sont déjà enregistrées.</b>';}
       document.getElementById('prog').style.display='none';
       document.getElementById('zone').classList.remove('hide');
       afficher();
@@ -104,28 +106,26 @@ function valider(){
     msg.className='err';msg.textContent='Merci de poursuivre le début de réponse proposé avant de valider.';
     return;
   }
-  REPONSES.push({numero:s.numero,response_text:v});
-  if(IDX<SITUATIONS.length-1){IDX++;afficher();return;}
-  envoyer();
-}
-function envoyer(){
-  var msg=document.getElementById('msg');
   document.getElementById('btn').disabled=true;
-  msg.className='';msg.textContent='Envoi en cours…';
-  fetch('/api/test-decentration/'+encodeURIComponent(CID),{
+  msg.className='';msg.textContent='Enregistrement…';
+  fetch('/api/test-decentration/'+encodeURIComponent(CID)+'/reponse',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({reponses:REPONSES})
+    body:JSON.stringify({numero:s.numero,response_text:v})
   })
   .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Erreur '+r.status);return j;});})
-  .then(function(){
-    document.getElementById('zone').classList.add('hide');
-    document.getElementById('consigne').style.display='none';
-    document.getElementById('fin').classList.remove('hide');
-    window.scrollTo(0,0);
+  .then(function(j){
+    if(j.complet||IDX>=SITUATIONS.length-1){
+      document.getElementById('zone').classList.add('hide');
+      document.getElementById('consigne').style.display='none';
+      document.getElementById('fin').classList.remove('hide');
+      window.scrollTo(0,0);
+      return;
+    }
+    IDX++;afficher();
   })
   .catch(function(e){
     document.getElementById('btn').disabled=false;
-    msg.className='err';msg.textContent=e.message+' — vos réponses ne sont pas perdues, réessayez.';
+    msg.className='err';msg.textContent=e.message+' — votre réponse est conservée à l\'écran, réessayez.';
   });
 }
 function proposerPreparation(){
