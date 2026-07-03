@@ -449,7 +449,16 @@ async function getBilanExcellences(candidat_id) {
     // sa synthèse s'AJOUTE au bilan — l'initiale reste affichée telle quelle.
     try {
       const synthTest = await getTestDecSynthese(candidat_id);
-      if (synthTest && synthTest.niveau_global) profil.test_dec = synthTest;
+      if (synthTest && synthTest.niveau_global) {
+        profil.test_dec = synthTest;
+      } else {
+        // Réponses envoyées mais synthèse pas encore écrite → analyse en cours.
+        const rowsTest = await getTestDecentrationRows(candidat_id);
+        if (rowsTest && rowsTest.length === 10 &&
+            rowsTest.every(r => r.response_text && String(r.response_text).trim() !== '')) {
+          profil.test_dec_statut = 'en_analyse';
+        }
+      }
     } catch (eSynth) {
       logger.error('Bilan — synthèse test non lue (non bloquant)', { candidat_id, error: eSynth.message });
     }
