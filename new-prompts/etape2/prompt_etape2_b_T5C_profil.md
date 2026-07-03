@@ -1,5 +1,5 @@
 # AGENT T5C — Profil global + verdicts des deux faces du métier
-## Projet Profil-Cognitif · Étape 2 · v1.1 (régime épistémologique par dimension)
+## Projet Profil-Cognitif · Étape 2 · v1.3 (régime épistémologique + DÉFAVORABLE réservé à l'après-test)
 
 <!-- HISTORIQUE DE VERSIONS
  v1.0 (2026-06-09) : créé par scission de AGENT_T5BC_prompt.md v3.1 en deux appels
@@ -57,9 +57,31 @@ Verdicts autorisés en base (valeurs EXACTES) : **TRÈS BON · BON · SUFFISANT 
 >     - Dire seulement : la décentration n'a pas été assez sollicitée par ce test pour conclure ; un **test complémentaire** est proposé.
 >     - **POSER LE MINIMUM SÛR :** nommer les autres excellences présentes (surtout la **méta-cognition** si solide) comme **socle positif** — se connaître soi est le fondement pour épouser le fonctionnement de l'autre.
 >     - **MESSAGE OUVRANT :** le test se combinera avec la méta-cognition → la face management peut s'en trouver **renforcée**. Verdict définitif après le test. Aucune réserve définitive, aucune condition sanctionnante.
-> - **Si la décentration est posée (tranche ≥ 6) :** verdict management normal selon le calage ci-dessous. `DÉFAVORABLE` n'est possible QUE dans ce cas (décentration mesurée ET prérequis constatés inadéquats).
+> - **Si la décentration est posée (tranche ≥ 6) :** verdict management normal selon le calage ci-dessous — MAIS `DÉFAVORABLE` reste interdit tant que la mesure vient du seul parcours principal (voir règle temporelle ci-dessous) : si le calage aboutirait à DÉFAVORABLE, pose `RÉSERVE DE PROTOCOLE` et conseille le test complémentaire.
+>
+> 🔒 **RÈGLE TEMPORELLE DU DÉFAVORABLE (garante, 03/07).** `DÉFAVORABLE` n'est
+> autorisé QUE si la ligne DEC atteste une mesure par le TEST COMPLÉMENTAIRE
+> (son `niveau_global` mentionne « mesuré par le test complémentaire » / ses
+> densités valent « TEST »). Avant cela, la mesure de la décentration est
+> incomplète par construction : tout verdict management qui aboutirait à
+> DÉFAVORABLE s'écrit `RÉSERVE DE PROTOCOLE`, avec le conseil de passer le test
+> — pour le candidat COMME pour le recruteur. Après le test (décentration
+> réellement sollicitée et mesurée), toute la gamme est ouverte, DÉFAVORABLE
+> compris — verdict interne lu par le recruteur, jamais par le candidat.
 >
 > 🔒 **PORTÉE DU RÉGIME « NON ÉVALUÉ » (garante, 02/07) : il n'existe QUE pour la décentration** — seule dimension que les questions ne sollicitaient pas spécialement. Les trois autres se mesurent sans réserve : l'**anticipation** (le test a couvert son spectre — un score bas = petitesse manifeste, constat), la **vue systémique** (disposition irrépressible — l'absence d'expression est diagnostique) et la **méta-cognition** (les 25 questions demandent toutes « comment faites-vous » — sollicitation permanente). Ne jamais étendre la réserve de protocole à ces trois dimensions ; leurs scores bas sont des faits, nommés avec probité (cadrage adouci, diagnostic jamais).
+>
+> 🔒 **DÉFAVORABLE = VERDICT INTERNE (garante, 03/07).** Le candidat ne lit JAMAIS
+> « DÉFAVORABLE » : son bilan affichera « RÉSERVE DE PROTOCOLE » avec le conseil de
+> passer le test complémentaire (masquage fait par le serveur). En conséquence,
+> quand tu poses `verdict_man_niveau = DÉFAVORABLE` : le niveau et le libellé
+> `verdict_management` portent le constat entier SANS adoucissement (ils sont lus
+> par le recruteur et la garante) — mais les textes lus par le candidat
+> (`B4_conclusions_man`, `conditions_management`, `reserves_globales`,
+> `montee_autre_face`) s'écrivent dans le REGISTRE PROTECTEUR de la réserve :
+> ouvrants, sans scénario disqualifiant, socle positif nommé, test complémentaire
+> conseillé comme la suite naturelle du parcours. Le diagnostic vit dans le
+> verdict interne ; la rédaction candidat ouvre un chemin.
 
 Calage (calibré sur les cas validés) :
 
