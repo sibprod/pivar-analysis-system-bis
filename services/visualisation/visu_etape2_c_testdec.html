@@ -57,7 +57,11 @@ function majProg(){
 }
 function charger(){
   fetch('/api/test-decentration/'+encodeURIComponent(CID))
-    .then(function(r){if(!r.ok)throw new Error(r.status===404?'Aucun test n\'est prévu pour ce lien.':'Erreur de chargement ('+r.status+')');return r.json();})
+    .then(function(r){
+      if(r.status===404){var e=new Error('preparer');e.code=404;throw e;}
+      if(!r.ok)throw new Error('Erreur de chargement ('+r.status+')');
+      return r.json();
+    })
     .then(function(d){
       if(d.deja_repondu){
         document.getElementById('prog').style.display='none';
@@ -79,7 +83,24 @@ function charger(){
       document.getElementById('actions').style.display='block';
       majProg();
     })
-    .catch(function(e){document.getElementById('prog').textContent=e.message;});
+    .catch(function(e){
+      if(e.code===404){ proposerPreparation(); return; }
+      document.getElementById('prog').textContent=e.message;
+    });
+}
+function proposerPreparation(){
+  var prog=document.getElementById('prog');
+  prog.innerHTML='Ce test n\'est pas encore préparé pour ce lien. '
+    +'<button id="prep" style="margin-left:10px;padding:8px 16px;font-size:13px" onclick="preparer()">Préparer le test (~1 minute)</button>';
+}
+function preparer(){
+  var prog=document.getElementById('prog');
+  document.getElementById('prep').disabled=true;
+  prog.textContent='Préparation en cours — vos situations sont construites sur mesure, environ une minute…';
+  fetch('/api/test-decentration/'+encodeURIComponent(CID)+'/generer',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})
+    .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Erreur '+r.status);return j;});})
+    .then(function(){charger();})
+    .catch(function(e){prog.textContent='Préparation impossible : '+e.message;});
 }
 function envoyer(){
   var msg=document.getElementById('msg');
