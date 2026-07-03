@@ -804,23 +804,28 @@ router.post('/api/test-decentration/:candidat_id', async (req, res) => {
 
 // Préparation à la demande (accès DRH) : génère le test pour un candidat dont
 // le bilan ne le propose pas — le DRH envoie ensuite le lien de la page au
-// candidat. Idempotent (jamais de régénération si des réponses existent).
+// candidat. ASYNCHRONE (v1.2) : la génération dure 2 à 5 minutes avec la
+// réflexion active, bien au-delà des délais HTTP — la route répond
+// immédiatement et la page interroge ensuite l'état. Verrou en mémoire contre
+// le double-lancement (double-clic = double coût sinon).
+const _testdecGenEnCours = new Set();
 router.post('/api/test-decentration/:candidat_id/generer', async (req, res) => {
   const candidat_id = req.params.candidat_id;
   if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide' });
-  try {
-    logger.info('TESTDEC — préparation à la demande (accès direct)', { candidat_id });
-    const rG = await agentTestDecGen.run({ candidat_id });
-    return res.json({
-      success: true,
-      generated: !!rG.generated,
-      skipped: rG.skipped || '',
-      url: '/visualiser/test-decentration/' + encodeURIComponent(candidat_id)
-    });
-  } catch (error) {
-    logger.error('TESTDEC — préparation à la demande échouée', { candidat_id, error: error.message });
-    return res.status(500).json({ error: error.message, candidat_id });
+  if (_testdecGenEnCours.has(candidat_id)) {
+    return res.json({ success: true, lancee: false, deja_en_cours: true });
   }
+  _testdecGenEnCours.add(candidat_id);
+  logger.info('TESTDEC — préparation à la demande lancée (asynchrone)', { candidat_id });
+  agentTestDecGen.run({ candidat_id })
+    .then(rG => logger.info('TESTDEC — préparation à la demande terminée', {
+      candidat_id, generated: !!rG.generated, skipped: rG.skipped || ''
+    }))
+    .catch(err => logger.error('TESTDEC — préparation à la demande échouée', {
+      candidat_id, error: err.message
+    }))
+    .finally(() => _testdecGenEnCours.delete(candidat_id));
+  return res.json({ success: true, lancee: true });
 });
 
 router.get('/visualiser/test-decentration/:candidat_id', (req, res) => {
