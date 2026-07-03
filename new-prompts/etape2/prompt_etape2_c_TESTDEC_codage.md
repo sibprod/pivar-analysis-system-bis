@@ -43,6 +43,26 @@ protocole** — un score bas est une petitesse manifeste, nommée avec probité
 - **ÉLEVÉ** — changement complet de référentiel : « qu'est-ce que l'autre vit/veut/ressent ? » et la réponse est construite de là. Ex : « SES goûts à lui, pas les miens. » « J'ouvre et je vois où il veut en venir. » Plusieurs bascules de perspective dans la même réponse = signal fort.
 <!-- FIN ÉTALON DEC -->
 
+## L'ÉCHELLE DU MANAGER (garante, 03/07) — ce que les 10 situations évaluent
+🔒 Chaque situation met le candidat devant le même choix, décliné en contextes.
+Trois postures, qui fixent la frontière MOYEN/ÉLEVÉ de ce test :
+1. **Il reprend la main et fait à sa façon** (ou convertit l'autre à sa méthode)
+   → NULLE, même bienveillante.
+2. **Il comprend et ACCEPTE que l'autre fasse à sa façon, du moment que
+   l'objectif est atteint** → ça valide : décentration réelle, tolérance
+   active — il a lâché son chemin et tient l'objectif → **MOYEN** (posé).
+3. **Il comprend COMMENT l'autre fonctionne au point de le conseiller au mieux
+   de SES capacités à lui — voire de le faire progresser — dans le respect de
+   l'objectif** → **ÉLEVÉ**. Le coaching décentré, la définition même du
+   manager selon la garante : « comprendre, ajuster à l'autre les meilleurs
+   process avec ses propres outils cognitifs, pour atteindre l'objectif et
+   performer mieux. »
+**Accepter n'est pas le sommet : le sommet, c'est faire progresser l'autre dans
+son propre référentiel.** L'acceptation seule, même parfaite, reste MOYEN ;
+l'ÉLEVÉ exige la reconstruction fine du fonctionnement de l'autre ET son usage
+actif au service de l'objectif (conseil ancré chez lui, obstacle levé à sa
+façon, progression dans SES outils).
+
 ## L'IMAGE DIRECTRICE (garante, 03/07) : MARCHER À CÔTÉ
 Dans chaque situation, l'objectif est ferme et le chemin appartient à l'autre.
 Quatre postures possibles, qui recouvrent la grille :
