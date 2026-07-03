@@ -32,6 +32,7 @@ const orchestratorPrincipal  = require('../services/orchestrators/orchestrator_p
 const queueService          = require('../services/flux/queueService');
 const airtableService       = require('../services/infrastructure/airtableService');
 const backupService         = require('../services/infrastructure/backupService');
+const agentTestDecGen       = require('../services/etape2/agent_etape2_c_TESTDEC_generation');
 const tableauT3bilanPayloadService = require('../services/visualisation/service_etape1_T3_bilan_payload') // ancien tableauT3bilanPayloadService;
 // ⭐ v12.0
 const bilanFablePayloadService = require('../services/visualisation/service_etape1_T3_bilan_payload');
@@ -797,6 +798,27 @@ router.post('/api/test-decentration/:candidat_id', async (req, res) => {
     return res.json({ success: true, message: 'Réponses transmises — votre bilan sera actualisé sous peu.' });
   } catch (error) {
     logger.error('TESTDEC — erreur POST', { candidat_id, error: error.message });
+    return res.status(500).json({ error: error.message, candidat_id });
+  }
+});
+
+// Préparation à la demande (accès DRH) : génère le test pour un candidat dont
+// le bilan ne le propose pas — le DRH envoie ensuite le lien de la page au
+// candidat. Idempotent (jamais de régénération si des réponses existent).
+router.post('/api/test-decentration/:candidat_id/generer', async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide' });
+  try {
+    logger.info('TESTDEC — préparation à la demande (accès direct)', { candidat_id });
+    const rG = await agentTestDecGen.run({ candidat_id });
+    return res.json({
+      success: true,
+      generated: !!rG.generated,
+      skipped: rG.skipped || '',
+      url: '/visualiser/test-decentration/' + encodeURIComponent(candidat_id)
+    });
+  } catch (error) {
+    logger.error('TESTDEC — préparation à la demande échouée', { candidat_id, error: error.message });
     return res.status(500).json({ error: error.message, candidat_id });
   }
 });
