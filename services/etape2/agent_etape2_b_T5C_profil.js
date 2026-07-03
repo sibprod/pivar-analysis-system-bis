@@ -1,4 +1,4 @@
-// services/etape2/agent_etape2_b_T5C_profil.js
+// services/etape2/agentT5C.js
 // Agent T5C — Profil global + verdicts des deux faces du métier (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
@@ -6,12 +6,12 @@
 // Rôle :
 //   - Lit les 4 lignes T5B déjà produites en base (comptages, régimes, densités,
 //     synthèses, réserves par excellence).
-//   - Appelle le prompt new-prompts/etape2/prompt_etape2_b_T5C_profil.md qui en déduit le profil
+//   - Appelle le prompt new-prompts/etape2/AGENT_T5C_prompt.md qui en déduit le profil
 //     global + les verdicts des deux faces (« Faire avancer le travail » /
 //     « Révéler le potentiel de chacun »).
 //   - Écrit T5C (upsert sur candidat).
 //
-// Pattern : un service par prompt (aligné sur agent_etape2_b_T5A_codage / _T5B_portraits).
+// Pattern : un service par prompt (aligné sur agentT5A / agentT5B …).
 // Pré-requis : T5B doit avoir été produit (agent B) avant d'appeler cet agent.
 //
 // Robustesse : si l'agent omet un verdict_*_niveau (dérivable), on le dérive ici.
@@ -70,10 +70,17 @@ async function run({ candidat_id }) {
     reserve:         r.reserve || ''
   }));
 
+  // ⭐ Double mesure (garante, 03/07) : la synthèse du test complémentaire
+
+  // de décentration, si le candidat l'a passé (null sinon).
+
+  const test_decentration = await airtableService.getTestDecSynthese(candidat_id).catch(() => null);
+
+
   const { result, cost } = await agentBase.callAgent({
     serviceName: SERVICE_NAME,
     promptPath:  PROMPT_PATH,
-    payload:     { candidat_id, lignes_t5b },
+    payload:     { candidat_id, lignes_t5b, test_decentration },
     candidatId:  candidat_id
   });
 
