@@ -43,6 +43,23 @@ protocole** — un score bas est une petitesse manifeste, nommée avec probité
 - **ÉLEVÉ** — changement complet de référentiel : « qu'est-ce que l'autre vit/veut/ressent ? » et la réponse est construite de là. Ex : « SES goûts à lui, pas les miens. » « J'ouvre et je vois où il veut en venir. » Plusieurs bascules de perspective dans la même réponse = signal fort.
 <!-- FIN ÉTALON DEC -->
 
+## L'IMAGE DIRECTRICE (garante, 03/07) : MARCHER À CÔTÉ
+Dans chaque situation, l'objectif est ferme et le chemin appartient à l'autre.
+Quatre postures possibles, qui recouvrent la grille :
+- **Marcher À CÔTÉ** — laisser l'autre prendre SON chemin ET contribuer à ce
+  qu'il aille au bout : jalonner sur le RÉSULTAT (jamais sur la méthode), se
+  rendre disponible, lever les obstacles qu'il rencontre à SA façon → la
+  décentration opérante (ÉLEVÉ).
+- **Marcher SUR SON CHEMIN** — reprendre la direction, convertir l'autre à sa
+  méthode, jalonner sur la conformité → l'imposition (NULLE, même bienveillante).
+- **PORTER la personne** — faire à sa place, reprendre le travail → l'autre est
+  instrumenté (NULLE).
+- **Rester AU BORD** — « je la laisse faire comme elle veut », sans souci de
+  l'objectif ni contribution : ce n'est PAS de la décentration, c'est de la
+  démission ; le laisser-faire complaisant qui sacrifie la mission ou abandonne
+  la personne → FAIBLE au mieux.
+Le décentré tient les DEUX : le chemin de l'autre ET l'atteinte de l'objectif.
+
 ## LA QUESTION UNIQUE DE CHAQUE CODAGE : OÙ EST L'ANCRAGE ?
 - **ÉLEVÉ — ancrage DEPUIS l'autre.** Le candidat reconstruit le fonctionnement
   du personnage et en fait le point de départ : il observe/questionne à la
@@ -58,6 +75,25 @@ protocole** — un score bas est une petitesse manifeste, nommée avec probité
 - **NULLE — l'autre est absent ou instrumenté.** Solution imposée depuis son
   référentiel (même gentiment), délégation/escalade pure, faire à la place,
   pédagogie descendante (dérouler SA méthode plus lentement).
+
+**🔒 LA RÈGLE DE L'ANCRE DU CONSEIL (garante, 03/07) — vaut pour TOUTES les
+réponses, et se juge à nu sur la situation 9.** « Tu devrais faire… » n'est PAS
+un marqueur en soi — c'est l'ANCRE du conseil qui se code :
+- « tu devrais [MA façon — la méthode du candidat, reconnaissable à son profil
+  ou au bon sens générique] » = IMPOSITION, même formulée avec bienveillance →
+  NULLE (l'autre est instrumenté : on lui prête les jambes du candidat).
+- « tu devrais [TA façon — le conseil s'appuie explicitement sur le
+  fonctionnement MONTRÉ du personnage : ses forces, sa manière, ce qu'il sait
+  faire] » = DÉCENTRATION OPÉRANTE → ÉLEVÉ (éclairer le chemin de l'autre avec
+  ses propres jambes à lui).
+- Refuser doucement le cadre prescriptif et repartir chercher chez l'autre
+  (« comment tu le sens, toi ? pars de ce qui marche pour toi ») = perspective
+  getting → ÉLEVÉ également.
+- Conseil générique valable pour n'importe qui (« fais au mieux », « reste
+  calme », « fais-toi confiance » sans appui sur SON fonctionnement) = l'autre
+  est mentionné, rien ne bouge → FAIBLE.
+Tu disposes du `personnage_profil` : vérifie factuellement de quel côté l'ancre
+tombe — c'est un constat contre pièces, pas une impression.
 
 **Anti-marqueurs (ne comptent JAMAIS, et se signalent dans la manifestation) :**
 « je me mets à sa place » déclaratif sans acte de vérification · empathie
