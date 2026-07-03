@@ -79,6 +79,17 @@ les trois postures possibles et tentantes.
    sienne » · « Votre rôle : vous portez l'organisation d'ensemble, cette
    partie lui est confiée » · « Votre rôle : demandeur — c'est elle qui
    tient le domaine et décide ».
+   **4quinquies. L'ENGAGEMENT POSÉ (garante, 03/07).** La ligne d'enjeu se clôt
+   TOUJOURS par la phrase d'engagement : « **Vous vous sentez concerné·e et
+   vous voulez contribuer au mieux — à votre façon.** » Elle ferme
+   l'échappatoire de l'indifférence (un non-agir devient un CHOIX, lisible à
+   son ancre) sans pousser vers l'intervention (le « à votre façon » garde
+   tout l'éventail ouvert : contribuer peut vouloir dire faire confiance et ne
+   rien faire). Le bénéficiaire s'adapte à la situation : « …à ce que ça
+   aboutisse pour tous » quand l'enjeu est commun (la fête, le déménagement),
+   « …à ce qu'elle y arrive, elle » quand l'enjeu est celui de la personne (la
+   fille, la grand-mère). Jamais « l'intérêt collectif » plaqué sur un enjeu
+   individuel.
    **4ter. JAMAIS LE REFLET DE LA FAÇON DU CANDIDAT (garante, 03/07).** Ne
    décris JAMAIS le personnage par la négation de la méthode du candidat (« il
    ne contacte pas les bonnes personnes, ne cible rien ») : c'est rappeler au
