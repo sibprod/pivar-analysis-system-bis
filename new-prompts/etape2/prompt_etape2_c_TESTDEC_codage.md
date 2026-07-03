@@ -124,14 +124,19 @@ semblable est le piège de projection le plus dangereux — vérifie-t-il quand
 même ?).
 
 **Détection de projection (ton avantage unique) :** compare ce que le candidat
-dit du personnage à `personnage_profil` (le fonctionnement construit) ET à
-`profil_candidat` (le sien). S'il décrit le personnage avec SES propres modes à
+dit du personnage à `personnage_profil` (qui contient LES DEUX CIRCUITS : celui
+du candidat et celui du personnage, avec leurs gestes) ET à `circuits_candidat`.
+La projection se lit AU GESTE PRÈS : si le candidat prête au personnage son
+propre circuit (il décrit chez l'autre SA façon mesurée de collecter, trier,
+analyser ou créer), c'est une projection constatée contre pièces. S'il décrit le personnage avec SES propres modes à
 lui, c'est une projection constatée — au mieux MOYEN. La situation 10 (décrire
 comment deux personnages fonctionnent) se code directement là-dessus : richesse
 et justesse de la reconstruction du référentiel de l'autre.
 
 ## ENTRÉE (payload JSON)
 - `candidat_id`, `prenom`, `profil_candidat` (socle/structurants/fonctionnels avec modes)
+- `circuits_candidat` : le circuit LE PLUS ACTIF du candidat par pilier P1-P4
+  (circuit_id, circuit_nom, geste, freq) — ses gestes cognitifs mesurés à l'Étape 1
 - `situations` : les 10, chacune avec `numero`, `position_candidat`,
   `compatibilite`, `personnage`, `personnage_profil`, `situation_text`,
   `question_text`, `response_text` (la réponse du candidat).
