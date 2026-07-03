@@ -88,7 +88,11 @@ module.exports = {
     agent_t5bc:              64000,  // conservé pour compatibilité — non utilisé depuis v2.0
     agent_t5b:               64000,  // ⭐ A11 — portraits par excellence (portrait_excellence long)
     agent_t5c:               64000,  // ⭐ A11 — profil global + verdicts deux faces
-    agent_testdec_gen:       64000,  // ⭐ Étape 2c (02/07) — générateur du test de décentration
+    agent_testdec_gen:       28000,  // ⭐ Étape 2c (03/07) — générateur : plafond ABAISSÉ.
+    // Le max_tokens étant partagé réflexion/texte, 64000 provoquait des méditations
+    // de 25+ min (> TIMEOUT_MS 20 min → spirale coupure/reprise facturée). La sortie
+    // fait ~7k tokens ; 28000 borne la réflexion → génération en 3-6 min. Les CODEURS
+    // restent à 64000 : la profondeur d'analyse des candidats est intouchable (doctrine).
     agent_testdec_cod:       64000,  // ⭐ Étape 2c (02/07) — codeur du test de décentration
 
     // ── Certificateur lexique (objet distinct du vérificateur T1) ─────────
