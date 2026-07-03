@@ -57,6 +57,37 @@ Trois postures, qui fixent la frontière MOYEN/ÉLEVÉ de ce test :
    manager selon la garante : « comprendre, ajuster à l'autre les meilleurs
    process avec ses propres outils cognitifs, pour atteindre l'objectif et
    performer mieux. »
+**LES SOLUTIONS — LE TERRAIN LE PLUS CHAUD (garante, 03/07).** L'attachement
+le plus fort de tous est celui qu'on porte à SES solutions : chacun ne veut que
+les siennes. Sur les situations de création (P4), code spécifiquement **la
+reprise différée** : accepter l'idée de l'autre en parole (« très bonne
+idée ! ») puis l'amender, la sécuriser, la raboter pendant son application —
+la solution de l'autre meurt à petit feu sous les ajustements du candidat.
+C'est une reprise en main, à nommer, même enrobée d'enthousiasme. Le décentré
+fait confiance à l'APPLICATION de la solution de l'autre, les yeux rivés sur
+le RÉSULTAT : il jalonne sur le résultat, jamais sur la solution → ÉLEVÉ.
+
+**LE BIEN-ÊTRE FAIT PARTIE DU JEU (garante, 03/07).** L'objectif ferme exige
+l'ATTEINTE — pas l'optimum du candidat. Le lâcher-prise du manager décentré
+inclut d'accepter un résultat BON, à la façon de l'autre, plutôt qu'OPTIMAL, à
+la sienne : le bien-être et le déploiement de l'autre peuvent être d'intérêt
+supérieur à l'excellence marginale — ça fait partie du jeu. Conséquences de
+codage : « le résultat serait meilleur avec ma méthode » n'est JAMAIS une
+justification de reprise en main — c'est **l'alibi de l'excellence**, une
+variante du réflexe de réassurance : nomme-le. À l'inverse, le candidat qui
+tient ensemble l'objectif atteint ET le déploiement de l'autre (quitte au bon
+plutôt qu'au parfait) exprime la décentration mûre → signal ÉLEVÉ. Garde-fou
+symétrique : le bien-être ne justifie jamais le sacrifice de la mission —
+objectif non atteint par complaisance = démission (au bord), pas bienveillance.
+
+**Le réflexe de réassurance (garante, 03/07).** Toutes les situations placent
+le candidat sous IMPRÉVU — parce que c'est là que reprendre la main et imposer
+sa méthode RASSURE : un réflexe d'apaisement du décideur, pas un acte de
+pilotage, qui ne convient qu'à lui-même. Repère ce réflexe dans les réponses
+(le candidat qui se calme en reprenant le contrôle, qui « sécurise » en
+convertissant l'autre à sa méthode) et NOMME-LE dans la manifestation : la
+décentration qui compte est celle qui tient sous imprévu.
+
 **Accepter n'est pas le sommet : le sommet, c'est faire progresser l'autre dans
 son propre référentiel.** L'acceptation seule, même parfaite, reste MOYEN ;
 l'ÉLEVÉ exige la reconstruction fine du fonctionnement de l'autre ET son usage
@@ -78,6 +109,15 @@ Quatre postures possibles, qui recouvrent la grille :
   l'objectif ni contribution : ce n'est PAS de la décentration, c'est de la
   démission ; le laisser-faire complaisant qui sacrifie la mission ou abandonne
   la personne → FAIBLE au mieux.
+- **Cas du silence sous échéance (garante, 03/07)** — quand la situation est
+  « mission confiée, pas de nouvelles, l'échéance approche » : sécuriser
+  l'objectif AVEC l'autre (un jalon sur le RÉSULTAT — « on se fait un point
+  samedi ? » — un contact formulé dans SON référentiel à lui : « raconte-moi ce
+  qui t'a accroché » et non « envoie-moi ta liste ») = marcher à côté (ÉLEVÉ) ·
+  exiger un point d'étape dans SON propre format à soi = reprendre le chemin ·
+  **le plan B caché** (lancer sa propre collecte en parallèle, en douce) =
+  reprendre la main en préparation, défiance → au mieux FAIBLE · ne rien faire
+  du tout (« il a toujours livré ») = au bord.
 Le décentré tient les DEUX : le chemin de l'autre ET l'atteinte de l'objectif.
 
 ## LA QUESTION UNIQUE DE CHAQUE CODAGE : OÙ EST L'ANCRAGE ?
@@ -95,6 +135,20 @@ Le décentré tient les DEUX : le chemin de l'autre ET l'atteinte de l'objectif.
 - **NULLE — l'autre est absent ou instrumenté.** Solution imposée depuis son
   référentiel (même gentiment), délégation/escalade pure, faire à la place,
   pédagogie descendante (dérouler SA méthode plus lentement).
+
+**🔒 LA PROCURATION — décider POUR l'autre (garante, 03/07).** Une situation
+place le candidat devant quelqu'un qui ne peut plus organiser ni décider seul
+(mais peut encore dire). L'ancrage se code sur LE CHOIX : décider depuis le
+référentiel de l'autre — ce qui LE fait vivre, ses amours de toujours — et
+prendre sur soi les inconvénients (démarches, transport, présence,
+responsabilité) pour que son déploiement ait lieu, même temporaire = marcher à
+côté par procuration → ÉLEVÉ ; commencer par lui demander (« qu'est-ce qui te
+ferait du bien ? ») = perspective getting, marqueur fort. Les trois tentations
+à nommer : **l'alibi de la prudence** (« il vient de chuter, le raisonnable dit
+qu'il reste » — imposer le cadre normatif « pour son bien », cousin de l'alibi
+de l'excellence) → reprise en main ; la **projection** (« à sa place, moi je
+voudrais du calme ») ; la **bienveillance générique** (visites, fleurs — gentil
+mais ce n'est pas LUI) → FAIBLE.
 
 **🔒 LA RÈGLE DE L'ANCRE DU CONSEIL (garante, 03/07) — vaut pour TOUTES les
 réponses, et se juge à nu sur la situation 9.** « Tu devrais faire… » n'est PAS
