@@ -122,7 +122,9 @@ async function run({ candidat_id, visiteur }) {
       if (!plan.testdec) {
         try {
           const verdict = await airtableService.getEtape2T5CVerdictMan(candidat_id);
-          if (verdict === 'RÉSERVE DE PROTOCOLE') {
+          // 🔒 garante 03/07 : DÉFAVORABLE = verdict interne, affiché RÉSERVE au
+          // candidat avec conseil du test → on génère le test dans les deux cas.
+          if (verdict === 'RÉSERVE DE PROTOCOLE' || verdict === 'DÉFAVORABLE') {
             const rG = await agentTestDecGen.run({ candidat_id });
             totalCost += rG.cost || 0;
             logger.info('Excellences — TESTDEC génération', {
