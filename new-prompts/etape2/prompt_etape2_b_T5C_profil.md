@@ -81,7 +81,25 @@ Verdicts autorisés en base (valeurs EXACTES) : **TRÈS BON · BON · SUFFISANT 
 > « (fenêtre principale : non évaluée) » le cas échéant. Pour
 > `ordre_excellences`, compare en POURCENTAGES (A/10 → %). Dans les rédactions,
 > dis ce que le test a RÉVÉLÉ EN PLUS de la première analyse — jamais qu'il la
-> remplace ou la corrige.
+> remplace ou la corrige. **Et RÉVISE TOUTES LES RÉDACTIONS INTERPRÉTATIVES** —
+> aucune ne doit rester figée sur l'état d'avant-test :
+> - `conditions_management` (et `conditions_encadrement` si la lecture globale
+>   en est affectée) : le déclencheur fiable identifié par le test devient une
+>   condition positive (« s'appuyer sur… »), les marqueurs de vigilance
+>   deviennent des conditions de cadre ;
+> - `montee_autre_face` (« ce qui ferait grandir l'autre face ») : la montée se
+>   réécrit DEPUIS ce que le test a établi — le point d'appui révélé (le
+>   déclencheur fiable, le geste le plus accompli) devient la première marche
+>   concrète du chemin, et les marqueurs identifiés (alibi de l'excellence,
+>   ancrage au propre référentiel…) deviennent les gestes précis à travailler —
+>   plus jamais de « fondement manquant » là où le test a trouvé un fondement ;
+> - `reserves_globales` (la note de lecture) : elle mentionne les DEUX mesures
+>   et leur articulation (fenêtre principale + test dédié), et ce que la
+>   seconde a levé ou confirmé des réserves de la première ;
+> - `profil_dominant` (et `portrait_un_mot` / `combinaison` s'ils en sont
+>   affectés) : toute mention « en attente du test » disparaît — le portrait
+>   intègre ce que le test a établi (le déclencheur fiable, le geste accompli),
+>   au présent de ce qui est maintenant su.
 >
 > 🔒 **PORTÉE DU RÉGIME « NON ÉVALUÉ » (garante, 02/07) : il n'existe QUE pour la décentration** — seule dimension que les questions ne sollicitaient pas spécialement. Les trois autres se mesurent sans réserve : l'**anticipation** (le test a couvert son spectre — un score bas = petitesse manifeste, constat), la **vue systémique** (disposition irrépressible — l'absence d'expression est diagnostique) et la **méta-cognition** (les 25 questions demandent toutes « comment faites-vous » — sollicitation permanente). Ne jamais étendre la réserve de protocole à ces trois dimensions ; leurs scores bas sont des faits, nommés avec probité (cadrage adouci, diagnostic jamais).
 >
