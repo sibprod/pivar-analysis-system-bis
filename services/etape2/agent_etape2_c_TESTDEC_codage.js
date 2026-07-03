@@ -38,6 +38,7 @@ async function run({ candidat_id }) {
   }
 
   const profil = await airtableService.getEtape1ProfilPourTest(candidat_id);
+  const circuits_candidat = await airtableService.getCircuitsTopPourTest(candidat_id).catch(() => []);
 
   const situations = rows
     .sort((a, b) => (a.numero || 0) - (b.numero || 0))
@@ -59,6 +60,7 @@ async function run({ candidat_id }) {
       candidat_id,
       prenom:          (profil && profil.prenom) || '',
       profil_candidat: profil ? { socle: profil.socle, structurants: profil.structurants, fonctionnels: profil.fonctionnels } : {},
+      circuits_candidat,
       situations
     },
     candidatId: candidat_id
