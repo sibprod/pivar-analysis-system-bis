@@ -116,15 +116,26 @@ async function run({ candidat_id, visiteur }) {
       });
       logger.info('Excellences — Agent C (T5C) terminé', { candidat_id, t5c: rC.t5c });
 
-      // ⭐ Étape 2c — si le verdict management sort en RÉSERVE DE PROTOCOLE,
-      // pré-générer le test de décentration (best effort : un échec ici ne
-      // bloque JAMAIS le bilan — le service saute si des réponses existent).
+      // ⭐ Étape 2c — pré-générer le test de décentration (best effort : un échec
+      // ici ne bloque JAMAIS le bilan — le service saute si des réponses existent).
+      // Cas couverts (garante, 03/07 — Option B) :
+      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou DÉFAVORABLE
+      //              (interne, affiché réserve au candidat)
+      //   affinage : décentration posée en tranche 6-14 (« posé + test proposé »)
       if (!plan.testdec) {
         try {
           const verdict = await airtableService.getEtape2T5CVerdictMan(candidat_id);
-          // 🔒 garante 03/07 : DÉFAVORABLE = verdict interne, affiché RÉSERVE au
-          // candidat avec conseil du test → on génère le test dans les deux cas.
-          if (verdict === 'RÉSERVE DE PROTOCOLE' || verdict === 'DÉFAVORABLE') {
+          let besoinTest = (verdict === 'RÉSERVE DE PROTOCOLE' || verdict === 'DÉFAVORABLE');
+          if (!besoinTest) {
+            const t5bRows = await airtableService.getEtape2T5BRows(candidat_id);
+            const decRow = (t5bRows || []).find(r =>
+              String((r.excellence && (r.excellence.name || r.excellence)) || '').toUpperCase() === 'DEC');
+            if (decRow && String(decRow.densite_sommeil || '') !== 'TEST') {
+              const a = (decRow.nb_eleve || 0) + (decRow.nb_moyen || 0);
+              if (a >= 6 && a <= 14) besoinTest = true;
+            }
+          }
+          if (besoinTest) {
             const rG = await agentTestDecGen.run({ candidat_id });
             totalCost += rG.cost || 0;
             logger.info('Excellences — TESTDEC génération', {
