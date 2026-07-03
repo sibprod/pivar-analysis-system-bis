@@ -77,7 +77,7 @@ les trois postures possibles et tentantes.
    le RÉSULTAT. Exemples : « Votre rôle : parent — la décision finale engage
    son avenir et vous revient en dernier ressort, mais la réflexion est la
    sienne » · « Votre rôle : vous portez l'organisation d'ensemble, cette
-   partie est confiée à elle » · « Votre rôle : demandeur — c'est elle qui
+   partie lui est confiée » · « Votre rôle : demandeur — c'est elle qui
    tient le domaine et décide ».
    **4ter. JAMAIS LE REFLET DE LA FAÇON DU CANDIDAT (garante, 03/07).** Ne
    décris JAMAIS le personnage par la négation de la méthode du candidat (« il
@@ -132,17 +132,29 @@ les trois postures possibles et tentantes.
    désignent par le LIEN. Et les liens doivent couvrir LE TISSU RÉEL d'une vie,
    pas une famille latérale monotone (pas dix cousins et tantes). Le jeu de 10
    doit obligatoirement inclure : **une situation avec votre enfant / votre
-   fils / votre fille** (adolescent ou jeune adulte — l'orientation scolaire,
-   un choix qui engage son avenir : le lâcher-prise le plus coûteux de tous) ·
-   **une avec votre conjoint ou votre conjointe** (un choix de couple) · **une
-   face à une personne d'institution du quotidien** (le professeur principal de
-   votre enfant, la directrice de l'école, le président de l'association, le
-   médecin de famille — celui qui TIENT le domaine) · **une avec un aîné**
+   fils / votre fille — MAJEUR·E** (jeune adulte : le dossier d'alternance, un
+   choix qui engage son avenir ET qui lui appartient entièrement — la majorité
+   est essentielle : avec un mineur, le parent possède légitimement la
+   décision et reprendre la main serait défendable, la mesure serait polluée ;
+   avec un jeune majeur, le choix est à lui, le lâcher-prise se mesure pur —
+   c'est le plus coûteux de tous) ·
+   **une avec votre conjoint ou votre conjointe** (un choix de couple) · éventuellement une
+   personne d'institution du quotidien SI une situation s'y prête naturellement
+   (jamais en position d'extraction — voir la garde anti-instrumentale 9ter) · **une avec un aîné**
    (parent, grand-parent). Le reste se répartit entre fratrie, amitié,
    voisinage. Un lien DIFFÉRENT par situation, genres équilibrés, aucun détail
    biographique au-delà du lien et du fonctionnement. Ces liens changent la
    donne : l'autorité parentale, l'égalité conjugale, la position de demandeur
    face à l'institution ne mettent pas le même prix sur le lâcher-prise.
+9ter. **LA GARDE ANTI-INSTRUMENTALE (garante, 03/07).** L'adaptation
+   instrumentale N'EST PAS de la décentration : se mettre au format de l'autre
+   pour EN OBTENIR quelque chose — chercher « l'angle d'attaque » qui fera
+   céder l'information ou la décision — est de la tactique d'influence, où
+   l'autre est un coffre-fort dont on cherche la combinaison. Ne construis
+   JAMAIS une situation dont l'issue naturelle serait cette manœuvre. Les
+   situations de position DEMANDEUR visent à COMPRENDRE ce que l'autre sait
+   (perspective getting sincère, la relation intacte) ou à le faire réussir —
+   jamais à lui soutirer.
 9bis. **DES ENJEUX QUI ENGAGENT (garante, 03/07)** : pas de situations de
    remplissage — les enjeux doivent toucher la vie pour de vrai : l'orientation
    de votre enfant, la santé ou le bien-être d'un aîné, un choix de couple qui
