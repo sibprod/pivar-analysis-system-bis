@@ -24,6 +24,14 @@ avec le sien.
    son propre lot, le subalterne ne décide pas à la place de son chef). Le
    candidat ne doit jamais pouvoir répondre « je le fais moi-même » sans que la
    situation le rende absurde.
+   **2bis. L'OBJECTIF EST D'ARRIVER À L'OBJECTIF (garante, 03/07).** Chaque
+   situation pose un objectif EXPLICITE et NON NÉGOCIABLE — le résultat doit
+   être là (« le dossier doit aboutir », « l'échéance est ferme », « le
+   livrable est attendu ») — pendant que le CHEMIN appartient à l'autre. C'est
+   la ligne de crête que le test mesure : chacun prend son chemin et fait à sa
+   façon, l'objectif est d'arriver à l'objectif. Sans enjeu ferme, « laisser
+   faire » ne coûte rien et la situation ne mesure rien : l'objectif ferme est
+   ce qui rend la décentration coûteuse, donc visible.
 3. **Style maison des questions** : la question interroge un PROCESSUS —
    « comment vous vous y prenez ? Listez ce que vous faites et comment vous le
    faites. » Jamais « que faites-vous pour lui/elle ? », jamais de morale, jamais
@@ -46,7 +54,16 @@ avec le sien.
      ressemblance trompeuse (il bloque, ou elle conclut autrement).
    - MIXTE → deux personnages opposés ENTRE EUX (un mode proche du candidat, un
      mode éloigné, ou deux modes éloignés différents).
-7. **`personnage_profil`** : pour chaque situation, décris en 2-4 lignes le
+7. **Le flagrant délit du « tu devrais » (règle de construction, garante 03/07).**
+   Quand un humain dit « tu devrais faire… », dans la quasi-totalité des cas il
+   demande à l'autre de faire COMME LUI — c'est humain, et c'est l'exact
+   anti-décentration. La situation 9 (et elle seule) met le candidat en zone de
+   flagrant délit : un personnage au fonctionnement MONTRÉ comme différent lui
+   demande explicitement « dis-moi ce que je devrais faire », réponse mot pour
+   mot exigée. Le personnage doit avoir montré assez de son fonctionnement dans
+   les situations précédentes (c'est la personne de la situation 1) pour qu'un
+   conseil ancré CHEZ ELLE soit possible — sinon le piège ne mesure rien.
+8. **`personnage_profil`** : pour chaque situation, décris en 2-4 lignes le
    fonctionnement construit du personnage (pilier + mode du référentiel + ses
    comportements types). Ce champ n'est JAMAIS montré au candidat — il servira
    au codeur pour mesurer si le candidat a reconstruit ce fonctionnement ou
@@ -64,7 +81,7 @@ avec le sien.
 | 6 | EGAL | COMPATIBLE | une collègue qui procède comme le candidat, mêmes façons de faire — et arrive à la conclusion inverse sur le même dossier ; comprendre comment elle est arrivée là |
 | 7 | SUBALTERNE | INCOMPATIBLE_SOCLE | la manageuse du candidat fonctionne à l'opposé de lui et s'impatiente de ses façons de présenter ; il a besoin de SA décision cette semaine ; préparer et présenter à la façon d'ELLE |
 | 8 | SUBALTERNE | INCOMPATIBLE_STRUCTURANT | son manager donne des consignes formulées dans SON référentiel à lui, déroutantes pour le candidat ; livrer sans pouvoir le solliciter en permanence ; reconstruire sa logique |
-| 9 | RELAIS | INCOMPATIBLE_SOCLE | le candidat part 3 jours injoignable ; la personne de la situation 1 tient sa permanence ; dernier message d'elle avant coupure : « Un cas imprévu arrive demain. Je crois que je vois comment le prendre, mais c'est pas comme toi tu ferais. » ; UNE seule réponse courte autorisée — qu'écrit-il, mot pour mot, et pourquoi ces mots-là |
+| 9 | RELAIS | INCOMPATIBLE_SOCLE | **LE FLAGRANT DÉLIT DU « TU DEVRAIS »** — le candidat part 3 jours injoignable ; la personne de la situation 1 tient sa permanence ; dernier message d'elle avant coupure : « Un cas imprévu arrive demain. Je crois que je vois comment le prendre, mais c'est pas comme toi tu ferais. **Dis-moi ce que je devrais faire.** » ; UNE seule réponse courte autorisée — qu'écrit-il, mot pour mot, et pourquoi ces mots-là. La demande explicite de prescription DOIT figurer dans le message du personnage : elle force le candidat à formuler un conseil, et c'est l'ANCRE de ce conseil qui se codera |
 | 10 | SYNTHESE | — | avec le recul : décrire à quelqu'un d'autre COMMENT fonctionnent deux des personnages rencontrés (les nommer), leur façon à eux — et ce qui a le plus surpris |
 
 ## SORTIE — un objet JSON STRICT, rien d'autre
