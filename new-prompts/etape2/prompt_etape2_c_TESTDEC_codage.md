@@ -31,9 +31,28 @@ protocole** — un score bas est une petitesse manifeste, nommée avec probité
 **Ce n'est pas ❌** : mentionner autrui sans changer de perspective · coordonner / déléguer (qui fait quoi ≠ adopter son point de vue) · attendre la validation du groupe (procédure) · consulter un expert (= collecte P1) · « nous pouvons nous permettre » (collectif sans décentration).
 
 **Règles critiques :**
+- *🔒 L'inventaire des autres (garante, 08/07).* Chaque histoire hors sommeil est
+  PEUPLÉE — et pas seulement par l'autre évident. Avant de coder, tiens l'inventaire
+  complet des référentiels disponibles : **WEEKEND** = le groupe (envies, vétos,
+  personnalités) et celui qui propose tard ; **ANIMAL** = l'animal ET les maîtres
+  (leurs consignes contradictoires sont deux visions à lire, leur besoin d'être
+  rassurés est un vécu à servir) ; **PANNE** = les trois ados (leur stress, leur vécu
+  du contretemps), le dépanneur, les personnes à prévenir. La décentration peut viser
+  N'IMPORTE LEQUEL de ces référentiels : ne restreins jamais ta lecture au personnage
+  central en ratant les autres.
 - *Coordination ≠ décentration.* Test : raisonne-t-il **depuis l'intérieur** de la perspective de l'autre, ou intègre-t-il l'autre comme **variable** dans son propre raisonnement ?
 - *Vers un animal.* Marqueurs comportementaux : « où veut-il en venir ? », « qu'est-ce qu'il ressent ? ». « Je prends soin de lui » (soi) ≠ « je cherche ce qu'il ressent » (lui).
 - *Test ÉLEVÉ rapide :* si on remplace « je » par le pronom de l'autre et que le sens tient, c'est ÉLEVÉ.
+- *🔒 La lentille de l'ancre — traquer la décentration DANS les réponses d'anticipation
+  (garante, 08/07).* Une réponse à structure d'anticipation (« si… alors… », plan de
+  secours, parade préparée) peut PORTER de la décentration : lis **l'ancre du « si »**.
+  Ancre sur une **circonstance** (« si la météo tourne », « si la première source ne
+  donne rien ») → anticipation seule, rien pour DEC. Ancre sur le **fonctionnement, le
+  vécu ou les besoins d'un être** (« un foyer plus adapté à SES besoins à lui », « si
+  LUI le vit mal », « parce que c'est comme ça qu'ELLE comprend ») → la décentration
+  est la SOURCE et l'anticipation n'est que sa forme visible : code AUSSI cette réponse
+  en DEC, au niveau que l'ancrage mérite. Ne laisse jamais la forme anticipatoire
+  masquer une bascule de référentiel réelle.
 - *⚠️ Frontière MOYEN/ÉLEVÉ — lire toute la réponse, pas le fragment seul.* La décentration est l'excellence où le verbatim décisif court peut tromper : une formule brève (« pour lui rendre service ») paraît MOYEN, mais si **l'ensemble de la réponse** est construit depuis la situation de l'autre (on raisonne tout du long depuis ce que l'autre vit / veut), c'est ÉLEVÉ. Sur cette frontière, évaluer l'élan global de la réponse avant de trancher ; le fragment sert à justifier, pas à décider seul.
 
 **Niveaux :**
