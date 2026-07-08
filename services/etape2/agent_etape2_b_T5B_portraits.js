@@ -76,6 +76,11 @@ function toT5BRow(candidat_id, exc, agentOut) {
     synthese:            row.synthese || '',
     reserve:             row.reserve || '',
     portrait_excellence: row.portrait_excellence || '',
+    // ⭐ Registre candidat (garante, 08/07) : le texte lu par le candidat et
+    // l'auto-contrôle déclaré — sans ces deux lignes, l'agent les produit
+    // et l'écriture les jette (bug corrigé le 08/07).
+    texte_candidat:      row.texte_candidat || '',
+    controle_redite:     row.controle_redite || '',
     verbatims_preuves:   preuvesStr
   };
 }
