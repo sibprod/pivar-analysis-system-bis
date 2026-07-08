@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<!--
+  BILAN DYNAMIQUE · les 4 excellences · v1 · 2026-06-05 · Sib Prod
+  Page autonome : lit candidat_id dans l'URL (?c= ou /bilan/:id), fetch JSON serveur,
+  remplit le DOM en JS. Mise en page = template validé bilan_remi.html (MD5 462e9cb2…),
+  typo remplacée par celle de l'Étape 1 (Playfair Display / DM Sans / DM Mono).
+  Source de vérité = Airtable T5B + T5C (verbatims-preuves lus en base, jamais reformulés).
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilan cognitif — les 4 excellences</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,400&family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f1ea;--paper:#fbfaf6;--ink:#22201b;--mid:#6b6557;--line:#ddd6c8;
+--e:#2f7d4f;--m:#c8a020;--f:#cf7a33;--n:#b6ab97;--accent:#7a3b2e;
+--ant:#3a6ea5;--dec:#7a3b2e;--met:#4a7c6f;--vue:#9a7a2e;
+--serif:'Playfair Display',Georgia,serif;--sans:'DM Sans',-apple-system,sans-serif;--mono:'DM Mono',monospace;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+background-image:radial-gradient(circle at 1px 1px,rgba(0,0,0,.02) 1px,transparent 0);background-size:24px 24px;padding:36px 22px 90px}
+.wrap{max-width:740px;margin:0 auto}
+.kick{font-family:var(--mono);font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--serif);font-weight:800;font-size:clamp(30px,6vw,44px);line-height:1.04;letter-spacing:-.01em;margin:7px 0 4px}
+.badge{display:inline-block;font-family:var(--serif);font-weight:700;font-size:15px;color:var(--accent);margin-bottom:4px}
+.dom{color:var(--mid);font-size:14px;font-style:italic;margin-bottom:24px}
+.sec{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);font-weight:600;padding-bottom:8px;border-bottom:2px solid var(--line);margin:34px 0 18px}
+.sec .n{color:var(--mid);margin-right:8px}
+.portrait{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:6px;padding:18px 22px;font-size:17px;line-height:1.5;margin-bottom:6px;box-shadow:0 10px 30px -24px rgba(0,0,0,.4)}
+.ordre{margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--mid);font-style:normal}
+.ordre span{text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin-right:8px}
+.exc{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:17px 19px;margin-bottom:13px}
+.exc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.exc-tag{font-family:var(--mono);font-weight:600;font-size:11.5px;letter-spacing:.03em;color:#fff;padding:4px 11px;border-radius:4px}
+.exc-ant{background:var(--ant)}.exc-dec{background:var(--dec)}.exc-met{background:var(--met)}.exc-vue{background:var(--vue)}
+.reg{margin-left:auto;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:3px;cursor:help}
+.reg-pr{background:#dff0e4;color:#1c6638}.reg-ra{background:#dfeaf0;color:#1c5066}.reg-rm{background:#f6ead8;color:#8a5510}.reg-ob{background:#efe9dd;color:#6b6557}.reg-ab{background:#f3e2da;color:#9a4020}
+.exc-def{font-size:14px;color:#46423a;line-height:1.55;margin-bottom:13px;padding-bottom:12px;border-bottom:1px dashed var(--line)}
+.bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:#ece6d8;margin-bottom:10px}
+.bar span{height:100%}
+.counts{display:flex;flex-wrap:wrap;gap:11px;align-items:center;font-family:var(--mono);font-size:11px;color:var(--mid);margin-bottom:12px}
+.counts span{display:flex;align-items:center;gap:5px}.counts i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.dens-badge{margin-left:auto;background:var(--ink);color:#f4f1ea;padding:3px 10px;border-radius:20px;font-size:10px;letter-spacing:.04em}
+.amp{font-size:14.5px;line-height:1.55;margin-bottom:9px}
+.decl{font-size:12.5px;color:#46423a;background:#f3eede;border-radius:6px;padding:9px 12px;margin-bottom:13px}
+.decl-l{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:2px}
+.proof{background:#faf8f2;border:1px solid var(--line);border-radius:7px;padding:12px 14px;margin-bottom:12px}
+.proof-h{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);margin-bottom:7px}
+.vb-h{margin:8px 0 4px}.vb-h:first-child{margin-top:0}
+.vb-lvl{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:3px;color:#fff}
+.vb-lvl.e{background:var(--e)}.vb-lvl.m{background:var(--m)}
+.vb-q{display:flex;gap:10px;align-items:baseline;padding:4px 0;font-size:13.5px}
+.vb-s{font-family:var(--mono);font-size:9.5px;color:var(--mid);min-width:78px;flex-shrink:0}
+.vb-none{font-size:13px;color:var(--mid);font-style:italic;line-height:1.5}
+.dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.dcell{background:#f3eede;border-radius:5px;padding:7px;text-align:center}
+.ds{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mid)}
+.dv{display:block;font-weight:600;font-size:14px;margin-top:2px}
+.combi{background:var(--ink);color:#f4f1ea;border-radius:8px;padding:18px 22px;margin:8px 0 4px}
+.combi-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#d9b8a8;margin-bottom:9px}
+.combi p{font-size:14.5px;line-height:1.6}
+.faces{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.face{background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.face-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;color:#fff}
+.face-trav{background:linear-gradient(135deg,#3a6ea5,#2d567f)}.face-rev{background:linear-gradient(135deg,#4a7c6f,#3a6357)}
+.face-kick{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+.face-v{font-family:var(--mono);font-size:11px;font-weight:700;background:rgba(255,255,255,.22);padding:3px 9px;border-radius:18px;white-space:nowrap}
+.face-lab{font-family:var(--serif);font-weight:700;font-size:16px;padding:12px 14px 0}
+.face-why{font-size:13px;color:#46423a;line-height:1.5;padding:8px 14px 12px}
+.face-cond{font-size:12px;color:#46423a;background:#f3eede;margin:0 14px 14px;border-radius:6px;padding:9px 12px}
+.face-cond b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px}
+.v-ok{color:#bfe8cf}.v-mid{color:#f3dca0}.v-warn{color:#f0c8a8}
+.pal-montee{font-size:13.5px;color:#46423a;background:#eef3ee;border-left:3px solid var(--e);border-radius:0 7px 7px 0;padding:11px 14px;margin-top:9px;line-height:1.5}
+.pal-montee b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:3px;color:#1c6638}
+.reserve{margin-top:16px;font-size:12.5px;color:#46423a;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:11px 14px;line-height:1.5}
+.reserve b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:4px}
+.foot{text-align:center;margin-top:30px;font-family:var(--mono);font-size:10px;color:var(--mid);line-height:1.7}
+.dec-intro{font-size:13.5px;color:#46423a;line-height:1.55;margin-bottom:16px}
+.jauges{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px}
+.jcol{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:16px 14px;display:flex;flex-direction:column;align-items:center}
+.jg{width:100%;height:120px;background:#ece6d8;border-radius:7px;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.jg-fill{width:100%;border-radius:0 0 7px 7px;transition:height .3s}
+.jg-trav{background:linear-gradient(180deg,#5a8ec0,#3a6ea5)}
+.jg-rev{background:linear-gradient(180deg,#6aa99b,#4a7c6f)}
+.jg-na{height:100%;background:repeating-linear-gradient(45deg,#ece6d8,#ece6d8 7px,#e0d8c8 7px,#e0d8c8 14px)}
+.jg-lab{text-align:center;margin-top:11px;font-weight:700;font-size:14px;line-height:1.25}
+.jg-kick{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);font-weight:600;margin-bottom:3px}
+.jg-val{margin-top:7px;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);background:#f3eede;padding:3px 11px;border-radius:16px}
+.jg-val-na{color:var(--mid);font-weight:600;font-size:10.5px;text-align:center}
+.decoupage{font-size:14px;color:var(--ink);background:linear-gradient(160deg,#fdf6ec,#f6ece0);border:1px solid #e4d5bf;border-radius:8px;padding:13px 16px;line-height:1.5;font-style:italic}
+.dc-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-style:normal;font-weight:600;display:block;margin-bottom:4px}
+.sommet-mini{margin-top:12px;font-size:13px;color:#46423a;background:#f1ede4;border-radius:8px;padding:12px 15px;line-height:1.5}
+.sm-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-right:7px}
+.state{max-width:740px;margin:60px auto;text-align:center;color:var(--mid);font-size:15px;line-height:1.7}
+.state .kick{display:block;margin-bottom:10px}
+.spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:560px){.faces,.jauges{grid-template-columns:1fr}.dgrid{grid-template-columns:repeat(2,1fr)}.vb-s{min-width:66px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ====== util ======
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function getCandidatId(){
+  // priorité : ?c=...  sinon dernier segment d'URL /bilan/:id
+  var u=new URL(window.location.href);
+  var c=u.searchParams.get('c')||u.searchParams.get('candidat_id');
+  if(c) return c.trim();
+  var seg=u.pathname.split('/').filter(Boolean);
+  if(seg.length) return decodeURIComponent(seg[seg.length-1]);
+  return null;
+}
+function setState(html){document.getElementById('root').innerHTML=html;}
+function loading(){setState('<div class="state"><div class="spinner"></div><span class="kick">Profil cognitif</span>Chargement du bilan…</div>');}
+function errorState(msg){setState('<div class="state"><span class="kick">Bilan indisponible</span>'+esc(msg)+'</div>');}
+
+// ====== ordre des excellences par amplitude (E×3+M×2+F) ======
+var EXC_META={
+ ANT:{tag:'exc-ant',nom:'Anticipation spontanée',
+   def:"Se projeter spontanément dans le futur pour préparer une réponse avant que la situation n'arrive : dérouler les « si… alors… », envisager les conséquences en cascade, tenir prêts des plans de secours. Ce qui la distingue : elle agit sur ce qui n'existe pas encore, là où la simple réaction traite ce qui est déjà là."},
+ VUE:{tag:'exc-vue',nom:'Vue systémique',
+   def:"Percevoir une situation présente comme un système : non pas des éléments séparés, mais les liens entre eux et la façon dont agir sur l'un réorganise les autres. Ce qui la distingue : elle saisit les interdépendances d'un ensemble, là où une simple liste juxtapose des éléments sans voir ce qui les relie."},
+ MET:{tag:'exc-met',nom:'Méta-cognition',
+   def:"Observer et nommer sa propre façon de penser : décrire comment on trie, comment on décide, par quels mécanismes mentaux on procède. Ce qui la distingue : elle porte sur la pensée elle-même (« je range les infos comme des valises »), pas sur l'action menée (« je cherche sur internet »)."},
+ DEC:{tag:'exc-dec',nom:'Décentration cognitive',
+   def:"Adopter réellement le référentiel d'une autre entité — partir de sa façon de faire, de penser ou de vivre, plutôt que d'y appliquer la sienne. Ce qui la distingue : elle change de point d'ancrage (« de SON point de vue à lui »), là où la bienveillance ou la coordination impliquent l'autre sans quitter son propre cadre."}
+};
+var REG_CLASS={'RÉGULIÈRE ET ANCRÉE':'reg-ra','ANCRÉE EN RÉGIME MODÉRÉ':'reg-rm','OBSERVÉE':'reg-ob','ABSENTE':'reg-ab','PRÉSENTE ET ROBUSTE':'reg-pr'};
+var REG_TITLE={'RÉGULIÈRE ET ANCRÉE':'Disponible au quotidien, à intensité variable selon les situations.','ANCRÉE EN RÉGIME MODÉRÉ':'Présente de façon régulière, sans atteindre souvent son plein régime.','OBSERVÉE':"À activation restreinte ; s'exprime dans des situations spécifiques.",'ABSENTE':'Quasiment pas activée sur ce test.','PRÉSENTE ET ROBUSTE':'Disponible et solide dans la plupart des situations.'};
+
+function fmtScenQ(v){ // {scenario,q} -> "PANNE·Q22"
+  return esc(v.scenario)+'·Q'+esc(v.q);
+}
+
+function renderExc(e){
+  var meta=EXC_META[e.code]||{tag:'',nom:e.code,def:''};
+  var tot=e.nb_eleve+e.nb_moyen+e.nb_faible+e.nb_nulle;
+  function pct(n){return tot?(100*n/tot).toFixed(1):0;}
+  var regc=REG_CLASS[e.pattern]||'reg-ob';
+  var regt=REG_TITLE[e.pattern]||'';
+  // verbatims-preuves : déjà sélectionnés/triés en base (ÉLEVÉ puis MOYEN)
+  var pv=e.verbatims_preuves||[];
+  var ele=pv.filter(function(x){return (x.niveau||'').indexOf('ÉLEV')===0;});
+  var moy=pv.filter(function(x){return (x.niveau||'').indexOf('MOY')===0;});
+  var proof='';
+  if(pv.length){
+    proof='<div class="proof"><div class="proof-h">Ce qu\'on entend dans ses réponses</div>';
+    if(ele.length){
+      proof+='<div class="vb-h"><span class="vb-lvl e">à plein régime · ÉLEVÉ</span></div>';
+      ele.forEach(function(x){proof+='<div class="vb-q"><span class="vb-s">'+fmtScenQ(x)+'</span><span>« '+esc(x.texte)+' »</span></div>';});
+    }
+    if(moy.length){
+      proof+='<div class="vb-h"><span class="vb-lvl m">régime courant · MOYEN</span></div>';
+      moy.forEach(function(x){proof+='<div class="vb-q"><span class="vb-s">'+fmtScenQ(x)+'</span><span>« '+esc(x.texte)+' »</span></div>';});
+    }
+    proof+='</div>';
+  }
+  var dg='';
+  ['sommeil','weekend','animal','panne'].forEach(function(s){
+    dg+='<div class="dcell"><span class="ds">'+s+'</span><span class="dv">'+esc(e['densite_'+s]||'—')+'</span></div>';
+  });
+  return '<div class="exc">'
+    +'<div class="exc-head"><span class="exc-tag '+meta.tag+'">'+esc(meta.nom)+'</span>'
+    +'<span class="reg '+regc+'" title="'+esc(regt)+'">'+esc(e.pattern)+'</span></div>'
+    +'<p class="exc-def">'+esc(meta.def)+'</p>'
+    +(e.texte_candidat?'<p style="font-size:14.5px;line-height:1.7;margin:10px 0 14px;">'+esc(e.texte_candidat)+'</p>':'')
+    +'<div class="bar"><span style="width:'+pct(e.nb_eleve)+'%;background:var(--e)"></span><span style="width:'+pct(e.nb_moyen)+'%;background:var(--m)"></span><span style="width:'+pct(e.nb_faible)+'%;background:var(--f)"></span><span style="width:'+pct(e.nb_nulle)+'%;background:var(--n)"></span></div>'
+    +'<div class="counts"><span><i style="background:var(--e)"></i>'+e.nb_eleve+' élevé</span><span><i style="background:var(--m)"></i>'+e.nb_moyen+' moyen</span><span><i style="background:var(--f)"></i>'+e.nb_faible+' faible</span><span><i style="background:var(--n)"></i>'+e.nb_nulle+' nulle</span><span class="dens-badge">'+esc(e.niveau_global)+'</span></div>'
+    +'<p class="amp">'+esc(e.synthese)+'</p>'
+    +'<div class="decl"><span class="decl-l">Quand ça s\'active</span>'+esc(e.declencheur)+'</div>'
+    +proof
+    +'<div class="dgrid">'+dg+'</div>'
+    +'</div>';
+}
+
+// ⭐ Le 2ᵉ AVIS (garante, 03/07) : pavé du test complémentaire, posé sous le
+// 1ᵉʳ avis de la face management — il s'ajoute, il n'écrase jamais.
+function blocTestDec(p){
+  var td=p.test_dec;
+  return '<div style="margin:18px 0 4px;padding:20px 24px;background:#f6faf6;border:1px solid #cfe0cf;border-left:4px solid #2f7d4f;border-radius:8px;">'
+    +'<div style="font-size:12px;letter-spacing:.14em;color:#2f7d4f;font-weight:700;margin-bottom:8px;">2ᵉ AVIS · TEST COMPLÉMENTAIRE — CE QU\'IL A RÉVÉLÉ</div>'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Décentration cognitive : '+esc(td.niveau_global)+'</div>'
+    +'<div style="font-size:12px;color:#6b6557;margin-bottom:12px;">'+esc(td.pattern||'')+' — sur dix situations qui sollicitent directement cette dimension. Ce second avis s\'ajoute au premier, il ne le remplace pas.</div>'
+    +(td.synthese?'<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">'+esc(td.synthese)+'</p>':'')
+    +(td.portrait_excellence?'<p style="margin:0;font-size:13px;color:#55503f;line-height:1.55;font-style:italic;">'+esc(td.portrait_excellence)+'</p>':'')
+    +'</div>';
+}
+function verdictClass(v){
+  v=(v||'').toUpperCase();
+  if(v.indexOf('TRÈS BON')>=0||v.indexOf('BON')>=0) return 'v-ok';
+  if(v.indexOf('SUFFISANT')>=0) return 'v-mid';
+  return 'v-warn';
+}
+
+function render(d){
+  var p=d.profil;          // T5C
+  var excs=d.excellences;  // T5B[] ordre amplitude
+  var html='<div class="wrap">'
+    +'<div class="kick">Profil cognitif · les 4 excellences · bilan personnel</div>'
+    +'<h1>'+esc(p.prenom)+'</h1>'
+    +'<div class="badge">'+esc(p.etiquette)+'</div>'
+    +'<p class="dom">'+esc(p.dominante)+'</p>'
+    // 01
+    +'<div class="sec"><span class="n">01</span>En un mot</div>'
+    +'<div class="portrait">'+esc(p.portrait)
+      +'<div class="ordre"><span>Ordre d\'amplitude</span> '+esc(p.ordre)+'</div></div>'
+    // 02
+    +'<div class="sec"><span class="n">02</span>Les quatre capacités, en détail</div>';
+  excs.forEach(function(e){
+    html+=renderExc(e);
+    if(e.code==='DEC' && p.test_dec && p.test_dec.niveau_global){
+      html+='<div style="margin:-8px 0 18px;padding:10px 16px;background:#f6faf6;border:1px solid #cfe0cf;border-radius:6px;font-size:13px;color:#2f7d4f;"><b>Test complémentaire passé</b> — décentration mesurée : '+esc(p.test_dec.niveau_global)+'. Voir le 2ᵉ avis dans la face « Révéler le potentiel de chacun » ci-dessous.</div>';
+    }
+  });
+  // combinaison
+  html+='<div class="combi"><div class="combi-h">Ce que ça donne en combinaison</div><p>'+esc(p.combinaison)+'</p></div>';
+  // 03
+  html+='<div class="sec"><span class="n">03</span>Les deux faces du métier de manager</div>'
+    +'<div class="faces">'
+    +'<div class="face"><div class="face-top face-trav"><span class="face-kick">Le travail</span><span class="face-v '+verdictClass(p.verdict_enc)+'">'+esc(p.verdict_enc)+'</span></div>'
+      +'<div class="face-lab">Faire avancer le travail</div><p class="face-why">'+esc(p.conclusions_enc)+'</p>'
+      +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_enc)+'</div></div>'
+    +'<div class="face"><div class="face-top face-rev"><span class="face-kick">La personne'+(p.test_dec?' · 1ᵉʳ avis — parcours principal':'')+'</span><span class="face-v '+verdictClass(p.verdict_man)+'">'+esc(p.verdict_man)+'</span></div>'
+      +'<div class="face-lab">Révéler le potentiel de chacun</div><p class="face-why">'+esc(p.conclusions_man)+'</p>'
+      +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_man)+'</div>'
+      +(p.test_dec&&p.test_dec.niveau_global?blocTestDec(p):'')
+      +'</div>'
+    +'</div>';
+  // ⭐ Analyse du test en cours : bannière + rechargement automatique.
+  if(!p.test_dec && p.test_dec_statut==='en_analyse'){
+    html+='<div style="margin:26px 0 6px;padding:20px 26px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #b8860b;border-radius:8px;">'
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Votre test complémentaire est en cours d\'analyse</div>'
+      +'<p style="margin:0;color:#55503f;font-size:13px;line-height:1.55;">Comptez une dizaine de minutes — <b>cette page se mettra à jour automatiquement</b> dès que les résultats seront disponibles.</p>'
+      +'</div>';
+    setTimeout(function verifierTest(){
+      var id=location.pathname.split('/').pop();
+      fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(d){
+          if(d&&d.profil&&d.profil.test_dec&&d.profil.test_dec.niveau_global){location.reload();}
+          else{setTimeout(verifierTest,30000);}
+        })
+        .catch(function(){setTimeout(verifierTest,30000);});
+    },30000);
+  }
+  // ⭐ Encart du test (deux registres) — masqué si le test est déjà passé.
+  var tdm = p.test_dec ? null : (p.test_dec_mode || (String(p.verdict_man_niveau||'').toUpperCase()==='RÉSERVE DE PROTOCOLE' ? 'remede' : null));
+  if(tdm){
+    var cid=location.pathname.split('/').pop();
+    var titre = tdm==='remede' ? 'Un test complémentaire vous est proposé' : 'Affinez votre bilan';
+    var texte = tdm==='remede'
+      ? 'Le parcours que vous venez de suivre n\'a pas suffisamment sollicité une dimension pour qu\'elle soit mesurée de façon fiable. Dix situations courtes (environ 20 minutes) permettront de compléter votre bilan — il sera automatiquement actualisé après analyse.'
+      : 'Votre bilan est posé. Dix situations courtes (environ 20 minutes) permettent de l\'affiner sur une dimension — il sera automatiquement actualisé après analyse.';
+    var bouton = tdm==='remede' ? 'Passer le test complémentaire →' : 'Affiner mon bilan →';
+    html+='<div style="margin:26px 0 6px;padding:22px 26px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #7a3b2e;border-radius:8px;">'
+      +'<div style="font-size:16px;font-weight:700;margin-bottom:6px;">'+titre+'</div>'
+      +'<p style="margin:0 0 14px;color:#55503f;font-size:14px;line-height:1.55;">'+texte+'</p>'
+      +'<a href="/visualiser/test-decentration/'+encodeURIComponent(cid)+'" style="display:inline-block;padding:11px 22px;background:#7a3b2e;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">'+bouton+'</a>'
+      +'</div>';
+  }
+  // 04
+  var trav=p.jauge_trav; // {pct, val, na}
+  var rev=p.jauge_rev;
+  function jcol(j,cls,kick,lab){
+    var fill = j.na
+      ? '<div class="jg-fill jg-na"></div>'
+      : '<div class="jg-fill '+cls+'" style="height:'+j.pct+'%"></div>';
+    var val = j.na
+      ? '<span class="jg-val jg-val-na">'+esc(j.val)+'</span>'
+      : '<span class="jg-val">'+esc(j.val)+'</span>';
+    return '<div class="jcol"><div class="jg">'+fill+'</div>'
+      +'<div class="jg-lab"><span class="jg-kick">'+kick+'</span>'+lab+'</div>'+val+'</div>';
+  }
+  html+='<div class="sec"><span class="n">04</span>Le découpage : deux faces distinctes</div>'
+    +'<p class="dec-intro">Le métier de manager a deux faces, évaluées séparément. On ne les additionne pas : une moyenne effacerait l\'essentiel. Ce qui compte, c\'est leur niveau respectif — là où c\'est solide, là où c\'est à construire.</p>'
+    +'<div class="jauges">'+jcol(trav,'jg-trav','Le travail','Faire avancer le travail')+jcol(rev,'jg-rev','La personne','Révéler le potentiel de chacun')+'</div>'
+    +'<div class="decoupage"><span class="dc-k">Lecture du découpage</span> '+esc(p.decoupage)+'</div>'
+    +'<div class="pal-montee"><b>Ce qui ferait grandir l\'autre face</b>'+esc(p.montee)+'</div>'
+    +'<div class="sommet-mini"><span class="sm-k">Horizon</span> Le <b>manager d\'exception</b> réunit les deux faces solides à la fois : faire avancer le travail <em>et</em> révéler le potentiel de chacun. C\'est un profil rare, car il demande deux logiques d\'excellences presque inversées.</div>'
+    +'<div class="reserve"><b>Note de lecture</b> '+esc(p.reserve)+'</div>'
+    +'<div class="foot">Méthode des 4 excellences cognitives · bilan individuel · à lire avec l\'accompagnement d\'un praticien</div>'
+    +'</div>';
+  setState(html);
+  document.title='Bilan cognitif — '+(p.prenom||'');
+}
+
+// ====== chargement ======
+function boot(){
+  var id=getCandidatId();
+  if(!id){errorState("Aucun identifiant de candidat dans l'adresse.");return;}
+  loading();
+  fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
+    .then(function(r){
+      if(!r.ok) throw new Error('Bilan introuvable pour cet identifiant ('+r.status+').');
+      return r.json();
+    })
+    .then(function(d){
+      if(!d||!d.profil||!d.excellences){throw new Error('Données de bilan incomplètes.');}
+      render(d);
+    })
+    .catch(function(err){errorState(err.message||'Erreur de chargement.');});
+}
+boot();
+</script>
+</body>
+</html>
