@@ -1,4 +1,4 @@
-# AGENT T5B — ANT · Portrait de l'excellence « anticipation spontanée »
+8juil# AGENT T5B — ANT · Portrait de l'excellence « anticipation spontanée »
 ## Projet Profil-Cognitif · Étape 2 · v2.2 (un sous-agent par excellence)
 
 <!-- v2.0 (2026-06-09) : le T5B est éclaté en 4 sous-agents (un par excellence)
