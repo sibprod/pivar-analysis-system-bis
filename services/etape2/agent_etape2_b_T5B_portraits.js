@@ -96,7 +96,9 @@ async function runSousAgent({ exc, prompt }, candidat_id, lignes, contexte) {
         payload:     { candidat_id, excellence_ciblee: exc, lignes_t5a: lignes,
                        // ⭐ Rédaction candidat (garante, 08/07) — POUR LA RÉDACTION UNIQUEMENT
                        profil_etape1:   (contexte && contexte.profil_etape1)   || {},
-                       deja_dit_etape1: (contexte && contexte.deja_dit_etape1) || {} },
+                       deja_dit_etape1: (contexte && contexte.deja_dit_etape1) || {},
+                       // ⭐ Corrélation limbique (garante, 09/07) — RÉDACTION UNIQUEMENT
+                       diagnostic_limbique: (contexte && contexte.diagnostic_limbique) || null },
         candidatId:  candidat_id
       });
       cost += res.cost || 0;
@@ -143,6 +145,14 @@ async function run({ candidat_id }) {
     id_question: r.id_question || '',
     scenario:    (r.scenario_nom && (r.scenario_nom.name || r.scenario_nom)) || r.scenario || '',
     numero:      r.numero_global || null,
+    // ⭐ Interférence émotionnelle (garante, 09/07) — détection du codeur,
+    // transmise pour la corrélation limbique à la rédaction.
+    limbique: {
+      detecte:   !!r.limbique_detecte,
+      intensite: (r.limbique_intensite && (r.limbique_intensite.name || r.limbique_intensite)) || '',
+      detail:    r.limbique_detail || '',
+      marqueurs: r.marqueurs_emotionnels_detectes || ''
+    },
     ANT: { niveau: val(r.anticipation_niveau),  verbatim: r.anticipation_verbatim || '',  manifestation: r.anticipation_manifestation || '' },
     DEC: { niveau: val(r.decentration_niveau),  verbatim: r.decentration_verbatim || '',  manifestation: r.decentration_manifestation || '' },
     MET: { niveau: val(r.metacognition_niveau), verbatim: r.metacognition_verbatim || '', manifestation: r.metacognition_manifestation || '' },
@@ -154,6 +164,9 @@ async function run({ candidat_id }) {
   // ⭐ Contexte de rédaction (garante, 08/07) : le moteur (modes Étape 1) et le
   // déjà-dit (textes du bilan lus par le candidat) — rédaction seule, jamais codage.
   const contexte = await airtableService.getDejaDitEtape1(candidat_id).catch(() => ({}));
+  // ⭐ Diagnostic limbique du bilan (garante, 09/07) : zones de coût + signaux par
+  // pilier — pour la corrélation avec l'interférence émotionnelle observée.
+  contexte.diagnostic_limbique = await airtableService.getDiagnosticLimbique(candidat_id).catch(() => null);
 
   const settled = await Promise.allSettled(
     SOUS_AGENTS.map(sa => runSousAgent(sa, candidat_id, lignes, contexte))
