@@ -1,18 +1,13 @@
-// services/etape2/agent_etape2_b_T5A_codage.js
+// services/etape2/agentT5A.js
 // Agent T5A — Codage des 4 excellences cognitives, réponse par réponse (Étape 2)
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
 //
 // Rôle :
-//   - Lit les 25 lignes du candidat dans ETAPE2_RESPONSES_EXCELLENCES.
-//   - Pour chaque réponse, appelle le prompt new-prompts/etape2/prompt_etape2_b_T5A_codage.md
+//   - Lit les 25 lignes du candidat dans ETAPE2_RESPONSES_EXCELLENCES (chaque ligne
+//     porte déjà response_text + le signal limbique calculé à l'Étape 1).
+//   - Pour chaque réponse, appelle le prompt new-prompts/etape2/AGENT_T5A_prompt.md
 //     qui code les 4 excellences (niveau / verbatim / manifestation / contexte).
-//
-// v2.1 (2026-07-02) — RÈGLE D19bis APPLIQUÉE (journal du 04/06) :
-//   L'entrée de l'agent A est la réponse du candidat, SEULE. Le signal limbique
-//   pré-calculé à l'Étape 1 (limbique_detecte / limbique_intensite / limbique_detail)
-//   n'est PLUS transmis dans le payload — l'interférence émotionnelle se lit dans le
-//   texte de la réponse lui-même (prompt v3.1, règle R5).
 //   - Met à jour la même ligne avec les résultats (patch, pas de création).
 //
 // v2.0 (2026-06-09) — PARALLÉLISME + ÉCRITURE AU FIL DE L'EAU
@@ -34,6 +29,24 @@ const airtableService = require('../infrastructure/airtableService');
 const logger          = require('../../utils/logger');
 
 const PROMPT_PATH  = 'etape2/prompt_etape2_b_T5A_codage.md';
+
+// ⭐ Version de grille (garante, 09/07) : extraite de l'en-tête du prompt réel
+// (la ligne « ## Projet … · vX.Y (date …) ») — jamais codée en dur, jamais désynchronisée.
+let _versionGrille = null;
+function getVersionGrille() {
+  if (_versionGrille) return _versionGrille;
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const p = path.join(__dirname, '..', '..', 'new-prompts', PROMPT_PATH);
+    const tete = fs.readFileSync(p, 'utf8').slice(0, 400);
+    const m = tete.match(/v(\d+\.\d+)[^\n]*\((\d{2}\/\d{2}\/\d{4})/);
+    _versionGrille = m ? `grille-v${m[1]}·${m[2]}` : 'grille-inconnue';
+  } catch (e) {
+    _versionGrille = 'grille-illisible';
+  }
+  return _versionGrille;
+}
 const SERVICE_NAME = 'agent_t5a';
 
 // Nombre de réponses analysées EN MÊME TEMPS. Chaque analyse garde son thinking complet.
@@ -84,9 +97,10 @@ async function analyseUneReponse(row, candidat_id) {
     question_id_protocole: row.question_id_protocole || '',
     scenario:              (row.scenario_nom && (row.scenario_nom.name || row.scenario_nom)) || row.scenario || '',
     pilier_demande:        (row.pilier_demande && (row.pilier_demande.name || row.pilier_demande)) || '',
-    verbatim_candidat:     row.response_text || ''
-    // v2.1 (D19bis) : le signal limbique de l'Étape 1 n'est plus transmis — l'entrée
-    // de l'agent A est la réponse du candidat, seule (prompt v3.1, règle R5).
+    verbatim_candidat:     row.response_text || '',
+    limbique_detecte:      row.limbique_detecte || false,
+    limbique_intensite:    (row.limbique_intensite && (row.limbique_intensite.name || row.limbique_intensite)) || '',
+    limbique_detail:       row.limbique_detail || ''
   };
 
   let out = null;
@@ -116,12 +130,41 @@ async function analyseUneReponse(row, candidat_id) {
  * @param {string} params.candidat_id - session_id du candidat
  * @returns {Promise<{ lignes: number, cost: number, echecs: string[] }>}
  */
-async function run({ candidat_id }) {
-  logger.info('Agent T5A — démarrage', { candidat_id, concurrence: CONCURRENCE });
+async function run({ candidat_id, force = false }) {
+  logger.info('Agent T5A — démarrage', { candidat_id, concurrence: CONCURRENCE, force });
 
-  const rows = await airtableService.getEtape2T5ARows(candidat_id);
+  let rows = await airtableService.getEtape2T5ARows(candidat_id);
   if (!rows || rows.length === 0) {
     throw new Error(`Agent T5A : aucune ligne T5A trouvée pour ${candidat_id}`);
+  }
+
+  // 🔒 IMMUABILITÉ DES CODAGES (garante, 09/07 — non négociable).
+  // Un codage posé est un acte d'évaluation daté : il ne se recalcule JAMAIS
+  // silencieusement. Sans le drapeau force (statut ETAPE2_RECODAGE_COMPLET,
+  // acte volontaire de la garante), l'agent ne code que les lignes VIERGES.
+  // Conséquence : relancer une chaîne complète rejoue B et C sur des codages
+  // figés → résultats identiques à chaque run, par construction.
+  if (!force) {
+    const total = rows.length;
+    rows = rows.filter(r => !(
+      r.anticipation_niveau || r.decentration_niveau ||
+      r.metacognition_niveau || r.vue_systemique_niveau
+    ));
+    if (rows.length === 0) {
+      logger.info('Agent T5A — codages verrouillés, aucun recodage sans ordre explicite (ETAPE2_RECODAGE_COMPLET)', {
+        candidat_id, lignes_verrouillees: total
+      });
+      return { lignes: 0, cost: 0, echecs: [], verrouille: true };
+    }
+    if (rows.length < total) {
+      logger.info('Agent T5A — reprise partielle : seules les lignes vierges seront codées', {
+        candidat_id, vierges: rows.length, verrouillees: total - rows.length
+      });
+    }
+  } else {
+    logger.warn('Agent T5A — RECODAGE FORCÉ demandé (changement de grille) : toutes les lignes seront recodées', {
+      candidat_id, lignes: rows.length, version_grille: getVersionGrille()
+    });
   }
 
   let totalCost = 0;
@@ -151,9 +194,13 @@ async function run({ candidat_id }) {
         echecs.push(r.id_question);   // on laisse la ligne en l'état, jamais écrasée par du vide
         continue;
       }
+      const fieldsPatch = buildPatchFields(r.out);
+      // ⭐ Traçabilité (garante, 09/07) : chaque codage porte la version de la
+      // grille qui l'a produit — deux mesures différentes s'expliquent toujours.
+      fieldsPatch.version_grille = getVersionGrille();
       patchVague.push({
         airtable_id:     r.row.airtable_id,
-        fields_to_patch: buildPatchFields(r.out)
+        fields_to_patch: fieldsPatch
       });
     }
 
