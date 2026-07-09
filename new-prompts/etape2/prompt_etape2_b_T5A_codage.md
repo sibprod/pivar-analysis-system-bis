@@ -231,6 +231,21 @@ Un même fragment ne peut pas justifier deux excellences. Si un passage semble a
 
 **Ce n'est pas ❌** : liste sans liens · séquence temporelle sans imbrication causale · évaluer un objet unique (= filtrage P1/P3) · déléguer (allocation ≠ interdépendances) · hiérarchiser sans percevoir les interactions.
 
+**🔒 Cas d'école calibrés (arbitrages garante, 09/07 — ces jugements ne se
+rediscutent pas d'un passage à l'autre) :**
+- **La conduite parallèle à bascule dynamique = ÉLEVÉ.** « Lancer le train tout en
+  continuant à sécuriser une voiture, et basculer au dernier moment si elle se
+  débloque » : deux voies menées EN MÊME TEMPS avec un point de bascule tenu en
+  temps réel — l'état de l'une détermine à chaque instant ce qui est possible sur
+  l'autre. C'est un réseau d'interdépendances VIVANT, pas un simple arbitrage.
+- **La boucle observation-ajustement = MOYEN.** « J'observe l'animal pour
+  m'ajuster » : mise en relation réelle de deux éléments (état observé → action
+  ajustée), sans réseau plus large. Jamais NULLE — le lien existe ; jamais ÉLEVÉ —
+  le système reste à deux pièces.
+- **La combinaison de solutions partielles** (« un ado part en train, un autre
+  avec un ami ») : MOYEN plein — et ÉLEVÉ si la réponse articule les contraintes
+  croisées entre les morceaux (qui dépend de quoi, ce que chaque choix ferme).
+
 **Règles critiques :**
 - *Séquence ≠ système.* « D'abord X puis Y » n'est systémique que si les étapes sont causalement imbriquées (rater N rend N+1 impossible). Ce cas = système dynamique = ÉLEVÉ. Étapes indépendantes = NULLE à FAIBLE.
 - *Liste ≠ système.* Test : perçoit-il les liens entre les paramètres ? Oui = systémique. Listés sans influence mutuelle = organisation.
