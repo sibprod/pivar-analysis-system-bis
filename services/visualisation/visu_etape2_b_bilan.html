@@ -137,6 +137,56 @@ function fmtScenQ(v){ // {scenario,q} -> "PANNE·Q22"
   return esc(v.scenario)+'·Q'+esc(v.q);
 }
 
+// 🔒 Lexique PAR DIMENSION (garante, 09/07) : les mêmes modes, expliqués dans
+// la langue de chaque capacité — le candidat se compare sur la bonne échelle.
+var LEXIQUE_MODES={
+ANT:[
+ ['RÉGULIÈRE ET ANCRÉE','le coup d\'avance est votre façon de penser : vous préparez l\'action avant l\'événement dans la plupart des situations, jusqu\'aux plans à plusieurs coups.'],
+ ['ANCRÉE EN RÉGIME MODÉRÉ','prévoir pour agir fait partie de votre pensée et s\'exprime régulièrement — le plus souvent au premier coup d\'avance.'],
+ ['MOBILISABLE EN SITUATION','le coup d\'avance est là, avec de vrais pics : il s\'allume quand l\'enjeu ou l\'imprévu l\'appellent.'],
+ ['À DÉVELOPPER','le geste de prévoir s\'est montré ponctuellement dans ce parcours — un terrain existe, la pratique peut l\'étendre.'],
+ ['À EXPLORER','ce parcours n\'a pas créé les conditions pour voir ce geste — rien n\'est dit sur son absence : il reste à découvrir.']
+],
+MET:[
+ ['RÉGULIÈRE ET ANCRÉE','vous vous regardez penser spontanément : vos critères, vos signaux d\'arrêt, votre rythme sont nommés dans la plupart des situations.'],
+ ['ANCRÉE EN RÉGIME MODÉRÉ','savoir décrire comment vous vous y prenez fait partie de votre pensée et s\'exprime régulièrement.'],
+ ['MOBILISABLE EN SITUATION','ce regard intérieur est là, avec de vrais pics : il s\'ouvre quand un blocage ou un choix difficile l\'appelle.'],
+ ['À DÉVELOPPER','ce regard sur vous-même s\'est montré ponctuellement dans ce parcours — un terrain existe, la pratique peut l\'étendre.'],
+ ['À EXPLORER','ce parcours n\'a pas créé les conditions pour voir ce regard — rien n\'est dit sur son absence : il reste à découvrir.']
+],
+VUE:[
+ ['RÉGULIÈRE ET ANCRÉE','lire les liens entre les choses est votre façon de voir : les interdépendances vous apparaissent dans la plupart des situations, y compris à froid.'],
+ ['ANCRÉE EN RÉGIME MODÉRÉ','la lecture des liens fait partie de votre pensée et s\'exprime régulièrement, en régime courant.'],
+ ['MOBILISABLE EN SITUATION','cette lecture est là, avec de vrais pics : elle s\'allume quand plusieurs fronts s\'imposent en même temps.'],
+ ['À DÉVELOPPER','la lecture des liens s\'est montrée ponctuellement dans ce parcours — un terrain existe, la pratique peut l\'étendre.'],
+ ['À EXPLORER','ce parcours n\'a pas créé les conditions pour voir cette lecture — rien n\'est dit sur son absence : elle reste à découvrir.']
+],
+DEC:[
+ ['RÉGULIÈRE ET ANCRÉE','raisonner depuis les autres est votre façon d\'agir : vous partez de leur fonctionnement jusqu\'à laisser faire — et faire réussir chacun à sa façon.'],
+ ['ANCRÉE EN RÉGIME MODÉRÉ','la prise en compte du fonctionnement des autres fait partie de votre façon d\'agir et s\'exprime régulièrement.'],
+ ['MOBILISABLE EN SITUATION','cette bascule vers l\'autre est là, avec de vrais pics : elle s\'active quand la situation met l\'autre au premier plan.'],
+ ['À DÉVELOPPER','la bascule vers le fonctionnement de l\'autre s\'est montrée ponctuellement — un terrain existe, la pratique peut l\'étendre.'],
+ ['À EXPLORER','ce parcours n\'a pas créé les conditions pour la voir — rien n\'est dit sur son absence : elle reste à découvrir.'],
+ ['TEST À PASSER','cette dimension demande une fenêtre dédiée : un test court, construit sur votre propre parcours, complète la mesure.']
+]};
+
+function renderLexique(code,badge){
+  var lex=LEXIQUE_MODES[code]||[];
+  if(!lex.length) return '';
+  var b=(badge||'').toUpperCase();
+  var rows='';
+  lex.forEach(function(m){
+    var actif=(m[0]===b);
+    rows+='<div style="display:grid;grid-template-columns:auto 1fr;gap:0 12px;padding:5px 8px;border-radius:5px;'
+      +(actif?'background:#f1ece0;border-left:3px solid #7a3b2e;':'')
+      +'"><span style="font-weight:700;white-space:nowrap;font-size:11.5px;letter-spacing:.04em;'+(actif?'color:#7a3b2e;':'color:#8a8574;')+'">'
+      +(actif?'▸ ':'')+m[0]+'</span><span style="font-size:12.5px;color:'+(actif?'#3d3a30':'#8a8574')+';">'+m[1]+'</span></div>';
+  });
+  return '<div style="margin-top:14px;padding:12px 14px;background:#fbfaf6;border:1px solid #e5dfd2;border-radius:8px;">'
+    +'<div style="font-size:11px;letter-spacing:.12em;color:#8a8574;font-weight:700;margin-bottom:8px;">LES MODES DE CETTE CAPACITÉ — LE VÔTRE EST MARQUÉ</div>'
+    +rows+'</div>';
+}
+
 function renderExc(e){
   var meta=EXC_META[e.code]||{tag:'',nom:e.code,def:''};
   // 🔒 Bilan de CAPACITÉS (garante, 09/07) : l'absence ne s'affiche jamais.
@@ -147,7 +197,7 @@ function renderExc(e){
   var masquer=decTest||e.pattern==='ABSENTE'||!e.pattern;
   // Falaise adoucie (garante, 09/07) : OBSERVÉE avec au moins un ÉLEVÉ = une
   // capacité conditionnelle réelle — jamais « à développer », qui la déclasserait.
-  var badge=decTest?'Test à passer':(masquer?'à explorer':(e.pattern==='OBSERVÉE'?(((e.nb_eleve||0)>=1)?'conditionnelle':'à développer'):(e.pattern||'')));
+  var badge=decTest?'Test à passer':(masquer?'à explorer':(e.pattern==='OBSERVÉE'?(((e.nb_eleve||0)>=1)?'mobilisable en situation':'à développer'):(e.pattern||'')));
   var tot=e.nb_eleve+e.nb_moyen+e.nb_faible+e.nb_nulle;
   function pct(n){return tot?(100*n/tot).toFixed(1):0;}
   var regc=REG_CLASS[e.pattern]||'reg-ob';
@@ -185,6 +235,7 @@ function renderExc(e){
       +'<div class="decl"><span class="decl-l">Quand ça s\'active</span>'+esc(e.declencheur)+'</div>'
       +proof
       +'<div class="dgrid">'+dg+'</div>'))
+    +renderLexique(e.code,badge)
     +'</div>';
 }
 
@@ -224,7 +275,14 @@ function render(d){
     +'<div class="portrait">'+esc(p.portrait)
       +'<div class="ordre"><span>Ordre d\'amplitude</span> '+esc(p.ordre)+'</div></div>'
     // 02
-    +'<div class="sec"><span class="n">02</span>Les quatre capacités, en détail</div>';
+    +'<div class="sec"><span class="n">02</span>Les quatre capacités, en détail</div>'
+    // 🔒 Lexique (garante, 09/07) : qualifier le mode n'est pas poser une note —
+    // c'est nommer la façon dont la dimension s'exprime. Le détail des modes est
+    // PAR DIMENSION, sur chaque carte (les modes ne disent pas la même chose
+    // pour les quatre capacités).
+    +'<div style="margin:0 0 20px;padding:12px 20px;background:#fbfaf6;border:1px solid #ddd6c8;border-radius:8px;font-size:13px;line-height:1.6;color:#55503f;">'
+      +'<b style="color:#2b2822;">Comment lire les libellés.</b> Chaque capacité porte un libellé qui nomme son <b>mode d\'expression</b> dans ce parcours — ce n\'est pas une note. Sous chaque capacité, l\'échelle de ses modes vous est donnée, avec le vôtre marqué.'
+    +'</div>';
   excs.forEach(function(e){
     html+=renderExc(e);
     // 🔒 Sens de découverte (garante, 09/07) : tout ce qui concerne le TEST de
