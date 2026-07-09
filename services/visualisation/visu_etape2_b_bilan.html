@@ -145,7 +145,9 @@ function renderExc(e){
   var ng=String(e.niveau_global||'');
   var decTest=(e.code==='DEC')&&(ng.indexOf('Non évalué')===0||ng.toLowerCase().indexOf('test à passer')>=0);
   var masquer=decTest||e.pattern==='ABSENTE'||!e.pattern;
-  var badge=decTest?'Test à passer':(masquer?'à explorer':(e.pattern==='OBSERVÉE'?'à développer':(e.pattern||'')));
+  // Falaise adoucie (garante, 09/07) : OBSERVÉE avec au moins un ÉLEVÉ = une
+  // capacité conditionnelle réelle — jamais « à développer », qui la déclasserait.
+  var badge=decTest?'Test à passer':(masquer?'à explorer':(e.pattern==='OBSERVÉE'?(((e.nb_eleve||0)>=1)?'conditionnelle':'à développer'):(e.pattern||'')));
   var tot=e.nb_eleve+e.nb_moyen+e.nb_faible+e.nb_nulle;
   function pct(n){return tot?(100*n/tot).toFixed(1):0;}
   var regc=REG_CLASS[e.pattern]||'reg-ob';
