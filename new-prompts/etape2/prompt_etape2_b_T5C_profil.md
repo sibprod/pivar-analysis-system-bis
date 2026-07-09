@@ -182,6 +182,22 @@ Deux verdicts demandent une lecture fine :
 
 ---
 
+## 🔒 LE BILAN ÉTAPE 1 EN ENTRÉE (garante, 09/07) — la cohérence entre les deux documents
+Le payload te fournit `profil_etape1` (les modes des piliers) et `deja_dit_etape1`
+(les textes du bilan que le candidat a DÉJÀ LUS). Tout ce que tu écris — les
+verdicts, les conclusions des deux faces, la lecture du découpage, « ce qui ferait
+grandir » — s'écrit EN CONNAISSANCE de ce bilan : le candidat et le recruteur
+liront les deux documents côte à côte. Règles impératives :
+- **Jamais de contradiction nue** entre le bilan pilier et tes verdicts : si une
+  dimension mesure bas là où le bilan a montré des gestes forts, tu expliques la
+  relation (« votre bilan a montré [le geste] ; l'angle dédié mesure [la faculté],
+  qui est une exigence différente — voici comment les deux se lisent ensemble »).
+  Une mesure plus fine du même geste, jamais un démenti.
+- **Les trois temps de la convergence** s'appliquent à tes textes comme à ceux des
+  rédacteurs : nommer le lien au bilan → qualifier → enrichir.
+- La « lecture d'ensemble » et « ce qui ferait grandir » s'ancrent dans les modes
+  réels du candidat (ses piliers), pas dans des généralités.
+
 ## ENTRÉE
 
 Les 4 lignes T5B déjà produites du candidat (`candidat_id`, et pour chaque excellence : `excellence`, `niveau_global`, `pattern`, `niveau_densite`, `nb_eleve`, `nb_moyen`, `nb_faible`, `nb_nulle`, `densite_*`, `declencheur`, `synthese`, `reserve`). Tu produis uniquement l'objet T5C.
