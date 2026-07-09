@@ -133,6 +133,17 @@ Le texte candidat dit CE QUE CETTE OPTION AJOUTE COMME CAPACITÉ À SON MOTEUR �
   elle est restée discrète dans ce parcours — dit sans verdict, avec l'honnêteté
   épistémologique (« ce parcours ne l'a pas sollicitée là ; elle peut exister
   ailleurs ») quand le régime le justifie ; (4) le geste concret qui la ferait grandir.
+- **🔒 Les intertitres canoniques (garante, 09/07) — OBLIGATOIRES et IDENTIQUES
+  pour les quatre dimensions.** Le `texte_candidat` porte EXACTEMENT ces quatre
+  intertitres, chacun seul sur sa ligne, une ligne vide avant et après chaque
+  section :
+  `Ce que cette faculté ajoute à votre moteur`
+  `Là où elle s'allume le plus naturellement`
+  `Là où elle est restée discrète dans ce parcours`
+  `Le geste qui la ferait grandir`
+  Jamais de variante, jamais de majuscules intégrales, jamais de titres tissés
+  dans la prose : la page candidat les met en forme, l'uniformité entre les
+  quatre cartes est une exigence de lisibilité.
 
 **LES TROIS TEMPS DE LA CONVERGENCE (garante, 08/07).** Quand cette dimension a déjà
 affleuré dans le bilan Étape 1 (fourni dans `deja_dit_etape1`), la retrouver n'est
