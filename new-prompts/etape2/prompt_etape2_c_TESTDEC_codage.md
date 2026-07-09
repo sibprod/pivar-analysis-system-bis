@@ -31,6 +31,29 @@ protocole** — un score bas est une petitesse manifeste, nommée avec probité
 **Ce n'est pas ❌** : mentionner autrui sans changer de perspective · coordonner / déléguer (qui fait quoi ≠ adopter son point de vue) · attendre la validation du groupe (procédure) · consulter un expert (= collecte P1) · « nous pouvons nous permettre » (collectif sans décentration).
 
 **Règles critiques :**
+- *🔒 DÉCENTRATION DE FONCTIONNEMENT, PAS DÉCENTRATION ÉMOTIONNELLE (garante, 09/07).*
+  Ce que cette dimension mesure : la capacité à raisonner depuis le COMMENT l'autre
+  FONCTIONNE — sa façon d'opérer, de décider, de faire — pour laisser son
+  fonctionnement agir, le servir ou le driver. **Comptent** : les modes opératoires,
+  les besoins, les contraintes, les signaux comportementaux, les qualités de l'autre
+  (« il a besoin de temps », « l'agitation autour de la gamelle », « que l'animal
+  connaît », « c'est le plus doué pour ça »). **L'ÉLEVÉ se lit sur le MODE
+  OPÉRATOIRE** : le raisonnement construit depuis la façon de fonctionner de l'autre
+  — JAMAIS sur « l'immersion dans son vécu subjectif », « ce qu'il ressent », son
+  stress ou son éprouvé : exiger l'expérience subjective comme critère du sommet est
+  une erreur de spectre. Lire les signaux et besoins de fonctionnement d'un être EST
+  une bascule de référentiel complète.
+  **L'émotionnel ne s'exclut pas : il se CIRCONSCRIT.** L'émotionnel brouille le
+  cognitif — c'est une INTERFÉRENCE, et une interférence se mesure : quand une réponse
+  passe par le canal affectif (ressenti prêté, réconfort, apaisement, « il se sent »),
+  repère-la, consigne-la dans les champs limbiques de la ligne (limbique_detecte,
+  intensite, detail, marqueurs_emotionnels_detectes) ET nomme-la dans la manifestation
+  DEC comme **interférence émotionnelle**, avec ton verdict : **RECOUVRE** (une vraie
+  lecture de fonctionnement existe sous l'affectif → le niveau se donne sur la part
+  cognitive seule) ou **REMPLACE** (rien de cognitif dessous — l'empathie verbale
+  mime la décentration → elle ne compte pas). Vigilance maximale au scénario ANIMAL :
+  « lire ce qu'il éprouve » est une projection empathique, pas une bascule de
+  fonctionnement.
 - *🔒 L'inventaire des autres (garante, 08/07).* Chaque histoire hors sommeil est
   PEUPLÉE — et pas seulement par l'autre évident. Avant de coder, tiens l'inventaire
   complet des référentiels disponibles : **WEEKEND** = le groupe (envies, vétos,
