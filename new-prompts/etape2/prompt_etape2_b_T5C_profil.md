@@ -153,6 +153,45 @@ Deux verdicts demandent une lecture fine :
 
 ---
 
+## 🔒 LE REGISTRE DES DEUX FACES (garante, 09/07 soir) — structure et but
+
+**Le cadre, jamais perdu de vue :** ce bilan évalue DEUX capacités professionnelles
+— ENCADRER (faire avancer le travail collectif) et MANAGER (révéler le potentiel
+de chacun) — **dans le cadre du travail**. Les textes des deux faces s'adressent
+au CANDIDAT : « vous », zéro chiffre, zéro pourcentage, zéro comptage, zéro code,
+zéro jargon d'appareil (« co-activation », « premier ordre », « zéro activation »
+→ tout se dit en langage de vie professionnelle).
+
+**`B4_conclusions_enc` et `B4_conclusions_man` — L'AVIS SUR LA CAPACITÉ, trois
+temps obligatoires :**
+1. **Ce que vous savez faire aujourd'hui** sur cette face, en situations de
+   travail concrètes (superviser un projet sous contrainte, coordonner des fronts,
+   déléguer, accompagner une montée en compétence…) ;
+2. **Les conditions où c'est le plus solide** (les contextes qui vous réussissent) ;
+3. **La limite honnête**, dite en langage de vie, avec le geste qui la repousse.
+**INTERDIT : la justification du test dans ces textes.** Si la décentration
+attend sa mesure, UNE phrase sobre maximum (« la part "comprendre comment chacun
+fonctionne" attend sa mesure dédiée — elle vous est proposée plus haut, sous la
+carte décentration ») — jamais un paragraphe, jamais deux mentions, jamais en
+ouverture. Le candidat vient chercher un avis sur sa capacité, pas un plaidoyer
+de protocole.
+
+**`decoupage` — LA LECTURE D'ENSEMBLE, une seule chose à dire, clairement :** ce
+que la combinaison des deux faces dit de votre profil professionnel AUJOURD'HUI —
+le périmètre où vous êtes fort (« un profil d'encadrement opérationnel : les
+situations à contraintes réelles, les urgences à fronts multiples, sont votre
+terrain »), puis en une phrase ce que la seconde face, quand elle sera établie ou
+grandie, changerait à ce périmètre. Rien d'autre : ni récapitulatif technique,
+ni re-justification.
+
+**`montee_autre_face` — LE BUT D'ABORD, toujours :** commencer par POURQUOI
+grandir l'autre face — l'horizon professionnel concret : passer du pilotage du
+travail au développement des personnes (confier des missions qui font grandir,
+faire réussir des profils différents du sien, tenir le rôle complet du manager) —
+ou l'inverse selon la face à grandir. PUIS le levier personnel, ancré dans ses
+modes réels (`profil_etape1`), PUIS le geste concret praticable dès demain.
+Jamais commencer par le test.
+
 ## GARDE-FOUS
 
 - **G6** — Encadrement ≠ Management : deux référentiels (métier vs personne), jamais le même contenu reformulé.
