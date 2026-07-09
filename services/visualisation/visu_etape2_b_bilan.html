@@ -139,6 +139,13 @@ function fmtScenQ(v){ // {scenario,q} -> "PANNE·Q22"
 
 function renderExc(e){
   var meta=EXC_META[e.code]||{tag:'',nom:e.code,def:''};
+  // 🔒 Bilan de CAPACITÉS (garante, 09/07) : l'absence ne s'affiche jamais.
+  // La couche technique (pattern ABSENTE, comptages) reste en base ; à l'écran :
+  // vide + pédagogie dans le texte candidat. DEC insuffisante → « Test à passer ».
+  var ng=String(e.niveau_global||'');
+  var decTest=(e.code==='DEC')&&(ng.indexOf('Non évalué')===0||ng.toLowerCase().indexOf('test à passer')>=0);
+  var masquer=decTest||e.pattern==='ABSENTE'||!e.pattern;
+  var badge=decTest?'Test à passer':(e.pattern==='OBSERVÉE'?'À DÉVELOPPER':(e.pattern||''));
   var tot=e.nb_eleve+e.nb_moyen+e.nb_faible+e.nb_nulle;
   function pct(n){return tot?(100*n/tot).toFixed(1):0;}
   var regc=REG_CLASS[e.pattern]||'reg-ob';
@@ -166,15 +173,16 @@ function renderExc(e){
   });
   return '<div class="exc">'
     +'<div class="exc-head"><span class="exc-tag '+meta.tag+'">'+esc(meta.nom)+'</span>'
-    +'<span class="reg '+regc+'" title="'+esc(regt)+'">'+esc(e.pattern)+'</span></div>'
+    +(masquer&&!decTest?'</div>':'<span class="reg '+regc+'" title="'+esc(regt)+'">'+esc(badge)+'</span></div>')
     +'<p class="exc-def">'+esc(meta.def)+'</p>'
     +(e.texte_candidat?'<p style="font-size:14.5px;line-height:1.7;margin:10px 0 14px;">'+esc(e.texte_candidat)+'</p>':'')
-    +'<div class="bar"><span style="width:'+pct(e.nb_eleve)+'%;background:var(--e)"></span><span style="width:'+pct(e.nb_moyen)+'%;background:var(--m)"></span><span style="width:'+pct(e.nb_faible)+'%;background:var(--f)"></span><span style="width:'+pct(e.nb_nulle)+'%;background:var(--n)"></span></div>'
-    +'<div class="counts"><span><i style="background:var(--e)"></i>'+e.nb_eleve+' élevé</span><span><i style="background:var(--m)"></i>'+e.nb_moyen+' moyen</span><span><i style="background:var(--f)"></i>'+e.nb_faible+' faible</span><span><i style="background:var(--n)"></i>'+e.nb_nulle+' nulle</span><span class="dens-badge">'+esc(e.niveau_global)+'</span></div>'
-    +'<p class="amp">'+esc(e.synthese)+'</p>'
-    +'<div class="decl"><span class="decl-l">Quand ça s\'active</span>'+esc(e.declencheur)+'</div>'
-    +proof
-    +'<div class="dgrid">'+dg+'</div>'
+    +(masquer?'':(
+      '<div class="bar"><span style="width:'+pct(e.nb_eleve)+'%;background:var(--e)"></span><span style="width:'+pct(e.nb_moyen)+'%;background:var(--m)"></span><span style="width:'+pct(e.nb_faible)+'%;background:var(--f)"></span><span style="width:'+pct(e.nb_nulle)+'%;background:var(--n)"></span></div>'
+      +'<div class="counts"><span><i style="background:var(--e)"></i>'+e.nb_eleve+' élevé</span><span><i style="background:var(--m)"></i>'+e.nb_moyen+' moyen</span><span><i style="background:var(--f)"></i>'+e.nb_faible+' faible</span><span class="dens-badge">'+esc(e.niveau_global)+'</span></div>'
+      +'<p class="amp">'+esc(e.synthese)+'</p>'
+      +'<div class="decl"><span class="decl-l">Quand ça s\'active</span>'+esc(e.declencheur)+'</div>'
+      +proof
+      +'<div class="dgrid">'+dg+'</div>'))
     +'</div>';
 }
 
