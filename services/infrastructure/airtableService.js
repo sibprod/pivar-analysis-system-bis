@@ -1547,6 +1547,42 @@ async function getReferentielCircuits() {
   }
 }
 
+// ⭐ Diagnostic limbique du bilan Étape 1 (garante, 09/07) : les zones de coût
+// (niveau, titre, verbatim) et les signaux limbiques par pilier — pour corréler
+// l'interférence émotionnelle observée en Étape 2 avec la signature mesurée.
+// RÉDACTION UNIQUEMENT (phases étanches : jamais transmis au codeur).
+async function getDiagnosticLimbique(candidat_id) {
+  try {
+    const [bilanRows, t2Rows] = await Promise.all([
+      getBase()('ETAPE1_T3_BILAN')
+        .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+        .all(),
+      getBase()('ETAPE1_T2')
+        .select({ filterByFormula: `{candidat_id} = "${candidat_id}"` })
+        .all()
+    ]);
+    const f = (bilanRows[0] && bilanRows[0].fields) || {};
+    const zones_de_cout = [1, 2, 3]
+      .map(i => ({
+        niveau:   (f[`cout${i}_niveau`] && (f[`cout${i}_niveau`].name || f[`cout${i}_niveau`])) || '',
+        titre:    f[`cout${i}_titre`] || '',
+        verbatim: f[`cout${i}_verbatim`] || ''
+      }))
+      .filter(c => c.niveau || c.titre);
+    const signaux_limbiques_par_pilier = t2Rows
+      .map(r => ({
+        pilier:    (r.fields.pilier || '').trim(),
+        nb_signaux: r.fields.nb_signaux_limbiques_pilier || 0,
+        questions:  r.fields.questions_avec_signaux_limbiques_pilier || ''
+      }))
+      .filter(p => p.pilier);
+    return { zones_de_cout, signaux_limbiques_par_pilier };
+  } catch (error) {
+    logger.error('Failed to get diagnostic limbique', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
 // ⭐ Le moteur et le déjà-dit (garante, 08/07) : les modes par pilier (Étape 1)
 // et les textes du bilan tels que le candidat les a lus — pour la RÉDACTION des
 // 4 dimensions (trois temps de la convergence, contrôle de redite).
@@ -2034,6 +2070,7 @@ module.exports = {
   getEtape2T5CVerdictMan,
   getCircuitsTopPourTest,
   getDejaDitEtape1,
+  getDiagnosticLimbique,
   getReferentielCircuits,
   writeTestDecSynthese,
   getTestDecSynthese,
