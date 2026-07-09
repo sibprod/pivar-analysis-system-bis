@@ -253,6 +253,20 @@ function render(d){
   // combinaison
   html+='<div class="combi"><div class="combi-h">Ce que ça donne en combinaison</div><p>'+esc(p.combinaison)+'</p></div>';
   // 03
+  // Jauges de verdict — définies AVANT leur usage (bug 09/07 corrigé), avec
+  // garde défensif si le C n'a pas produit les jauges.
+  var trav=p.jauge_trav||{na:true,val:'—',pct:0}; // {pct, val, na}
+  var rev=p.jauge_rev||{na:true,val:'—',pct:0};
+  function jcol(j,cls,kick,lab){
+    var fill = j.na
+      ? '<div class="jg-fill jg-na"></div>'
+      : '<div class="jg-fill '+cls+'" style="height:'+j.pct+'%"></div>';
+    var val = j.na
+      ? '<span class="jg-val jg-val-na">'+esc(j.val)+'</span>'
+      : '<span class="jg-val">'+esc(j.val)+'</span>';
+    return '<div class="jcol"><div class="jg">'+fill+'</div>'
+      +'<div class="jg-lab"><span class="jg-kick">'+kick+'</span>'+lab+'</div>'+val+'</div>';
+  }
   html+='<div class="sec"><span class="n">03</span>Les deux faces du métier de manager</div>'
     // 🔒 Pédagogie (garante, 09/07) : dire ce que sont les deux faces et COMMENT
     // l'avis se construit, AVANT de montrer les deux blocs — sinon ils ne se
@@ -290,18 +304,6 @@ function render(d){
     },30000);
   }
   // 04
-  var trav=p.jauge_trav; // {pct, val, na}
-  var rev=p.jauge_rev;
-  function jcol(j,cls,kick,lab){
-    var fill = j.na
-      ? '<div class="jg-fill jg-na"></div>'
-      : '<div class="jg-fill '+cls+'" style="height:'+j.pct+'%"></div>';
-    var val = j.na
-      ? '<span class="jg-val jg-val-na">'+esc(j.val)+'</span>'
-      : '<span class="jg-val">'+esc(j.val)+'</span>';
-    return '<div class="jcol"><div class="jg">'+fill+'</div>'
-      +'<div class="jg-lab"><span class="jg-kick">'+kick+'</span>'+lab+'</div>'+val+'</div>';
-  }
   html+='<div class="sec"><span class="n">04</span>Vos améliorations possibles</div>'
     +'<div class="decoupage"><span class="dc-k">Votre lecture d\'ensemble</span> '+esc(p.decoupage)+'</div>'
     +'<div class="pal-montee"><b>Ce qui ferait grandir l\'autre face</b>'+esc(p.montee)+'</div>'
