@@ -70,17 +70,25 @@ async function run({ candidat_id }) {
     reserve:         r.reserve || ''
   }));
 
-  // ⭐ Double mesure (garante, 03/07) : la synthèse du test complémentaire
-
-  // de décentration, si le candidat l'a passé (null sinon).
-
-  const test_decentration = await airtableService.getTestDecSynthese(candidat_id).catch(() => null);
-
+  // ⭐ Le bilan Étape 1 (garante, 09/07) — même contexte que les rédacteurs B :
+  // jamais de verdict écrit sans connaître le bilan pilier du candidat.
+  const contexteEtape1 = await airtableService.getDejaDitEtape1(candidat_id).catch((e) => {
+    logger.error('⚠️ CONTEXTE ÉTAPE 1 MANQUANT au C — verdicts écrits SANS le bilan pilier (violation de protocole à auditer)', {
+      candidat_id, error: e.message
+    });
+    return {};
+  });
 
   const { result, cost } = await agentBase.callAgent({
     serviceName: SERVICE_NAME,
     promptPath:  PROMPT_PATH,
-    payload:     { candidat_id, lignes_t5b, test_decentration },
+    payload:     { candidat_id, lignes_t5b,
+                   // ⭐ Le bilan Étape 1 en entrée (garante, 09/07) : le C écrit
+                   // les verdicts, la lecture du découpage et la montée EN
+                   // CONNAISSANCE du bilan pilier du candidat — jamais de
+                   // contradiction nue entre les deux documents.
+                   profil_etape1:   (contexteEtape1 && contexteEtape1.profil_etape1)   || {},
+                   deja_dit_etape1: (contexteEtape1 && contexteEtape1.deja_dit_etape1) || {} },
     candidatId:  candidat_id
   });
 
