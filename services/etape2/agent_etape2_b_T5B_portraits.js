@@ -163,7 +163,15 @@ async function run({ candidat_id }) {
   // allSettled : un échec isolé ne fait pas tomber les autres.
   // ⭐ Contexte de rédaction (garante, 08/07) : le moteur (modes Étape 1) et le
   // déjà-dit (textes du bilan lus par le candidat) — rédaction seule, jamais codage.
-  const contexte = await airtableService.getDejaDitEtape1(candidat_id).catch(() => ({}));
+  const contexte = await airtableService.getDejaDitEtape1(candidat_id).catch((e) => {
+    // 🔒 Plus jamais silencieux (garante, 09/07) : écrire sans le bilan Étape 1
+    // est une VIOLATION du protocole de rédaction — on continue (ne pas bloquer
+    // la production), mais on le crie dans les logs pour audit immédiat.
+    logger.error('⚠️ CONTEXTE ÉTAPE 1 MANQUANT — les rédacteurs vont écrire SANS le déjà-dit (violation de protocole à auditer)', {
+      candidat_id, error: e.message
+    });
+    return {};
+  });
   // ⭐ Diagnostic limbique du bilan (garante, 09/07) : zones de coût + signaux par
   // pilier — pour la corrélation avec l'interférence émotionnelle observée.
   contexte.diagnostic_limbique = await airtableService.getDiagnosticLimbique(candidat_id).catch(() => null);
