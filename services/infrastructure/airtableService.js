@@ -1547,6 +1547,28 @@ async function getReferentielCircuits() {
   }
 }
 
+// ⭐ v2.0 « La suite du week-end » (garante, 09/07) : les 5 réponses RÉELLES du
+// candidat au scénario WEEKEND de l'Étape 1 — le matériau du générateur du test.
+async function getReponsesWeekendPourTest(candidat_id) {
+  try {
+    const records = await getBase()('RESPONSES')
+      .select({
+        filterByFormula: `AND({session_ID} = "${candidat_id}", {scenario_nom} = "WEEKEND")`,
+        sort: [{ field: 'numero_global', direction: 'asc' }]
+      })
+      .all();
+    return records.map(r => ({
+      numero:   r.fields.numero_global || null,
+      pilier:   (r.fields.pilier && (r.fields.pilier.name || r.fields.pilier)) || '',
+      question: r.fields.question_text || '',
+      reponse:  r.fields.response_text || ''
+    })).filter(r => r.reponse);
+  } catch (error) {
+    logger.error('Failed to get réponses WEEKEND pour test', { candidat_id, error: error.message });
+    throw error;
+  }
+}
+
 // ⭐ Diagnostic limbique du bilan Étape 1 (garante, 09/07) : les zones de coût
 // (niveau, titre, verbatim) et les signaux limbiques par pilier — pour corréler
 // l'interférence émotionnelle observée en Étape 2 avec la signature mesurée.
@@ -2071,6 +2093,7 @@ module.exports = {
   getCircuitsTopPourTest,
   getDejaDitEtape1,
   getDiagnosticLimbique,
+  getReponsesWeekendPourTest,
   getReferentielCircuits,
   writeTestDecSynthese,
   getTestDecSynthese,
