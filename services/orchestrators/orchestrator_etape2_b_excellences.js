@@ -41,6 +41,9 @@ const logger          = require('../../utils/logger');
 const STATUT_TO_PLAN = {
   // ── Statuts courants (avec suffixe _EXCELLENCES) ── correction A16 ──────
   'ETAPE2_COMPLET_EXCELLENCES':  { a: true,  b: true,  c: true  },
+  // 🔒 Recodage VOLONTAIRE (garante, 09/07) : le seul chemin qui recode des
+  // lignes déjà codées — à poser explicitement après un changement de grille.
+  'ETAPE2_RECODAGE_COMPLET':     { a: true,  force: true, b: true,  c: true  },
   'ETAPE2_AGENT_A_EXCELLENCES':  { a: true,  b: false, c: false },
   'ETAPE2_AGENT_B_EXCELLENCES':  { a: false, b: true,  c: false },
   'ETAPE2_AGENT_C_EXCELLENCES':  { a: false, b: false, c: true  },
@@ -76,7 +79,7 @@ async function run({ candidat_id, visiteur }) {
   try {
     // ─── Agent A — T5A (code les 25 réponses) ──────────────────────────────
     if (plan.a) {
-      const rA = await agentT5A.run({ candidat_id });
+      const rA = await agentT5A.run({ candidat_id, force: !!plan.force });
       totalCost += rA.cost || 0;
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_AGENT_B_EXCELLENCES',
