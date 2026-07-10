@@ -62,14 +62,15 @@
 
   <div id="fin" class="hide">
     <h2>Merci — vos réponses sont transmises.</h2>
-    <p>L'analyse démarre automatiquement. Votre bilan sera actualisé d'ici une dizaine de
-    minutes — vous pourrez le rouvrir avec le même lien que d'habitude.</p>
+    <p id="fin-etat">⏳ <b>Analyse en cours</b> — comptez une dizaine de minutes. Vous pouvez
+    rester sur cette page : <b>elle vous préviendra dès que votre bilan est actualisé.</b></p>
+    <p style="margin-top:14px;"><a id="fin-bilan" href="#" style="display:inline-block;padding:11px 22px;background:var(--enc);color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Revenir à votre bilan →</a></p>
   </div>
 
   <div id="deja" class="hide">
     <h2>Ce test a déjà été passé.</h2>
-    <p>Une seule passation est possible. Votre bilan intègre déjà ses résultats — vous
-    pouvez le consulter avec votre lien habituel.</p>
+    <p>Une seule passation est possible. Votre bilan intègre déjà ses résultats.</p>
+    <p style="margin-top:14px;"><a id="deja-bilan" href="#" style="display:inline-block;padding:11px 22px;background:var(--enc);color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Voir votre bilan →</a></p>
   </div>
 
   <div id="prep" class="hide" style="background:var(--carte);border:1px solid var(--trait);border-radius:10px;padding:30px;">
@@ -83,6 +84,29 @@
 <script>
 var CID=location.pathname.split('/').pop();
 var SITUATIONS=[],IDX=0,_sondages=0;
+var URL_BILAN='/visualiser/etape2_2bilan4excellences/'+encodeURIComponent(CID);
+document.addEventListener('DOMContentLoaded',function(){
+  var a=document.getElementById('fin-bilan');  if(a) a.href=URL_BILAN;
+  var b=document.getElementById('deja-bilan'); if(b) b.href=URL_BILAN;
+});
+
+// ⭐ Après la 4ᵉ validation : la page surveille l'analyse et prévient (garante, 10/07).
+function surveillerAnalyse(){
+  fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(CID),{headers:{'Accept':'application/json'}})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(d){
+      var p=d&&(d.profil||d);
+      if(p&&p.test_dec&&p.test_dec.niveau_global){
+        var e=document.getElementById('fin-etat');
+        if(e) e.innerHTML='✅ <b>Votre analyse est terminée</b> — votre bilan est actualisé, le résultat du test vous y attend sous la carte décentration.';
+        var a=document.getElementById('fin-bilan');
+        if(a) a.textContent='Voir votre bilan actualisé →';
+        return;
+      }
+      setTimeout(surveillerAnalyse,30000);
+    })
+    .catch(function(){setTimeout(surveillerAnalyse,30000);});
+}
 
 function charger(){
   fetch('/api/test-decentration/'+encodeURIComponent(CID),{headers:{'Accept':'application/json'}})
@@ -150,7 +174,9 @@ function valider(){
       document.getElementById('zone').classList.add('hide');
       document.getElementById('consigne').style.display='none';
       document.getElementById('fin').classList.remove('hide');
+      var a=document.getElementById('fin-bilan'); if(a) a.href=URL_BILAN;
       window.scrollTo(0,0);
+      surveillerAnalyse();
       return;
     }
     IDX++;afficher();
