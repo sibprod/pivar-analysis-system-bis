@@ -77,6 +77,11 @@ h1{font-family:var(--serif);font-weight:800;font-size:clamp(30px,6vw,44px);line-
 .v-ok{color:#bfe8cf}.v-mid{color:#f3dca0}.v-warn{color:#f0c8a8}
 .pal-montee{font-size:13.5px;color:#46423a;background:#eef3ee;border-left:3px solid var(--e);border-radius:0 7px 7px 0;padding:11px 14px;margin-top:9px;line-height:1.5}
 .pal-montee b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:3px;color:#1c6638}
+.fp{margin:0 0 10px;line-height:1.6}
+.fp:last-child{margin-bottom:0}
+.cond-li{position:relative;padding:3px 0 3px 16px;line-height:1.5}
+.cond-li:before{content:'•';position:absolute;left:2px;color:var(--accent);font-weight:700}
+.mt-h{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#1c6638;font-weight:700;margin:10px 0 3px}
 .reserve{margin-top:16px;font-size:12.5px;color:#46423a;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:11px 14px;line-height:1.5}
 .reserve b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);display:block;margin-bottom:4px}
 .foot{text-align:center;margin-top:30px;font-family:var(--mono);font-size:10px;color:var(--mid);line-height:1.7}
@@ -200,6 +205,34 @@ function fmtTexteCandidat(t){
   // paragraphes : double saut = espace de section, simple saut = retour
   h=h.replace(/\n{2,}/g,'</p><p class="tc-p">').replace(/\n/g,'<br>');
   return '<div class="tc"><p class="tc-p">'+h+'</p></div>';
+}
+
+// 🔒 Mise en forme des pavés de la partie 2 (garante, 10/07) : paragraphes,
+// puces et blocs titrés — y compris en dégradé propre pour les textes en base.
+function fmtParas(t){
+  if(!t) return '';
+  return '<p class="fp">'+esc(t).replace(/\n{2,}/g,'</p><p class="fp">').replace(/\n/g,'<br>')+'</p>';
+}
+function fmtConditions(t){
+  if(!t) return '';
+  var lignes=String(t).split(/\n+/).map(function(l){return l.trim();}).filter(Boolean);
+  var aPuces=lignes.some(function(l){return /^[•\-–]\s/.test(l);});
+  if(!aPuces) return fmtParas(t); // texte historique : paragraphes propres
+  var out='';
+  lignes.forEach(function(l){
+    if(/^[•\-–]\s/.test(l)) out+='<div class="cond-li">'+esc(l.replace(/^[•\-–]\s*/,''))+'</div>';
+    else out+='<p class="fp">'+esc(l)+'</p>';
+  });
+  return out;
+}
+function fmtMontee(t){
+  if(!t) return '';
+  var h=esc(t);
+  ['Le but','Le levier','Le geste'].forEach(function(titre){
+    var re=new RegExp('(^|\\n)\\s*'+titre+'\\s*(:|—)?\\s*(\\n|(?=[A-ZÀ-Ü«]))');
+    h=h.replace(re,'\n\n<span class="mt-h">'+titre+'</span>\n');
+  });
+  return '<p class="fp">'+h.replace(/\n{2,}/g,'</p><p class="fp">').replace(/\n/g,'<br>')+'</p>';
 }
 
 function renderLexique(code,badge){
@@ -372,11 +405,11 @@ function render(d){
     +'<div class="jauges">'+jcol(trav,'jg-trav','Le travail','Faire avancer le travail')+jcol(rev,'jg-rev','La personne','Révéler le potentiel de chacun')+'</div>'
     +'<div class="faces">'
     +'<div class="face"><div class="face-top face-trav"><span class="face-kick">Le travail</span><span class="face-v '+verdictClass(p.verdict_enc)+'">'+esc(p.verdict_enc)+'</span></div>'
-      +'<div class="face-lab">Faire avancer le travail</div><p class="face-why">'+esc(p.conclusions_enc)+'</p>'
-      +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_enc)+'</div></div>'
+      +'<div class="face-lab">Faire avancer le travail</div><div class="face-why">'+fmtParas(p.conclusions_enc)+'</div>'
+      +'<div class="face-cond"><b>Conditions</b>'+fmtConditions(p.conditions_enc)+'</div></div>'
     +'<div class="face"><div class="face-top face-rev"><span class="face-kick">La personne</span><span class="face-v '+verdictClass(p.verdict_man)+'">'+esc(p.verdict_man)+'</span></div>'
-      +'<div class="face-lab">Révéler le potentiel de chacun</div><p class="face-why">'+esc(p.conclusions_man)+'</p>'
-      +'<div class="face-cond"><b>Conditions</b>'+esc(p.conditions_man)+'</div>'
+      +'<div class="face-lab">Révéler le potentiel de chacun</div><div class="face-why">'+fmtParas(p.conclusions_man)+'</div>'
+      +'<div class="face-cond"><b>Conditions</b>'+fmtConditions(p.conditions_man)+'</div>'
       +'</div>'
     +'</div>';
   // ⭐ Rechargement automatique pendant l'analyse du test (l'encart visuel vit
@@ -396,7 +429,7 @@ function render(d){
   // 04
   html+='<div class="sec"><span class="n">04</span>Vos améliorations possibles</div>'
     +'<div class="decoupage"><span class="dc-k">Votre lecture d\'ensemble</span> '+esc(p.decoupage)+'</div>'
-    +'<div class="pal-montee"><b>Ce qui ferait grandir l\'autre face</b>'+esc(p.montee)+'</div>'
+    +'<div class="pal-montee"><b>Ce qui ferait grandir l\'autre face</b>'+fmtMontee(p.montee)+'</div>'
     +'<div class="sommet-mini"><span class="sm-k">Horizon</span> Le <b>manager d\'exception</b> réunit les deux faces solides à la fois : faire avancer le travail <em>et</em> révéler le potentiel de chacun. C\'est un profil rare, car il demande deux logiques d\'excellences presque inversées.</div>'
     +'<div class="foot">Méthode des 4 excellences cognitives · bilan individuel · à lire avec l\'accompagnement d\'un praticien</div>'
     +'</div>';
