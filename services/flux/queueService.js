@@ -69,6 +69,10 @@ const STATUTS_DETECTES_PAR_POLLING = [
   // ⭐ v12.0 — Étape 2 excellences, 3 agents A/B/C + mode complet
   'ETAPE2_COMPLET_EXCELLENCES',
   'ETAPE2_RECODAGE_COMPLET',
+  // 🔒 Repêchage du test complémentaire (garante, 10/07) : la 4ᵉ réponse pose ce
+  // statut — la file DOIT le sonder, sinon un redémarrage du serveur pendant
+  // l'analyse la laisse orpheline pour toujours (incident Cécile, 10/07).
+  'ETAPE2_TESTDEC_COMPLET',
   'ETAPE2_AGENT_A_EXCELLENCES',
   'ETAPE2_AGENT_B_EXCELLENCES',
   'ETAPE2_AGENT_C_EXCELLENCES',
