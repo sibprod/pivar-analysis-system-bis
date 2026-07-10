@@ -454,7 +454,9 @@ async function getBilanExcellences(candidat_id) {
         profil.test_dec = synthTest;
       } else {
         const rowsTest = await getTestDecentrationRows(candidat_id);
-        if (rowsTest && rowsTest.length === 10 &&
+        // v2.1 (garante, 10/07) : agnostique en longueur (4 moments comme 10) —
+        // toutes les réponses présentes + pas encore de synthèse = en analyse.
+        if (rowsTest && rowsTest.length >= 1 &&
             rowsTest.every(r => r.response_text && String(r.response_text).trim() !== '')) {
           profil.test_dec_statut = 'en_analyse';
         }
