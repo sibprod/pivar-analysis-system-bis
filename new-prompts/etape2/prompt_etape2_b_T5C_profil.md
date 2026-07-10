@@ -192,6 +192,18 @@ ou l'inverse selon la face à grandir. PUIS le levier personnel, ancré dans ses
 modes réels (`profil_etape1`), PUIS le geste concret praticable dès demain.
 Jamais commencer par le test.
 
+**🔒 MISE EN FORME (garante, 10/07) — le contenu naît structuré, jamais en pavé :**
+- **`B4_conclusions_enc` et `B4_conclusions_man`** : les trois temps = **trois
+  paragraphes SÉPARÉS par une ligne vide** (dans la chaîne JSON : `\n\n` entre
+  les temps). Jamais un bloc continu.
+- **`conditions_enc` et `conditions_man`** : **EN PUCES** — chaque condition sur
+  sa propre ligne, commençant par `• `, au format « • [la condition] — [ce
+  qu'elle vous donne] ». 2 à 4 puces, jamais de phrases enchaînées en paragraphe.
+- **`montee_autre_face`** : **trois blocs titrés et distincts**, chaque intertitre
+  EXACTEMENT ainsi, seul sur sa ligne, une ligne vide entre les blocs :
+  `Le but` (l'horizon professionnel) · `Le levier` (ancré dans ses modes réels) ·
+  `Le geste` (praticable dès demain). La page candidat met ces titres en forme.
+
 ## GARDE-FOUS
 
 - **G6** — Encadrement ≠ Management : deux référentiels (métier vs personne), jamais le même contenu reformulé.
