@@ -263,6 +263,11 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
 
   const STATUTS_EXCELLENCES = [
     'ETAPE2_COMPLET_EXCELLENCES',
+    // 🔒 (garante, 10/07) : le recodage volontaire et l'analyse du test
+    // complémentaire passent par le même orchestrateur — l'aiguillage DOIT les
+    // connaître (ils étaient sondés par la file mais rejetés ici).
+    'ETAPE2_RECODAGE_COMPLET',
+    'ETAPE2_TESTDEC_COMPLET',
     'ETAPE2_AGENT_A_EXCELLENCES',
     'ETAPE2_AGENT_B_EXCELLENCES',
     'ETAPE2_AGENT_C_EXCELLENCES',
