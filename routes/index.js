@@ -776,8 +776,10 @@ router.post('/api/test-decentration/:candidat_id', async (req, res) => {
   if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide' });
   try {
     const reponses = (req.body && req.body.reponses) || [];
-    if (!Array.isArray(reponses) || reponses.length !== 10) {
-      return res.status(400).json({ error: 'Il faut exactement 10 réponses.' });
+    // v2.0 : le nombre attendu = le nombre de situations générées (4 en v2.0,
+    // 10 pour les jeux historiques) — la route héritée devient agnostique.
+    if (!Array.isArray(reponses) || reponses.length < 1) {
+      return res.status(400).json({ error: 'Réponses manquantes.' });
     }
     for (const r of reponses) {
       if (!r || r.numero === undefined || !r.response_text || String(r.response_text).trim().length < 10) {
@@ -786,7 +788,7 @@ router.post('/api/test-decentration/:candidat_id', async (req, res) => {
     }
     // Une seule passation : refuser si des réponses existent déjà.
     const rows = await airtableService.getTestDecentrationRows(candidat_id);
-    if (!rows || rows.length !== 10) return res.status(404).json({ error: 'Test non généré pour ce candidat.' });
+    if (!rows || rows.length < 1) return res.status(404).json({ error: 'Test non généré pour ce candidat.' });
     if (rows.some(r => r.response_text && String(r.response_text).trim() !== '')) {
       return res.status(409).json({ error: 'Ce test a déjà été passé.' });
     }
@@ -840,11 +842,11 @@ router.post('/api/test-decentration/:candidat_id/reponse', async (req, res) => {
   try {
     const numero = req.body && Number(req.body.numero);
     const response_text = req.body && String(req.body.response_text || '').trim();
-    if (!numero || numero < 1 || numero > 10) return res.status(400).json({ error: 'Numéro de situation invalide.' });
+    if (!numero || numero < 1 || numero > 10) return res.status(400).json({ error: 'Numéro de moment invalide.' });
     if (!response_text || response_text.length < 10) return res.status(400).json({ error: 'Réponse manquante ou trop courte.' });
 
     const rows = await airtableService.getTestDecentrationRows(candidat_id);
-    if (!rows || rows.length !== 10) return res.status(404).json({ error: 'Test non généré pour ce candidat.' });
+    if (!rows || rows.length < 1) return res.status(404).json({ error: 'Test non généré pour ce candidat.' });
     const row = rows.find(r => Number(r.numero) === numero);
     if (!row) return res.status(404).json({ error: `Situation ${numero} introuvable.` });
     if (row.response_text && String(row.response_text).trim() !== '') {
@@ -854,14 +856,14 @@ router.post('/api/test-decentration/:candidat_id/reponse', async (req, res) => {
     await airtableService.saveTestDecentrationReponses(candidat_id, [{ numero, response_text }]);
 
     const apres = await airtableService.getTestDecentrationRows(candidat_id);
-    const complet = (apres || []).length === 10 &&
+    const complet = (apres || []).length >= 1 &&
       apres.every(r => r.response_text && String(r.response_text).trim() !== '');
     if (complet) {
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_TESTDEC_COMPLET',
         derniere_activite:    new Date().toISOString()
       });
-      logger.info('TESTDEC — 10/10 réponses reçues, analyse lancée', { candidat_id });
+      logger.info('TESTDEC — toutes les réponses reçues, analyse lancée', { candidat_id });
     } else {
       logger.info('TESTDEC — réponse enregistrée', { candidat_id, numero });
     }
