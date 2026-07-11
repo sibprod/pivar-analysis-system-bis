@@ -90,8 +90,14 @@ document.addEventListener('DOMContentLoaded',function(){
   var b=document.getElementById('deja-bilan'); if(b) b.href=URL_BILAN;
 });
 
-// ⭐ Après la 4ᵉ validation : la page surveille l'analyse et prévient (garante, 10/07).
+// ⭐ Après la 4ᵉ validation : la page surveille l'analyse et prévient (garante,
+// 10/07) — et l'attente ne s'éternise JAMAIS sans parole : au-delà de ~12 min,
+// le message rassure explicitement (rien n'est perdu, le bilan s'actualisera
+// seul, on peut fermer) et le rythme de sondage ralentit. Le candidat ne doit
+// jamais conclure à un bug.
+var _survN=0;
 function surveillerAnalyse(){
+  _survN++;
   fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(CID),{headers:{'Accept':'application/json'}})
     .then(function(r){return r.ok?r.json():null;})
     .then(function(d){
@@ -103,7 +109,15 @@ function surveillerAnalyse(){
         if(a) a.textContent='Voir votre bilan actualisé →';
         return;
       }
-      setTimeout(surveillerAnalyse,30000);
+      var e=document.getElementById('fin-etat');
+      if(e){
+        if(_survN>=24){
+          e.innerHTML='⏳ <b>L\'analyse se poursuit</b> — elle prend parfois plus de temps selon l\'affluence. <b>Rien n\'est perdu</b> : vos réponses sont enregistrées, votre bilan s\'actualisera automatiquement dès qu\'elle sera terminée. Vous pouvez fermer cette page et revenir plus tard.';
+        } else {
+          e.innerHTML='⏳ <b>Analyse en cours</b> ('+Math.round(_survN*30/60)+' min) — vous pouvez rester : cette page vous préviendra dès que votre bilan est actualisé.';
+        }
+      }
+      setTimeout(surveillerAnalyse,_survN>=24?60000:30000);
     })
     .catch(function(){setTimeout(surveillerAnalyse,30000);});
 }
