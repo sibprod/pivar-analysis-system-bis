@@ -28,7 +28,7 @@ async function run({ candidat_id }) {
   logger.info('Agent TESTDEC-COD — démarrage', { candidat_id });
 
   const rows = await airtableService.getTestDecentrationRows(candidat_id);
-  if (!rows || rows.length !== 10) {
+  if (!rows || rows.length !== 4) {
     throw new Error(`TESTDEC-COD : ${(rows || []).length}/10 situations en base pour ${candidat_id}`);
   }
   const manquantes = rows.filter(r => !r.response_text || String(r.response_text).trim() === '')
@@ -68,7 +68,7 @@ async function run({ candidat_id }) {
 
   // ── Validation des codages ────────────────────────────────────────────────
   const codages = (result && result.codages) || [];
-  if (!Array.isArray(codages) || codages.length !== 10) {
+  if (!Array.isArray(codages) || codages.length !== 4) {
     throw new Error(`TESTDEC-COD : ${Array.isArray(codages) ? codages.length : 0}/10 codages produits`);
   }
   const compt = { 'ÉLEVÉ': 0, 'MOYEN': 0, 'FAIBLE': 0, 'NULLE': 0 };
@@ -85,9 +85,9 @@ async function run({ candidat_id }) {
   const synthese = {
     candidat_id,
     A_sur_10:        A,
-    niveau_global:   `${A}/10 (${A * 10}%) — mesuré par le test complémentaire de décentration`,
+    niveau_global:   `${A}/4 — mesuré par le test complémentaire de décentration`,
     pattern:         derivePattern(A),
-    niveau_densite:  A <= 2 ? 'FAIBLE' : (A <= 5 ? 'MOYENNE' : 'DENSE'),
+    niveau_densite:  A <= 1 ? 'FAIBLE' : (A === 2 ? 'MOYENNE' : 'DENSE'),
     nb_eleve:  compt['ÉLEVÉ'],
     nb_moyen:  compt['MOYEN'],
     nb_faible: compt['FAIBLE'],
@@ -115,11 +115,11 @@ async function run({ candidat_id }) {
 }
 
 function derivePattern(A) {
-  if (A === 0) return 'ABSENTE';
-  if (A <= 2)  return 'OBSERVÉE';
-  if (A <= 5)  return 'ANCRÉE EN RÉGIME MODÉRÉ';
-  if (A <= 8)  return 'RÉGULIÈRE ET ANCRÉE';
-  return 'PLEIN RÉGIME';
+  // v2.0 (garante, 09/07) — tranches sur 4 ; jamais 'ABSENTE' en sortie de
+  // test : la mesure a eu lieu, le bilan est un bilan de capacités.
+  if (A <= 1) return 'OBSERVÉE';
+  if (A === 2) return 'ANCRÉE EN RÉGIME MODÉRÉ';
+  return 'RÉGULIÈRE ET ANCRÉE';
 }
 
 module.exports = { run };
