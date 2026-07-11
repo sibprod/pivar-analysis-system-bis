@@ -367,7 +367,8 @@ function render(d){
           html+='<div style="margin:-8px 0 18px;padding:16px 20px;background:#fbfaf6;border:1px solid #ddd6c8;border-left:4px solid #7a3b2e;border-radius:8px;">'
             +'<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+(tdm2==='remede'?'Un test complémentaire vous est proposé':'Affinez cette mesure')+'</div>'
             +'<p style="margin:0 0 12px;color:#55503f;font-size:13px;line-height:1.55;">Ce parcours n\'a pas assez sollicité cette dimension pour la mesurer de façon fiable. Quatre moments courts (environ 10 minutes) permettront de compléter votre bilan — il sera automatiquement actualisé après analyse.</p>'
-            +'<a href="/visualiser/test-decentration/'+encodeURIComponent(cid2)+'" style="display:inline-block;padding:10px 20px;background:#7a3b2e;color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Passer le test complémentaire →</a>'
+            +'<a href="/visualiser/test-decentration/'+encodeURIComponent(cid2)+'" target="_blank" rel="noopener" style="display:inline-block;padding:10px 20px;background:#7a3b2e;color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Passer le test complémentaire →</a>'
+            +'<span style="display:block;margin-top:8px;font-size:12px;color:#8a8574;">Le test s\'ouvre dans un nouvel onglet — votre bilan reste ouvert ici.</span>'
             +'</div>';
         }
       }
