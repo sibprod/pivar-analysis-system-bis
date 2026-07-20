@@ -176,12 +176,16 @@ carte décentration ») — jamais un paragraphe, jamais deux mentions, jamais e
 ouverture. Le candidat vient chercher un avis sur sa capacité, pas un plaidoyer
 de protocole.
 
-**🔒 L'ÉTAT DU TEST GOUVERNE TOUT (garante, 20/07) — détecte-le dans la ligne
-DEC du payload et applique le régime correspondant, sans exception :**
-- **AVANT le test** (`niveau_global` de la ligne DEC = « Non évalué — test à
-  passer ») : le régime ci-dessus (une phrase sobre max).
-- **APRÈS le test** (`niveau_global` = « X/4 — mesuré par le test
-  complémentaire ») : **il est STRICTEMENT INTERDIT d'inviter au test, de le
+**🔒 L'ÉTAT DU TEST GOUVERNE TOUT (garante, 20/07) — détecte-le dans le champ
+`test_decentration` du payload et applique le régime correspondant, sans
+exception** (la ligne DEC des lignes T5B est la mesure du parcours principal,
+immuable — elle dit toujours « test à passer » : elle ne t'informe PAS de
+l'état ; seul `test_decentration` fait foi) :
+- **AVANT le test** (`test_decentration` = null ou absent) : le régime ci-dessus
+  (une phrase sobre max).
+- **APRÈS le test** (`test_decentration` présent, avec `niveau_global` = « X/4 —
+  mesuré par le test complémentaire », sa `synthese` et sa `reserve` — c'est LA
+  MESURE sur laquelle tes verdicts s'appuient) : **il est STRICTEMENT INTERDIT d'inviter au test, de le
   proposer, de le conseiller ou de le mentionner comme perspective** — il est
   FAIT. Toute phrase du type « passez le test », « le test permettra »,
   « la première marche est le test » est une FAUTE dans TOUS les champs sans
