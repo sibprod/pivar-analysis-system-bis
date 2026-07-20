@@ -28,6 +28,13 @@ async function run({ candidat_id }) {
   logger.info('Agent TESTDEC-COD — démarrage', { candidat_id });
 
   const rows = await airtableService.getTestDecentrationRows(candidat_id);
+  // 🔒 VERROU DE FRAÎCHEUR (garante, 20/07 — incident Rémi) : empreinte des
+  // réponses au début de l'analyse ; avant TOUTE écriture, on revérifie que
+  // rien n'a changé sous nos pieds (retape, nettoyage garante, reprise).
+  const empreinte = (rs) => (rs || []).map(r =>
+    `${r.numero}:${String(r.response_text || '').length}:${r.date_response || ''}`
+  ).sort().join('|');
+  const empreinteDepart = empreinte(rows);
   if (!rows || rows.length !== 4) {
     throw new Error(`TESTDEC-COD : ${(rows || []).length}/10 situations en base pour ${candidat_id}`);
   }
@@ -111,6 +118,23 @@ async function run({ candidat_id }) {
                            : (ligne.verbatims_preuves || ''),
     date_codage: new Date().toISOString()
   };
+
+  // 🔒 VERROU DE FRAÎCHEUR — relecture juste avant d'écrire : si les réponses
+  // ont changé pendant l'analyse (course humain/machine), on N'ÉCRIT RIEN et
+  // on reprogramme le codage sur l'état frais (repêchage natif par statut).
+  const rowsFinales = await airtableService.getTestDecentrationRows(candidat_id);
+  if (empreinte(rowsFinales) !== empreinteDepart) {
+    logger.error('🔒 TESTDEC-COD — RÉPONSES MODIFIÉES PENDANT L\'ANALYSE : écriture annulée, recodage automatique reprogrammé sur l\'état frais', {
+      candidat_id,
+      empreinte_depart: empreinteDepart,
+      empreinte_finale: empreinte(rowsFinales)
+    });
+    await airtableService.updateVisiteur(candidat_id, {
+      statut_analyse_pivar: 'ETAPE2_TESTDEC_COMPLET',
+      derniere_activite:    new Date().toISOString()
+    });
+    return { coded: false, stale: true, cost: cost || 0 };
+  }
 
   await airtableService.patchTestDecentrationCodage(candidat_id, codages);
   await airtableService.writeTestDecSynthese(candidat_id, synthese);
