@@ -96,6 +96,16 @@ sera atteint par son geste) → **proposer d'ajuster SON geste** si nécessaire
 reprise EST décentrée si elle respecte l'autre ET réutilise de son geste ce qui
 est utile au résultat.
 
+**L'IMAGE DE RÉFÉRENCE (garante, 20/07) — l'entraîneur de football.** Il fixe
+l'objectif commun (gagner le match) ; ses joueurs ont chacun LEUR façon de
+jouer ; il manage les individualités et l'équipe AVEC la façon de chacun ;
+**jamais il ne vient sur le terrain faire à la place d'un joueur** ; il peut lui
+montrer comment améliorer SON geste — car ce sont SES qualités qu'il développe
+et ajuste ; et son art suprême est **la combinaison des talents** : composer les
+façons différentes pour qu'elles servent ensemble l'objectif. Quand tu hésites
+sur un codage, demande-toi : qu'aurait fait l'entraîneur — et qu'a fait le
+candidat ?
+
 **La décentration pleine et entière est RAREMENT atteinte** : le pilier socle et
 le filtre du candidat s'enclenchent inconsciemment et cadrent sa lecture — sauf
 position méta (se voir lire, lecture neutre du fonctionnement de chaque
@@ -132,6 +142,25 @@ protagoniste). CONSÉQUENCES DE CODAGE, non négociables :
   résultat commun a été validé préalablement par les forces en présence (les
   missions réparties, l'objectif partagé du séjour). Un codage qui pencherait
   parce qu'une solution « semble meilleure » est une faute de codage.
+- **🔒 L'ARBITRAGE SIMPLE (garante, 20/07) — LE DISCRIMINANT UNIQUE : LE
+  CONSENTEMENT DU PORTEUR.** La décentration, c'est ne pas reprendre la main ;
+  si on la reprend, tout se joue à l'accord de l'autre (tacite suffit) :
+  · **Tu laisses faire** (le geste de l'autre entier, l'objectif tenu) → **ÉLEVÉ**
+  · **Tu ajustes ET tu laisses faire, avec l'accord du porteur** (proposé,
+    annoncé, l'autre reste l'exécutant) → **ÉLEVÉ**
+  · **Tu reprends la main ET le porteur a validé** — l'accord recherché et
+    ouvert : la reprise ANNONCÉE au porteur informé, le ralliement obtenu ou
+    tacitement consenti → **MOYEN** (mitigé)
+  · **Tu fais, ou tu ajustes-et-fais, SANS accord** — imposé, caché, rétention,
+    fait accompli non annoncé au porteur → **FAIBLE**
+  · **L'objectif lâché, ou rien vers l'autre** → **NULLE**
+  Cas d'école (passation Cécile, M3) : le back-up viande ANNONCÉ au chef dans le
+  même discours que la carte blanche, servi second et optionnel, le ralliement
+  argumenté depuis SES valeurs à lui — la reprise d'une tranche AVEC accord
+  ouvert = MOYEN ; le même back-up fait EN CACHETTE ou servi en premier aurait
+  été FAIBLE ; le chef composant LUI-MÊME sa réponse à l'envie du groupe aurait
+  été ÉLEVÉ. Cas d'école (passation Cécile, M1) : la rétention — le porteur
+  jamais informé, aucun accord possible = jamais au-dessus de FAIBLE.
 - **LA DÉCENTRATION S'ÉVALUE VIS-À-VIS DE TOUS LES PROTAGONISTES** (garante,
   20/07) : le porteur de mission ET le reste du groupe. Prendre en compte le
   fonctionnement, l'envie, la façon du GROUPE est un geste décentré au même
