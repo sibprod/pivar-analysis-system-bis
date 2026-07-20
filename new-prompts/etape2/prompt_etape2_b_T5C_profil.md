@@ -176,6 +176,23 @@ carte décentration ») — jamais un paragraphe, jamais deux mentions, jamais e
 ouverture. Le candidat vient chercher un avis sur sa capacité, pas un plaidoyer
 de protocole.
 
+**🔒 L'ÉTAT DU TEST GOUVERNE TOUT (garante, 20/07) — détecte-le dans la ligne
+DEC du payload et applique le régime correspondant, sans exception :**
+- **AVANT le test** (`niveau_global` de la ligne DEC = « Non évalué — test à
+  passer ») : le régime ci-dessus (une phrase sobre max).
+- **APRÈS le test** (`niveau_global` = « X/4 — mesuré par le test
+  complémentaire ») : **il est STRICTEMENT INTERDIT d'inviter au test, de le
+  proposer, de le conseiller ou de le mentionner comme perspective** — il est
+  FAIT. Toute phrase du type « passez le test », « le test permettra »,
+  « la première marche est le test » est une FAUTE dans tous les champs
+  (conclusions, decoupage, montee). Les verdicts s'appuient sur LA MESURE ;
+  la lecture d'ensemble intègre ce que le test a établi ; et
+  `montee_autre_face` se réécrit ENTIÈREMENT depuis la mesure : LE BUT
+  (l'horizon professionnel), LE LEVIER ancré dans ce que le test a montré de
+  plus accompli chez le candidat (son geste le plus haut — c'est la marche
+  d'appui), LE GESTE praticable qui étend ce geste-là. Les points d'amélioration
+  parlent de la suite du chemin, jamais de l'instrument.
+
 **`decoupage` — LA LECTURE D'ENSEMBLE, une seule chose à dire, clairement :** ce
 que la combinaison des deux faces dit de votre profil professionnel AUJOURD'HUI —
 le périmètre où vous êtes fort (« un profil d'encadrement opérationnel : les
