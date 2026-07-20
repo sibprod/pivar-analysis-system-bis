@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<!--
+  TEST COMPLÉMENTAIRE DE DÉCENTRATION · page candidat · v3.0 « LA SUITE DU WEEK-END » · 09/07/2026 · Sib Prod
+  Quatre moments du séjour, présentés un par un, SANS retour arrière (la
+  spontanéité est la matière de la mesure). Chaque réponse validée est
+  enregistrée immédiatement au serveur (reprise possible, réponse verrouillée).
+  Préparation à la demande asynchrone + sondage. Longueur-agnostique (4 ou 10).
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test complémentaire — la suite de votre week-end</title>
+<style>
+  :root{--enc:#7a3b2e;--fond:#faf9f6;--carte:#fff;--trait:#ddd6c8;--texte:#2b2822;--doux:#55503f;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Georgia,'Times New Roman',serif;background:var(--fond);color:var(--texte);line-height:1.6;}
+  .wrap{max-width:760px;margin:0 auto;padding:34px 22px 60px;}
+  .kick{font-size:12px;letter-spacing:.16em;color:var(--enc);font-weight:700;margin-bottom:6px;}
+  h1{font-size:24px;margin-bottom:14px;}
+  #consigne{background:var(--carte);border:1px solid var(--trait);border-left:4px solid var(--enc);border-radius:8px;padding:18px 22px;font-size:14px;color:var(--doux);margin-bottom:26px;}
+  #prog{font-size:14px;color:var(--doux);margin:30px 0;}
+  .sit{background:var(--carte);border:1px solid var(--trait);border-radius:10px;padding:26px 28px;margin-bottom:18px;}
+  .sit-num{font-size:12px;letter-spacing:.14em;color:var(--enc);font-weight:700;margin-bottom:12px;}
+  .sit-text{font-size:15.5px;line-height:1.7;white-space:pre-wrap;margin-bottom:18px;}
+  .sit-q{font-size:14.5px;color:var(--doux);font-style:italic;margin-bottom:16px;white-space:pre-wrap;}
+  textarea{width:100%;min-height:170px;padding:14px;border:1px solid var(--trait);border-radius:8px;font-family:inherit;font-size:15px;line-height:1.6;resize:vertical;background:#fffdf9;}
+  textarea:focus{outline:none;border-color:var(--enc);}
+  #btn{margin-top:16px;padding:12px 26px;background:var(--enc);color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
+  #btn:disabled{opacity:.5;cursor:default;}
+  #msg{margin-top:10px;font-size:13.5px;min-height:20px;}
+  #msg.err{color:#a33;}
+  #fin,#deja{background:var(--carte);border:1px solid var(--trait);border-left:4px solid #2f7d4f;border-radius:10px;padding:30px;}
+  #fin h2,#deja h2{font-size:19px;margin-bottom:10px;}
+  .hide{display:none;}
+  #prep button{padding:12px 26px;background:var(--enc);color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kick">PROFIL COGNITIF · TEST COMPLÉMENTAIRE</div>
+  <h1>La suite de votre week-end</h1>
+  <div id="consigne">Le week-end que vous aviez organisé arrive — <b>quatre moments du séjour</b>
+  vous sont présentés, un par un. Lisez, puis racontez concrètement ce que vous faites et
+  ce que vous dites — <b>il n'y a pas de bonne attitude</b> : agir, laisser faire, aider,
+  attendre… tout est recevable, c'est votre façon à vous qui nous intéresse. Un début de
+  réponse est proposé : poursuivez-le librement. Comptez environ 10 minutes.
+  <b>Une fois une réponse validée, il n'est pas possible de revenir en arrière.</b></div>
+
+  <div id="prog">Chargement…</div>
+
+  <div id="zone" class="hide">
+    <div class="sit">
+      <div class="sit-num" id="snum"></div>
+      <div class="sit-text" id="stext"></div>
+      <div class="sit-q" id="squestion"></div>
+      <textarea id="rep"></textarea>
+      <button id="btn" onclick="valider()">Valider et continuer →</button>
+      <div id="msg"></div>
+    </div>
+  </div>
+
+  <div id="fin" class="hide">
+    <h2>Merci — vos réponses sont transmises.</h2>
+    <p id="fin-etat">⏳ <b>Analyse en cours</b> — comptez une dizaine de minutes. Vous pouvez
+    rester sur cette page : <b>elle vous préviendra dès que votre bilan est actualisé.</b></p>
+    <p style="margin-top:14px;"><a id="fin-bilan" href="#" style="display:inline-block;padding:11px 22px;background:var(--enc);color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Revenir à votre bilan →</a></p>
+  </div>
+
+  <div id="deja" class="hide">
+    <h2>Ce test a déjà été passé.</h2>
+    <p>Une seule passation est possible. Votre bilan intègre déjà ses résultats.</p>
+    <p style="margin-top:14px;"><a id="deja-bilan" href="#" style="display:inline-block;padding:11px 22px;background:var(--enc);color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Voir votre bilan →</a></p>
+  </div>
+
+  <div id="prep" class="hide" style="background:var(--carte);border:1px solid var(--trait);border-radius:10px;padding:30px;">
+    <h2 style="font-size:19px;margin-bottom:10px;">Votre test n'est pas encore préparé</h2>
+    <p style="margin-bottom:16px;color:var(--doux);">Vos quatre moments sont construits sur
+    mesure, à partir de votre propre préparation du week-end. Comptez deux à quatre minutes.</p>
+    <button onclick="preparer()">Préparer le test (2-4 minutes)</button>
+  </div>
+</div>
+
+<script>
+var CID=location.pathname.split('/').pop();
+var SITUATIONS=[],IDX=0,_sondages=0;
+var URL_BILAN='/visualiser/etape2_2bilan4excellences/'+encodeURIComponent(CID);
+document.addEventListener('DOMContentLoaded',function(){
+  var a=document.getElementById('fin-bilan');  if(a) a.href=URL_BILAN;
+  var b=document.getElementById('deja-bilan'); if(b) b.href=URL_BILAN;
+});
+
+// ⭐ Après la 4ᵉ validation : la page surveille l'analyse et prévient (garante,
+// 10/07) — et l'attente ne s'éternise JAMAIS sans parole : au-delà de ~12 min,
+// le message rassure explicitement (rien n'est perdu, le bilan s'actualisera
+// seul, on peut fermer) et le rythme de sondage ralentit. Le candidat ne doit
+// jamais conclure à un bug.
+var _survN=0;
+function surveillerAnalyse(){
+  _survN++;
+  fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(CID),{headers:{'Accept':'application/json'}})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(d){
+      var p=d&&(d.profil||d);
+      if(p&&p.test_dec&&p.test_dec.niveau_global){
+        var e=document.getElementById('fin-etat');
+        if(e) e.innerHTML='✅ <b>Votre analyse est terminée</b> — votre bilan est actualisé, le résultat du test vous y attend sous la carte décentration.';
+        var a=document.getElementById('fin-bilan');
+        if(a) a.textContent='Voir votre bilan actualisé →';
+        return;
+      }
+      var e=document.getElementById('fin-etat');
+      if(e){
+        if(_survN>=24){
+          e.innerHTML='⏳ <b>L\'analyse se poursuit</b> — elle prend parfois plus de temps selon l\'affluence. <b>Rien n\'est perdu</b> : vos réponses sont enregistrées, votre bilan s\'actualisera automatiquement dès qu\'elle sera terminée. Vous pouvez fermer cette page et revenir plus tard.';
+        } else {
+          e.innerHTML='⏳ <b>Analyse en cours</b> ('+Math.round(_survN*30/60)+' min) — vous pouvez rester : cette page vous préviendra dès que votre bilan est actualisé.';
+        }
+      }
+      setTimeout(surveillerAnalyse,_survN>=24?60000:30000);
+    })
+    .catch(function(){setTimeout(surveillerAnalyse,30000);});
+}
+
+function charger(){
+  fetch('/api/test-decentration/'+encodeURIComponent(CID),{headers:{'Accept':'application/json'}})
+    .then(function(r){
+      if(r.status===404){var e=new Error('absent');e.code=404;throw e;}
+      return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Erreur '+r.status);return j;});
+    })
+    .then(function(d){
+      if(d.deja_repondu){
+        document.getElementById('prog').style.display='none';
+        document.getElementById('consigne').style.display='none';
+        document.getElementById('deja').classList.remove('hide');
+        return;
+      }
+      SITUATIONS=(d.situations||[]).sort(function(a,b){return (a.numero||0)-(b.numero||0);});
+      if(SITUATIONS.length===0){document.getElementById('prog').textContent='Aucun moment disponible.';return;}
+      IDX=0; while(IDX<SITUATIONS.length && SITUATIONS[IDX].repondu){IDX++;}
+      if(IDX>=SITUATIONS.length){
+        document.getElementById('prog').style.display='none';
+        document.getElementById('consigne').style.display='none';
+        document.getElementById('deja').classList.remove('hide');
+        return;
+      }
+      if(IDX>0){document.getElementById('consigne').innerHTML+=' <b>Reprise : vos '+IDX+' première(s) réponse(s) sont déjà enregistrées.</b>';}
+      document.getElementById('prog').style.display='none';
+      document.getElementById('zone').classList.remove('hide');
+      afficher();
+    })
+    .catch(function(e){
+      if(e.code===404){ proposerPreparation(); return; }
+      document.getElementById('prog').textContent='Erreur de chargement : '+e.message;
+    });
+}
+
+function afficher(){
+  var s=SITUATIONS[IDX];
+  document.getElementById('snum').textContent='MOMENT '+s.numero+' / '+SITUATIONS.length;
+  document.getElementById('stext').textContent=s.situation_text||'';
+  document.getElementById('squestion').textContent=s.question_text||'';
+  var t=document.getElementById('rep');
+  t.value=(s.amorce||'')+(s.amorce?' ':'');
+  document.getElementById('btn').disabled=false;
+  var m=document.getElementById('msg');m.className='';m.textContent='';
+  window.scrollTo(0,0);t.focus();
+  try{t.setSelectionRange(t.value.length,t.value.length);}catch(_){/* noop */}
+}
+
+function valider(){
+  var s=SITUATIONS[IDX];
+  var v=document.getElementById('rep').value.trim();
+  var msg=document.getElementById('msg');
+  if(v.length<10||v===(s.amorce||'').trim()){
+    msg.className='err';msg.textContent='Merci de poursuivre le début de réponse proposé avant de valider.';
+    return;
+  }
+  document.getElementById('btn').disabled=true;
+  msg.className='';msg.textContent='Enregistrement…';
+  fetch('/api/test-decentration/'+encodeURIComponent(CID)+'/reponse',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({numero:s.numero,response_text:v})
+  })
+  .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Erreur '+r.status);return j;});})
+  .then(function(j){
+    if(j.complet||IDX>=SITUATIONS.length-1){
+      document.getElementById('zone').classList.add('hide');
+      document.getElementById('consigne').style.display='none';
+      document.getElementById('fin').classList.remove('hide');
+      var a=document.getElementById('fin-bilan'); if(a) a.href=URL_BILAN;
+      window.scrollTo(0,0);
+      surveillerAnalyse();
+      return;
+    }
+    IDX++;afficher();
+  })
+  .catch(function(e){
+    document.getElementById('btn').disabled=false;
+    msg.className='err';msg.textContent=e.message+' — votre réponse est conservée à l\'écran, réessayez.';
+  });
+}
+
+function proposerPreparation(){
+  document.getElementById('prog').style.display='none';
+  document.getElementById('prep').classList.remove('hide');
+}
+
+function preparer(){
+  document.getElementById('prep').classList.add('hide');
+  var prog=document.getElementById('prog');
+  prog.style.display='block';
+  prog.textContent='Préparation lancée…';
+  fetch('/api/test-decentration/'+encodeURIComponent(CID)+'/generer',{method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(){_sondages=0;sonder();})
+    .catch(function(e){prog.textContent='Erreur au lancement : '+e.message;});
+}
+
+function sonder(){
+  var prog=document.getElementById('prog');
+  _sondages++;
+  fetch('/api/test-decentration/'+encodeURIComponent(CID),{headers:{'Accept':'application/json'}})
+    .then(function(r){
+      if(r.status===404){
+        if(_sondages>=40){prog.innerHTML='La préparation prend plus longtemps que prévu — elle continue en arrière-plan : vous pouvez fermer cette page et revenir un peu plus tard, rien ne se perd. <button style="margin-left:8px;padding:6px 14px" onclick="location.reload()">Vérifier maintenant</button>';return;}
+        prog.textContent='Préparation en cours — la suite de votre week-end se construit à partir de vos réponses ('+Math.round(_sondages*15/60*10)/10+' min)…';
+        setTimeout(sonder,15000);return;
+      }
+      location.reload();
+    })
+    .catch(function(){setTimeout(sonder,15000);});
+}
+
+charger();
+</script>
+</body>
+</html>
