@@ -480,7 +480,10 @@ les autres : une réponse, un niveau).
 - `densite_sommeil` / `densite_weekend` / `densite_animal` / `densite_panne` = "TEST"
 - Rédaction (`synthese`, `portrait_excellence`, `reserve`, `declencheur`,
   `gradient`) : des CONSTATS, appuyés sur les gestes réellement observés dans
-  les réponses ; mentionner que la mesure vient du test complémentaire (fenêtre
+  les réponses ; **la `synthese` s'ouvre par l'articulation AVANT/APRÈS**
+  (garante, 20/07) : ce que le parcours principal avait laissé voir de cette
+  dimension (la ligne DEC du payload, avant ta mesure), puis ce que le test
+  établit — un seul récit, jamais deux mesures juxtaposées ; mentionner que la mesure vient du test complémentaire (fenêtre
   dédiée qui sollicite la décentration) ; probité : nommer les manques constatés
   en adoucissant le cadrage, jamais le diagnostic ; situer le candidat sur le
   TRIPTYQUE (où il se place entre faire, laisser faire en tenant, driver par
