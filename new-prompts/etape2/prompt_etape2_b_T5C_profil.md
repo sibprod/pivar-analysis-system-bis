@@ -184,8 +184,12 @@ DEC du payload et applique le régime correspondant, sans exception :**
   complémentaire ») : **il est STRICTEMENT INTERDIT d'inviter au test, de le
   proposer, de le conseiller ou de le mentionner comme perspective** — il est
   FAIT. Toute phrase du type « passez le test », « le test permettra »,
-  « la première marche est le test » est une FAUTE dans tous les champs
-  (conclusions, decoupage, montee). Les verdicts s'appuient sur LA MESURE ;
+  « la première marche est le test » est une FAUTE dans TOUS les champs sans
+  exception — conclusions, decoupage, montee, ET les champs du profil global
+  (le portrait, la combinaison, l'en-un-mot). **Le profil global se RÉVISE en
+  intégrant la mesure** : la décentration mesurée entre dans le portrait et
+  dans la combinaison comme une dimension établie (son régime, son mode), plus
+  jamais comme une attente ou une perspective. Les verdicts s'appuient sur LA MESURE ;
   la lecture d'ensemble intègre ce que le test a établi ; et
   `montee_autre_face` se réécrit ENTIÈREMENT depuis la mesure : LE BUT
   (l'horizon professionnel), LE LEVIER ancré dans ce que le test a montré de
