@@ -79,10 +79,28 @@ async function run({ candidat_id }) {
     return {};
   });
 
+  // 🔒 L'état du test complémentaire (garante, 20/07) : la ligne T5B initiale
+  // est immuable (doctrine 03/07) — c'est donc LA SYNTHÈSE du test qui porte
+  // l'état. Le C la reçoit : présente = régime APRÈS-test ; absente = AVANT.
+  const testDec = await airtableService.getTestDecSynthese(candidat_id).catch((e) => {
+    logger.error('⚠️ Synthèse test non lue au C — régime avant/après test indécidable', {
+      candidat_id, error: e.message
+    });
+    return null;
+  });
+
   const { result, cost } = await agentBase.callAgent({
     serviceName: SERVICE_NAME,
     promptPath:  PROMPT_PATH,
     payload:     { candidat_id, lignes_t5b,
+                   // ⭐ L'état et la mesure du test complémentaire (garante, 20/07)
+                   test_decentration: (testDec && testDec.niveau_global)
+                     ? { niveau_global: testDec.niveau_global,
+                         pattern:       testDec.pattern       || '',
+                         synthese:      testDec.synthese      || '',
+                         reserve:       testDec.reserve       || '',
+                         declencheur:   testDec.declencheur   || '' }
+                     : null,
                    // ⭐ Le bilan Étape 1 en entrée (garante, 09/07) : le C écrit
                    // les verdicts, la lecture du découpage et la montée EN
                    // CONNAISSANCE du bilan pilier du candidat — jamais de
