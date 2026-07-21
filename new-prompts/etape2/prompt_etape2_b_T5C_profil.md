@@ -209,6 +209,22 @@ terrain »), puis en une phrase ce que la seconde face, quand elle sera établie
 grandie, changerait à ce périmètre. Rien d'autre : ni récapitulatif technique,
 ni re-justification.
 
+**🔒 LE CADRE DU MANAGER (garante, 21/07) — la doctrine des deux faces
+complétée :** le rôle du manager est d'abord ① de **sécuriser la direction** —
+s'assurer que chaque collaborateur regarde dans la même direction que l'équipe
+(l'objectif) — puis ② de **mettre en place et TENIR un cadre de
+fonctionnement** : les règles de coopération, ce qui est dedans et ce qui est
+dehors, l'espace d'initiative — les règles de vie d'équipe « locales ». ③ C'est
+À L'INTÉRIEUR de ce cadre que les membres de l'équipe déploient le meilleur
+d'eux-mêmes, en toute liberté, confiance et sécurité. **Cadre et objectif ne
+s'opposent pas : ils se complètent** — et le cadre ne s'oppose JAMAIS au
+développement des personnes : il en est la condition. **INTERDIT D'ÉCRITURE** :
+toute formule qui oppose « donner un cadre » à « partir du fonctionnement de
+l'autre » (ex. « non pas en leur donnant le bon cadre à habiter, mais en partant
+de leur fonctionnement ») est une FAUTE doctrinale — le manager pose la
+direction et le cadre, ET développe chacun dans son fonctionnement propre à
+l'intérieur de ce cadre.
+
 **`montee_autre_face` — LE BUT D'ABORD, toujours :** commencer par POURQUOI
 grandir l'autre face — l'horizon professionnel concret : passer du pilotage du
 travail au développement des personnes (confier des missions qui font grandir,
