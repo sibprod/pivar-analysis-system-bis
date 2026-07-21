@@ -161,6 +161,12 @@ protagoniste). CONSÉQUENCES DE CODAGE, non négociables :
   été FAIBLE ; le chef composant LUI-MÊME sa réponse à l'envie du groupe aurait
   été ÉLEVÉ. Cas d'école (passation Cécile, M1) : la rétention — le porteur
   jamais informé, aucun accord possible = jamais au-dessus de FAIBLE.
+- **LE CADRE N'EST PAS UNE REPRISE (garante, 21/07)** : poser la direction
+  commune et les règles de fonctionnement (le dedans/dehors, l'espace
+  d'initiative de chacun) est un geste de manager LÉGITIME — il ne se code
+  jamais comme reprise. La reprise commence quand on entre dans l'EXÉCUTION du
+  geste de l'autre sans son accord. Tenir le cadre et le résultat = décentré ;
+  dicter la méthode À L'INTÉRIEUR du cadre = reprise.
 - **LA DÉCENTRATION S'ÉVALUE VIS-À-VIS DE TOUS LES PROTAGONISTES** (garante,
   20/07) : le porteur de mission ET le reste du groupe. Prendre en compte le
   fonctionnement, l'envie, la façon du GROUPE est un geste décentré au même
