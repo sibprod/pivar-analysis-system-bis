@@ -658,7 +658,8 @@ router.get('/api/etape2_2bilan4excellences/:candidat_id', async (req, res) => {
   if (!_isValidCandidatId(candidat_id)) return res.status(400).json({ error: 'Identifiant candidat invalide', candidat_id });
   logger.info('Bilan 4 excellences — API JSON', { candidat_id });
   try {
-    const payload = await airtableService.getBilanExcellences(candidat_id);
+    const payload = await airtableService.getBilanExcellences(candidat_id,
+      { version: req.query.version === 'avant_test' ? 'avant_test' : 'courante' });
     if (!payload) return res.status(404).json({ error: 'Aucun bilan trouvé', candidat_id });
     logger.info('Bilan 4 excellences — JSON renvoyé', { candidat_id, nb_excellences: (payload.excellences || []).length, elapsedMs: Date.now() - startTime });
     return res.json(payload);
@@ -666,6 +667,24 @@ router.get('/api/etape2_2bilan4excellences/:candidat_id', async (req, res) => {
     logger.error('Bilan 4 excellences — erreur', { candidat_id, error: error.message });
     return res.status(500).json({ error: error.message, candidat_id });
   }
+});
+
+// 🔒 (garante, 22/07) Les DEUX bilans consultables — deux routes franches,
+// un gabarit unique : la route habituelle sert le bilan courant (post-test
+// dès que le test est fait) ; cette route dédiée sert l'ARCHIVE avant-test
+// (le snapshot figé, jamais écrasé). La page détecte '_avanttest' dans son
+// chemin et demande la version d'archive à l'API.
+router.get('/visualiser/etape2_2bilan4excellences_avanttest/:candidat_id', (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!_isValidCandidatId(candidat_id)) return res.status(400).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Identifiant candidat invalide</h1></body></html>');
+  logger.info('Bilan 4 excellences — mode HTML (version AVANT-TEST)', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_etape2_b_bilan.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err) {
+      logger.error('Bilan avant-test — erreur sendFile', { candidat_id, error: err.message, path: htmlPath });
+      if (!res.headersSent) res.status(500).type('html').send('<html><body><h1>Erreur chargement bilan</h1></body></html>');
+    }
+  });
 });
 
 router.get('/visualiser/etape2_2bilan4excellences/:candidat_id', (req, res) => {
