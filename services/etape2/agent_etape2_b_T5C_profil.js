@@ -134,6 +134,11 @@ async function run({ candidat_id }) {
     reserves_globales:      t5c.reserves_globales || ''
   };
 
+  // 🔒 Versionnage (garante, 22/07) : une écriture faite en connaissance de la
+  // mesure du test est marquée post-test → le service fige le bilan avant-test
+  // (première fois) et miroite celle-ci dans bilan_post_test.
+  if (testDec && testDec.niveau_global) t5cFields.__post_test = true;
+
   const t5cOk = await airtableService.upsertEtape2T5C(candidat_id, t5cFields);
 
   logger.info('Agent T5C — terminé', {
