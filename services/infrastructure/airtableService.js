@@ -329,12 +329,36 @@ async function upsertEtape2T5C(candidat_id, fields) {
       .select({ filterByFormula: `LOWER({candidat_id}) = "${String(candidat_id).toLowerCase()}"`, maxRecords: 1 })
       .all();
     const clean = cleanFields(fields);
+    // 🔒 VERSIONNAGE AVANT/APRÈS TEST (garante, 22/07) : le bilan n'est plus
+    // écrasé à l'aveugle — deux versions vivent en base.
+    // - Écriture POST-test (le C a reçu la mesure) : AVANT d'écrire, si
+    //   `bilan_avant_test` est vide, on y FIGE le snapshot des champs actuels
+    //   (la version avant-test, immuable ensuite) ; et les nouveaux champs
+    //   sont AUSSI miroités dans `bilan_post_test`.
+    // - Écriture AVANT-test : champs vivants seuls, comme toujours.
+    const estPostTest = !!(fields && fields.__post_test);
+    delete clean.__post_test;
     if (existing && existing.length > 0) {
+      if (estPostTest) {
+        const dejaFige = existing[0].get('bilan_avant_test');
+        if (!dejaFige || String(dejaFige).trim() === '') {
+          const snapshotAvant = {};
+          Object.keys(clean).forEach(k => { snapshotAvant[k] = existing[0].get(k) || ''; });
+          clean.bilan_avant_test = JSON.stringify({ _fige_le: new Date().toISOString(), ...snapshotAvant });
+          logger.info('🔒 Bilan AVANT-test figé (première écriture post-test)', { candidat_id });
+        }
+        const miroir = cleanFields(fields); delete miroir.__post_test;
+        clean.bilan_post_test = JSON.stringify({ _ecrit_le: new Date().toISOString(), ...miroir });
+      }
       await getBase()(tableName).update([{ id: existing[0].id, fields: clean }], { typecast: true });
-      logger.info('ETAPE2 T5C updated', { candidat_id });
+      logger.info('ETAPE2 T5C updated', { candidat_id, post_test: estPostTest });
     } else {
+      if (estPostTest) {
+        const miroir = cleanFields(fields); delete miroir.__post_test;
+        clean.bilan_post_test = JSON.stringify({ _ecrit_le: new Date().toISOString(), ...miroir });
+      }
       await getBase()(tableName).create([{ fields: clean }], { typecast: true });
-      logger.info('ETAPE2 T5C created', { candidat_id });
+      logger.info('ETAPE2 T5C created', { candidat_id, post_test: estPostTest });
     }
     return true;
   } catch (error) {
@@ -370,7 +394,12 @@ function _amplitude(e) {
   return (e.nb_eleve || 0) * 3 + (e.nb_moyen || 0) * 2 + (e.nb_faible || 0);
 }
 
-async function getBilanExcellences(candidat_id) {
+async function getBilanExcellences(candidat_id, options) {
+  // 🔒 DEUX BILANS CONSULTABLES (garante, 22/07) : version 'avant_test' →
+  // les champs C sont remplacés par le snapshot figé `bilan_avant_test`
+  // (jamais écrasé) et l'état du test est masqué : la page rend le bilan
+  // EXACTEMENT tel qu'il était avant la mesure.
+  const versionDemandee = (options && options.version) || 'courante';
   try {
     const base = getBase();
 
@@ -412,7 +441,24 @@ async function getBilanExcellences(candidat_id) {
       logger.warn('Bilan — aucune ligne T5C (profil)', { candidat_id });
       return null;
     }
-    const c = t5cRecords[0].fields;
+    let c = t5cRecords[0].fields;
+    let _versionAvant = false;
+    if (versionDemandee === 'avant_test') {
+      const brut = c.bilan_avant_test;
+      if (brut && String(brut).trim() !== '') {
+        try {
+          const snap = JSON.parse(brut);
+          delete snap._fige_le;
+          c = { ...c, ...snap };
+          _versionAvant = true;
+          logger.info('Bilan — version AVANT-TEST servie depuis le snapshot figé', { candidat_id });
+        } catch (eSnap) {
+          logger.error('Bilan — snapshot avant-test illisible, version courante servie', { candidat_id, error: eSnap.message });
+        }
+      } else {
+        logger.info('Bilan — version avant-test demandée mais aucun snapshot (test non passé) : version courante', { candidat_id });
+      }
+    }
 
     function jaugeFromVerdict(verdictTxt, niveauTxt) {
       const v = String(verdictTxt || '').toUpperCase();
@@ -448,6 +494,9 @@ async function getBilanExcellences(candidat_id) {
     logger.debug('Bilan assemblé', { candidat_id, nb_excellences: excellences.length });
     // ⭐ Double mesure (garante, 03/07) : si le test complémentaire a été passé,
     // sa synthèse s'AJOUTE au bilan — l'initiale reste affichée telle quelle.
+    // 🔒 (22/07) : en version AVANT-TEST, l'état du test est masqué — la page
+    // rend l'invitation d'époque, pas le pavé.
+    if (_versionAvant) { profil.version_bilan = 'avant_test'; return profil; }
     try {
       const synthTest = await getTestDecSynthese(candidat_id);
       if (synthTest && synthTest.niveau_global) {
