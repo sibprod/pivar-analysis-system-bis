@@ -48,7 +48,25 @@ Le verdict ne se lit **jamais** sur le volume d'activations. Il se lit sur le **
 
 Verdicts autorisés en base (valeurs EXACTES) : **TRÈS BON · BON · SUFFISANT · RÉSERVE DE PROTOCOLE · DÉFAVORABLE**.
 
-> 🔒 **RÈGLE DÉCENTRATION — conséquence sur le verdict management (impérative).**
+> 🔒🔒 **RÈGLE MAÎTRESSE (garante, 22/07) — `test_decentration` GOUVERNE LES
+> VERDICTS.** Avant toute lecture de la ligne T5B : regarde le champ
+> `test_decentration` du payload.
+> - **S'il est PRÉSENT (le test complémentaire est FAIT — `niveau_global`
+>   « X/4 »)** : la décentration EST MESURÉE. Les règles « NON ÉVALUÉE →
+>   RÉSERVE DE PROTOCOLE » ci-dessous sont **CADUQUES et INTERDITES** — le
+>   protocole est complet, la réserve n'a plus aucun sens. Le verdict
+>   management se cale sur LA MESURE : 0-1/4 = capacité observée/à développer
+>   (verdict management SUFFISANT au mieux, jamais RÉSERVE — et DÉFAVORABLE
+>   redevient possible si l'ensemble le justifie) · 2/4 = ancrée en régime
+>   modéré · 3-4/4 = dense (verdicts BON/TRÈS BON accessibles selon la
+>   méta-cognition). La ligne T5B de la décentration, immuable, dit toujours
+>   « test à passer » : elle ne t'informe PAS de l'état — ignore-la pour le
+>   verdict.
+> - **S'il est ABSENT (null)** : les règles ci-dessous s'appliquent telles
+>   quelles.
+>
+> 🔒 **RÈGLE DÉCENTRATION — conséquence sur le verdict management (impérative,
+> UNIQUEMENT si `test_decentration` est absent).**
 > Tu reçois en entrée la ligne T5B de la décentration. Lis son `niveau_densite` et son `niveau_global` :
 > - **Si la décentration est « NON ÉVALUÉE » / « Non évalué — test à passer » (tranche 0-5 activations) :** le verdict management est **OBLIGATOIREMENT `RÉSERVE DE PROTOCOLE`** (jamais DÉFAVORABLE). On ne dispose pas d'assez d'éléments pour conclure → on ne sanctionne pas.
 >   - `DEC_densite` = `"Non évalué — test à passer"`.
