@@ -312,8 +312,11 @@ function blocTestDec(p){
     +'<div style="font-size:12px;letter-spacing:.14em;color:#2f7d4f;font-weight:700;margin-bottom:8px;">VOTRE DÉCENTRATION — AVANT ET APRÈS LE TEST</div>'
     +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Décentration cognitive : '+esc(td.niveau_global)+'</div>'
     +'<div style="font-size:12px;color:#6b6557;margin-bottom:12px;">'+esc(td.pattern||'')+' — sur les moments du test qui sollicitent directement cette dimension. Cette mesure complète celle du parcours principal.</div>'
-    +(td.synthese?'<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">'+esc(td.synthese)+'</p>':'')
-    +(td.portrait_excellence?'<p style="margin:0;font-size:13px;color:#55503f;line-height:1.55;font-style:italic;">'+esc(td.portrait_excellence)+'</p>':'')
+    +(td.synthese?'<div style="margin:0 0 12px;font-size:14px;line-height:1.6;">'+fmtParas(td.synthese)+'</div>':'')
+    +(td.portrait_excellence?'<p style="margin:0 0 12px;font-size:13px;color:#55503f;line-height:1.55;font-style:italic;">'+esc(td.portrait_excellence)+'</p>':'')
+    +(td.declencheur?'<div style="margin:0 0 10px;"><span class="mt-h" style="color:#2f7d4f;">Ce qui déclenche votre décentration</span><div style="font-size:13px;line-height:1.55;">'+fmtParas(td.declencheur)+'</div></div>':'')
+    +(td.gradient?'<div style="margin:0 0 10px;"><span class="mt-h" style="color:#2f7d4f;">Votre gradient — du plus accompli au moins accompli</span><div style="font-size:13px;line-height:1.55;">'+fmtParas(td.gradient)+'</div></div>':'')
+    +(td.reserve?'<div style="margin:0;"><span class="mt-h" style="color:#2f7d4f;">Points de vigilance</span><div style="font-size:13px;line-height:1.55;">'+fmtParas(td.reserve)+'</div></div>':'')
     +'</div>';
 }
 function verdictClass(v){
@@ -353,6 +356,9 @@ function render(d){
     // 🔒 Sens de découverte (garante, 09/07) : tout ce qui concerne le TEST de
     // décentration vit ICI, à la suite de l'analyse décentration — jamais ailleurs.
     if(e.code==='DEC'){
+      if(p.version_bilan==='avant_test'){
+        html+='<div style="margin:-8px 0 18px;padding:10px 16px;background:#fdf6e3;border:1px solid #e0d5b0;border-radius:8px;font-size:12px;color:#7a6a3a;"><b>\ud83d\udcdc VERSION D\'ARCHIVE \u2014 LE BILAN AVANT LE TEST COMPL\u00c9MENTAIRE.</b> Cette page est la photographie fig\u00e9e du bilan tel qu\'il \u00e9tait avant la mesure de la d\u00e9centration. Le bilan actuel est \u00e0 l\'adresse habituelle.</div>';
+      }
       if(p.test_dec && p.test_dec.niveau_global){
         html+=blocTestDec(p);
       } else if(p.test_dec_statut==='en_analyse'){
@@ -425,7 +431,7 @@ function render(d){
   if(!p.test_dec && p.test_dec_statut==='en_analyse'){
     setTimeout(function verifierTest(){
       var id=location.pathname.split('/').pop();
-      fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
+      fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id)+(location.pathname.indexOf('_avanttest')>=0?'?version=avant_test':location.search),{headers:{'Accept':'application/json'}})
         .then(function(r){return r.ok?r.json():null;})
         .then(function(d){
           if(d&&d.profil&&d.profil.test_dec&&d.profil.test_dec.niveau_global){location.reload();}
@@ -453,7 +459,7 @@ function boot(){
   var id=getCandidatId();
   if(!id){errorState("Aucun identifiant de candidat dans l'adresse.");return;}
   loading();
-  fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id),{headers:{'Accept':'application/json'}})
+  fetch('/api/etape2_2bilan4excellences/'+encodeURIComponent(id)+(location.pathname.indexOf('_avanttest')>=0?'?version=avant_test':location.search),{headers:{'Accept':'application/json'}})
     .then(function(r){
       if(!r.ok) throw new Error('Bilan introuvable pour cet identifiant ('+r.status+').');
       return r.json();
