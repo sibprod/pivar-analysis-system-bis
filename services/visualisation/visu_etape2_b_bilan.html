@@ -109,22 +109,25 @@ h1{font-family:var(--serif);font-weight:800;font-size:clamp(30px,6vw,44px);line-
 
 
 /* ═══════════════════════════════════════════════════════════════════
-   IMPRESSION — BILAN DYNAMIQUE · LES 4 EXCELLENCES
+   IMPRESSION — BILAN 4 EXCELLENCES / DIMENSIONS
    Fichier : services/visualisation/visu_etape2_b_bilan.html
-   Bloc unique, en fin de <style>. Ajusté aux classes réellement
-   présentes dans cette vue. Greffier CTO IA, 31/07/2026 — v2.
-   Objet : Ctrl+P → PDF A4 sans coupure de carte, de jauge,
-   de bloc de preuves ni de verbatim.
-   Rappel : la page est rendue en JS dans #root — on imprime après
-   chargement complet du bilan.
+   Greffier CTO IA — v3, 03/08/2026.
+   Corrige la v2 : suppression de TOUS les sauts de page forcés
+   (ils créaient des titres orphelins et des pages à moitié vides),
+   et retrait des « break-inside: avoid » posés sur des blocs plus
+   hauts qu'une page (bloc de preuves, encarts pédagogiques) — un
+   bloc trop haut protégé de la sorte est repoussé en entier à la
+   page suivante : c'est ce qui produisait les grands blancs.
+   Principe v3 : le texte coule librement ; seules les petites
+   unités indivisibles sont protégées.
    ═══════════════════════════════════════════════════════════════════ */
-@page { size: A4 portrait; margin: 12mm 10mm; }
+@page { size: A4 portrait; margin: 12mm 11mm; }
 
 @media print {
 
-  /* ── 1. remettre la page à la largeur du papier ─────────────────
-     body porte padding:36px 22px 90px + une trame de points en
-     background-image ; .wrap est bridé à 740px (> laize A4 utile).  */
+  /* ── 1. largeur du papier ────────────────────────────────────────
+     body porte padding:36px 22px 90px + une trame de points ;
+     .wrap est bridé à 740px, plus large que la laize A4 utile.    */
   html, body {
     background: #fff !important; background-image: none !important;
     padding: 0 !important; margin: 0 !important;
@@ -132,48 +135,48 @@ h1{font-family:var(--serif);font-weight:800;font-size:clamp(30px,6vw,44px);line-
   .wrap { max-width: none !important; width: auto !important; margin: 0 !important; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
-  /* ── 2. pagination ──────────────────────────────────────────────
-     chaque capacité démarre sur une page neuve (une carte = une
-     unité de lecture) ; idem pour les sections 02 / 03 / 04 —
-     la section 01 reste sur la page de titre.                       */
-  .exc { break-before: page; page-break-before: always; }
-  .portrait ~ .sec { break-before: page; page-break-before: always; }
+  /* ── 2. AUCUN saut de page forcé ─────────────────────────────────
+     on annule explicitement, au cas où une v2 traînerait ailleurs. */
+  .exc, .sec, .faces, .jauges, .combi {
+    break-before: auto !important; page-break-before: auto !important;
+  }
 
-  /* ── 3. règle d'or : aucune unité de sens coupée ────────────────
-     (une contrainte non satisfiable est ignorée par le navigateur :
-     aucun contenu ne peut être perdu)                               */
-  .portrait, .exc-head, .exc-def, .bar, .counts, .amp, .decl,
-  .proof, .vb-h, .vb-q, .vb-none, .dgrid, .dcell,
-  .combi, .faces, .face, .face-top, .face-cond,
-  .jauges, .jcol, .jg, .jg-lab,
-  .decoupage, .pal-montee, .sommet-mini, .reserve, .foot,
-  .tc-h, .cond-li, .mt-h, .ordre, .state,
+  /* ── 3. petites unités : jamais coupées en deux ──────────────────
+     toutes tiennent largement dans une page — aucun risque de
+     report en bloc.                                               */
+  .exc-head, .bar, .counts, .decl, .dcell, .dgrid,
+  .vb-h, .vb-q, .cond-li, .ordre,
+  .face-top, .face-cond, .jcol, .jg, .jg-lab,
+  .decoupage, .sommet-mini, .foot,
   img, svg {
     break-inside: avoid !important; page-break-inside: avoid !important;
   }
-  /* blocs construits en JS avec styles en ligne (pédagogie des deux
-     faces, lexique des modes, encart du test de décentration…) :
-     pas de classe pour les viser, on passe par l'attribut style.     */
-  .wrap > div[style], .exc > div[style] {
-    break-inside: avoid !important; page-break-inside: avoid !important;
-  }
+  /* une citation ne se coupe jamais entre sa référence et son texte */
+  .vb-q { display: flex !important; }
 
-  /* ── 4. titres et étiquettes jamais seuls en bas de page ────────── */
-  h1, .kick, .badge, .dom,
+  /* ── 4. titres jamais seuls en bas de page ───────────────────────
+     c'est ce qui remplace les sauts forcés : le titre suit son
+     contenu au lieu de provoquer une page neuve.                  */
+  h1, .kick, .badge,
   .sec, .exc-tag, .reg, .proof-h, .decl-l, .mt-h, .tc-h,
   .face-lab, .face-kick, .jg-kick, .dc-k, .sm-k, .combi-h {
     break-after: avoid !important; page-break-after: avoid !important;
     break-inside: avoid !important;
   }
-  p, li, .fp, .tc-p { orphans: 3; widows: 3; }
+  p, li, .fp, .tc-p, .amp, .exc-def, .face-why { orphans: 3; widows: 3; }
 
-  /* ── 5. divers ──────────────────────────────────────────────────── */
+  /* ── 5. les deux cartes « faces » côte à côte : elles peuvent se
+     séparer l'une de l'autre, mais chacune reste d'un seul tenant
+     si elle tient dans la page.                                   */
+  .face { break-inside: avoid; page-break-inside: avoid; }
+
+  /* ── 6. divers ───────────────────────────────────────────────────*/
   .spinner { display: none !important; }
   .reg { cursor: auto; }
   img, svg { max-width: 100% !important; height: auto !important; }
   button, nav, .no-print { display: none !important; }
 }
-/* ═══════════ fin du bloc impression — v2, 31/07/2026 ═══════════ */
+/* ═══════════ fin du bloc impression — v3, 03/08/2026 ═══════════ */
 
 </style>
 </head>
