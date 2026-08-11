@@ -53,7 +53,10 @@ const logger          = require('../../utils/logger');
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────
 const SERVICE_NAME = 'agent_prompt_etape1';
-const PROMPT_PATH  = 'etape1/prompt_etape1';  // ⚠️ pas d'extension — match GitHub
+// Nom de fichier COMPLET, extension comprise — vérifié contre new-prompts/etape1/.
+// (Correctif 2026-08-10 : la valeur précédente 'etape1/prompt_etape1', sans extension,
+//  provoquait un ENOENT sur les 5 scénarios à chaque exécution en production.)
+const PROMPT_PATH  = 'etape1/prompt_etape1_responses.txt';
 
 const SCENARIOS_ORDER = [
   { name: 'SOMMEIL',  range: [1, 5] },
