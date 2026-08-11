@@ -69,8 +69,16 @@ function loadPrompt(relativePath) {
     logger.debug('Prompt loaded', { relativePath, length: content.length });
     return content;
   } catch (error) {
-    logger.error('Failed to load prompt', { relativePath, error: error.message });
-    throw new Error(`Prompt file not found: new-prompts/${relativePath}`);
+    logger.error('Failed to load prompt', { relativePath, error: error.message, code: error.code });
+    // ⚠️ Le code d'origine (ENOENT) doit survivre au ré-emballage : errorClassifier
+    // s'appuie dessus pour marquer l'erreur comme PERMANENTE. Sans lui, un fichier
+    // manquant retombe en 'unknown_error' et la file le retente indéfiniment.
+    const err = new Error(
+      `Prompt file not found: new-prompts/${relativePath} — ${error.code || 'ERR'}: ${error.message}`
+    );
+    err.code  = error.code;
+    err.cause = error;
+    throw err;
   }
 }
 
