@@ -202,6 +202,21 @@ function classifyError(error) {
     };
   }
 
+  // STATUT CANDIDAT NON ÉLIGIBLE (Permanent)
+  // Un candidat en état terminal ('terminé') ou en 'ERREUR' n'a rien à faire dans la
+  // file. Sans cette branche il retombe en 'unknown_error' et se fait re-queuer
+  // toutes les 1-2 min indéfiniment, en consommant des appels Airtable pour rien.
+
+  if (errorMessage.includes('non éligible pour traitement')) {
+    return {
+      isTemporary: false,
+      errorType:   'statut_non_eligible',
+      shouldRetry: false,
+      reason:      'Statut candidat terminal ou non traitable par l\'orchestrateur',
+      action:      'Aucune action — le candidat sort de la file'
+    };
+  }
+
   // ERREUR INCONNUE (Prudence: Temporaire par défaut)
 
   logger.warn('Unknown error type - Treating as temporary', {
