@@ -167,6 +167,13 @@ async function chargerReferentiels() {
 // SECTION 3 — APPEL CLAUDE (prompt v10), streaming
 // ═══════════════════════════════════════════════════════════════
 
+// ⭐ 12/08/2026 — TOLÉRANCE DE LONGUEUR (décision de la garante).
+// Les plafonds annoncés à l'agent restent 18 / 15 / 40 mots : c'est la consigne, elle ne
+// bouge pas. Mais un dépassement de 1 ou 2 mots ne justifie pas de rejeter tout un pilier
+// et de repayer un appel. On accepte donc une marge de 2 mots au-delà du plafond, et on
+// TRACE le dépassement en avertissement — toléré n'est pas conforme.
+const TOLERANCE_MOTS = 2;
+
 async function appellerClaude(entree, opts = {}, erreursPrecedentes = null) {
   const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('CLAUDE_API_KEY / ANTHROPIC_API_KEY manquante');
@@ -339,10 +346,14 @@ function valider(pa, entree, analyse = '') {
     // Guillemets interdits dans n3_nuance (v10, strict)
     if (/[«»]/.test(expl)) errors.push(`[${code}] n3_nuance contient des guillemets «» — paraphrase pure obligatoire`);
 
-    // explication_courte ≤ 18 mots
+    // explication_courte ≤ 18 mots, tolérance +2 (tracée en avertissement)
     const nbm = (expl_c.match(/\S+/g) || []).length;
     if (!expl_c) errors.push(`[${code}] explication_courte vide`);
-    if (nbm > 18) errors.push(`[${code}] explication_courte : ${nbm} mots (max 18)`);
+    if (nbm > 18 + TOLERANCE_MOTS) {
+      errors.push(`[${code}] explication_courte : ${nbm} mots (max 18, toléré ${18 + TOLERANCE_MOTS})`);
+    } else if (nbm > 18) {
+      warnings.push(`[${code}] explication_courte : ${nbm} mots — au-delà de 18, dans la tolérance`);
+    }
 
     // EN SOUTIEN (cœur 0)
     if (ic.coeur === 0 && expl_c && !expl_c.toLowerCase().startsWith('jamais en propre')) {
@@ -359,8 +370,13 @@ function valider(pa, entree, analyse = '') {
     // donc ne peut JAMAIS être vide. ≤15 mots.
     if (!micro || !micro.trim()) {
       errors.push(`[${code}] soleil_micro vide — obligatoire pour chaque circuit, quel que soit le niveau`);
-    } else if ((micro.match(/\S+/g) || []).length > 15) {
-      errors.push(`[${code}] soleil_micro > 15 mots`);
+    } else {
+      const nbmicro = (micro.match(/\S+/g) || []).length;
+      if (nbmicro > 15 + TOLERANCE_MOTS) {
+        errors.push(`[${code}] soleil_micro : ${nbmicro} mots (max 15, toléré ${15 + TOLERANCE_MOTS})`);
+      } else if (nbmicro > 15) {
+        warnings.push(`[${code}] soleil_micro : ${nbmicro} mots — au-delà de 15, dans la tolérance`);
+      }
     }
 
     // v10 — profondeur : toujours remplie, valeur du lexique fermé
@@ -474,7 +490,12 @@ function valider(pa, entree, analyse = '') {
   if (!intro) errors.push('intro_eclate vide');
   if (/\d/.test(intro)) errors.push('intro_eclate contient un chiffre');
   if (/P[1-5]C\d/i.test(intro)) errors.push('intro_eclate contient un code circuit');
-  if ((intro.match(/\S+/g) || []).length > 40) errors.push('intro_eclate > 40 mots');
+  const nbintro = (intro.match(/\S+/g) || []).length;
+  if (nbintro > 40 + TOLERANCE_MOTS) {
+    errors.push(`intro_eclate : ${nbintro} mots (max 40, toléré ${40 + TOLERANCE_MOTS})`);
+  } else if (nbintro > 40) {
+    warnings.push(`intro_eclate : ${nbintro} mots — au-delà de 40, dans la tolérance`);
+  }
 
   // ── (v12) CONTRÔLE DE COHÉRENCE analyse ↔ blocs (warning, non bloquant) ──
   // L'agent verbalise son rangement dans <analyse>. On vérifie que ce qu'il y a DÉCIDÉ
