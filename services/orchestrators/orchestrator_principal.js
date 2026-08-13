@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur principal — Profil-Cognitif v10.12
+// Orchestrateur principal — Profil-Cognitif v10.13
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
@@ -40,7 +40,14 @@
 //   - ERREUR                        → ignoré (reprise manuelle nécessaire)
 //   - BILAN_FABLE_PA_OK             → ignoré (sentinelle : 5 piliers produits, validation des modes ; aval relancé manuellement via REPRENDRE_BILAN_PB/PD)
 //   - BILAN_FABLE_TERMINE           → ignoré (bilan Fable produit, terminal)
-//   - MODE_RAPIDE_TERMINE           → ignoré (mode rapide produit, terminal) ⭐ v10.11
+//   - MODE_RAPIDE_EVALUE            → ignoré (portrait produit, non contrôlé — terminal) ⭐ v10.13
+//   - MODE_RAPIDE_CONTROLE          → ignoré (portrait produit et contrôlé — terminal) ⭐ v10.13
+//   - MODE_RAPIDE_TERMINE           → ignoré (ancien terminal, trace historique) ⭐ v10.11
+//
+// ⭐ PHASE v10.13 (2026-08-13) — DEUX TERMINAUX MODE RAPIDE (décision garante) :
+//   MODE_RAPIDE_EVALUE (portrait sans protocole) / MODE_RAPIDE_CONTROLE (comparé).
+//   Le contrôle différé, quand il aboutit à une vraie comparaison, pose désormais
+//   MODE_RAPIDE_CONTROLE sur le VISITEUR — le statut raconte l'état réel.
 //
 // ⭐ PHASE v10.12 (2026-08-13) — CONTRÔLE MODE RAPIDE DIFFÉRÉ (workflow garante) :
 //   Cas d'usage : le mode rapide est déclenché AVANT le protocole complet (tri
@@ -119,7 +126,7 @@ async function processCandidate(session_id) {
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal v10.12 — processCandidate         ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.13 — processCandidate         ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
@@ -189,6 +196,12 @@ async function processCandidate(session_id) {
         const ctrl = await serviceControleModeRapide.run({ candidat_id });
         if (ctrl.concordance !== 'NON_COMPARE') {
           logger.info('⭐ Contrôle mode rapide différé exécuté', { candidat_id, concordance: ctrl.concordance });
+          // ⭐ v10.13 — le candidat passe à MODE_RAPIDE_CONTROLE : son portrait rapide
+          // est désormais comparé au protocole complet (qui vient de s'achever).
+          await airtableService.updateVisiteur(candidat_id, {
+            statut_analyse_pivar: 'MODE_RAPIDE_CONTROLE',
+            derniere_activite:    new Date().toISOString()
+          }).catch(() => {});
         }
       }
     } catch (eCtrl) {
