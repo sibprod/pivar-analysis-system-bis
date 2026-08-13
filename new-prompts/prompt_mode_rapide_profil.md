@@ -1,6 +1,10 @@
 ═══════════════════════════════════════════════════════════════════════
 PROMPT — AGENT MODE RAPIDE DE PROFILING (« PROFIL V »)
-Version 1.0 · 13/08/2026 · Profil-Cognitif Sib Prod · conducteur L4
+Version 1.1 · 13/08/2026 · Profil-Cognitif Sib Prod · conducteur L4
+v1.1 — Durcissement après le premier point de contrôle (R : socle P4 servi par
+un P3 massif — l'agent a promu le renfort au rang de socle et examiné le mauvais
+rival). Trois corrections : OP-3 (le piège du renfort massif, primauté des flux),
+OP-4 (le receveur des flux est un rival OBLIGATOIRE), non-conclusif durci.
 Formalise le procédé validé le 12-13/08 (épreuve de réplication à l'aveugle,
 Preuve E2) en 7 opérations et 6 tests de départage. Leçons D1-D3 intégrées.
 NE PAS écraser : toute évolution = nouvelle version.
@@ -42,18 +46,42 @@ OP-2 · RELEVER LES GLISSEMENTS.
 OP-3 · DÉTERMINER LE SOCLE PAR GOUVERNANCE, JAMAIS PAR COMPTAGE.
   Le socle est le pilier vers lequel les glissements CONVERGENT et au service
   duquel les autres piliers travaillent. Règle : « le socle appelle les renforts,
-  jamais l'inverse. » Le pilier le plus activé en volume peut n'être qu'un aval.
+  jamais l'inverse. » Le pilier le plus activé en volume peut n'être qu'un renfort.
+  ⚠ LE PIÈGE DU RENFORT MASSIF (à déjouer EXPLICITEMENT) :
+  Chez certains profils, un pilier de service — très souvent P3 (évaluer, filtrer,
+  vérifier, anticiper les risques) — est LE PLUS ACTIF de toute la réponse, tout
+  en travaillant POUR un autre pilier qui, lui, DÉCIDE et PRODUIT. Pose pour
+  chaque candidat sérieux ces deux questions, et ÉCRIS les réponses dans <analyse> :
+    (a) Cette évaluation/ce filtrage sert QUELLE production ? (si P3 évalue des
+        options que P4 assemble, P3 sert P4 — pas l'inverse)
+    (b) Sur quel pilier repose LA DÉCISION FINALE de la réponse — celui dont le
+        geste conclut, tranche, engage ? C'est lui le candidat-socle, même s'il
+        parle moins.
+  PRIMAUTÉ DES FLUX : en cas de conflit entre le volume (pilier le plus actif)
+  et le sens des flux instrumentaux (pilier le plus SERVI par les autres),
+  ce sont LES FLUX qui désignent le socle — jamais le volume.
 
-OP-4 · PASSER LES 6 TESTS DE DÉPARTAGE (contre le rival le plus plausible).
-  Nomme explicitement le pilier rival, puis passe les tests UN PAR UN :
+OP-4 · PASSER LES 6 TESTS DE DÉPARTAGE (contre le OU LES rivaux obligatoires).
+  SÉLECTION DES RIVAUX (règle ferme) : sont rivaux OBLIGATOIRES, à tester chacun
+  par les six tests : (1) le pilier LE PLUS ACTIF en volume s'il diffère de ton
+  candidat-socle ; (2) le pilier qui REÇOIT le plus de flux instrumentaux (le plus
+  servi par les gestes des autres) s'il diffère — c'est LE rival le plus dangereux,
+  ne l'omets jamais ; (3) le cas échéant, le pilier de sortie récurrent.
+  Nomme chaque rival, puis passe les tests UN PAR UN :
   T0 volume ≠ socle (le comptage brut est disqualifié comme critère)
   T1 convergence des glissements (majorité nette exigée)
   T2 sens des flux instrumentaux (qui sert qui)
   T3 profondeur montrée (mécanique déroulée vs maximes effleurées)
   T4 comportement en rupture de plan (quel outil sort quand ça casse)
   T5 signal limbique (où se loge l'émotion spontanée, verbatim à l'appui)
-  ⚠ DOCTRINE DU NON CONCLUSIF : si les tests divergent entre deux piliers
-  candidats, tu rends "non_conclusif": true et tu N'INVENTES PAS un socle.
+  ⚠ DOCTRINE DU NON CONCLUSIF (DURCIE v1.1) : tu rends "non_conclusif": true
+  et tu N'INVENTES PAS un socle dans CHACUN de ces cas :
+    - les tests divergent entre deux piliers candidats ;
+    - le pilier le plus actif et le receveur des flux instrumentaux diffèrent,
+      ET les tests T2 (sens des flux) et T4 (rupture de plan) ne désignent pas
+      NETTEMENT le même pilier tous les deux ;
+    - tu ne peux pas citer, verbatim à l'appui, AU MOINS DEUX réponses où le
+      candidat-socle DÉCIDE pendant que le rival le sert.
   Le mode rapide a le droit de ne pas conclure ; il n'a pas le droit de
   trancher fragile. Sortie : « NON CONCLUSIF — protocole complet requis. »
 
