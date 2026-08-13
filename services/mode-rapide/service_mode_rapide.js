@@ -1,5 +1,14 @@
 // services/mode-rapide/service_mode_rapide.js
-// Service MODE RAPIDE (« Profil V ») — L4 · v2.4 (13/08/2026) — Profil-Cognitif
+// Service MODE RAPIDE (« Profil V ») — L4 · v2.6 (13/08/2026) — Profil-Cognitif
+//
+// v2.6 — CAS RÉSOLU DE CALIBRAGE (reproduction du dispositif de l'épreuve E2,
+//   décision garante : sans 100 % sur le socle et un filtre fiable, l'outil n'est
+//   pas retenu — AM-08). Le service charge new-prompts/mode_rapide_cas_resolu.md
+//   s'il existe et le passe en entrée (cas_resolu). GARDE-FOU : si le candidat
+//   analysé EST le candidat du cas résolu (liste CAS_RESOLU_INTERDIT_POUR,
+//   surchageable par env), le cas est retiré — on ne donne jamais à l'agent le
+//   corrigé de la copie qu'il analyse.
+// v2.5 — Version du conducteur portée à v1.1 (durcissement OP-3/OP-4/non-conclusif).
 //
 // v2.4 — Le modèle se pilote depuis l'environnement Render comme le reste du
 //   service : CLAUDE_MODEL (confirmé garante : claude-sonnet-4-6), avec repli
@@ -55,7 +64,11 @@ const logger          = require('../../utils/logger');
 
 const MODEL       = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // ⭐ v2.4 — piloté par Render
 const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
-const VERSION_CONDUCTEUR = 'prompt_mode_rapide_profil v1.0';
+const VERSION_CONDUCTEUR = 'prompt_mode_rapide_profil v1.1 + cas résolu R v1.0';
+const CAS_RESOLU_PATH = path.join(__dirname, '../../new-prompts/mode_rapide_cas_resolu.md');
+// Identifiants du candidat du cas résolu (R original + R rejeu) — jamais son propre corrigé.
+const CAS_RESOLU_INTERDIT_POUR = (process.env.CAS_RESOLU_INTERDIT_POUR ||
+  'pivar_1762094675215_77bg53iz0,pcc_1786375017158_p3caz8zma').split(',').map(x => x.trim());
 
 // ⭐ v2.2 — Tarif API (USD par MILLION de tokens), vérifié le 13/08/2026.
 const PRIX_INPUT_PAR_MTOK  = 3.00;
@@ -89,7 +102,18 @@ async function construireEntree(candidat_id) {
   if (reponses.length !== 25) {
     logger.warn('[ModeRapide] nombre de réponses inattendu', { candidat_id, count: reponses.length, attendu: 25 });
   }
-  return { candidat_id, instrument, reponses, cas_resolu: null };
+  // ⭐ v2.6 — cas résolu de calibrage (dispositif de l'épreuve E2)
+  let cas_resolu = null;
+  if (CAS_RESOLU_INTERDIT_POUR.includes(candidat_id)) {
+    logger.info('[ModeRapide] cas résolu retiré — le candidat analysé est le candidat du cas résolu', { candidat_id });
+  } else if (fs.existsSync(CAS_RESOLU_PATH)) {
+    cas_resolu = {
+      note: 'Cas résolu fourni en CALIBRAGE — règle anti-recopie OP-7b OBLIGATOIRE : confrontation point par point, le cas montre COMMENT lire, jamais QUOI conclure.',
+      dossier: fs.readFileSync(CAS_RESOLU_PATH, 'utf8')
+    };
+    logger.info('[ModeRapide] cas résolu de calibrage chargé', { candidat_id });
+  }
+  return { candidat_id, instrument, reponses, cas_resolu };
 }
 
 // ─── AGENT ──────────────────────────────────────────────────────────────────
