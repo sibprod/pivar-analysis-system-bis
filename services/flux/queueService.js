@@ -1,7 +1,15 @@
 // services/flux/queueService.js
-// File d'attente d'analyse — Profil-Cognitif v12.2
+// File d'attente d'analyse — Profil-Cognitif v12.3
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// v12.3 (2026-08-13) — Détection du statut MODE RAPIDE (L4) :
+//   - ⭐ Ajout du statut MODE_RAPIDE dans STATUTS_DETECTES_PAR_POLLING :
+//     déclenché en posant ce statut sur le VISITEUR (workflow garante, 100 % Airtable).
+//   - NE PAS détecter MODE_RAPIDE_TERMINE (terminal, posé par l'orchestrateur
+//     mode rapide) — état d'arrêt, pas un déclencheur (même règle que
+//     BILAN_FABLE_TERMINE).
+//   - Aucune autre modification : tout le reste est identique à v12.2.
 //
 // v12.2 (2026-06-18) — Détection du statut de la mission de fin d'étape 1.2 (Phase 4) :
 //   - ⭐ Ajout du statut REPRENDRE_AGENT2_CIRCUITPOURBILAN dans
@@ -86,7 +94,11 @@ const STATUTS_DETECTES_PAR_POLLING = [
   'REPRENDRE_BILAN_PA',
   'REPRENDRE_BILAN_PB',
   'REPRENDRE_BILAN_PC',
-  'REPRENDRE_BILAN_PD'
+  'REPRENDRE_BILAN_PD',
+  // ⭐ v12.3 (13/08/2026) — Mode rapide L4 : déclenché en posant ce statut sur le
+  //   VISITEUR. Terminal : MODE_RAPIDE_TERMINE (posé par l'orchestrateur mode
+  //   rapide) — NE PAS le détecter ici (état d'arrêt, pas un déclencheur).
+  'MODE_RAPIDE'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
