@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur principal — Profil-Cognitif v10.8
+// Orchestrateur principal — Profil-Cognitif v10.11
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
@@ -27,6 +27,10 @@
 //   - REPRENDRE_AGENT3              → SUPPRIMÉ v11.2 : ancien bilan retiré du dépôt (remplacé par la chaîne Fable)
 //   - REPRENDRE_BILAN_FABLE (+ PA/PB/PD)  → ⭐ v10.7 (13/06/2026) Étape 3, chaîne « Fable » (orchestratoretape3bilan)
 //                                            ⭐ 26/06 : P-C (boucles) retiré de la chaîne.
+//   - MODE_RAPIDE                   → ⭐ v10.11 (13/08/2026) Mode rapide L4 (services/mode-rapide/) :
+//                                     hors pipeline, à la demande. L'orchestrateur mode rapide pose
+//                                     lui-même MODE_RAPIDE_TERMINE et retourne { stopReason } — le
+//                                     principal ne pose JAMAIS « terminé » sur ce chemin.
 //   - REPRENDRE_AGENT4              → Étape 4 (à coder)
 //   - REPRENDRE_VERIFICATEUR4       → Étape 4 (à coder)
 //   ─── Statuts hors pipeline ───────────────────────────────────────────
@@ -36,6 +40,12 @@
 //   - ERREUR                        → ignoré (reprise manuelle nécessaire)
 //   - BILAN_FABLE_PA_OK             → ignoré (sentinelle : 5 piliers produits, validation des modes ; aval relancé manuellement via REPRENDRE_BILAN_PB/PD)
 //   - BILAN_FABLE_TERMINE           → ignoré (bilan Fable produit, terminal)
+//   - MODE_RAPIDE_TERMINE           → ignoré (mode rapide produit, terminal) ⭐ v10.11
+//
+// ⭐ PHASE v10.11 (2026-08-13) — MODE RAPIDE L4 :
+//   - ⭐ Ajout du require orchestrator_mode_rapide (services/mode-rapide/).
+//   - ⭐ Ajout de la branche d'aiguillage MODE_RAPIDE, juste avant le rejet final.
+//   - Aucune autre modification fonctionnelle : tout le reste est identique à v10.8.
 //
 // ⭐ NETTOYAGE 26/06/2026 — SUPPRESSION DU MAILLON P-C (BOUCLES) :
 //   'REPRENDRE_BILAN_PC' retiré du fallback STATUTS_BILAN_FABLE (le maillon P-C est supprimé
@@ -75,6 +85,7 @@ const orchestratorEtape2         = require('./orchestrator_etape1_T2');
 const orchestratorExcellences    = require('./orchestrator_etape2_b_excellences');
 const orchestratorPromptEtape1   = require('./orchestrator_etape1_responses');
 const orchestratorEtape3Bilan    = require('./orchestrator_etape1_T3_bilan');
+const orchestratorModeRapide     = require('../mode-rapide/orchestrator_mode_rapide');   // ⭐ v10.11 (13/08/2026)
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -93,7 +104,7 @@ async function processCandidate(session_id) {
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal v10.8 — processCandidate          ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.11 — processCandidate         ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
@@ -300,6 +311,17 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
       ...fableResult,
       stopReason: `bilan_fable_${statut_actuel}`
     };
+  }
+
+  // ─── ⭐ v10.11 (13/08/2026) — Aiguillage MODE RAPIDE (L4) ──────────────────
+  // Hors pipeline, à la demande (statut posé manuellement par la garante).
+  // L'orchestrateur mode rapide écrit UNIQUEMENT dans la table MODE_RAPIDE
+  // (consigne CA-08), pose lui-même MODE_RAPIDE_TERMINE et retourne
+  // { stopReason } : le principal ne pose donc JAMAIS « terminé » sur ce chemin
+  // (le mode rapide n'écrit pas l'état du pipeline complet).
+  if (statut_actuel === 'MODE_RAPIDE') {
+    logger.info('Aiguillage → Mode rapide L4', { candidat_id });
+    return await orchestratorModeRapide.run({ candidat_id });
   }
 
   logger.warn('Statut non éligible pour traitement', { candidat_id, statut_actuel });
