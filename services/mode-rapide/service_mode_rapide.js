@@ -1,5 +1,11 @@
 // services/mode-rapide/service_mode_rapide.js
-// Service MODE RAPIDE (« Profil V ») — L4 · v2.0 (13/08/2026) — Profil-Cognitif
+// Service MODE RAPIDE (« Profil V ») — L4 · v2.1 (13/08/2026) — Profil-Cognitif
+//
+// v2.1 — CORRECTIF premier lancement (incident 13/08, 12h35) : le SDK Anthropic
+//   refuse un appel non-streamé au-delà de son seuil (max_tokens 32000 → erreur
+//   « Streaming is required for operations that may take longer than 10 minutes »).
+//   L'appel passe en STREAMING (client.messages.stream + finalMessage()) —
+//   même résultat, même parsing, aucune autre modification.
 //
 // ⚠️ AVANT MODIFICATION : lire new-prompts/prompt_mode_rapide_profil.md (LA doctrine
 //    est dans le conducteur, jamais dans le code) et l'acte de fixation (partie IV).
@@ -62,11 +68,13 @@ async function construireEntree(candidat_id) {
 async function appelerAgent(entree) {
   const client = new Anthropic();
   const prompt = fs.readFileSync(PROMPT_PATH, 'utf8');
-  const msg = await client.messages.create({
+  // ⭐ v2.1 — streaming obligatoire pour les grandes sorties (le SDK refuse sinon).
+  const stream = client.messages.stream({
     model: MODEL, max_tokens: 32000, temperature: 0,
     system: prompt,
     messages: [{ role: 'user', content: 'ENTRÉE JSON :\n' + JSON.stringify(entree, null, 2) }]
   });
+  const msg = await stream.finalMessage();
   const texte = msg.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
   const mA = texte.match(/<analyse>([\s\S]*?)<\/analyse>/);
   const analyse = mA ? mA[1].trim() : '(analyse absente)';
