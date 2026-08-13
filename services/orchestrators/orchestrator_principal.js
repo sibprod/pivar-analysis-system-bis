@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur principal — Profil-Cognitif v10.11
+// Orchestrateur principal — Profil-Cognitif v10.12
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
@@ -41,6 +41,19 @@
 //   - BILAN_FABLE_PA_OK             → ignoré (sentinelle : 5 piliers produits, validation des modes ; aval relancé manuellement via REPRENDRE_BILAN_PB/PD)
 //   - BILAN_FABLE_TERMINE           → ignoré (bilan Fable produit, terminal)
 //   - MODE_RAPIDE_TERMINE           → ignoré (mode rapide produit, terminal) ⭐ v10.11
+//
+// ⭐ PHASE v10.12 (2026-08-13) — CONTRÔLE MODE RAPIDE DIFFÉRÉ (workflow garante) :
+//   Cas d'usage : le mode rapide est déclenché AVANT le protocole complet (tri
+//   logique) — sa ligne reste alors NON_COMPARE. Quand le protocole complet
+//   progresse ensuite, le contrôle doit se faire tout seul à l'issue.
+//   - ⭐ Après tout traitement réussi (succès ou stopReason), le principal tente
+//     le contrôle SI une ligne MODE_RAPIDE existe pour le candidat ET qu'elle est
+//     encore NON_COMPARE. Meilleur effort strict : jamais bloquant, aucun statut
+//     touché, aucune erreur remontée. Sorties rapides : pas de ligne rapide →
+//     rien ; déjà comparée → rien ; architecture T3 absente → NON_COMPARE
+//     conservé (retentera au passage suivant du pipeline).
+//   - Dès que l'architecture existe (chaîne bilan terminée), le premier passage
+//     remplit la comparaison — ensuite plus jamais re-déclenché (statut ≠ NON_COMPARE).
 //
 // ⭐ PHASE v10.11 (2026-08-13) — MODE RAPIDE L4 :
 //   - ⭐ Ajout du require orchestrator_mode_rapide (services/mode-rapide/).
@@ -86,6 +99,8 @@ const orchestratorExcellences    = require('./orchestrator_etape2_b_excellences'
 const orchestratorPromptEtape1   = require('./orchestrator_etape1_responses');
 const orchestratorEtape3Bilan    = require('./orchestrator_etape1_T3_bilan');
 const orchestratorModeRapide     = require('../mode-rapide/orchestrator_mode_rapide');   // ⭐ v10.11 (13/08/2026)
+const accesModeRapide            = require('../mode-rapide/acces_mode_rapide');           // ⭐ v10.12 — contrôle différé
+const serviceControleModeRapide  = require('../mode-rapide/service_mode_rapide_controle'); // ⭐ v10.12 — contrôle différé
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -104,7 +119,7 @@ async function processCandidate(session_id) {
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal v10.11 — processCandidate         ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.12 — processCandidate         ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
@@ -162,6 +177,22 @@ async function processCandidate(session_id) {
         totalElapsedMs,
         totalElapsedSec: (totalElapsedMs / 1000).toFixed(1)
       });
+    }
+
+    // ─── ⭐ v10.12 — Contrôle mode rapide différé (meilleur effort strict) ──
+    // Si un profil rapide existe et n'a jamais été comparé, le protocole venant
+    // de progresser, on tente la comparaison. Ne bloque jamais, ne touche aucun
+    // statut, n'écrit que les champs de contrôle de la ligne MODE_RAPIDE.
+    try {
+      const ligneRapide = await accesModeRapide.getModeRapideDerniere(candidat_id);
+      if (ligneRapide && ligneRapide.concordance_statut === 'NON_COMPARE') {
+        const ctrl = await serviceControleModeRapide.run({ candidat_id });
+        if (ctrl.concordance !== 'NON_COMPARE') {
+          logger.info('⭐ Contrôle mode rapide différé exécuté', { candidat_id, concordance: ctrl.concordance });
+        }
+      }
+    } catch (eCtrl) {
+      logger.debug('Contrôle mode rapide différé non exécuté (non bloquant)', { candidat_id, error: eCtrl.message });
     }
 
     return {
