@@ -1,7 +1,19 @@
 // routes/index.js
-// Routes HTTP — Profil-Cognitif v12.1
+// Routes HTTP — Profil-Cognitif v12.2
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// PHASE v12.2b (2026-08-13) — Visualisation MODE RAPIDE (L4) :
+//   - ⭐ Ajout require acces_mode_rapide (services/mode-rapide/).
+//   - ⭐ Ajout route GET /visualiser/mode-rapide/:candidat_id
+//     + ALIAS /visualiser/mode-rapide_bilancognitif/:candidat_id (le chemin
+//     utilisé par la formule Airtable de la garante, champ VISITEUR
+//     lien_visualiser_mode-rapide_bilancognitif) — les deux URLs servent la
+//     même vue, la formule existante fonctionne telle quelle.
+//     Même pattern que les vues tableau2* (mode JSON { row } + mode HTML qui sert
+//     services/visualisation/visu_mode_rapide.html). Lit la DERNIÈRE ligne
+//     MODE_RAPIDE du candidat (portrait + contrôle mode rapide ↔ protocole).
+//     Lecture seule. Aucune autre modification : tout le reste est identique à v12.1.
 //
 // PHASE v12.1 (2026-06-18) — Visualisation table figée CIRCUITS_POURBILAN :
 //   - ⭐ Ajout route GET /visualiser/tableau2circuitspourbilan/:candidat_id
@@ -33,6 +45,7 @@ const queueService          = require('../services/flux/queueService');
 const airtableService       = require('../services/infrastructure/airtableService');
 const backupService         = require('../services/infrastructure/backupService');
 const agentTestDecGen       = require('../services/etape2/agent_etape2_c_TESTDEC_generation');
+const accesModeRapide       = require('../services/mode-rapide/acces_mode_rapide');   // ⭐ v12.2 (13/08/2026)
 const tableauT3bilanPayloadService = require('../services/visualisation/service_etape1_T3_bilan_payload') // ancien tableauT3bilanPayloadService;
 // ⭐ v12.0
 const bilanFablePayloadService = require('../services/visualisation/service_etape1_T3_bilan_payload');
@@ -597,6 +610,45 @@ router.get('/visualiser/tableau3circuitspourbilandef/:candidat_id', async (req, 
   const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_etape1_T3_circuitspourbilandef.html');
   res.sendFile(htmlPath, function(err) {
     if (err && !res.headersSent) res.status(500).type('html').send('<html><body><h1>Erreur tableau3circuitspourbilandef</h1></body></html>');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ v12.2 (13/08/2026) — GET /visualiser/mode-rapide/:candidat_id
+// PROFIL COGNITIF — MODE RAPIDE (L4). Même pattern que les vues tableau2*.
+// Mode JSON : { row } = la DERNIÈRE ligne MODE_RAPIDE du candidat (portrait,
+// tests, gestes, glissements, marqueurs, ET les champs de contrôle mode
+// rapide ↔ protocole complet quand le contrôle a tourné).
+// Mode HTML : sert services/visualisation/visu_mode_rapide.html.
+// Lecture seule (acces_mode_rapide — aucune écriture par cette route).
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.get(['/visualiser/mode-rapide/:candidat_id', '/visualiser/mode-rapide_bilancognitif/:candidat_id'], async (req, res) => {
+  const candidat_id = req.params.candidat_id;
+  if (!candidat_id || candidat_id.length < 5 || candidat_id.length > 100) {
+    return res.status(400).type('html').send('<html><body style="font-family:sans-serif;padding:40px;text-align:center;"><h1>Identifiant candidat invalide</h1></body></html>');
+  }
+  const acceptHeader = req.headers.accept || '';
+  const fetchMode    = req.headers['sec-fetch-mode'] || '';
+  const formatParam  = (req.query && req.query.format) || '';
+  const wantsJson = acceptHeader.includes('application/json') || formatParam === 'json' || fetchMode === 'cors';
+
+  if (wantsJson) {
+    logger.info('Visualisation mode-rapide — mode JSON', { candidat_id });
+    try {
+      const row = await accesModeRapide.getModeRapideDerniere(candidat_id);
+      if (!row) return res.status(404).json({ error: 'Aucune exécution mode rapide pour ce candidat', candidat_id, row: null });
+      return res.json({ row });
+    } catch (error) {
+      logger.error('Visualisation mode-rapide — erreur', { candidat_id, error: error.message });
+      return res.status(500).json({ error: error.message, candidat_id });
+    }
+  }
+
+  logger.info('Visualisation mode-rapide — mode HTML', { candidat_id });
+  const htmlPath = path.join(__dirname, '..', 'services', 'visualisation', 'visu_mode_rapide.html');
+  res.sendFile(htmlPath, function(err) {
+    if (err && !res.headersSent) res.status(500).type('html').send('<html><body><h1>Erreur mode-rapide</h1></body></html>');
   });
 });
 
