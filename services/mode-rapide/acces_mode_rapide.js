@@ -1,5 +1,10 @@
 // services/mode-rapide/acces_mode_rapide.js
-// Accès Airtable AUTONOME du mode rapide — v1.0 (13/08/2026) — Profil-Cognitif
+// Accès Airtable AUTONOME du mode rapide — v1.1 (13/08/2026) — Profil-Cognitif
+//
+// v1.1 — CORRECTIF nom du jeton (incident 13/08, 13h17) : la variable du service
+//   s'appelle AIRTABLE_TOKEN (cf. server.js, requiredEnv, et la route de debug) —
+//   pas AIRTABLE_API_KEY. Résolution au pattern maison : AIRTABLE_TOKEN d'abord,
+//   AIRTABLE_API_KEY en repli. Aucune autre modification.
 //
 // POURQUOI CE FICHIER EXISTE : pour que le déploiement du mode rapide ne modifie
 // AUCUN fichier existant (décision garante 13/08 : « je ne touche jamais un fichier »).
@@ -19,7 +24,7 @@ const logger   = require('../../utils/logger');
 let cfg = {};
 try { cfg = require('../../config/airtable'); } catch (e) { cfg = {}; }
 
-const API_KEY = (cfg.API_KEY || cfg.apiKey || process.env.AIRTABLE_API_KEY);
+const API_KEY = (cfg.API_KEY || cfg.apiKey || process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY);   // ⭐ v1.1 — AIRTABLE_TOKEN = la variable du service
 const BASE_ID = (cfg.BASE_ID || cfg.baseId || process.env.AIRTABLE_BASE_ID || 'appgghhXjYBdFRras');
 const TABLES  = cfg.TABLES || {};
 
@@ -30,7 +35,7 @@ const T_T3_BILAN    = TABLES.ETAPE1_T3_BILAN   || 'ETAPE1_T3_BILAN';
 let _base = null;
 function base() {
   if (!_base) {
-    if (!API_KEY) throw new Error('AIRTABLE_API_KEY manquant (env ou config/airtable)');
+    if (!API_KEY) throw new Error('AIRTABLE_TOKEN / AIRTABLE_API_KEY manquant (env ou config/airtable)');
     _base = new Airtable({ apiKey: API_KEY }).base(BASE_ID);
   }
   return _base;
