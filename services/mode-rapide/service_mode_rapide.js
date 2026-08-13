@@ -1,197 +1,121 @@
-/**
- * ════════════════════════════════════════════════════════════════════════
- * SERVICE MODE RAPIDE DE PROFILING (« PROFIL V ») — L4 · v1.1 · 13/08/2026
- * Profil-Cognitif Sib Prod
- *
- * PRINCIPE : 1 candidat → 1 appel agent (conducteur prompt_mode_rapide_profilV.md)
- *   → portrait de gouvernance (socle, filtre, rôles, modes, gestes sourcés).
- *   Statut : PROTOTYPE (verrous AM-07 architecture / AM-08 étalonnage non levés).
- *
- * RÈGLES DURES :
- *   - ÉCRITURE CONFINÉE : ce service écrit UNIQUEMENT dans la table MODE_RAPIDE
- *     (une ligne par exécution — l'historique est conservé). Il ne touche JAMAIS
- *     aux tables du protocole ni aux référentiels. Sorties disque en complément.
- *   - Température 0. Le prompt est chargé depuis le fichier — la doctrine est
- *     dans le conducteur, jamais dans le code.
- *   - Doctrine du NON CONCLUSIF respectée telle que rendue par l'agent.
- *
- * ENTRÉES (deux modes) :
- *   A. Airtable : --candidat <id>       → lit questions + réponses en base.
- *   B. Fichier  : --candidat <id> --input reponses.json
- *      (format : [ { "qid":"P1Q2", "reponse":"..." }, ×25 ] — l'instrument est
- *       toujours lu en base, ou via --instrument instrument.json)
- *
- * USAGE :
- *   node service_mode_rapide.js --candidat <id>                  → exécute, écrit ./out
- *   node service_mode_rapide.js --candidat <id> --dry-run        → n'écrit rien, affiche
- *   Variables d'env : ANTHROPIC_API_KEY, AIRTABLE_API_KEY (mode A)
- * ════════════════════════════════════════════════════════════════════════
- */
+// services/mode-rapide/service_mode_rapide.js
+// Service MODE RAPIDE (« Profil V ») — L4 · v2.0 (13/08/2026) — Profil-Cognitif
+//
+// ⚠️ AVANT MODIFICATION : lire new-prompts/prompt_mode_rapide_profil.md (LA doctrine
+//    est dans le conducteur, jamais dans le code) et l'acte de fixation (partie IV).
+//
+// PRINCIPE : 1 candidat → 1 appel agent → portrait de gouvernance (socle, filtre,
+//   rôles, modes, gestes sourcés verbatim) écrit dans la table MODE_RAPIDE.
+//   Statut : PROTOTYPE (verrous AM-07 architecture / AM-08 étalonnage non levés).
+//
+// RÈGLES DURES :
+//   - ÉCRITURE CONFINÉE : n'écrit QUE dans MODE_RAPIDE (1 ligne par exécution,
+//     l'historique est conservé). Ne touche JAMAIS aux tables du protocole ni aux
+//     référentiels. (Consigne CA-08, 13/08/2026.)
+//   - Température 0. Modèle claude-sonnet-4-6.
+//   - Doctrine du NON CONCLUSIF respectée telle que rendue par l'agent.
+//
+// ENTRÉE : les 25 lignes RESPONSES du candidat (via airtableService.getResponses) —
+//   elles portent À LA FOIS l'instrument (question_text, pilier, scenario_nom,
+//   numero_global) et la réponse (response_text). Aucune autre lecture.
+
 'use strict';
-const fs = require('fs');
+
+const fs   = require('fs');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
 
-// ── CONFIG ────────────────────────────────────────────────────────────────
-const BASE_ID     = 'appgghhXjYBdFRras';
-const T_QUESTIONS = 'tblplgCMOqQYBd40o';   // questions_pivar_scenario
-const T_RESPONSES = 'tblXThYoxv33La6B6';   // RESPONSES
-const T_MODE_RAPIDE = 'tblXXXXXXXXXXXXXX';  // ⚠ MODE_RAPIDE — coller l'ID après création (cf. TABLE_MODE_RAPIDE_SPEC.md)
-// ⚠ À VÉRIFIER PAR LA GARANTE avant premier run en mode A : les NOMS exacts des
-//   champs de RESPONSES (le REST Airtable renvoie les noms, pas les IDs).
-const F_RESP = {
-  candidat: 'candidat_id',      // champ identifiant le candidat sur la ligne réponse
-  qid:      'id_question',      // champ code question (P1Q2…)
-  texte:    'reponse_text',     // champ texte intégral de la réponse
-};
-const MODEL = 'claude-sonnet-4-6';
-const PROMPT_PATH = path.join(__dirname, 'prompt_mode_rapide_profilV.md');
+const airtableService = require('../infrastructure/airtableService'); // fonctions EXISTANTES uniquement (getResponses)
+const accesModeRapide  = require('./acces_mode_rapide');               // accès autonome MODE_RAPIDE (aucun fichier existant modifié)
+const logger          = require('../../utils/logger');
 
-// ── Airtable REST (lecture seule) ─────────────────────────────────────────
-async function atList(table, params = {}) {
-  const key = process.env.AIRTABLE_API_KEY;
-  if (!key) throw new Error('AIRTABLE_API_KEY manquant');
-  let records = [], offset;
-  do {
-    const url = new URL(`https://api.airtable.com/v0/${BASE_ID}/${table}`);
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-    if (offset) url.searchParams.set('offset', offset);
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`Airtable ${table} : HTTP ${r.status} — ${await r.text()}`);
-    const j = await r.json();
-    records = records.concat(j.records || []);
-    offset = j.offset;
-  } while (offset);
-  return records;
+const MODEL       = 'claude-sonnet-4-6';
+const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
+const VERSION_CONDUCTEUR = 'prompt_mode_rapide_profil v1.0';
+
+const _sel = v => (v && typeof v === 'object' && v.name !== undefined) ? v.name : (v == null ? '' : String(v));
+
+// ─── BUILDER — instrument + réponses depuis les 25 lignes RESPONSES ─────────
+async function construireEntree(candidat_id) {
+  const rows = await airtableService.getResponses(candidat_id);
+  if (!rows || rows.length === 0) throw new Error(`Aucune ligne RESPONSES pour ${candidat_id}`);
+  const instrument = [], reponses = [];
+  for (const r of rows) {
+    const qid = r.id_question || null;
+    if (!qid) continue;
+    instrument.push({
+      qid,
+      pilier_vise: _sel(r.pilier),
+      scenario:    _sel(r.scenario_nom),
+      position:    r.numero_global || null,
+      question:    r.question_text || ''
+    });
+    reponses.push({ qid, reponse: r.response_text || '' });
+  }
+  if (reponses.length !== 25) {
+    logger.warn('[ModeRapide] nombre de réponses inattendu', { candidat_id, count: reponses.length, attendu: 25 });
+  }
+  return { candidat_id, instrument, reponses, cas_resolu: null };
 }
 
-// ── BUILDER ───────────────────────────────────────────────────────────────
-async function lireInstrument(instrumentFile) {
-  if (instrumentFile) return JSON.parse(fs.readFileSync(instrumentFile, 'utf8'));
-  const recs = await atList(T_QUESTIONS, {});
-  const rows = recs.map(r => ({
-    qid:         r.fields['id_question'],
-    pilier_vise: (r.fields['pilier'] && r.fields['pilier'].name) || r.fields['pilier'] || '',
-    scenario:    (r.fields['scenario_nom'] && r.fields['scenario_nom'].name) || r.fields['scenario_nom'] || '',
-    position:    r.fields['position_narrative'],
-    question:    r.fields['question_text'] || '',
-    guidance:    r.fields['guidance_new'] || r.fields['guidance'] || '',
-    amorce:      r.fields['amorce_reponse'] || '',
-  })).filter(x => x.qid);
-  rows.sort((a, b) => (a.position || 0) - (b.position || 0));
-  if (rows.length !== 25) console.warn(`⚠ instrument : ${rows.length} questions lues (25 attendues)`);
-  return rows;
-}
-
-async function lireReponses(cid, inputFile) {
-  if (inputFile) return JSON.parse(fs.readFileSync(inputFile, 'utf8'));
-  const formula = `{${F_RESP.candidat}}='${cid.replace(/'/g, "\\'")}'`;
-  const recs = await atList(T_RESPONSES, { filterByFormula: formula });
-  const rows = recs.map(r => ({
-    qid:     r.fields[F_RESP.qid] && (r.fields[F_RESP.qid].name || r.fields[F_RESP.qid]),
-    reponse: r.fields[F_RESP.texte] || '',
-  })).filter(x => x.qid && x.reponse);
-  if (rows.length !== 25) console.warn(`⚠ réponses : ${rows.length} lues pour ${cid} (25 attendues) — vérifier F_RESP`);
-  return rows;
-}
-
-// ── AGENT ─────────────────────────────────────────────────────────────────
+// ─── AGENT ──────────────────────────────────────────────────────────────────
 async function appelerAgent(entree) {
   const client = new Anthropic();
   const prompt = fs.readFileSync(PROMPT_PATH, 'utf8');
   const msg = await client.messages.create({
     model: MODEL, max_tokens: 32000, temperature: 0,
     system: prompt,
-    messages: [{ role: 'user', content: 'ENTRÉE JSON :\n' + JSON.stringify(entree, null, 2) }],
+    messages: [{ role: 'user', content: 'ENTRÉE JSON :\n' + JSON.stringify(entree, null, 2) }]
   });
   const texte = msg.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
   const mA = texte.match(/<analyse>([\s\S]*?)<\/analyse>/);
   const analyse = mA ? mA[1].trim() : '(analyse absente)';
-  const jsonBrut = texte.replace(/<analyse>[\s\S]*?<\/analyse>/, '').replace(/```json|```/g, '').trim();
-  const debut = jsonBrut.indexOf('{'), fin = jsonBrut.lastIndexOf('}');
-  if (debut < 0 || fin < 0) throw new Error('Agent : JSON introuvable dans la sortie');
-  const sortie = JSON.parse(jsonBrut.slice(debut, fin + 1));
-  return { sortie, analyse };
+  const brut = texte.replace(/<analyse>[\s\S]*?<\/analyse>/, '').replace(/```json|```/g, '').trim();
+  const d = brut.indexOf('{'), f = brut.lastIndexOf('}');
+  if (d < 0 || f < 0) throw new Error('ModeRapide : JSON introuvable dans la sortie agent');
+  const sortie = JSON.parse(brut.slice(d, f + 1));
+  const usage = msg.usage || {};
+  return { sortie, analyse, usage };
 }
 
-// ── WRITER AIRTABLE (MODE_RAPIDE uniquement) ─────────────────────────────
-async function ecrireModeRapide(cid, sortie, analyse) {
-  const key = process.env.AIRTABLE_API_KEY;
+// ─── RUN ────────────────────────────────────────────────────────────────────
+async function run({ candidat_id }) {
+  if (!candidat_id) throw new Error('service_mode_rapide.run : candidat_id requis');
+  const t0 = Date.now();
+  logger.info('[ModeRapide] ▶ démarrage', { candidat_id });
+
+  const entree = await construireEntree(candidat_id);
+  const { sortie, analyse, usage } = await appelerAgent(entree);
+
   const fields = {
-    candidat_id: cid,
-    date_execution: new Date().toISOString(),
-    version_conducteur: 'prompt_mode_rapide_profilV v1.0',
-    modele: MODEL,
-    statut_resultat: sortie.non_conclusif ? 'NON_CONCLUSIF' : 'CONCLUSIF',
-    socle: sortie.socle || null,
-    rival_examine: sortie.rival_examine || '',
-    roles_json: JSON.stringify(sortie.roles || {}),
-    filtre: sortie.filtre || '',
-    modes_json: JSON.stringify(sortie.modes || {}),
-    gestes_json: JSON.stringify(sortie.gestes || []),
-    glissements_json: JSON.stringify(sortie.glissements || []),
-    marqueurs_json: JSON.stringify(sortie.marqueurs_affectifs || []),
+    date_execution:       new Date().toISOString(),
+    version_conducteur:   VERSION_CONDUCTEUR,
+    modele:               MODEL,
+    statut_resultat:      sortie.non_conclusif ? 'NON_CONCLUSIF' : 'CONCLUSIF',
+    socle:                sortie.socle || undefined,
+    rival_examine:        sortie.rival_examine || '',
+    roles_json:           JSON.stringify(sortie.roles || {}),
+    filtre:               sortie.filtre || '',
+    modes_json:           JSON.stringify(sortie.modes || {}),
+    gestes_json:          JSON.stringify(sortie.gestes || []),
+    glissements_json:     JSON.stringify(sortie.glissements || []),
+    marqueurs_json:       JSON.stringify(sortie.marqueurs_affectifs || []),
     tests_departage_json: JSON.stringify(sortie.tests_departage || {}),
-    portrait_markdown: sortie.portrait_markdown || '',
-    analyse_verbalisee: analyse || '',
-    protocole_existe: false,
-    concordance_statut: 'NON_COMPARE',
+    portrait_markdown:    sortie.portrait_markdown || '',
+    analyse_verbalisee:   analyse,
+    protocole_existe:     false,
+    concordance_statut:   'NON_COMPARE'
   };
-  Object.keys(fields).forEach(k => (fields[k] === null) && delete fields[k]);
-  const r = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${T_MODE_RAPIDE}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ records: [{ fields }] }),
+  const recId = await accesModeRapide.createModeRapide(candidat_id, fields);
+
+  const elapsedMs = Date.now() - t0;
+  logger.info('[ModeRapide] ✅ portrait écrit', {
+    candidat_id, recId,
+    resultat: sortie.non_conclusif ? 'NON_CONCLUSIF' : `socle ${sortie.socle}`,
+    input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, elapsedMs
   });
-  if (!r.ok) throw new Error(`MODE_RAPIDE write : HTTP ${r.status} — ${await r.text()}`);
-  const j = await r.json();
-  return j.records[0].id;
+  return { success: true, candidat_id, modeRapideRecId: recId,
+           non_conclusif: !!sortie.non_conclusif, socle: sortie.socle || null, sortie, elapsedMs };
 }
 
-// ── WRITER DISQUE ─────────────────────────────────────────────────────────
-function ecrire(cid, sortie, analyse, outDir) {
-  fs.mkdirSync(outDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const base = path.join(outDir, `${cid}_${stamp}`);
-  fs.writeFileSync(base + '_profilV.json', JSON.stringify(sortie, null, 2), 'utf8');
-  fs.writeFileSync(base + '_analyse.md', '# Trace <analyse> de l\'agent\n\n' + analyse, 'utf8');
-  fs.writeFileSync(base + '_portrait.md', sortie.portrait_markdown || '(portrait absent)', 'utf8');
-  return base;
-}
-
-// ── RUN ───────────────────────────────────────────────────────────────────
-async function run(opts = {}) {
-  const argv = process.argv.slice(2);
-  const arg = f => argv.includes(f) ? argv[argv.indexOf(f) + 1] : null;
-  const cid = opts.candidat_id || arg('--candidat');
-  if (!cid) throw new Error('--candidat <id> obligatoire');
-  const dry = opts.dry_run === true || argv.includes('--dry-run');
-  const outDir = opts.out || arg('--out') || path.join(__dirname, 'out');
-
-  console.log(`[ProfilV] Candidat ${cid} — mode rapide L4 (prototype, lecture seule)`);
-  const instrument = await lireInstrument(opts.instrument || arg('--instrument'));
-  const reponses   = await lireReponses(cid, opts.input || arg('--input'));
-  console.log(`[ProfilV] Instrument : ${instrument.length} questions · Réponses : ${reponses.length}`);
-
-  const entree = { candidat_id: cid, instrument, reponses, cas_resolu: null };
-  const { sortie, analyse } = await appelerAgent(entree);
-
-  if (sortie.non_conclusif) {
-    console.log('[ProfilV] ⚠ NON CONCLUSIF — protocole complet requis (doctrine OP-4 respectée)');
-  } else {
-    console.log(`[ProfilV] Socle : ${sortie.socle} · Rival examiné : ${sortie.rival_examine}`);
-    console.log(`[ProfilV] Filtre : « ${sortie.filtre} »`);
-  }
-  if (dry) { console.log('\n── <analyse> ──\n' + analyse); console.log('\n── JSON ──\n' + JSON.stringify(sortie, null, 2)); return { ok: true, dryRun: true, sortie }; }
-  const base = ecrire(cid, sortie, analyse, outDir);
-  let recId = null;
-  if (!argv.includes('--no-airtable') && opts.airtable !== false) {
-    recId = await ecrireModeRapide(cid, sortie, analyse);
-    console.log(`[ProfilV] ✅ MODE_RAPIDE : ligne ${recId} créée`);
-  }
-  console.log(`[ProfilV] ✅ Disque : ${base}_{profilV.json, analyse.md, portrait.md}`);
-  return { ok: true, candidat_id: cid, files: base, modeRapideRecId: recId, sortie };
-}
-
-if (require.main === module) run().catch(e => { console.error(e); process.exit(1); });
-module.exports = { lireInstrument, lireReponses, appelerAgent, ecrire, ecrireModeRapide, run, T_MODE_RAPIDE, BASE_ID };
+module.exports = { run, construireEntree, appelerAgent };
