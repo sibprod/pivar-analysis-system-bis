@@ -1,5 +1,16 @@
 // services/mode-rapide/service_mode_rapide.js
-// Service MODE RAPIDE (« Profil V ») — L4 · v2.2 (13/08/2026) — Profil-Cognitif
+// Service MODE RAPIDE (« Profil V ») — L4 · v2.4 (13/08/2026) — Profil-Cognitif
+//
+// v2.4 — Le modèle se pilote depuis l'environnement Render comme le reste du
+//   service : CLAUDE_MODEL (confirmé garante : claude-sonnet-4-6), avec repli
+//   sur claude-sonnet-4-6 si absent. Le nom du modèle réellement utilisé est
+//   écrit dans chaque ligne MODE_RAPIDE (champ modele) — traçabilité des runs.
+//
+// v2.3 — CORRECTIF clé API (incident 13/08, 12h51) : la variable d'environnement
+//   du service s'appelle CLAUDE_API_KEY (cf. server.js, requiredEnv) — le SDK ne
+//   trouvait pas ANTHROPIC_API_KEY. Résolution au pattern maison (comme le
+//   service PA) : CLAUDE_API_KEY d'abord, ANTHROPIC_API_KEY en repli, clé passée
+//   explicitement au client. Aucune autre modification.
 //
 // v2.2 — COÛT PAR PROFIL (demande garante, pricing) : chaque exécution calcule
 //   son coût exact en USD depuis les tokens réellement consommés (msg.usage) et
@@ -42,7 +53,7 @@ const airtableService = require('../infrastructure/airtableService'); // fonctio
 const accesModeRapide  = require('./acces_mode_rapide');               // accès autonome MODE_RAPIDE (aucun fichier existant modifié)
 const logger          = require('../../utils/logger');
 
-const MODEL       = 'claude-sonnet-4-6';
+const MODEL       = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // ⭐ v2.4 — piloté par Render
 const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
 const VERSION_CONDUCTEUR = 'prompt_mode_rapide_profil v1.0';
 
@@ -83,7 +94,10 @@ async function construireEntree(candidat_id) {
 
 // ─── AGENT ──────────────────────────────────────────────────────────────────
 async function appelerAgent(entree) {
-  const client = new Anthropic();
+  // ⭐ v2.3 — clé API au pattern maison (CLAUDE_API_KEY, repli ANTHROPIC_API_KEY).
+  const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('CLAUDE_API_KEY / ANTHROPIC_API_KEY manquante');
+  const client = new Anthropic({ apiKey });
   const prompt = fs.readFileSync(PROMPT_PATH, 'utf8');
   // ⭐ v2.1 — streaming obligatoire pour les grandes sorties (le SDK refuse sinon).
   const stream = client.messages.stream({
