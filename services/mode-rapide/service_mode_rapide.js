@@ -1,5 +1,12 @@
 // services/mode-rapide/service_mode_rapide.js
-// Service MODE RAPIDE (« Profil V ») — L4 · v2.1 (13/08/2026) — Profil-Cognitif
+// Service MODE RAPIDE (« Profil V ») — L4 · v2.2 (13/08/2026) — Profil-Cognitif
+//
+// v2.2 — COÛT PAR PROFIL (demande garante, pricing) : chaque exécution calcule
+//   son coût exact en USD depuis les tokens réellement consommés (msg.usage) et
+//   l'écrit dans la ligne MODE_RAPIDE (champs cout_usd, tokens_entree,
+//   tokens_sortie — à créer dans la table, type Number). Tarif claude-sonnet-4-6
+//   vérifié le 13/08/2026 : 3 $/M tokens d'entrée, 15 $/M tokens de sortie —
+//   constantes ci-dessous, à ajuster si Anthropic change ses prix.
 //
 // v2.1 — CORRECTIF premier lancement (incident 13/08, 12h35) : le SDK Anthropic
 //   refuse un appel non-streamé au-delà de son seuil (max_tokens 32000 → erreur
@@ -38,6 +45,16 @@ const logger          = require('../../utils/logger');
 const MODEL       = 'claude-sonnet-4-6';
 const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
 const VERSION_CONDUCTEUR = 'prompt_mode_rapide_profil v1.0';
+
+// ⭐ v2.2 — Tarif API (USD par MILLION de tokens), vérifié le 13/08/2026.
+const PRIX_INPUT_PAR_MTOK  = 3.00;
+const PRIX_OUTPUT_PAR_MTOK = 15.00;
+function calculerCoutUsd(usage) {
+  const tin  = (usage && usage.input_tokens)  || 0;
+  const tout = (usage && usage.output_tokens) || 0;
+  const cout = (tin / 1e6) * PRIX_INPUT_PAR_MTOK + (tout / 1e6) * PRIX_OUTPUT_PAR_MTOK;
+  return { tokens_entree: tin, tokens_sortie: tout, cout_usd: Math.round(cout * 10000) / 10000 };
+}
 
 const _sel = v => (v && typeof v === 'object' && v.name !== undefined) ? v.name : (v == null ? '' : String(v));
 
@@ -114,16 +131,23 @@ async function run({ candidat_id }) {
     protocole_existe:     false,
     concordance_statut:   'NON_COMPARE'
   };
+  // ⭐ v2.2 — coût exact de l'exécution (pour le pricing garante)
+  const cout = calculerCoutUsd(usage);
+  fields.tokens_entree = cout.tokens_entree;
+  fields.tokens_sortie = cout.tokens_sortie;
+  fields.cout_usd      = cout.cout_usd;
   const recId = await accesModeRapide.createModeRapide(candidat_id, fields);
 
   const elapsedMs = Date.now() - t0;
   logger.info('[ModeRapide] ✅ portrait écrit', {
     candidat_id, recId,
     resultat: sortie.non_conclusif ? 'NON_CONCLUSIF' : `socle ${sortie.socle}`,
-    input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, elapsedMs
+    input_tokens: usage.input_tokens, output_tokens: usage.output_tokens,
+    cout_usd: fields.cout_usd, elapsedMs
   });
   return { success: true, candidat_id, modeRapideRecId: recId,
-           non_conclusif: !!sortie.non_conclusif, socle: sortie.socle || null, sortie, elapsedMs };
+           non_conclusif: !!sortie.non_conclusif, socle: sortie.socle || null,
+           cout_usd: fields.cout_usd, sortie, elapsedMs };
 }
 
 module.exports = { run, construireEntree, appelerAgent };
