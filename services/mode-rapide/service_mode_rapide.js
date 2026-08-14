@@ -1,260 +1,34 @@
-// services/mode-rapide/service_mode_rapide.js
-// Service MODE RAPIDE — L4 · v3.0 (13/08/2026) — Profil-Cognitif
-//
-// v3.0 — DOCTRINE INJECTÉE + CALCUL MÉCANIQUE (décision garante : un mode rapide
-//   FIABLE pour la production ; l'expérience d'inimitabilité reste figée sur v1.x).
-//   Architecture en DEUX ÉTAGES, miniature du protocole :
-//     Étage 1 (agent, prompt_mode_rapide_codage.md) : code les gestes — sortie,
-//       service, verbatim — JSON compact, ~3 min.
-//     Entre les deux (CODE, pas IA) : le serveur CALCULE la table — en_propre,
-//       receptions (le socle est le pilier le plus servi), émissions, flux,
-//       glissements. Le calcul qui départage est mécanique, comme au protocole.
-//     Étage 2 (agent, prompt_mode_rapide_profil.md v2.0) : applique la doctrine
-//       (D1 receveur → D6 preuve) sur la table calculée, écrit le portrait.
-//   Les deux conducteurs sont des ACTIFS SENSIBLES (serveur uniquement).
-//   Sortie/écriture/contrôle inchangés. Coût = somme des deux appels.
-//
-// v2.6 — CAS RÉSOLU DE CALIBRAGE (reproduction du dispositif de l'épreuve E2,
-//   décision garante : sans 100 % sur le socle et un filtre fiable, l'outil n'est
-//   pas retenu — AM-08). Le service charge new-prompts/mode_rapide_cas_resolu.md
-//   s'il existe et le passe en entrée (cas_resolu). GARDE-FOU : si le candidat
-//   analysé EST le candidat du cas résolu (liste CAS_RESOLU_INTERDIT_POUR,
-//   surchageable par env), le cas est retiré — on ne donne jamais à l'agent le
-//   corrigé de la copie qu'il analyse.
-// v2.5 — Version du conducteur portée à v1.1 (durcissement OP-3/OP-4/non-conclusif).
-//
-// v2.4 — Le modèle se pilote depuis l'environnement Render comme le reste du
-//   service : CLAUDE_MODEL (confirmé garante : claude-sonnet-4-6), avec repli
-//   sur claude-sonnet-4-6 si absent. Le nom du modèle réellement utilisé est
-//   écrit dans chaque ligne MODE_RAPIDE (champ modele) — traçabilité des runs.
-//
-// v2.3 — CORRECTIF clé API (incident 13/08, 12h51) : la variable d'environnement
-//   du service s'appelle CLAUDE_API_KEY (cf. server.js, requiredEnv) — le SDK ne
-//   trouvait pas ANTHROPIC_API_KEY. Résolution au pattern maison (comme le
-//   service PA) : CLAUDE_API_KEY d'abord, ANTHROPIC_API_KEY en repli, clé passée
-//   explicitement au client. Aucune autre modification.
-//
-// v2.2 — COÛT PAR PROFIL (demande garante, pricing) : chaque exécution calcule
-//   son coût exact en USD depuis les tokens réellement consommés (msg.usage) et
-//   l'écrit dans la ligne MODE_RAPIDE (champs cout_usd, tokens_entree,
-//   tokens_sortie — à créer dans la table, type Number). Tarif claude-sonnet-4-6
-//   vérifié le 13/08/2026 : 3 $/M tokens d'entrée, 15 $/M tokens de sortie —
-//   constantes ci-dessous, à ajuster si Anthropic change ses prix.
-//
-// v2.1 — CORRECTIF premier lancement (incident 13/08, 12h35) : le SDK Anthropic
-//   refuse un appel non-streamé au-delà de son seuil (max_tokens 32000 → erreur
-//   « Streaming is required for operations that may take longer than 10 minutes »).
-//   L'appel passe en STREAMING (client.messages.stream + finalMessage()) —
-//   même résultat, même parsing, aucune autre modification.
-//
-// ⚠️ AVANT MODIFICATION : lire new-prompts/prompt_mode_rapide_profil.md (LA doctrine
-//    est dans le conducteur, jamais dans le code) et l'acte de fixation (partie IV).
-//
-// PRINCIPE : 1 candidat → 1 appel agent → portrait de gouvernance (socle, filtre,
-//   rôles, modes, gestes sourcés verbatim) écrit dans la table MODE_RAPIDE.
-//   Statut : PROTOTYPE (verrous AM-07 architecture / AM-08 étalonnage non levés).
-//
-// RÈGLES DURES :
-//   - ÉCRITURE CONFINÉE : n'écrit QUE dans MODE_RAPIDE (1 ligne par exécution,
-//     l'historique est conservé). Ne touche JAMAIS aux tables du protocole ni aux
-//     référentiels. (Consigne CA-08, 13/08/2026.)
-//   - Température 0. Modèle claude-sonnet-4-6.
-//   - Doctrine du NON CONCLUSIF respectée telle que rendue par l'agent.
-//
-// ENTRÉE : les 25 lignes RESPONSES du candidat (via airtableService.getResponses) —
-//   elles portent À LA FOIS l'instrument (question_text, pilier, scenario_nom,
-//   numero_global) et la réponse (response_text). Aucune autre lecture.
+# CONDUCTEUR MODE RAPIDE — ÉTAGE 1 : CODAGE DES GESTES
+Version 1.3 · 14/08/2026 — R0 remplacé par LA MÉTHODE DU PROTOCOLE (1.1) : trois angles dans l'ordre (filtre d'entrée · tension de la séquence · test de retrait) + gardes opposables, transposés sans réinvention (consigne garante : « utilise ce qui fonctionne ») · Profil-Cognitif Sib Prod · ACTIF SENSIBLE — usage serveur uniquement, ne jamais inclure dans un livrable.
 
-'use strict';
+Tu es le codeur de l'étage 1 du mode rapide. Tu reçois les 25 réponses libres d'un candidat (chacune avec son identifiant de question, ex. P3Q5 — le pilier VISÉ par la question est donné par les deux premiers caractères). Tu DÉCOMPOSES chaque réponse en gestes et tu rends UNIQUEMENT un JSON. Aucune analyse, aucune conclusion, aucun commentaire : le calcul et la détermination sont faits ailleurs.
 
-const fs   = require('fs');
-const path = require('path');
-const Anthropic = require('@anthropic-ai/sdk');
+## Les cinq piliers et leurs verbes (pour coder la SORTIE de chaque geste)
+P1 Collecte d'information : chercher, explorer, contacter, interroger, consulter, appeler.
+P2 Tri et organisation : trier, classer, ranger, noter, structurer, organiser, mémoriser.
+P3 Analyse et diagnostic : analyser, évaluer, comprendre, diagnostiquer, comparer, hiérarchiser, vérifier la fiabilité.
+P4 Création de solutions : imaginer, concevoir, planifier, combiner, scénariser, tester des hypothèses, assembler des options, prévoir des branches de secours.
+P5 Mise en œuvre et exécution : faire, agir, exécuter, coordonner, déléguer, ajuster en cours d'action, orchestrer.
 
-const airtableService = require('../infrastructure/airtableService'); // fonctions EXISTANTES uniquement (getResponses)
-const accesModeRapide  = require('./acces_mode_rapide');               // accès autonome MODE_RAPIDE (aucun fichier existant modifié)
-const logger          = require('../../utils/logger');
+## Les règles de codage (dans cet ordre STRICT, sans exception)
+R0 — L'OUTIL DE CŒUR DE LA RÉPONSE (la décision UNIQUE, prise par la méthode du protocole — trois angles DANS CET ORDRE, avant tout codage de geste) :
+  « Le dernier outil utilisé n'est pas forcément l'outil de cœur. Le verbe d'action en surface non plus. »
+  1. **Filtre d'entrée** : qu'est-ce qui sélectionne ce qui entre dans la séquence ? Un critère ? Une grille ? Un objectif d'action ? Un dispositif à fabriquer ?
+  2. **Tension de la séquence** : vers quoi tend la séquence ? Quel est le LIVRABLE FINAL vers lequel tout converge — un jugement (P3) ? un dispositif (P4) ? une action exécutée (P5) ? une couverture exhaustive (P1) ? une structure organisée (P2) ?
+  3. **Test de retrait** : si je retire cet outil de la réponse, qu'est-ce qui reste ? Si la réponse perd son sens central, c'est l'outil de cœur ; si elle garde son sens, c'est un outil au service d'un autre.
+  Le résultat est le champ "production" de la réponse — unique et verrouillé.
+  Gardes du protocole, opposables :
+  - **Ne plaque pas le pilier demandé** : une question P4 où le candidat remonte en jugement a un cœur P3 ; une question P5 où le candidat FABRIQUE un dispositif (rubrique imprévu, points de ralliement, roadbook — des éléments architecturaux) a un cœur P4 : « il ne suit pas des instructions, il conçoit un système ».
+  - **Le même matériau se départage par le livrable** : énumérer des cas POUR JUGER de ce qui est couvert et praticable → la tension est un jugement (P3) ; ouvrir des branches MAINTENUES ACTIVES dans un système qu'on fabrique → la tension est un dispositif (P4). Applique le test de retrait pour trancher.
+  - **Monolithique possible** : si la réponse est d'un seul outil du début à la fin, le cœur est cet outil — pas d'outil caché à chercher.
+  - **Tout candidat a un outil de cœur** (invariant) : si la distribution semble équilibrée, regarde COMMENT il déploie chaque outil — la façon trahit le cœur.
+  - **Mention de surface** : un pilier qui apparaît sans être un geste réellement effectué ne se code PAS (ni en geste, ni en service).
+R1 — LA SORTIE : chaque geste est codé par la NATURE DU VERBE, jamais par le pilier de la question. « Je combine des options » dans une question P1 reste un geste P4.
+R2 — LE SERVICE (ventilation SOUS la décision R0) : par défaut, tout geste de la réponse travaille pour sa production finale — "sert" = la "production" de R0, sauf si le geste EST cette production elle-même (alors sortie = production et "sert": null — c'est le geste gouvernant) ou s'il alimente clairement une production intermédiaire autre (rare : le justifier par le verbatim). Rappel : "sert" = le pilier dont la PRODUCTION CARACTÉRISTIQUE est alimentée par ce geste. Les productions : P1 → un stock d'informations ; P2 → un ordre, un classement ; P3 → un jugement, un diagnostic ; P4 → une SOLUTION ASSEMBLÉE (plan, scénario, combinaison d'options, branches de secours) ; P5 → une ACTION EN COURS d'une solution DÉJÀ ARRÊTÉE.
+  ⚠ RÈGLE ANTI-TÉLÉOLOGIE (la faute à ne jamais commettre) : ne code JAMAIS « sert P5 » au motif que tout finit par une action — c'est toujours vrai et ça ne code rien. Un geste ne sert P5 que si une solution déjà arrêtée est EN COURS D'EXÉCUTION et que le geste l'accompagne (coordonner, ajuster, dérouler). Tant que des options S'OUVRENT, SE COMBINENT ou SE SÉCURISENT, les gestes servent P4 — même exprimés en verbes d'action à l'impératif.
+  Exemples justes : évaluer des options que l'on assemble → sert P4 ; chercher des infos pour construire un plan → sert P4 ; dérouler point par point un plan déjà arrêté → P5 en propre ; ranger pour retrouver → sert P1.
+R3 — LA PREUVE : chaque geste porte un verbatim EXACT de la réponse, 15 mots maximum, jamais reformulé.
 
-const MODEL       = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // ⭐ v2.4 — piloté par Render
-const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
-const VERSION_CONDUCTEUR = 'mode rapide v2.2 — codage v1.2 (gouvernance par réponse) + profil v2.2 (les quatre autres tiroirs)';
-const PROMPT_CODAGE_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_codage.md');
-const CAS_RESOLU_PATH = path.join(__dirname, '../../new-prompts/mode_rapide_cas_resolu.md');
-// Identifiants du candidat du cas résolu (R original + R rejeu) — jamais son propre corrigé.
-const CAS_RESOLU_INTERDIT_POUR = (process.env.CAS_RESOLU_INTERDIT_POUR ||
-  'pivar_1762094675215_77bg53iz0,pcc_1786375017158_p3caz8zma').split(',').map(x => x.trim());
-
-// ⭐ v2.2 — Tarif API (USD par MILLION de tokens), vérifié le 13/08/2026.
-const PRIX_INPUT_PAR_MTOK  = 3.00;
-const PRIX_OUTPUT_PAR_MTOK = 15.00;
-function calculerCoutUsd(usage) {
-  const tin  = (usage && usage.input_tokens)  || 0;
-  const tout = (usage && usage.output_tokens) || 0;
-  const cout = (tin / 1e6) * PRIX_INPUT_PAR_MTOK + (tout / 1e6) * PRIX_OUTPUT_PAR_MTOK;
-  return { tokens_entree: tin, tokens_sortie: tout, cout_usd: Math.round(cout * 10000) / 10000 };
-}
-
-const _sel = v => (v && typeof v === 'object' && v.name !== undefined) ? v.name : (v == null ? '' : String(v));
-
-// ─── BUILDER — instrument + réponses depuis les 25 lignes RESPONSES ─────────
-async function construireEntree(candidat_id) {
-  const rows = await airtableService.getResponses(candidat_id);
-  if (!rows || rows.length === 0) throw new Error(`Aucune ligne RESPONSES pour ${candidat_id}`);
-  const instrument = [], reponses = [];
-  for (const r of rows) {
-    const qid = r.id_question || null;
-    if (!qid) continue;
-    instrument.push({
-      qid,
-      pilier_vise: _sel(r.pilier),
-      scenario:    _sel(r.scenario_nom),
-      position:    r.numero_global || null,
-      question:    r.question_text || ''
-    });
-    reponses.push({ qid, reponse: r.response_text || '' });
-  }
-  if (reponses.length !== 25) {
-    logger.warn('[ModeRapide] nombre de réponses inattendu', { candidat_id, count: reponses.length, attendu: 25 });
-  }
-  // ⭐ v2.6 — cas résolu de calibrage (dispositif de l'épreuve E2)
-  let cas_resolu = null;
-  if (CAS_RESOLU_INTERDIT_POUR.includes(candidat_id)) {
-    logger.info('[ModeRapide] cas résolu retiré — le candidat analysé est le candidat du cas résolu', { candidat_id });
-  } else if (fs.existsSync(CAS_RESOLU_PATH)) {
-    cas_resolu = {
-      note: 'Cas résolu fourni en CALIBRAGE — règle anti-recopie OP-7b OBLIGATOIRE : confrontation point par point, le cas montre COMMENT lire, jamais QUOI conclure.',
-      dossier: fs.readFileSync(CAS_RESOLU_PATH, 'utf8')
-    };
-    logger.info('[ModeRapide] cas résolu de calibrage chargé', { candidat_id });
-  }
-  return { candidat_id, instrument, reponses, cas_resolu };
-}
-
-// ─── AGENTS (deux étages) + CALCUL MÉCANIQUE ───────────────────────────────
-function _client() {
-  const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('CLAUDE_API_KEY / ANTHROPIC_API_KEY manquante');
-  return new Anthropic({ apiKey });
-}
-async function _appel(client, promptPath, contenu, maxTokens) {
-  const prompt = fs.readFileSync(promptPath, 'utf8');
-  const stream = client.messages.stream({
-    model: MODEL, max_tokens: maxTokens, temperature: 0,
-    system: prompt,
-    messages: [{ role: 'user', content: contenu }]
-  });
-  const msg = await stream.finalMessage();
-  const texte = msg.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
-  return { texte, usage: msg.usage || {} };
-}
-// ⭐ v3.0 — LE CALCUL QUI DÉPARTAGE EST FAIT PAR LE CODE, PAS PAR L'IA.
-function calculerTable(codage) {
-  const P = ['P1','P2','P3','P4','P5'];
-  const zero = () => ({ P1:0, P2:0, P3:0, P4:0, P5:0 });
-  const en_propre = zero(), receptions = zero(), emissions = zero(), hors_terrain = zero(), gouvernes = zero();
-  const flux = {}; const glissements = [];
-  for (const q of codage) {
-    const vise = String(q.qid || '').slice(0, 2);
-    if (P.includes(q.production)) gouvernes[q.production]++;   // ⭐ v3.2 — la décision R0 par réponse
-    for (const g of (q.gestes || [])) {
-      const sortie = g.sortie, sert = g.sert || null;
-      if (!P.includes(sortie)) continue;
-      if (sert && P.includes(sert) && sert !== sortie) {
-        emissions[sortie]++; receptions[sert]++;
-        const k = sortie + '→' + sert; flux[k] = (flux[k] || 0) + 1;
-      } else {
-        en_propre[sortie]++;
-        if (sortie !== vise) hors_terrain[sortie]++;   // ⭐ v3.1 — le débordement en propre
-      }
-      if (sortie !== vise) {
-        glissements.push({ qid: q.qid, pilier_vise: vise, sortie, sert, verbatim: g.verbatim || '' });
-      }
-    }
-  }
-  return { gouvernes, en_propre, receptions, emissions, hors_terrain, flux, glissements };
-}
-async function appelerAgent(entree) {
-  const client = _client();
-  // ÉTAGE 1 — codage des gestes (JSON compact)
-  const e1 = await _appel(client, PROMPT_CODAGE_PATH,
-    'RÉPONSES À CODER (JSON) :\n' + JSON.stringify({ reponses: entree.reponses }, null, 1), 16000);
-  const brut1 = e1.texte.replace(/```json|```/g, '').trim();
-  const d1 = brut1.indexOf('['), f1 = brut1.lastIndexOf(']');
-  if (d1 < 0 || f1 < 0) throw new Error('ModeRapide étage 1 : JSON codage introuvable');
-  const codage = JSON.parse(brut1.slice(d1, f1 + 1));
-  logger.info('[ModeRapide] étage 1 — codage terminé', {
-    candidat_id: entree.candidat_id, questions: codage.length,
-    tokens: (e1.usage.input_tokens || 0) + (e1.usage.output_tokens || 0)
-  });
-  // CALCUL MÉCANIQUE — la table qui départage
-  const table = calculerTable(codage);
-  logger.info('[ModeRapide] table calculée', {
-    candidat_id: entree.candidat_id, gouvernes: table.gouvernes, receptions: table.receptions, hors_terrain: table.hors_terrain, en_propre: table.en_propre
-  });
-  // ÉTAGE 2 — doctrine appliquée sur la table, portrait
-  const entree2 = { candidat_id: entree.candidat_id, reponses: entree.reponses, table_calculee: table };
-  const e2 = await _appel(client, PROMPT_PATH,
-    'ENTRÉE JSON :\n' + JSON.stringify(entree2, null, 1), 24000);
-  const texte = e2.texte;
-  const mA = texte.match(/<analyse>([\s\S]*?)<\/analyse>/);
-  const analyse = (mA ? mA[1].trim() : '(analyse absente)') +
-    '\n\n── TABLE CALCULÉE (serveur) ──\n' + JSON.stringify(table, null, 1);
-  const brut = texte.replace(/<analyse>[\s\S]*?<\/analyse>/, '').replace(/```json|```/g, '').trim();
-  const d = brut.indexOf('{'), f = brut.lastIndexOf('}');
-  if (d < 0 || f < 0) throw new Error('ModeRapide étage 2 : JSON introuvable dans la sortie agent');
-  const sortie = JSON.parse(brut.slice(d, f + 1));
-  const usage = {
-    input_tokens:  (e1.usage.input_tokens  || 0) + (e2.usage.input_tokens  || 0),
-    output_tokens: (e1.usage.output_tokens || 0) + (e2.usage.output_tokens || 0)
-  };
-  return { sortie, analyse, usage };
-}
-
-// ─── RUN ────────────────────────────────────────────────────────────────────
-async function run({ candidat_id }) {
-  if (!candidat_id) throw new Error('service_mode_rapide.run : candidat_id requis');
-  const t0 = Date.now();
-  logger.info('[ModeRapide] ▶ démarrage', { candidat_id });
-
-  const entree = await construireEntree(candidat_id);
-  const { sortie, analyse, usage } = await appelerAgent(entree);
-
-  const fields = {
-    date_execution:       new Date().toISOString(),
-    version_conducteur:   VERSION_CONDUCTEUR,
-    modele:               MODEL,
-    statut_resultat:      sortie.non_conclusif ? 'NON_CONCLUSIF' : 'CONCLUSIF',
-    socle:                sortie.socle || undefined,
-    rival_examine:        sortie.rival_examine || '',
-    roles_json:           JSON.stringify(sortie.roles || {}),
-    filtre:               sortie.filtre || '',
-    modes_json:           JSON.stringify(sortie.modes || {}),
-    gestes_json:          JSON.stringify(sortie.gestes || []),
-    glissements_json:     JSON.stringify(sortie.glissements || []),
-    marqueurs_json:       JSON.stringify(sortie.marqueurs_affectifs || []),
-    tests_departage_json: JSON.stringify(sortie.tests_departage || {}),
-    portrait_markdown:    sortie.portrait_markdown || '',
-    analyse_verbalisee:   analyse,
-    protocole_existe:     false,
-    concordance_statut:   'NON_COMPARE'
-  };
-  // ⭐ v2.2 — coût exact de l'exécution (pour le pricing garante)
-  const cout = calculerCoutUsd(usage);
-  fields.tokens_entree = cout.tokens_entree;
-  fields.tokens_sortie = cout.tokens_sortie;
-  fields.cout_usd      = cout.cout_usd;
-  const recId = await accesModeRapide.createModeRapide(candidat_id, fields);
-
-  const elapsedMs = Date.now() - t0;
-  logger.info('[ModeRapide] ✅ portrait écrit', {
-    candidat_id, recId,
-    resultat: sortie.non_conclusif ? 'NON_CONCLUSIF' : `socle ${sortie.socle}`,
-    input_tokens: usage.input_tokens, output_tokens: usage.output_tokens,
-    cout_usd: fields.cout_usd, elapsedMs
-  });
-  return { success: true, candidat_id, modeRapideRecId: recId,
-           non_conclusif: !!sortie.non_conclusif, socle: sortie.socle || null,
-           cout_usd: fields.cout_usd, sortie, elapsedMs };
-}
-
-module.exports = { run, construireEntree, appelerAgent };
+## SORTIE (JSON STRICT, rien d'autre — pas de balise, pas de markdown)
+[{"qid":"P3Q5","production":"P4","gestes":[{"sortie":"P4","sert":null,"verbatim":"…"},{"sortie":"P3","sert":"P4","verbatim":"…"}]}, …]
+Une entrée par question, toutes les 25 questions présentes, 2 à 6 gestes par réponse selon sa richesse.
