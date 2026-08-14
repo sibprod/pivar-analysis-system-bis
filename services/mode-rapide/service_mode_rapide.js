@@ -77,7 +77,7 @@ const logger          = require('../../utils/logger');
 
 const MODEL       = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // ⭐ v2.4 — piloté par Render
 const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
-const VERSION_CONDUCTEUR = 'mode rapide v2.0 — codage v1.0 + profil v2.0 (doctrine + calcul mécanique)';
+const VERSION_CONDUCTEUR = 'mode rapide v2.2 — codage v1.2 (gouvernance par réponse) + profil v2.2 (les quatre autres tiroirs)';
 const PROMPT_CODAGE_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_codage.md');
 const CAS_RESOLU_PATH = path.join(__dirname, '../../new-prompts/mode_rapide_cas_resolu.md');
 // Identifiants du candidat du cas résolu (R original + R rejeu) — jamais son propre corrigé.
@@ -151,10 +151,11 @@ async function _appel(client, promptPath, contenu, maxTokens) {
 function calculerTable(codage) {
   const P = ['P1','P2','P3','P4','P5'];
   const zero = () => ({ P1:0, P2:0, P3:0, P4:0, P5:0 });
-  const en_propre = zero(), receptions = zero(), emissions = zero();
+  const en_propre = zero(), receptions = zero(), emissions = zero(), hors_terrain = zero(), gouvernes = zero();
   const flux = {}; const glissements = [];
   for (const q of codage) {
     const vise = String(q.qid || '').slice(0, 2);
+    if (P.includes(q.production)) gouvernes[q.production]++;   // ⭐ v3.2 — la décision R0 par réponse
     for (const g of (q.gestes || [])) {
       const sortie = g.sortie, sert = g.sert || null;
       if (!P.includes(sortie)) continue;
@@ -163,13 +164,14 @@ function calculerTable(codage) {
         const k = sortie + '→' + sert; flux[k] = (flux[k] || 0) + 1;
       } else {
         en_propre[sortie]++;
+        if (sortie !== vise) hors_terrain[sortie]++;   // ⭐ v3.1 — le débordement en propre
       }
       if (sortie !== vise) {
         glissements.push({ qid: q.qid, pilier_vise: vise, sortie, sert, verbatim: g.verbatim || '' });
       }
     }
   }
-  return { en_propre, receptions, emissions, flux, glissements };
+  return { gouvernes, en_propre, receptions, emissions, hors_terrain, flux, glissements };
 }
 async function appelerAgent(entree) {
   const client = _client();
@@ -187,7 +189,7 @@ async function appelerAgent(entree) {
   // CALCUL MÉCANIQUE — la table qui départage
   const table = calculerTable(codage);
   logger.info('[ModeRapide] table calculée', {
-    candidat_id: entree.candidat_id, receptions: table.receptions, en_propre: table.en_propre
+    candidat_id: entree.candidat_id, gouvernes: table.gouvernes, receptions: table.receptions, hors_terrain: table.hors_terrain, en_propre: table.en_propre
   });
   // ÉTAGE 2 — doctrine appliquée sur la table, portrait
   const entree2 = { candidat_id: entree.candidat_id, reponses: entree.reponses, table_calculee: table };
