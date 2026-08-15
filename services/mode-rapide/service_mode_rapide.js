@@ -26,15 +26,44 @@ const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // piloté par 
 const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
 const VERSION_CONDUCTEUR = 'mode rapide v3.0 — étage 1 = pièce 1.1 réelle (5 lots) + agrégation mécanique + profil v3.0';
 
-// Le prompt 1.1 vit déjà dans le repo — résolution multi-chemins par prudence.
+// Le prompt 1.1 vit déjà dans le repo. Résolution v4.1 (incident 15/08, 13h12 —
+// chemins devinés introuvables) : (1) surcharge env PROMPT_11_PATH (pattern maison,
+// cf. PROMPT_PA_PATH) ; (2) candidats explicites, sous-dossiers maison inclus ;
+// (3) BALAYAGE RÉCURSIF de new-prompts/ et prompts/ — plus aucune devinette :
+// si le fichier existe quelque part dans le repo, il est trouvé, et le chemin
+// retenu est loggé.
 const CHEMINS_PROMPT_11 = [
+  process.env.PROMPT_11_PATH || '',
+  path.join(__dirname, '../../new-prompts/etape1/prompt_etape1_responses.txt'),
   path.join(__dirname, '../../new-prompts/prompt_etape1_responses.txt'),
   path.join(__dirname, '../../prompts/prompt_etape1_responses.txt'),
   path.join(__dirname, '../../prompt_etape1_responses.txt')
-];
+].filter(Boolean);
+function _chercherRecursif(dossier, nomFichier, profondeur) {
+  if (profondeur > 4) return null;
+  let entrees = [];
+  try { entrees = fs.readdirSync(dossier, { withFileTypes: true }); } catch (e) { return null; }
+  for (const e of entrees) {
+    const chemin = path.join(dossier, e.name);
+    if (e.isFile() && e.name === nomFichier) return chemin;
+    if (e.isDirectory()) {
+      const trouve = _chercherRecursif(chemin, nomFichier, profondeur + 1);
+      if (trouve) return trouve;
+    }
+  }
+  return null;
+}
+let _chemin11Cache = null;
 function cheminPrompt11() {
-  for (const c of CHEMINS_PROMPT_11) { if (fs.existsSync(c)) return c; }
-  throw new Error('prompt_etape1_responses.txt introuvable (new-prompts/, prompts/, racine)');
+  if (_chemin11Cache) return _chemin11Cache;
+  for (const c of CHEMINS_PROMPT_11) {
+    if (fs.existsSync(c)) { _chemin11Cache = c; logger.info('[ModeRapide] prompt 1.1 résolu', { chemin: c }); return c; }
+  }
+  for (const racine of [path.join(__dirname, '../../new-prompts'), path.join(__dirname, '../../prompts')]) {
+    const trouve = _chercherRecursif(racine, 'prompt_etape1_responses.txt', 0);
+    if (trouve) { _chemin11Cache = trouve; logger.info('[ModeRapide] prompt 1.1 résolu par balayage', { chemin: trouve }); return trouve; }
+  }
+  throw new Error('prompt_etape1_responses.txt introuvable — définir PROMPT_11_PATH (env Render) avec le chemin exact du fichier dans le repo');
 }
 const SCENARIOS_ORDRE_MR = ['SOMMEIL', 'WEEKEND', 'ANIMAL_1', 'ANIMAL_2', 'PANNE'];
 function extraireLookupMR(v) { return Array.isArray(v) ? (v[0] || '') : (v || ''); }
