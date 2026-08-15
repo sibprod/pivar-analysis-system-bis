@@ -1,90 +1,46 @@
-// services/mode-rapide/service_mode_rapide.js
-// Service MODE RAPIDE — L4 · v3.0 (13/08/2026) — Profil-Cognitif
+// Service MODE RAPIDE — L4 · v4.0 (14/08/2026) — Profil-Cognitif
 //
-// v3.0 — DOCTRINE INJECTÉE + CALCUL MÉCANIQUE (décision garante : un mode rapide
-//   FIABLE pour la production ; l'expérience d'inimitabilité reste figée sur v1.x).
-//   Architecture en DEUX ÉTAGES, miniature du protocole :
-//     Étage 1 (agent, prompt_mode_rapide_codage.md) : code les gestes — sortie,
-//       service, verbatim — JSON compact, ~3 min.
-//     Entre les deux (CODE, pas IA) : le serveur CALCULE la table — en_propre,
-//       receptions (le socle est le pilier le plus servi), émissions, flux,
-//       glissements. Le calcul qui départage est mécanique, comme au protocole.
-//     Étage 2 (agent, prompt_mode_rapide_profil.md v2.0) : applique la doctrine
-//       (D1 receveur → D6 preuve) sur la table calculée, écrit le portrait.
-//   Les deux conducteurs sont des ACTIFS SENSIBLES (serveur uniquement).
-//   Sortie/écriture/contrôle inchangés. Coût = somme des deux appels.
-//
-// v2.6 — CAS RÉSOLU DE CALIBRAGE (reproduction du dispositif de l'épreuve E2,
-//   décision garante : sans 100 % sur le socle et un filtre fiable, l'outil n'est
-//   pas retenu — AM-08). Le service charge new-prompts/mode_rapide_cas_resolu.md
-//   s'il existe et le passe en entrée (cas_resolu). GARDE-FOU : si le candidat
-//   analysé EST le candidat du cas résolu (liste CAS_RESOLU_INTERDIT_POUR,
-//   surchageable par env), le cas est retiré — on ne donne jamais à l'agent le
-//   corrigé de la copie qu'il analyse.
-// v2.5 — Version du conducteur portée à v1.1 (durcissement OP-3/OP-4/non-conclusif).
-//
-// v2.4 — Le modèle se pilote depuis l'environnement Render comme le reste du
-//   service : CLAUDE_MODEL (confirmé garante : claude-sonnet-4-6), avec repli
-//   sur claude-sonnet-4-6 si absent. Le nom du modèle réellement utilisé est
-//   écrit dans chaque ligne MODE_RAPIDE (champ modele) — traçabilité des runs.
-//
-// v2.3 — CORRECTIF clé API (incident 13/08, 12h51) : la variable d'environnement
-//   du service s'appelle CLAUDE_API_KEY (cf. server.js, requiredEnv) — le SDK ne
-//   trouvait pas ANTHROPIC_API_KEY. Résolution au pattern maison (comme le
-//   service PA) : CLAUDE_API_KEY d'abord, ANTHROPIC_API_KEY en repli, clé passée
-//   explicitement au client. Aucune autre modification.
-//
-// v2.2 — COÛT PAR PROFIL (demande garante, pricing) : chaque exécution calcule
-//   son coût exact en USD depuis les tokens réellement consommés (msg.usage) et
-//   l'écrit dans la ligne MODE_RAPIDE (champs cout_usd, tokens_entree,
-//   tokens_sortie — à créer dans la table, type Number). Tarif claude-sonnet-4-6
-//   vérifié le 13/08/2026 : 3 $/M tokens d'entrée, 15 $/M tokens de sortie —
-//   constantes ci-dessous, à ajuster si Anthropic change ses prix.
-//
-// v2.1 — CORRECTIF premier lancement (incident 13/08, 12h35) : le SDK Anthropic
-//   refuse un appel non-streamé au-delà de son seuil (max_tokens 32000 → erreur
-//   « Streaming is required for operations that may take longer than 10 minutes »).
-//   L'appel passe en STREAMING (client.messages.stream + finalMessage()) —
-//   même résultat, même parsing, aucune autre modification.
-//
-// ⚠️ AVANT MODIFICATION : lire new-prompts/prompt_mode_rapide_profil.md (LA doctrine
-//    est dans le conducteur, jamais dans le code) et l'acte de fixation (partie IV).
-//
-// PRINCIPE : 1 candidat → 1 appel agent → portrait de gouvernance (socle, filtre,
-//   rôles, modes, gestes sourcés verbatim) écrit dans la table MODE_RAPIDE.
-//   Statut : PROTOTYPE (verrous AM-07 architecture / AM-08 étalonnage non levés).
-//
-// RÈGLES DURES :
-//   - ÉCRITURE CONFINÉE : n'écrit QUE dans MODE_RAPIDE (1 ligne par exécution,
-//     l'historique est conservé). Ne touche JAMAIS aux tables du protocole ni aux
-//     référentiels. (Consigne CA-08, 13/08/2026.)
-//   - Température 0. Modèle claude-sonnet-4-6.
-//   - Doctrine du NON CONCLUSIF respectée telle que rendue par l'agent.
-//
-// ENTRÉE : les 25 lignes RESPONSES du candidat (via airtableService.getResponses) —
-//   elles portent À LA FOIS l'instrument (question_text, pilier, scenario_nom,
-//   numero_global) et la réponse (response_text). Aucune autre lecture.
+// v4.0 — FIN DE LA COMPRESSION (doute garante confirmé : les condensés v2.x
+//   biaisent vers P4 au lieu de lire). L'étage de lecture est désormais LA PIÈCE
+//   1.1 RÉELLE du protocole (prompt_etape1_responses.txt, 490 lignes), exécutée
+//   comme le pipeline l'exécute : PAR SCÉNARIO, 5 lots de 5 questions, avec le
+//   payload exact de l'agent maison (question + storytelling + transition +
+//   réponse). Le serveur AGRÈGE mécaniquement ses 25 décisions (gouvernes,
+//   sorties, glissements, débordements), puis l'étage final (profil v3.0)
+//   détermine et rédige SANS re-lire : la 1.1 fait foi.
+//   Ce mode rapide n'imite plus le protocole : il en exécute le premier étage
+//   authentique, avec un raccourci d'agrégation (T1/T2/référentiel sautés).
+//   Conducteurs = ACTIFS SENSIBLES. Coût = somme des 6 appels.
 
 'use strict';
 
 const fs   = require('fs');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
-
-const airtableService = require('../infrastructure/airtableService'); // fonctions EXISTANTES uniquement (getResponses)
-const accesModeRapide  = require('./acces_mode_rapide');               // accès autonome MODE_RAPIDE (aucun fichier existant modifié)
 const logger          = require('../../utils/logger');
+const airtableService = require('../infrastructure/airtableService');
+const accesModeRapide = require('./acces_mode_rapide');
 
-const MODEL       = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // ⭐ v2.4 — piloté par Render
+// ─── CONSTANTES ──────────────────────────────────────────────────────────────
+const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';   // piloté par Render
 const PROMPT_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_profil.md');
-const VERSION_CONDUCTEUR = 'mode rapide v2.3 — codage v1.3 (méthode 1.1 : trois angles du protocole) + profil v2.3';
-const PROMPT_CODAGE_PATH = path.join(__dirname, '../../new-prompts/prompt_mode_rapide_codage.md');
-const CAS_RESOLU_PATH = path.join(__dirname, '../../new-prompts/mode_rapide_cas_resolu.md');
-// Identifiants du candidat du cas résolu (R original + R rejeu) — jamais son propre corrigé.
-const CAS_RESOLU_INTERDIT_POUR = (process.env.CAS_RESOLU_INTERDIT_POUR ||
-  'pivar_1762094675215_77bg53iz0,pcc_1786375017158_p3caz8zma').split(',').map(x => x.trim());
+const VERSION_CONDUCTEUR = 'mode rapide v3.0 — étage 1 = pièce 1.1 réelle (5 lots) + agrégation mécanique + profil v3.0';
 
-// ⭐ v2.2 — Tarif API (USD par MILLION de tokens), vérifié le 13/08/2026.
+// Le prompt 1.1 vit déjà dans le repo — résolution multi-chemins par prudence.
+const CHEMINS_PROMPT_11 = [
+  path.join(__dirname, '../../new-prompts/prompt_etape1_responses.txt'),
+  path.join(__dirname, '../../prompts/prompt_etape1_responses.txt'),
+  path.join(__dirname, '../../prompt_etape1_responses.txt')
+];
+function cheminPrompt11() {
+  for (const c of CHEMINS_PROMPT_11) { if (fs.existsSync(c)) return c; }
+  throw new Error('prompt_etape1_responses.txt introuvable (new-prompts/, prompts/, racine)');
+}
+const SCENARIOS_ORDRE_MR = ['SOMMEIL', 'WEEKEND', 'ANIMAL_1', 'ANIMAL_2', 'PANNE'];
+function extraireLookupMR(v) { return Array.isArray(v) ? (v[0] || '') : (v || ''); }
+function _sel(v) { return (v && typeof v === 'object' && v.name) ? v.name : (v || ''); }
+
+// Tarif API (USD par MILLION de tokens), vérifié le 13/08/2026 — à revoir si CLAUDE_MODEL change.
 const PRIX_INPUT_PAR_MTOK  = 3.00;
 const PRIX_OUTPUT_PAR_MTOK = 15.00;
 function calculerCoutUsd(usage) {
@@ -93,8 +49,6 @@ function calculerCoutUsd(usage) {
   const cout = (tin / 1e6) * PRIX_INPUT_PAR_MTOK + (tout / 1e6) * PRIX_OUTPUT_PAR_MTOK;
   return { tokens_entree: tin, tokens_sortie: tout, cout_usd: Math.round(cout * 10000) / 10000 };
 }
-
-const _sel = v => (v && typeof v === 'object' && v.name !== undefined) ? v.name : (v == null ? '' : String(v));
 
 // ─── BUILDER — instrument + réponses depuis les 25 lignes RESPONSES ─────────
 async function construireEntree(candidat_id) {
@@ -111,102 +65,130 @@ async function construireEntree(candidat_id) {
       position:    r.numero_global || null,
       question:    r.question_text || ''
     });
-    reponses.push({ qid, reponse: r.response_text || '' });
+    // ⭐ v4.0 — la pièce 1.1 réelle exige le payload complet de l'agent maison
+    reponses.push({
+      id_question:   qid,
+      numero_global: r.numero_global || null,
+      pilier:        _sel(r.pilier),
+      scenario_nom:  _sel(r.scenario_nom),
+      question_text: r.question_text || '',
+      response_text: r.response_text || '',
+      storytelling:  extraireLookupMR(r['storytelling_general (from question _lien)']),
+      transition:    extraireLookupMR(r['transition_narrative (from question _lien)'])
+    });
   }
   if (reponses.length !== 25) {
     logger.warn('[ModeRapide] nombre de réponses inattendu', { candidat_id, count: reponses.length, attendu: 25 });
   }
-  // ⭐ v2.6 — cas résolu de calibrage (dispositif de l'épreuve E2)
-  let cas_resolu = null;
-  if (CAS_RESOLU_INTERDIT_POUR.includes(candidat_id)) {
-    logger.info('[ModeRapide] cas résolu retiré — le candidat analysé est le candidat du cas résolu', { candidat_id });
-  } else if (fs.existsSync(CAS_RESOLU_PATH)) {
-    cas_resolu = {
-      note: 'Cas résolu fourni en CALIBRAGE — règle anti-recopie OP-7b OBLIGATOIRE : confrontation point par point, le cas montre COMMENT lire, jamais QUOI conclure.',
-      dossier: fs.readFileSync(CAS_RESOLU_PATH, 'utf8')
-    };
-    logger.info('[ModeRapide] cas résolu de calibrage chargé', { candidat_id });
-  }
-  return { candidat_id, instrument, reponses, cas_resolu };
+  // v4.0 — plus de cas résolu : la lecture est faite par la pièce 1.1 réelle.
+  return { candidat_id, instrument, reponses, cas_resolu: null };
 }
 
-// ─── AGENTS (deux étages) + CALCUL MÉCANIQUE ───────────────────────────────
+// ─── AGENTS : pièce 1.1 réelle (5 lots) + agrégation + détermination ───────
 function _client() {
   const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('CLAUDE_API_KEY / ANTHROPIC_API_KEY manquante');
   return new Anthropic({ apiKey });
 }
-async function _appel(client, promptPath, contenu, maxTokens) {
-  const prompt = fs.readFileSync(promptPath, 'utf8');
+async function _appel(client, promptTexte, contenu, maxTokens) {
   const stream = client.messages.stream({
     model: MODEL, max_tokens: maxTokens, temperature: 0,
-    system: prompt,
+    system: promptTexte,
     messages: [{ role: 'user', content: contenu }]
   });
   const msg = await stream.finalMessage();
   const texte = msg.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
   return { texte, usage: msg.usage || {} };
 }
-// ⭐ v3.0 — LE CALCUL QUI DÉPARTAGE EST FAIT PAR LE CODE, PAS PAR L'IA.
-function calculerTable(codage) {
+function _parseJson(texte, quoi) {
+  const brut = texte.replace(/```json|```/g, '').trim();
+  const d = brut.indexOf('{'), f = brut.lastIndexOf('}');
+  if (d < 0 || f < 0) throw new Error('ModeRapide — JSON introuvable (' + quoi + ')');
+  return JSON.parse(brut.slice(d, f + 1));
+}
+// ⭐ v4.0 — agrégation mécanique des 25 décisions de la pièce 1.1
+function calculerComptes(lectures) {
   const P = ['P1','P2','P3','P4','P5'];
   const zero = () => ({ P1:0, P2:0, P3:0, P4:0, P5:0 });
-  const en_propre = zero(), receptions = zero(), emissions = zero(), hors_terrain = zero(), gouvernes = zero();
-  const flux = {}; const glissements = [];
-  for (const q of codage) {
-    const vise = String(q.qid || '').slice(0, 2);
-    if (P.includes(q.production)) gouvernes[q.production]++;   // ⭐ v3.2 — la décision R0 par réponse
-    for (const g of (q.gestes || [])) {
-      const sortie = g.sortie, sert = g.sert || null;
-      if (!P.includes(sortie)) continue;
-      if (sert && P.includes(sert) && sert !== sortie) {
-        emissions[sortie]++; receptions[sert]++;
-        const k = sortie + '→' + sert; flux[k] = (flux[k] || 0) + 1;
-      } else {
-        en_propre[sortie]++;
-        if (sortie !== vise) hors_terrain[sortie]++;   // ⭐ v3.1 — le débordement en propre
-      }
-      if (sortie !== vise) {
-        glissements.push({ qid: q.qid, pilier_vise: vise, sortie, sert, verbatim: g.verbatim || '' });
-      }
+  const gouvernes = zero(), sorties = zero(), gouverne_hors_terrain = zero();
+  const glissements = [];
+  for (const l of lectures) {
+    const g = l.cog_pilier_gouverne, so = l.cog_pilier_sortie, vise = l.pilier_demande;
+    if (P.includes(g)) gouvernes[g]++;
+    if (P.includes(so)) sorties[so]++;
+    if (P.includes(g) && P.includes(vise) && g !== vise) {
+      gouverne_hors_terrain[g]++;
+      glissements.push({ id_question: l.id_question, pilier_demande: vise, gouverne: g,
+                         commentaire: l.cog_gouverne_commentaire || '' });
     }
   }
-  return { gouvernes, en_propre, receptions, emissions, hors_terrain, flux, glissements };
+  return { gouvernes, sorties, gouverne_hors_terrain, glissements };
 }
 async function appelerAgent(entree) {
   const client = _client();
-  // ÉTAGE 1 — codage des gestes (JSON compact)
-  const e1 = await _appel(client, PROMPT_CODAGE_PATH,
-    'RÉPONSES À CODER (JSON) :\n' + JSON.stringify({ reponses: entree.reponses }, null, 1), 16000);
-  const brut1 = e1.texte.replace(/```json|```/g, '').trim();
-  const d1 = brut1.indexOf('['), f1 = brut1.lastIndexOf(']');
-  if (d1 < 0 || f1 < 0) throw new Error('ModeRapide étage 1 : JSON codage introuvable');
-  const codage = JSON.parse(brut1.slice(d1, f1 + 1));
-  logger.info('[ModeRapide] étage 1 — codage terminé', {
-    candidat_id: entree.candidat_id, questions: codage.length,
-    tokens: (e1.usage.input_tokens || 0) + (e1.usage.output_tokens || 0)
+  const prompt11 = fs.readFileSync(cheminPrompt11(), 'utf8');
+  const usage = { input_tokens: 0, output_tokens: 0 };
+  // ÉTAGE 1 — LA PIÈCE 1.1 RÉELLE, par scénario (payload exact de l'agent maison)
+  const parScenario = {};
+  for (const r of entree.reponses) {
+    const sc = r.scenario_nom || 'INCONNU';
+    (parScenario[sc] = parScenario[sc] || []).push(r);
+  }
+  const lectures = [];
+  for (const sc of SCENARIOS_ORDRE_MR) {
+    const lot = parScenario[sc];
+    if (!lot || !lot.length) continue;
+    const payload = {
+      candidat_id: entree.candidat_id,
+      civilite: 'Madame ou Monsieur',
+      scenario_name: sc,
+      nb_questions_in_scenario: lot.length,
+      nb_questions_total: 25,
+      responses: lot.map(r => ({
+        id_question:   r.id_question,
+        numero_global: r.numero_global,
+        pilier:        r.pilier,
+        scenario_nom:  r.scenario_nom,
+        question_text: r.question_text,
+        response_text: r.response_text,
+        storytelling:  r.storytelling,
+        transition:    r.transition
+      }))
+    };
+    const e = await _appel(client, prompt11, JSON.stringify(payload, null, 1), 8000);
+    usage.input_tokens += e.usage.input_tokens || 0;
+    usage.output_tokens += e.usage.output_tokens || 0;
+    const sortie = _parseJson(e.texte, '1.1 ' + sc);
+    const rows = sortie.rows || [];
+    if (rows.length !== lot.length) throw new Error('ModeRapide 1.1 — mismatch ' + sc + ' : ' + rows.length + '/' + lot.length);
+    lectures.push(...rows);
+    logger.info('[ModeRapide] 1.1 réelle — scénario lu', { candidat_id: entree.candidat_id, scenario: sc, lignes: rows.length });
+  }
+  if (lectures.length < 20) throw new Error('ModeRapide 1.1 — lecture incomplète : ' + lectures.length + '/25');
+  // AGRÉGATION MÉCANIQUE
+  const comptes = calculerComptes(lectures);
+  logger.info('[ModeRapide] comptes 1.1 calculés', {
+    candidat_id: entree.candidat_id, gouvernes: comptes.gouvernes,
+    hors_terrain: comptes.gouverne_hors_terrain
   });
-  // CALCUL MÉCANIQUE — la table qui départage
-  const table = calculerTable(codage);
-  logger.info('[ModeRapide] table calculée', {
-    candidat_id: entree.candidat_id, gouvernes: table.gouvernes, receptions: table.receptions, hors_terrain: table.hors_terrain, en_propre: table.en_propre
-  });
-  // ÉTAGE 2 — doctrine appliquée sur la table, portrait
-  const entree2 = { candidat_id: entree.candidat_id, reponses: entree.reponses, table_calculee: table };
-  const e2 = await _appel(client, PROMPT_PATH,
-    'ENTRÉE JSON :\n' + JSON.stringify(entree2, null, 1), 24000);
-  const texte = e2.texte;
-  const mA = texte.match(/<analyse>([\s\S]*?)<\/analyse>/);
+  // ÉTAGE FINAL — détermination + portrait sur les décisions de la 1.1
+  const lecturesUtiles = lectures.map(l => ({
+    id_question: l.id_question, pilier_demande: l.pilier_demande,
+    v2_analyse: l.v2_analyse, cog_comprend: l.cog_comprend,
+    cog_outils_mobilises: l.cog_outils_mobilises,
+    cog_pilier_sortie: l.cog_pilier_sortie, cog_sortie_commentaire: l.cog_sortie_commentaire,
+    cog_pilier_gouverne: l.cog_pilier_gouverne, cog_gouverne_commentaire: l.cog_gouverne_commentaire,
+    cog_resultat_vise: l.cog_resultat_vise
+  }));
+  const promptProfil = fs.readFileSync(PROMPT_PATH, 'utf8');
+  const e2 = await _appel(client, promptProfil,
+    'ENTRÉE JSON :\n' + JSON.stringify({ candidat_id: entree.candidat_id, lectures: lecturesUtiles, comptes }, null, 1), 24000);
+  usage.input_tokens += e2.usage.input_tokens || 0;
+  usage.output_tokens += e2.usage.output_tokens || 0;
+  const mA = e2.texte.match(/<analyse>([\s\S]*?)<\/analyse>/);
   const analyse = (mA ? mA[1].trim() : '(analyse absente)') +
-    '\n\n── TABLE CALCULÉE (serveur) ──\n' + JSON.stringify(table, null, 1);
-  const brut = texte.replace(/<analyse>[\s\S]*?<\/analyse>/, '').replace(/```json|```/g, '').trim();
-  const d = brut.indexOf('{'), f = brut.lastIndexOf('}');
-  if (d < 0 || f < 0) throw new Error('ModeRapide étage 2 : JSON introuvable dans la sortie agent');
-  const sortie = JSON.parse(brut.slice(d, f + 1));
-  const usage = {
-    input_tokens:  (e1.usage.input_tokens  || 0) + (e2.usage.input_tokens  || 0),
-    output_tokens: (e1.usage.output_tokens || 0) + (e2.usage.output_tokens || 0)
-  };
+    '\n\n── COMPTES 1.1 (serveur) ──\n' + JSON.stringify(comptes, null, 1);
+  const sortie = _parseJson(e2.texte.replace(/<analyse>[\s\S]*?<\/analyse>/, ''), 'profil');
   return { sortie, analyse, usage };
 }
 
