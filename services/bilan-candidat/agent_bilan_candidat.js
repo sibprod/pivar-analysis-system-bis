@@ -42,7 +42,16 @@ async function appelerAgent(payload, referentielVigilance, alertesPrecedentes = 
 
   const data = await r.json();
   const texte = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-  return JSON.parse(texte.replace(/```json|```/g, '').trim());
+  const nu = texte.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(nu);
+  } catch {
+    // L'agent a répondu en langage naturel : on tente d'extraire l'objet, sinon
+    // on rend une sortie vide — les contrôles la refuseront proprement.
+    const d = nu.indexOf('{'), f = nu.lastIndexOf('}');
+    if (d !== -1 && f > d) { try { return JSON.parse(nu.slice(d, f + 1)); } catch {} }
+    return { titres_parles: [], points_vigilance: [], _reponse_non_json: nu.slice(0, 300) };
+  }
 }
 
 /* L'agent ne reçoit que ce dont il a besoin : ni coûts, ni affects, ni révélation. */
