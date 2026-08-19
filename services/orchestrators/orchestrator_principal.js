@@ -1,5 +1,5 @@
 // services/orchestrators/orchestratorPrincipal.js
-// Orchestrateur principal — Profil-Cognitif v10.13
+// Orchestrateur principal — Profil-Cognitif v10.14
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md (v1.2)
 //                       et docs/CONTRAT_ETAPE1.md (v1.9, Section 12 Machine à états)
@@ -31,6 +31,10 @@
 //                                     hors pipeline, à la demande. L'orchestrateur mode rapide pose
 //                                     lui-même MODE_RAPIDE_TERMINE et retourne { stopReason } — le
 //                                     principal ne pose JAMAIS « terminé » sur ce chemin.
+//   - LANCER BILAN_PRESENTE _CANDIDAT → ⭐ v10.14 (19/08/2026) Étape 1.4, bilan présenté au candidat
+//                                     (services/bilan-candidat/). Hors pipeline. L'orchestrateur pose
+//                                     lui-même BILAN_PRESENTE_CANDIDAT_OK et retourne { stopReason } —
+//                                     le principal ne pose JAMAIS « terminé » sur ce chemin.
 //   - REPRENDRE_AGENT4              → Étape 4 (à coder)
 //   - REPRENDRE_VERIFICATEUR4       → Étape 4 (à coder)
 //   ─── Statuts hors pipeline ───────────────────────────────────────────
@@ -40,9 +44,15 @@
 //   - ERREUR                        → ignoré (reprise manuelle nécessaire)
 //   - BILAN_FABLE_PA_OK             → ignoré (sentinelle : 5 piliers produits, validation des modes ; aval relancé manuellement via REPRENDRE_BILAN_PB/PD)
 //   - BILAN_FABLE_TERMINE           → ignoré (bilan Fable produit, terminal)
+//   - BILAN_PRESENTE_CANDIDAT_OK    → ignoré (bilan candidat produit, terminal) ⭐ v10.14
 //   - MODE_RAPIDE_EVALUE            → ignoré (portrait produit, non contrôlé — terminal) ⭐ v10.13
 //   - MODE_RAPIDE_CONTROLE          → ignoré (portrait produit et contrôlé — terminal) ⭐ v10.13
 //   - MODE_RAPIDE_TERMINE           → ignoré (ancien terminal, trace historique) ⭐ v10.11
+//
+// ⭐ PHASE v10.14 (2026-08-19) — ÉTAPE 1.4 BILAN PRÉSENTÉ AU CANDIDAT :
+//   - ⭐ Ajout du require orchestrator_bilan_presente_candidat (services/orchestrators/).
+//   - ⭐ Ajout de la branche d'aiguillage sur 'LANCER BILAN_PRESENTE _CANDIDAT',
+//     juste avant le rejet final. Aucune autre modification fonctionnelle.
 //
 // ⭐ PHASE v10.13 (2026-08-13) — DEUX TERMINAUX MODE RAPIDE (décision garante) :
 //   MODE_RAPIDE_EVALUE (portrait sans protocole) / MODE_RAPIDE_CONTROLE (comparé).
@@ -108,6 +118,7 @@ const orchestratorEtape3Bilan    = require('./orchestrator_etape1_T3_bilan');
 const orchestratorModeRapide     = require('../mode-rapide/orchestrator_mode_rapide');   // ⭐ v10.11 (13/08/2026)
 const accesModeRapide            = require('../mode-rapide/acces_mode_rapide');           // ⭐ v10.12 — contrôle différé
 const serviceControleModeRapide  = require('../mode-rapide/service_mode_rapide_controle'); // ⭐ v10.12 — contrôle différé
+const orchestratorBilanPresente  = require('./orchestrator_bilan_presente_candidat');      // ⭐ v10.14 (19/08/2026) — Étape 1.4
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -126,7 +137,7 @@ async function processCandidate(session_id) {
   const startTime = Date.now();
 
   logger.info('╔═══════════════════════════════════════════════════════════╗', { candidat_id });
-  logger.info('║ Orchestrateur Principal v10.13 — processCandidate         ║', { candidat_id });
+  logger.info('║ Orchestrateur Principal v10.14 — processCandidate         ║', { candidat_id });
   logger.info('╚═══════════════════════════════════════════════════════════╝', { candidat_id });
 
   let visiteur = null;
@@ -366,6 +377,17 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
   if (statut_actuel === 'MODE_RAPIDE') {
     logger.info('Aiguillage → Mode rapide L4', { candidat_id });
     return await orchestratorModeRapide.run({ candidat_id });
+  }
+
+  // ─── ⭐ v10.14 (19/08/2026) — Aiguillage ÉTAPE 1.4 : BILAN PRÉSENTÉ AU CANDIDAT (L1) ──
+  // Hors pipeline d'analyse : assemble le document remis au candidat à partir de la
+  // matière validée (T3). N'écrit QUE dans la table BILAN_PRESENTE_CANDIDAT (aucune
+  // table d'analyse touchée). L'orchestrateur pose lui-même son statut final
+  // (BILAN_PRESENTE_CANDIDAT_OK) et retourne { stopReason } : le principal ne pose
+  // donc JAMAIS « terminé » sur ce chemin — même pattern que Fable et mode rapide.
+  if (statut_actuel === orchestratorBilanPresente.STATUT_DECLENCHEUR) {
+    logger.info('Aiguillage → Étape 1.4 Bilan présenté au candidat', { candidat_id });
+    return await orchestratorBilanPresente.run({ candidat_id });
   }
 
   logger.warn('Statut non éligible pour traitement', { candidat_id, statut_actuel });
