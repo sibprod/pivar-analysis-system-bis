@@ -1,4 +1,4 @@
-// services/bilan-candidat/// services/bilan-candidat/service_bilan_payload.js
+// services/bilan-candidat/service_bilan_payload.js
 // TRANSPORT PUR — payload du bilan présenté au candidat.
 //
 // Sources (fonctions du service maison, aucune autre) :
@@ -25,12 +25,24 @@ function normaliseRole(r) {
   return 'fonctionnel';
 }
 
-/* LE bloc de fréquence est le champ « bloc » de ETAPE1_T2_CIRCUITS_POURBILAN :
-   il vaut littéralement « très souvent » · « souvent » · « occasionnels ».
-   C'est la colonne « Bloc » des tableaux du bilan. Aucun seuil n'est calculé ici,
-   aucun niveau HAUT/MOYEN n'est lu : le classement est déjà fait, on le respecte. */
-const estTresSouvent = ligne => String(ligne.bloc ?? '').toLowerCase()
-  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === 'tres souvent';
+/* Le classement vient de « bloc_final » (ETAPE1_T2_CIRCUITS_POURBILAN) — jamais
+   de « bloc », qui reste à BLOC_EN_ATTENTE. Il vaut « très souvent », « souvent »
+   ou « occasionnels ».
+
+   RÈGLE DE SÉLECTION, par outil : on retient le bloc le plus fréquent que
+   l'outil possède. Très souvent s'il en a ; sinon souvent ; sinon occasionnels.
+   Un outil n'est jamais muet : un fonctionnel qui n'a que deux gestes occasionnels
+   a tout de même une manière de faire, et le candidat doit la connaître. */
+const RANG_BLOC = { 'tres souvent': 0, 'souvent': 1, 'occasionnels': 2 };
+const normBloc = v => String(v == null ? '' : v).toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+/* Intitulé affiché au candidat — il doit dire la vérité sur la fréquence réelle. */
+const INTITULE_BLOC = {
+  'tres souvent': 'Ce que vous faites très souvent',
+  'souvent':      'Ce que vous faites souvent',
+  'occasionnels': 'Ce que vous faites quand vous vous en servez'
+};
 
 async function construirePayload(candidat_id, airtableService) {
   const bilan = await airtableService.getEtape1T3Bilan(candidat_id);
@@ -41,22 +53,38 @@ async function construirePayload(candidat_id, airtableService) {
   const pourbilan = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id) || [];
   const matiere   = await airtableService.getEtape1T3Circuits(candidat_id) || [];
 
-  // Sélection : le bloc « très souvent », tel qu'attribué par l'analyse
-  const codesRetenus = pourbilan.filter(estTresSouvent).map(l => String(l.circuit_code));
-
   // Index de la matière par code complet (P4 + C15 → P4C15)
   const parCode = new Map(matiere.map(g => [`${g.pilier}${g.circuit_id}`, g]));
-  const gestesRetenus = codesRetenus.map(code => ({ code, m: parCode.get(code) })).filter(x => x.m);
+
+  // Par outil : le bloc le plus fréquent qu'il possède, et les gestes de ce bloc.
+  const blocParPilier = new Map();
+  const gestesParPilier = new Map();
+  for (const l of pourbilan) {
+    const code = String(l.circuit_code || '');
+    const m = parCode.get(code);
+    if (!m) continue;                              // pas de matière rédigée → non affichable
+    const bloc = normBloc(l.bloc_final);
+    if (!(bloc in RANG_BLOC)) continue;            // bloc non attribué → ignoré
+    const pil = String(m.pilier);
+    const actuel = blocParPilier.get(pil);
+    if (actuel === undefined || RANG_BLOC[bloc] < RANG_BLOC[actuel]) {
+      blocParPilier.set(pil, bloc);                // un bloc plus fréquent est trouvé
+      gestesParPilier.set(pil, []);
+    }
+    if (blocParPilier.get(pil) === bloc) gestesParPilier.get(pil).push({ code, m });
+  }
+  const gestesRetenus = [...gestesParPilier.values()].flat();
 
   // Aucun geste retenu = matière absente : on échoue ici, jamais côté agent.
   if (!gestesRetenus.length) {
     throw new Error(`Aucun geste « très souvent » pour ${candidat_id} — ` +
-      `${pourbilan.length} ligne(s) POURBILAN, blocs : ${[...new Set(pourbilan.map(l => l.bloc || '?'))].join(', ')} · ` +
+      `${pourbilan.length} ligne(s) POURBILAN, bloc_final : ${[...new Set(pourbilan.map(l => l.bloc_final || '?'))].join(', ')} · ` +
       `${matiere.length} geste(s) en matière`);
   }
 
   const outils = piliers.map(p => {
     const role = normaliseRole(p.role_pilier || p.pilier_role_label);
+    const blocRetenu = blocParPilier.get(String(p.pilier)) || '';
     const gestes = gestesRetenus
       .filter(x => String(x.m.pilier) === String(p.pilier))
       .sort((a, b) => (a.m.ordre_circuit || 0) - (b.m.ordre_circuit || 0))
@@ -81,6 +109,10 @@ async function construirePayload(candidat_id, airtableService) {
       mode_libelle:     p.pilier_mode || '',
       mode_explication: p.mode_explication || '',
       synthese:         p.synth_interpretee || p.synth_courte || '',
+      bloc:             blocRetenu,
+      intitule_bloc:    INTITULE_BLOC[blocRetenu] || 'Ce que vous faites',
+      bloc:             blocRetenu,                    // très souvent · souvent · occasionnels
+      intitule_bloc:    INTITULE_BLOC[blocRetenu] || 'Ce que vous faites',
       gestes
     };
   }).sort((a, b) => (RANG_ROLE[a.role] ?? 9) - (RANG_ROLE[b.role] ?? 9));
