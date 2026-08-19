@@ -91,10 +91,13 @@ function controleEtancheite(sortie) {
 }
 
 /* Orchestration : 3 tentatives, puis anomalie */
-async function produireAvecControles(payload, referentiel, appelerAgent, maxTentatives = 3) {
+async function produireAvecControles(payload, referentiel, appelerAgent, maxTentatives = 3, journal = console) {
   let dernieresAlertes = [];
+  let derniereSortie = null;
   for (let n = 1; n <= maxTentatives; n++) {
-    const sortie = await appelerAgent(payload, referentiel);
+    // ⭐ On redonne à l'agent ce qu'il a mal fait, plutôt que de le relancer à l'aveugle.
+    const sortie = await appelerAgent(payload, referentiel, dernieresAlertes, derniereSortie);
+    derniereSortie = sortie;
     const alertes = [
       ...controleIntegrite(sortie),
       ...controleTitres(sortie, payload),
@@ -103,6 +106,11 @@ async function produireAvecControles(payload, referentiel, appelerAgent, maxTent
     ];
     if (!alertes.length) return { statut: 'publie', sortie, tentatives: n, alertes: [] };
     dernieresAlertes = alertes;
+    journal.warn?.('Tentative rejetée — alertes renvoyées à l\'agent', {
+      tentative: n, alertes,
+      recu: { items_referentiel: referentiel.length, gestes: payload.outils.reduce((t,o)=>t+(o.gestes?.length||0),0) },
+      produit: { titres: (sortie.titres_parles||[]).length, vigilance: (sortie.points_vigilance||[]).length }
+    });
   }
   return { statut: 'anomalie', sortie: null, tentatives: maxTentatives, alertes: dernieresAlertes };
 }
