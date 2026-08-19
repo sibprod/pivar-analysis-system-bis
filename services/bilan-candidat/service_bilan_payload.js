@@ -1,4 +1,4 @@
-// services/bilan-candidat/service_bilan_payload.js
+// services/bilan-candidat/// services/bilan-candidat/service_bilan_payload.js
 // TRANSPORT PUR — payload du bilan présenté au candidat.
 //
 // Sources (fonctions du service maison, aucune autre) :
@@ -25,34 +25,51 @@ function normaliseRole(r) {
   return 'fonctionnel';
 }
 
-const estTresSouvent = v => String(v || '').toLowerCase().normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '').includes('tres souvent');
+/* LE bloc de fréquence est le champ « bloc » de ETAPE1_T2_CIRCUITS_POURBILAN :
+   il vaut littéralement « très souvent » · « souvent » · « occasionnels ».
+   C'est la colonne « Bloc » des tableaux du bilan. Aucun seuil n'est calculé ici,
+   aucun niveau HAUT/MOYEN n'est lu : le classement est déjà fait, on le respecte. */
+const estTresSouvent = ligne => String(ligne.bloc ?? '').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === 'tres souvent';
 
 async function construirePayload(candidat_id, airtableService) {
   const bilan = await airtableService.getEtape1T3Bilan(candidat_id);
   if (!bilan) throw new Error(`Aucun bilan T3 pour ${candidat_id}`);
 
   const piliers  = await airtableService.getEtape1T3Piliers(candidat_id)  || [];
-  const circuits = await airtableService.getEtape1T3Circuits(candidat_id) || [];
+  // Deux sources, jointes sur le code : POURBILAN dit LESQUELS, T3_CIRCUIT dit QUOI.
+  const pourbilan = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id) || [];
+  const matiere   = await airtableService.getEtape1T3Circuits(candidat_id) || [];
 
-  // Sélection par la fréquence écrite en clair — aucun seuil manipulé
-  const gestesRetenus = circuits.filter(c => estTresSouvent(c.circuit_freq));
+  // Sélection : le bloc « très souvent », tel qu'attribué par l'analyse
+  const codesRetenus = pourbilan.filter(estTresSouvent).map(l => String(l.circuit_code));
+
+  // Index de la matière par code complet (P4 + C15 → P4C15)
+  const parCode = new Map(matiere.map(g => [`${g.pilier}${g.circuit_id}`, g]));
+  const gestesRetenus = codesRetenus.map(code => ({ code, m: parCode.get(code) })).filter(x => x.m);
+
+  // Aucun geste retenu = matière absente : on échoue ici, jamais côté agent.
+  if (!gestesRetenus.length) {
+    throw new Error(`Aucun geste « très souvent » pour ${candidat_id} — ` +
+      `${pourbilan.length} ligne(s) POURBILAN, blocs : ${[...new Set(pourbilan.map(l => l.bloc || '?'))].join(', ')} · ` +
+      `${matiere.length} geste(s) en matière`);
+  }
 
   const outils = piliers.map(p => {
     const role = normaliseRole(p.role_pilier || p.pilier_role_label);
     const gestes = gestesRetenus
-      .filter(g => String(g.pilier) === String(p.pilier))
-      .sort((a, b) => (a.ordre_circuit || 0) - (b.ordre_circuit || 0))
-      .map(g => ({
-        code:      `${p.pilier}${g.circuit_id}`,     // clé composite (P4C15) — jamais affichée
-        narration: g.n1_definition || '',           // le texte rédigé pour le candidat
-        resume:    g.explication_courte_ch4 || '',  // la phrase courte du protocole
-        renfort:   g.en_renfort || '',
+      .filter(x => String(x.m.pilier) === String(p.pilier))
+      .sort((a, b) => (a.m.ordre_circuit || 0) - (b.m.ordre_circuit || 0))
+      .map(({ code, m }) => ({
+        code,                                        // P4C15 — clé interne, jamais affichée
+        narration: m.n1_definition || '',            // le texte rédigé pour le candidat
+        resume:    m.explication_courte_ch4 || '',   // la phrase courte du protocole
+        renfort:   m.en_renfort || '',
         verbatims: [
-          { texte: g.verbatim_1, recit: g.verbatim_1_ref },
-          { texte: g.verbatim_2, recit: g.verbatim_2_ref },
-          { texte: g.verbatim_3, recit: g.verbatim_3_ref },
-          { texte: g.verbatim_4, recit: g.verbatim_4_ref }
+          { texte: m.verbatim_1, recit: m.verbatim_1_ref },
+          { texte: m.verbatim_2, recit: m.verbatim_2_ref },
+          { texte: m.verbatim_3, recit: m.verbatim_3_ref },
+          { texte: m.verbatim_4, recit: m.verbatim_4_ref }
         ].filter(v => v.texte)
       }));
 
