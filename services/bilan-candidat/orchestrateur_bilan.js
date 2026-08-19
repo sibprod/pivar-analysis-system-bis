@@ -60,7 +60,7 @@ async function genererBilan(candidatId, airtable) {
     [F.version]: `prompt v2 · ${MODELE} · ${resultat.tentatives} tentative(s)`
   };
 
-  await airtable.ecrireOuMettreAJour(T.CIBLE, F.candidat_id, candidatId, champs);
+  await ecrireBilanPresente(airtable, candidatId, champs);
   return { statut: resultat.statut, alertes: resultat.alertes, tentatives: resultat.tentatives };
 }
 
@@ -74,7 +74,9 @@ const nombreDeGestes = p => (p.outils || []).reduce((n, o) =>
    titre_court / transposition_pro : facultatifs — s'ils existent, ils font foi
    et l'agent les reprend tels quels (mémoire des formulations validées). */
 async function lireReferentiel(socleCode, airtable) {
-  const items = await airtable.enregistrements(T.DESAL, { pilier: socleCode });
+  const items = (typeof airtable.getBilanDesalignement === 'function')
+    ? await airtable.getBilanDesalignement(socleCode)
+    : [];   // référentiel absent : l'agent n'aura aucun item, les contrôles le signaleront
   return items.map(i => ({
     id:                i.id,
     categorie:         i.categorie,          // EMPECHEMENTS · INJONCTIONS · IMPACTS · SURDEPLOIEMENT
@@ -85,10 +87,32 @@ async function lireReferentiel(socleCode, airtable) {
 }
 
 async function lireFormulations(candidatId, airtable) {
-  try {
-    const l = await airtable.premierEnregistrement(T.RAPIDE, 'candidat_id', candidatId);
-    return l ? (JSON.parse(l.gestes_probants_json || '[]')).map(g => ({ formulation: g.nom, ancrage: g.verbatim })) : [];
-  } catch { return []; }   // le mode rapide est facultatif : sans lui, l'agent compose tout
+  return [];   // facultatif — l'agent compose tous les titres à partir de la matière
 }
 
 module.exports = { genererBilan, F };
+
+
+/* Écriture dans BILAN_PRESENTE_CANDIDAT — via l'API Airtable, table dédiée */
+async function ecrireBilanPresente(airtableService, candidatId, champs) {
+  const BASE = process.env.AIRTABLE_BASE_ID;
+  const KEY  = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
+  const TABLE = 'tbllTlzNbml7AoGZt';
+  const F_ID  = 'fld1MiowhyU35TI1T';
+  const entetes = { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
+
+  const formule = encodeURIComponent(`{candidat_id}="${String(candidatId).replace(/"/g,'')}"`);
+  const rCherche = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?filterByFormula=${formule}&maxRecords=1`, { headers: entetes });
+  const data = rCherche.ok ? await rCherche.json() : { records: [] };
+  const existante = data.records && data.records[0];
+
+  const corps = JSON.stringify({
+    records: [existante ? { id: existante.id, fields: champs } : { fields: champs }],
+    typecast: true
+  });
+  const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}`, {
+    method: existante ? 'PATCH' : 'POST', headers: entetes, body: corps
+  });
+  if (!r.ok) throw new Error(`Écriture BILAN_PRESENTE_CANDIDAT : ${r.status} ${(await r.text()).slice(0,200)}`);
+  return true;
+}
