@@ -79,56 +79,59 @@ const nombreDeGestes = p => (p.outils || []).reduce((n, o) =>
    titre_court / transposition_pro : facultatifs — s'ils existent, ils font foi
    et l'agent les reprend tels quels (mémoire des formulations validées). */
 async function lireReferentiel(socleCode) {
-  // Table BILAN_DESALIGNEMENT — non exposée par airtableService : lecture directe.
-  // Lue PAR IDENTIFIANTS DE CHAMPS (les noms ne sont pas garantis) :
-  //   fld0eLhf6YOT9SWgb pilier · fldJPw1KAK4JbOzrx catégorie
-  //   fldTGvpMnG4hqvLlS contenu JSON { items: [...] } · fld07wYsiauIXgD45 clé
+  // Table BILAN_DESALIGNEMENT — lecture directe.
+  // On ne dépend NI des noms de champs NI de leurs identifiants : on reconnaît
+  // chaque valeur à son contenu. C'est la seule lecture qui ne peut pas échouer
+  // si la table est renommée ou réorganisée.
   const BASE  = process.env.AIRTABLE_BASE_ID;
   const KEY   = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
   const TABLE = 'tbluJprmh9AJEJ6qQ';
-  const F = { pilier:'fld0eLhf6YOT9SWgb', categorie:'fldJPw1KAK4JbOzrx',
-              contenu:'fldTGvpMnG4hqvLlS', cle:'fld07wYsiauIXgD45' };
   if (!BASE || !KEY || !socleCode) return [];
 
   // Le pilier y est nommé par son geste : P1=COLLECTE · P2=TRI · P3=ANALYSE · P4=SOLUTIONS · P5=MEO
   const NOM = { P1:'COLLECTE', P2:'TRI', P3:'ANALYSE', P4:'SOLUTIONS', P5:'MEO' };
-  const nom = NOM[String(socleCode).toUpperCase()] || String(socleCode).toUpperCase();
+  const cible = NOM[String(socleCode).toUpperCase()] || String(socleCode).toUpperCase();
+  const CATEGORIES = ['EMPECHEMENTS','INJONCTIONS','IMPACTS','SURDEPLOIEMENT'];
 
-  // Catégories servies au candidat. SURDEPLOIEMENT et EMPECHEMENTS nourrissent l'axe
-  // « le trop » ; INJONCTIONS et IMPACTS l'axe « la rencontre avec d'autres manières ».
-  const RETENUES = ['EMPECHEMENTS','INJONCTIONS','IMPACTS','SURDEPLOIEMENT'];
+  const valeurTexte = v => (v && typeof v === 'object' && v.name) ? v.name : (typeof v === 'string' ? v : '');
 
   try {
-    // Table courte : on la lit entière et on filtre en mémoire (aucun nom de champ requis).
-    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?pageSize=100&returnFieldsByFieldId=true`,
+    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?pageSize=100`,
       { headers: { Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) { console.warn(`[referentiel] lecture refusée : ${r.status} ${await r.text().catch(()=>'')}`.slice(0,200)); return []; }
+    if (!r.ok) { console.warn(`[referentiel] lecture refusée : ${r.status}`); return []; }
     const data = await r.json();
-    console.log(`[referentiel] ${(data.records||[]).length} ligne(s) lue(s), recherche du pilier « ${nom} »`);
+    console.log(`[referentiel] ${(data.records||[]).length} ligne(s) lue(s), pilier recherché « ${cible} »`);
 
     const items = [];
     for (const rec of (data.records || [])) {
-      const f = rec.fields || {};
-      const pil = (f[F.pilier] && f[F.pilier].name) || f[F.pilier] || '';
-      if (String(pil).toUpperCase() !== nom) continue;
+      const valeurs = Object.values(rec.fields || {}).map(valeurTexte);
 
-      const cat = (f[F.categorie] && f[F.categorie].name) || f[F.categorie] || '';
-      if (!RETENUES.some(c => String(cat).toUpperCase().includes(c))) continue;
+      // Cette ligne concerne-t-elle le pilier socle ? (une valeur vaut exactement le nom du pilier)
+      if (!valeurs.some(v => v.toUpperCase() === cible)) continue;
 
-      const cle = f[F.cle] || rec.id;
+      // Quelle catégorie ? (une valeur est l'une des quatre)
+      const cat = valeurs.map(v => v.toUpperCase()).find(v => CATEGORIES.includes(v));
+      if (!cat) continue;
+
+      // La clé lisible, si elle existe (ex. SOLUTIONS_SURDEPLOIEMENT)
+      const cle = valeurs.find(v => v.toUpperCase().startsWith(cible + '_')) || rec.id;
+
+      // Le contenu : la valeur qui est un JSON portant « items »
       let liste = [];
-      try {
-        const brut = f[F.contenu];
-        const j = typeof brut === 'string' ? JSON.parse(brut) : (brut || {});
-        liste = Array.isArray(j) ? j : (j.items || []);
-      } catch { liste = []; }
+      for (const v of Object.values(rec.fields || {})) {
+        if (typeof v !== 'string' || !v.includes('items')) continue;
+        try { const j = JSON.parse(v); if (Array.isArray(j.items)) { liste = j.items; break; } } catch {}
+      }
 
       liste.forEach((texte, i) => {
         if (typeof texte !== 'string' || !texte.trim()) return;
-        items.push({ id: `${cle}_${i + 1}`, categorie: cat, enonce: texte.trim(),
-                     axe_suggere: /SURDEPLOIEMENT|EMPECHEMENTS/i.test(cat) ? 'trop' : 'autres' });
+        items.push({
+          id: `${cle}_${i + 1}`, categorie: cat, enonce: texte.trim(),
+          axe_suggere: (cat === 'SURDEPLOIEMENT' || cat === 'EMPECHEMENTS') ? 'trop' : 'autres'
+        });
       });
     }
+    console.log(`[referentiel] ${items.length} item(s) retenu(s) pour ${cible}`);
     return items;
   } catch (e) { console.warn('[referentiel] échec :', e.message); return []; }
 }
