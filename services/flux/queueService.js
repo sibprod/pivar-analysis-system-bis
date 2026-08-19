@@ -98,7 +98,11 @@ const STATUTS_DETECTES_PAR_POLLING = [
   // ⭐ v12.3 (13/08/2026) — Mode rapide L4 : déclenché en posant ce statut sur le
   //   VISITEUR. Terminal : MODE_RAPIDE_TERMINE (posé par l'orchestrateur mode
   //   rapide) — NE PAS le détecter ici (état d'arrêt, pas un déclencheur).
-  'MODE_RAPIDE'
+  'MODE_RAPIDE',
+  // ⭐ v12.4 (19/08/2026) — Étape 1.4 : bilan présenté au candidat (L1).
+  //   Déclencheur uniquement. Terminal : BILAN_PRESENTE_CANDIDAT_OK (posé par
+  //   l'orchestrateur) — NE PAS le détecter ici.
+  'LANCER BILAN_PRESENTE _CANDIDAT'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
