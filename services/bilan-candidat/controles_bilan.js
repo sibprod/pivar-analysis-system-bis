@@ -68,8 +68,13 @@ function controleVigilance(sortie, payload, referentiel) {
   if (!(axes.has('trop') && axes.has('autres'))) echecs.push('les deux axes ne sont pas représentés');
   const tousVerbatims = JSON.stringify(payload.outils);
   for (const p of pts) {
-    if (!p.source_referentiel || !referentiel.includes(p.source_referentiel))
-      echecs.push(`point « ${p.titre} » : item source absent du référentiel`);
+    // L'item source n'est exigé que si un référentiel a pu être lu.
+    // Sans référentiel, l'agent produit sur la seule matière du candidat :
+    // l'ancrage par verbatim et le contrôle de registre suffisent alors.
+    if (referentiel && referentiel.length) {
+      if (!p.source_referentiel || !referentiel.includes(p.source_referentiel))
+        echecs.push(`point « ${p.titre} » : item source absent du référentiel`);
+    }
     const cite = (p.verbatims||[]).filter(v => v && tousVerbatims.includes(v.slice(0, Math.min(30, v.length))));
     if (!cite.length) echecs.push(`point « ${p.titre} » : aucun verbatim du candidat`);
     if (!p.transposition) echecs.push(`point « ${p.titre} » : transposition professionnelle manquante`);
@@ -105,6 +110,7 @@ function controleEtancheite(sortie) {
 async function produireAvecControles(payload, referentiel, appelerAgent, maxTentatives = 3, journal = console) {
   let dernieresAlertes = [];
   let derniereSortie = null;
+  let meilleure = null, meilleuresAlertes = [];
   for (let n = 1; n <= maxTentatives; n++) {
     // ⭐ On redonne à l'agent ce qu'il a mal fait, plutôt que de le relancer à l'aveugle.
     const sortie = await appelerAgent(payload, referentiel, dernieresAlertes, derniereSortie);
@@ -117,6 +123,11 @@ async function produireAvecControles(payload, referentiel, appelerAgent, maxTent
     ];
     if (sortie._reponse_non_json) alertes.unshift(`l'agent a répondu hors format : « ${sortie._reponse_non_json.slice(0,120)}… »`);
     if (!alertes.length) return { statut: 'publie', sortie, tentatives: n, alertes: [] };
+
+    // Si la meilleure tentative précédente était plus complète, on la garde :
+    // inutile de repartir de zéro quand l'agent régresse.
+    const score = s => (s?.titres_parles?.length || 0) + (s?.points_vigilance?.length || 0) * 3;
+    if (meilleure === null || score(sortie) > score(meilleure)) { meilleure = sortie; meilleuresAlertes = alertes; }
     dernieresAlertes = alertes;
     journal.warn?.('Tentative rejetée — alertes renvoyées à l\'agent', {
       tentative: n, alertes,
@@ -124,7 +135,7 @@ async function produireAvecControles(payload, referentiel, appelerAgent, maxTent
       produit: { titres: (sortie.titres_parles||[]).length, vigilance: (sortie.points_vigilance||[]).length }
     });
   }
-  return { statut: 'anomalie', sortie: null, tentatives: maxTentatives, alertes: dernieresAlertes };
+  return { statut: 'anomalie', sortie: meilleure, tentatives: maxTentatives, alertes: meilleuresAlertes.length ? meilleuresAlertes : dernieresAlertes };
 }
 
 module.exports = { produireAvecControles, controleTitres, controleVigilance, controleIntegrite, controleEtancheite, INTERDITS_TEXTE, LIAISON };
