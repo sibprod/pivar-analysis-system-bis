@@ -74,16 +74,38 @@ const nombreDeGestes = p => (p.outils || []).reduce((n, o) =>
    titre_court / transposition_pro : facultatifs — s'ils existent, ils font foi
    et l'agent les reprend tels quels (mémoire des formulations validées). */
 async function lireReferentiel(socleCode, airtable) {
-  const items = (typeof airtable.getBilanDesalignement === 'function')
-    ? await airtable.getBilanDesalignement(socleCode)
-    : [];   // référentiel absent : l'agent n'aura aucun item, les contrôles le signaleront
-  return items.map(i => ({
-    id:                i.id,
-    categorie:         i.categorie,          // EMPECHEMENTS · INJONCTIONS · IMPACTS · SURDEPLOIEMENT
-    enonce:            i.contenu || i.enonce,
-    titre_court:       i.titre_court || null,
-    transposition_pro: i.transposition_pro || null
-  }));
+  // La table BILAN_DESALIGNEMENT n'est pas exposée par airtableService : lecture directe.
+  const BASE  = process.env.AIRTABLE_BASE_ID;
+  const KEY   = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
+  const TABLE = 'tbluJprmh9AJEJ6qQ';
+  if (!BASE || !KEY || !socleCode) return [];
+
+  // Le pilier y est nommé par son geste : P1=COLLECTE · P2=TRI · P3=ANALYSE · P4=SOLUTIONS · P5=MEO
+  const NOM = { P1: 'COLLECTE', P2: 'TRI', P3: 'ANALYSE', P4: 'SOLUTIONS', P5: 'MEO' };
+  const nom = NOM[String(socleCode).toUpperCase()] || socleCode;
+
+  try {
+    const formule = encodeURIComponent(`{pilier}="${nom}"`);
+    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?filterByFormula=${formule}&pageSize=100`,
+      { headers: { Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) return [];
+    const data = await r.json();
+
+    // Chaque ligne porte un JSON { items: [...] } : on éclate en items unitaires.
+    const items = [];
+    for (const rec of (data.records || [])) {
+      const f = rec.fields || {};
+      const cle = f.cle || f.id_contenu || rec.id;
+      const categorie = (f.categorie && f.categorie.name) || f.categorie || '';
+      let liste = [];
+      try { const j = JSON.parse(f.contenu_json || f.contenu || '{}'); liste = j.items || []; } catch { liste = []; }
+      liste.forEach((texte, i) => items.push({
+        id: `${cle}_${i + 1}`, categorie, enonce: String(texte),
+        titre_court: f.titre_court || null, transposition_pro: f.transposition_pro || null
+      }));
+    }
+    return items;
+  } catch { return []; }
 }
 
 
