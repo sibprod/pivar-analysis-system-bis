@@ -7,9 +7,20 @@
 const crypto = require('crypto');
 
 /* Mots de liaison autorisés dans un titre, en plus des mots de la matière */
-const LIAISON = new Set(['votre','vos','le','la','les','un','une','des','de','du','d','l','en','et',
-  'a','au','aux','ce','cet','cette','qui','que','pour','sans','avec','sur','dans','par','plus','ne','pas','se','son','sa','ses',
-  'vous','votre','ou','on','y','il','elle','est','sont','fait','faites'].map(m => m.normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+const LIAISON = new Set([
+  // déterminants, pronoms, prépositions, conjonctions
+  'votre','vos','le','la','les','un','une','des','de','du','d','l','en','et','ou','a','au','aux',
+  'ce','cet','cette','ces','qui','que','quoi','dont','pour','sans','avec','sur','dans','par','vers',
+  'plus','moins','ne','pas','se','son','sa','ses','leur','leurs','vous','on','y','il','elle','tout','toute','tous',
+  'quand','comme','si','mais','donc','puis','avant','apres','entre','chez','jusqu','meme','autre','autres',
+  // verbes et mots-outils du français courant : ils ne portent aucune notion nouvelle
+  'est','sont','etre','avoir','fait','faites','faire','aller','va','vont','mettre','met','mis','prendre','prend',
+  'laisser','laisse','donner','donne','tenir','tient','venir','vient','passer','passe','rester','reste',
+  'chercher','cherche','trouver','trouve','voir','voit','savoir','sait','pouvoir','peut','vouloir','veut',
+  'facon','maniere','chose','choses','fois','moment','temps','lieu','place','cas','point','filet','ordre','suite',
+  'rien','toujours','jamais','deja','encore','aussi','bien','peu','beaucoup','trop','assez',
+  'nos','notre','mes','mon','ma','lui','eux','elles','nous','je','tu','soi'
+].map(m => m.normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
 
 /* Termes qui ne doivent jamais figurer dans la sortie */
 const INTERDITS_TEXTE = [
@@ -75,7 +86,7 @@ function controleVigilance(sortie, payload, referentiel) {
    L'agent ne renvoie QUE ses productions : toute autre clé signifie qu'il a
    touché à la matière. C'est cela qu'on vérifie — pas une empreinte de payload,
    qu'il ne renvoie jamais. */
-const CLES_AUTORISEES = new Set(['titres_parles', 'points_vigilance']);
+const CLES_AUTORISEES = new Set(['titres_parles', 'points_vigilance', '_reponse_non_json']);
 function controleIntegrite(sortie) {
   const intruses = Object.keys(sortie || {}).filter(k => !CLES_AUTORISEES.has(k));
   return intruses.length
@@ -104,6 +115,7 @@ async function produireAvecControles(payload, referentiel, appelerAgent, maxTent
       ...controleVigilance(sortie, payload, referentiel.map(r => r.id)),
       ...controleEtancheite(sortie)
     ];
+    if (sortie._reponse_non_json) alertes.unshift(`l'agent a répondu hors format : « ${sortie._reponse_non_json.slice(0,120)}… »`);
     if (!alertes.length) return { statut: 'publie', sortie, tentatives: n, alertes: [] };
     dernieresAlertes = alertes;
     journal.warn?.('Tentative rejetée — alertes renvoyées à l\'agent', {
