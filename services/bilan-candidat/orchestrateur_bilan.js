@@ -30,8 +30,13 @@ async function genererBilan(candidatId, airtable) {
   const referentiel  = await lireReferentiel(payload.socle_code);
   const formulations = await lireFormulationsModeRapide(candidatId);   // peut être vide
 
+  console.log(`[bilan ${candidatId}] reçu : ${referentiel.length} items de référentiel · ` +
+              `${payload.outils.reduce((t,o)=>t+(o.gestes?.length||0),0)} gestes · ` +
+              `${formulations.length} formulations`);
+
   const resultat = await produireAvecControles(payload, referentiel,
-    (p, r) => appelerAgent(p, r, formulations));
+    (p, r, alertes, precedente) => appelerAgent(p, r, alertes, precedente, formulations),
+    3, console);
 
   const enchainement = genererEnchainement(payload);   // par le code, sans agent
   const titres = resultat.sortie?.titres_parles || [];
