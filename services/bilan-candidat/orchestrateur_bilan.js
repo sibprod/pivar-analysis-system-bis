@@ -27,7 +27,7 @@ const F = {
 
 async function genererBilan(candidatId, airtable) {
   const payload      = await construirePayload(candidatId, airtable);
-  const referentiel  = await lireReferentiel(payload.socle_code, airtable);
+  const referentiel  = await lireReferentiel(payload.socle_code);
   const formulations = await lireFormulationsModeRapide(candidatId);   // peut être vide
 
   const resultat = await produireAvecControles(payload, referentiel,
@@ -73,36 +73,55 @@ const nombreDeGestes = p => (p.outils || []).reduce((n, o) =>
    sous le contrôle des règles du prompt et des contrôles bloquants.
    titre_court / transposition_pro : facultatifs — s'ils existent, ils font foi
    et l'agent les reprend tels quels (mémoire des formulations validées). */
-async function lireReferentiel(socleCode, airtable) {
-  // La table BILAN_DESALIGNEMENT n'est pas exposée par airtableService : lecture directe.
+async function lireReferentiel(socleCode) {
+  // Table BILAN_DESALIGNEMENT — non exposée par airtableService : lecture directe.
+  // Lue PAR IDENTIFIANTS DE CHAMPS (les noms ne sont pas garantis) :
+  //   fld0eLhf6YOT9SWgb pilier · fldJPw1KAK4JbOzrx catégorie
+  //   fldTGvpMnG4hqvLlS contenu JSON { items: [...] } · fld07wYsiauIXgD45 clé
   const BASE  = process.env.AIRTABLE_BASE_ID;
   const KEY   = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
   const TABLE = 'tbluJprmh9AJEJ6qQ';
+  const F = { pilier:'fld0eLhf6YOT9SWgb', categorie:'fldJPw1KAK4JbOzrx',
+              contenu:'fldTGvpMnG4hqvLlS', cle:'fld07wYsiauIXgD45' };
   if (!BASE || !KEY || !socleCode) return [];
 
   // Le pilier y est nommé par son geste : P1=COLLECTE · P2=TRI · P3=ANALYSE · P4=SOLUTIONS · P5=MEO
-  const NOM = { P1: 'COLLECTE', P2: 'TRI', P3: 'ANALYSE', P4: 'SOLUTIONS', P5: 'MEO' };
-  const nom = NOM[String(socleCode).toUpperCase()] || socleCode;
+  const NOM = { P1:'COLLECTE', P2:'TRI', P3:'ANALYSE', P4:'SOLUTIONS', P5:'MEO' };
+  const nom = NOM[String(socleCode).toUpperCase()] || String(socleCode).toUpperCase();
+
+  // Catégories servies au candidat. SURDEPLOIEMENT et EMPECHEMENTS nourrissent l'axe
+  // « le trop » ; INJONCTIONS et IMPACTS l'axe « la rencontre avec d'autres manières ».
+  const RETENUES = ['EMPECHEMENTS','INJONCTIONS','IMPACTS','SURDEPLOIEMENT'];
 
   try {
-    const formule = encodeURIComponent(`{pilier}="${nom}"`);
-    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?filterByFormula=${formule}&pageSize=100`,
+    // Table courte : on la lit entière et on filtre en mémoire (aucun nom de champ requis).
+    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?pageSize=100&returnFieldsByFieldId=true`,
       { headers: { Authorization: `Bearer ${KEY}` } });
     if (!r.ok) return [];
     const data = await r.json();
 
-    // Chaque ligne porte un JSON { items: [...] } : on éclate en items unitaires.
     const items = [];
     for (const rec of (data.records || [])) {
       const f = rec.fields || {};
-      const cle = f.cle || f.id_contenu || rec.id;
-      const categorie = (f.categorie && f.categorie.name) || f.categorie || '';
+      const pil = (f[F.pilier] && f[F.pilier].name) || f[F.pilier] || '';
+      if (String(pil).toUpperCase() !== nom) continue;
+
+      const cat = (f[F.categorie] && f[F.categorie].name) || f[F.categorie] || '';
+      if (!RETENUES.some(c => String(cat).toUpperCase().includes(c))) continue;
+
+      const cle = f[F.cle] || rec.id;
       let liste = [];
-      try { const j = JSON.parse(f.contenu_json || f.contenu || '{}'); liste = j.items || []; } catch { liste = []; }
-      liste.forEach((texte, i) => items.push({
-        id: `${cle}_${i + 1}`, categorie, enonce: String(texte),
-        titre_court: f.titre_court || null, transposition_pro: f.transposition_pro || null
-      }));
+      try {
+        const brut = f[F.contenu];
+        const j = typeof brut === 'string' ? JSON.parse(brut) : (brut || {});
+        liste = Array.isArray(j) ? j : (j.items || []);
+      } catch { liste = []; }
+
+      liste.forEach((texte, i) => {
+        if (typeof texte !== 'string' || !texte.trim()) return;
+        items.push({ id: `${cle}_${i + 1}`, categorie: cat, enonce: texte.trim(),
+                     axe_suggere: /SURDEPLOIEMENT|EMPECHEMENTS/i.test(cat) ? 'trop' : 'autres' });
+      });
     }
     return items;
   } catch { return []; }
