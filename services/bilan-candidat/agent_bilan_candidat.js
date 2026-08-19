@@ -8,14 +8,26 @@ const MODELE  = process.env.CLAUDE_MODELE || 'claude-sonnet-4-6';
 const API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
 const PROMPT  = fs.readFileSync(path.join(__dirname, 'prompt_bilan_candidat.md'), 'utf8');
 
-async function appelerAgent(payload, referentielVigilance, formulations = []) {
+async function appelerAgent(payload, referentielVigilance, alertesPrecedentes = [], sortiePrecedente = null, formulations = []) {
   if (!API_KEY) throw new Error('ANTHROPIC_API_KEY absente');
 
-  const contenu = JSON.stringify({
+  const corps = {
     payload: allegerPourAgent(payload),
     formulations_disponibles: formulations,
     referentiel_vigilance: referentielVigilance
-  }, null, 1);
+  };
+  // ⭐ Reprise : on montre à l'agent ce qui a été refusé et pourquoi.
+  if (alertesPrecedentes && alertesPrecedentes.length) {
+    corps.ta_tentative_precedente = sortiePrecedente;
+    corps.motifs_de_rejet = alertesPrecedentes;
+    corps.consigne_de_reprise =
+      "Ta tentative précédente a été refusée pour les motifs ci-dessus. " +
+      "Corrige exactement ces motifs et rends une nouvelle sortie complète. " +
+      "Si aucun point de vigilance n'a pu être retenu, c'est que ton critère d'ancrage est trop strict : " +
+      "un point est retenu dès qu'une phrase du candidat, dans n'importe lequel de ses gestes, illustre la situation décrite par l'énoncé — " +
+      "la phrase n'a pas à contenir les mots de l'énoncé, elle doit montrer le même comportement.";
+  }
+  const contenu = JSON.stringify(corps, null, 1);
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
