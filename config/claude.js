@@ -95,6 +95,13 @@ module.exports = {
     // restent à 64000 : la profondeur d'analyse des candidats est intouchable (doctrine).
     agent_testdec_cod:       64000,  // ⭐ Étape 2c (02/07) — codeur du test de décentration
 
+    // ── Étape 1.5 — la grille référent (19/08/2026) ───────────────────────
+    // Sortie longue : cartouche + tuile vérifiée élément par élément + 5 outils
+    // avec leurs gestes + dimensions transposées + vigilances et leurs questions
+    // + les verbalisations d'ajustement. Thinking ON : la vérification de la tuile
+    // (R8) est un raisonnement comparatif contre le bilan réel du candidat.
+    agent_grille_referent:   64000,
+
     // ── Certificateur lexique (objet distinct du vérificateur T1) ─────────
     certificateur_lexique:   64000,
 
@@ -124,6 +131,7 @@ module.exports = {
     agent_t5a:               true,   // ⭐ v11.7 — distinction fine des niveaux par excellence
     agent_testdec_gen:       true,   // ⭐ Étape 2c — construction calibrée des contrastes
     agent_testdec_cod:       true,   // ⭐ Étape 2c — codage de l'ancrage contre deux référentiels
+    agent_grille_referent:   true,   // ⭐ Étape 1.5 — vérification de la tuile élément par élément (R8)
     agent_t5bc:              true,   // conservé pour compatibilité — non utilisé depuis v2.0
     agent_t5b:               true,   // ⭐ A11 — portraits par excellence, raisonnement régime
     agent_t5c:               true,   // ⭐ A11 — verdicts deux faces, raisonnement comparatif
