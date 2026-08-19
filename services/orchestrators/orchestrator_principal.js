@@ -45,6 +45,9 @@
 //   - BILAN_FABLE_PA_OK             → ignoré (sentinelle : 5 piliers produits, validation des modes ; aval relancé manuellement via REPRENDRE_BILAN_PB/PD)
 //   - BILAN_FABLE_TERMINE           → ignoré (bilan Fable produit, terminal)
 //   - BILAN_PRESENTE_CANDIDAT_OK    → ignoré (bilan candidat produit, terminal) ⭐ v10.14
+//   - LANCER_BILAN_GRILLE_DRH       → ⭐ v10.15 (19/08/2026) Étape 1.5, grille lue par le référent —
+//                                     pose lui-même BILAN_GRILLE_DRH_OK et retourne { stopReason }
+//   - BILAN_GRILLE_DRH_OK           → ignoré (grille produite, terminal) ⭐ v10.15
 //   - MODE_RAPIDE_EVALUE            → ignoré (portrait produit, non contrôlé — terminal) ⭐ v10.13
 //   - MODE_RAPIDE_CONTROLE          → ignoré (portrait produit et contrôlé — terminal) ⭐ v10.13
 //   - MODE_RAPIDE_TERMINE           → ignoré (ancien terminal, trace historique) ⭐ v10.11
@@ -119,6 +122,7 @@ const orchestratorModeRapide     = require('../mode-rapide/orchestrator_mode_rap
 const accesModeRapide            = require('../mode-rapide/acces_mode_rapide');           // ⭐ v10.12 — contrôle différé
 const serviceControleModeRapide  = require('../mode-rapide/service_mode_rapide_controle'); // ⭐ v10.12 — contrôle différé
 const orchestratorBilanPresente  = require('./orchestrator_bilan_presente_candidat');      // ⭐ v10.14 (19/08/2026) — Étape 1.4
+const orchestratorGrilleDrh      = require('./orchestrator_bilan_grille_drh');            // ⭐ v10.15 (19/08/2026) — Étape 1.5
 const logger                     = require('../../utils/logger');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -388,6 +392,18 @@ async function aiguillerVersSousOrchestrateur({ candidat_id, visiteur, statut_ac
   if (statut_actuel === orchestratorBilanPresente.STATUT_DECLENCHEUR) {
     logger.info('Aiguillage → Étape 1.4 Bilan présenté au candidat', { candidat_id });
     return await orchestratorBilanPresente.run({ candidat_id });
+  }
+
+  // ─── ⭐ v10.15 (19/08/2026) — Aiguillage ÉTAPE 1.5 : GRILLE RÉFÉRENT ────────
+  // Hors pipeline d'analyse : produit le document lu par le référent à partir de
+  // la matière validée (T3 + Étape 2) et des trois référentiels (profils, équivalences
+  // test/pro, désalignement). N'écrit QUE dans GRILLE_REFERENT et GRILLE_VERBALISATION
+  // (aucune table d'analyse touchée). L'orchestrateur pose lui-même son statut final
+  // (BILAN_GRILLE_DRH_OK) et retourne { stopReason } : le principal ne pose donc
+  // JAMAIS « terminé » sur ce chemin — même pattern que Fable, mode rapide et 1.4.
+  if (statut_actuel === orchestratorGrilleDrh.STATUT_DECLENCHEUR) {
+    logger.info('Aiguillage → Étape 1.5 Grille référent', { candidat_id });
+    return await orchestratorGrilleDrh.run({ candidat_id });
   }
 
   logger.warn('Statut non éligible pour traitement', { candidat_id, statut_actuel });
