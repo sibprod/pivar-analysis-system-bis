@@ -24,7 +24,7 @@ const LIAISON = new Set([
 
 /* Termes qui ne doivent jamais figurer dans la sortie */
 const INTERDITS_TEXTE = [
-  'circuit','instrumental','glissement','signal limbique','capacité','amplitude','profondeur',
+  'circuit','instrumental','glissement','signal limbique',
   'pilier dominant','pilier structurant','HAUT','MOYEN','FAIBLE','effleuré','plein régime',
   // libellés du protocole — D2-07 : ils ne sortent jamais
   "Collecte d'information",'Tri et organisation','Analyse et diagnostic',
@@ -33,7 +33,7 @@ const INTERDITS_TEXTE = [
 
 const normalise = s => String(s||'').toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-  .replace(/[’']/g," ").replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);
+  .replace(/[’']/g,"'").replace(/\b[a-z]'/g,' ').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(m => m.length > 1);
 
 /* C1 — chaque mot porteur d'un titre doit venir de la matière du geste */
 function controleTitres(sortie, payload) {
