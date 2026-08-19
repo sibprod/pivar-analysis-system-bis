@@ -12,7 +12,7 @@
 // Statuts :
 //   - Déclencheur  : 'LANCER BILAN_PRESENTE _CANDIDAT'   (posé manuellement ou en fin de chaîne Fable)
 //   - Succès       : 'BILAN_PRESENTE_CANDIDAT_OK'        (terminal — le lien candidat devient servable)
-//   - Échec        : 'REPRENDRE_BILAN_FABLE'             (repérable, ne reboucle pas)
+//   - Échec        : 'ERREUR'                            (repérable ; ne relance AUCUNE autre chaîne)
 //
 // Verrou d'affichage : la ligne écrite porte statut = 'publie' ou 'anomalie'.
 // Le serveur livrables (dépôt bilan) ne sert QUE les lignes 'publie'.
@@ -26,7 +26,7 @@ const { genererBilan } = require('../bilan-candidat/orchestrateur_bilan');
 
 const STATUT_DECLENCHEUR = 'LANCER BILAN_PRESENTE _CANDIDAT';
 const STATUT_OK          = 'BILAN_PRESENTE_CANDIDAT_OK';
-const STATUT_ECHEC       = 'REPRENDRE_BILAN_FABLE';
+const STATUT_ECHEC       = 'ERREUR';   // jamais un statut qui relance une autre chaîne
 
 /**
  * Point d'entrée appelé par orchestrator_principal.
