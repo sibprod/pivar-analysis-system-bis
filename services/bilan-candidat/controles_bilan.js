@@ -71,12 +71,16 @@ function controleVigilance(sortie, payload, referentiel) {
   return echecs;
 }
 
-/* C3 — intégrité du transporté */
-function controleIntegrite(sortie, empreinteAvant) {
-  const champs = { ...sortie }; delete champs.titres_parles; delete champs.points_vigilance;
-  delete champs.enchainement; delete champs.marqueurs; delete champs._empreinte;
-  const apres = crypto.createHash('sha256').update(JSON.stringify(champs)).digest('hex');
-  return apres === empreinteAvant ? [] : ['intégrité : un champ transporté a été modifié'];
+/* C3 — intégrité du transporté.
+   L'agent ne renvoie QUE ses productions : toute autre clé signifie qu'il a
+   touché à la matière. C'est cela qu'on vérifie — pas une empreinte de payload,
+   qu'il ne renvoie jamais. */
+const CLES_AUTORISEES = new Set(['titres_parles', 'points_vigilance']);
+function controleIntegrite(sortie) {
+  const intruses = Object.keys(sortie || {}).filter(k => !CLES_AUTORISEES.has(k));
+  return intruses.length
+    ? [`intégrité : l'agent a renvoyé des champs qui ne lui appartiennent pas (${intruses.join(', ')})`]
+    : [];
 }
 
 /* C4 — aucun terme interdit dans la sortie produite */
@@ -88,12 +92,11 @@ function controleEtancheite(sortie) {
 
 /* Orchestration : 3 tentatives, puis anomalie */
 async function produireAvecControles(payload, referentiel, appelerAgent, maxTentatives = 3) {
-  const empreinteAvant = payload._empreinte;
   let dernieresAlertes = [];
   for (let n = 1; n <= maxTentatives; n++) {
     const sortie = await appelerAgent(payload, referentiel);
     const alertes = [
-      ...controleIntegrite(sortie, empreinteAvant),
+      ...controleIntegrite(sortie),
       ...controleTitres(sortie, payload),
       ...controleVigilance(sortie, payload, referentiel.map(r => r.id)),
       ...controleEtancheite(sortie)
