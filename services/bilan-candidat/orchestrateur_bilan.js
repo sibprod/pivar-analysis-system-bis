@@ -102,8 +102,9 @@ async function lireReferentiel(socleCode) {
     // Table courte : on la lit entière et on filtre en mémoire (aucun nom de champ requis).
     const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?pageSize=100&returnFieldsByFieldId=true`,
       { headers: { Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) return [];
+    if (!r.ok) { console.warn(`[referentiel] lecture refusée : ${r.status} ${await r.text().catch(()=>'')}`.slice(0,200)); return []; }
     const data = await r.json();
+    console.log(`[referentiel] ${(data.records||[]).length} ligne(s) lue(s), recherche du pilier « ${nom} »`);
 
     const items = [];
     for (const rec of (data.records || [])) {
@@ -129,7 +130,7 @@ async function lireReferentiel(socleCode) {
       });
     }
     return items;
-  } catch { return []; }
+  } catch (e) { console.warn('[referentiel] échec :', e.message); return []; }
 }
 
 
