@@ -56,6 +56,11 @@ function controleVigilance(sortie, payload, referentiel) {
     const cite = (p.verbatims||[]).filter(v => v && tousVerbatims.includes(v.slice(0, Math.min(30, v.length))));
     if (!cite.length) echecs.push(`point « ${p.titre} » : aucun verbatim du candidat`);
     if (!p.transposition) echecs.push(`point « ${p.titre} » : transposition professionnelle manquante`);
+    // registre : pas de futur, pas de probabilité, pas de diagnostic
+    const texte = [p.titre, p.ancrage, p.transposition].join(' ');
+    for (const interdit of [/\bvous (finirez|serez|deviendrez|allez)\b/i, /\b\d+\s?%/, /\b(probabilité|risque élevé|risque faible)\b/i, /\bvous (souffrez|êtes en (souffrance|burn))\b/i]) {
+      if (interdit.test(texte)) echecs.push(`point « ${p.titre} » : registre interdit (prédiction, probabilité ou diagnostic)`);
+    }
   }
   return echecs;
 }

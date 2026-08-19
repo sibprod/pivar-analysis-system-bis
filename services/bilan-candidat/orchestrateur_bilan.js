@@ -68,12 +68,20 @@ const txt = v => typeof v === 'string' ? v : (v == null ? '' : JSON.stringify(v)
 const nombreDeGestes = p => (p.outils || []).reduce((n, o) =>
   n + (Array.isArray(o.gestes) ? o.gestes.length : (o.gestes?.codes_retenus?.length || 0)), 0);
 
-/* Seuls les items pourvus de titre_court ET transposition_pro sont servis (VG-01) */
+/* Le référentiel du pilier socle, tel qu'il existe en base.
+   L'agent y puise les énoncés ; il rédige lui-même titre et transposition,
+   sous le contrôle des règles du prompt et des contrôles bloquants.
+   titre_court / transposition_pro : facultatifs — s'ils existent, ils font foi
+   et l'agent les reprend tels quels (mémoire des formulations validées). */
 async function lireReferentiel(socleCode, airtable) {
   const items = await airtable.enregistrements(T.DESAL, { pilier: socleCode });
-  return items
-    .filter(i => i.titre_court && i.transposition_pro)
-    .map(i => ({ id: i.id, titre_court: i.titre_court, enonce: i.enonce, transposition_pro: i.transposition_pro, axe: i.axe }));
+  return items.map(i => ({
+    id:                i.id,
+    categorie:         i.categorie,          // EMPECHEMENTS · INJONCTIONS · IMPACTS · SURDEPLOIEMENT
+    enonce:            i.contenu || i.enonce,
+    titre_court:       i.titre_court || null,
+    transposition_pro: i.transposition_pro || null
+  }));
 }
 
 async function lireFormulations(candidatId, airtable) {
