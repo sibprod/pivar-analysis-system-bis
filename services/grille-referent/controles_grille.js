@@ -1,0 +1,164 @@
+// services/grille-referent/controles_grille.js
+// Les contrôles de sortie de la grille référent.
+//
+// ⚠️ AVANT MODIFICATION : lire docs/12-doctrine-preuve-et-mission-agent-grille.md
+//
+// Ces contrôles ne corrigent rien : ils constatent. Une grille qui échoue à un
+// contrôle bloquant n'est pas écrite — elle part en révision humaine.
+// Principe : rendre une grille fausse est plus grave que ne pas en rendre.
+//
+'use strict';
+
+const logger = require('../../utils/logger');
+
+// ── Ce qui ne doit JAMAIS apparaître dans une grille (D95 + D-PREUVE) ──
+const SCENARIOS = [
+  /\bsommeil\b/i, /\bweek-?end\b/i, /\banimal\b/i, /\bpanne\b/i,
+  /\bcroquettes?\b/i, /\bv[ée]t[ée]rinaire\b/i
+];
+const MECANIQUE = [
+  /\b\d+\s*\/\s*(?:25|20|10|9|5|4)\b/,          // 12/25, 1/4…
+  /\b\d+\s+activations?\b/i,
+  /\bdensit[ée]\b/i, /\bpattern\b/i, /\bseuil\b/i,
+  /\bP[1-5]C\d+\b/,                              // codes de circuits
+  /\bP[1-5]Q\d+\b/,                              // identifiants de questions
+  /\b(?:tr[èe]s souvent|occasionnels)\b/i,       // blocs de fréquence
+  /\b(?:HAUT|MOYEN|FAIBLE)\b/,                   // amplitudes
+  /\bpalier\b/i, /\bniveau\s+[1-9]\b/i           // R5bis : plus de paliers
+];
+const REGIMES = [
+  /R[ÉE]GULI[ÈE]RE ET ANCR[ÉE]E/i, /ANCR[ÉE]E EN R[ÉE]GIME MOD[ÉE]R[ÉE]/i,
+  /\bOBSERV[ÉE]E\b/, /\bABSENTE\b/, /\bPLEIN R[ÉE]GIME\b/i
+];
+
+function texteVisible(g) {
+  const morceaux = [];
+  const pousser = v => { if (typeof v === 'string') morceaux.push(v); };
+  const parcourir = (o, chemin = '') => {
+    if (o == null) return;
+    if (typeof o === 'string') { if (!chemin.includes('verbalisations')) pousser(o); return; }
+    if (Array.isArray(o)) return o.forEach((x, i) => parcourir(x, `${chemin}[${i}]`));
+    if (typeof o === 'object') {
+      for (const k of Object.keys(o)) {
+        // Les verbalisations sont internes : elles peuvent citer la mécanique.
+        if (k === 'verbalisations' || k === 'situations_non_traduites' || k === 'motif_revision') continue;
+        parcourir(o[k], `${chemin}.${k}`);
+      }
+    }
+  };
+  parcourir(g);
+  return morceaux.join('\n');
+}
+
+function normaliser(s) {
+  return String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+function controler(grille, payload) {
+  const bloquants = [];
+  const signalements = [];
+  const visible = texteVisible(grille);
+
+  // ── 1 · Aucune situation du test, aucune mécanique de mesure ──
+  for (const re of SCENARIOS) {
+    const m = visible.match(re);
+    if (m) bloquants.push(`situation du test affichée : « ${m[0]} » (D-PREUVE)`);
+  }
+  for (const re of [...MECANIQUE, ...REGIMES]) {
+    const m = visible.match(re);
+    if (m) bloquants.push(`mécanique de mesure affichée : « ${m[0]} » (D95)`);
+  }
+
+  // ── 2 · Aucun verbatim ──
+  // Un verbatim se reconnaît à la première personne : le candidat parle de lui.
+  const je = visible.match(/(?:^|[\s«"'])j['e]\s|\bje\s+(?:me|le|la|les|lui|vais|peux|fais|mets|prends)\b/i);
+  if (je) bloquants.push(`verbatim probable dans la grille : « ${je[0].trim()} » (D-PREUVE)`);
+
+  // ── 3 · R1 · chaque titre de geste se retrouve dans sa narration SOURCE ──
+  // ⚠️ Le titre est la première proposition de la narration source, et cette
+  // proposition est RETIRÉE de la narration affichée. Comparer le titre au texte
+  // affiché produirait un faux positif systématique : on compare à la SOURCE.
+  const sourceParOutil = {};
+  for (const p of (payload?.piliers || [])) {
+    sourceParOutil[normaliser(p.libelle)] =
+      (p.gestes || []).map(g => normaliser(g.narration)).join(' ');
+  }
+  for (const outil of (grille.bloc_profil?.outils || [])) {
+    const source = sourceParOutil[normaliser(outil.libelle)] || '';
+    for (const g of (outil.gestes || [])) {
+      const t = normaliser(g.titre);
+      if (!t) { bloquants.push(`geste sans titre (${outil.libelle})`); continue; }
+      if (!source) continue;                       // pas de source à confronter
+      const mots = t.split(' ').filter(w => w.length > 4).slice(0, 3);
+      const recoupe = mots.filter(w => source.includes(w.slice(0, Math.max(5, w.length - 2)))).length;
+      if (mots.length && recoupe === 0) {
+        bloquants.push(`titre introuvable dans la narration source : « ${g.titre} » — production libre interdite (R1)`);
+      }
+    }
+  }
+
+  // ── 4 · chaque question est rattachée à un point de vigilance ──
+  for (const v of (grille.bloc_vigilances || [])) {
+    if (!v.titre) bloquants.push('point de vigilance sans titre');
+    if (!v.question) bloquants.push(`point de vigilance sans question de vérification : « ${v.titre} »`);
+    if (v.question && !v.ce_que_la_reponse_indique) {
+      bloquants.push(`question sans clé de lecture : « ${v.titre} »`);
+    }
+    if (!v.au_travail) signalements.push(`point de vigilance non transposé au travail : « ${v.titre} »`);
+  }
+
+  // ── 5 · aucun écart au référentiel sans verbalisation ──
+  const tuile = payload?.profil?.tuile || {};
+  const refAtouts = String(tuile.atouts || '').split('\n').map(x => normaliser(x.replace(/^•\s*/, ''))).filter(Boolean);
+  const refCouts  = String(tuile.couts  || '').split('\n').map(x => normaliser(x.replace(/^•\s*/, ''))).filter(Boolean);
+  const verbalises = (grille.verbalisations || []).map(v => normaliser(v.element_concerne));
+
+  const ecartsSilencieux = [];
+  for (const a of (grille.bloc_apport?.atouts || [])) {
+    if (a.origine === 'referentiel' && !refAtouts.includes(normaliser(a.texte))) {
+      ecartsSilencieux.push(a.texte);
+    }
+    if (a.origine === 'ajuste' && !verbalises.some(v => v && normaliser(a.texte).slice(0, 25).includes(v.slice(0, 25)) === false ? false : true)) {
+      // un ajusté doit avoir SA ligne : contrôle par présence d'au moins une verbalisation
+      if (!(grille.verbalisations || []).length) ecartsSilencieux.push(a.texte);
+    }
+  }
+  for (const c of (grille.bloc_apport?.couts || [])) {
+    if (c.origine === 'referentiel' && !refCouts.includes(normaliser(c.texte))) {
+      ecartsSilencieux.push(c.texte);
+    }
+  }
+  for (const e of ecartsSilencieux) {
+    bloquants.push(`écart au référentiel sans verbalisation : « ${String(e).slice(0, 60)}… » (R8)`);
+  }
+
+  // ── 6 · aucun coût retiré, aucun coût retourné en atout (R7) ──
+  if ((grille.bloc_apport?.couts || []).length < refCouts.length) {
+    bloquants.push(`coût(s) retiré(s) de la tuile : ${refCouts.length} au référentiel, ${(grille.bloc_apport?.couts || []).length} en sortie (R7)`);
+  }
+
+  // ── 7 · R3 · seuil de non-traduction ──
+  const nonTraduites = (grille.situations_non_traduites || []).length;
+  if (nonTraduites > 0) {
+    signalements.push(`${nonTraduites} situation(s) non traduite(s) — le référentiel doit être complété`);
+    if (nonTraduites >= 5) {
+      bloquants.push(`seuil de non-traduction franchi (${nonTraduites}) — bilan issu d'une version non couverte (R3)`);
+    }
+  }
+
+  // ── 8 · la demande de révision de l'agent est souveraine ──
+  if (grille.revision_humaine) {
+    bloquants.push(`révision demandée par l'agent : ${grille.motif_revision || 'motif non précisé'}`);
+  }
+
+  const conforme = bloquants.length === 0;
+  if (!conforme) logger.error('Grille référent — contrôles bloquants', { candidat_id: grille.candidat_id, bloquants });
+  else if (signalements.length) logger.warn('Grille référent — signalements', { candidat_id: grille.candidat_id, signalements });
+
+  return { conforme, bloquants, signalements };
+}
+
+module.exports = { controler };
