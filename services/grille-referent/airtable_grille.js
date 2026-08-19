@@ -30,7 +30,7 @@ const TABLES = {
   DESALIGNEMENT:        'BILAN_DESALIGNEMENT',
   BILAN4:               'ETAPE2_BILAN4EXCELLENCES',
   GRILLE_REFERENT:      'GRILLE_REFERENT',
-  VERBALISATION:        'GRILLE_VERBALISATION_MODELE'
+  VERBALISATION:        'GRILLE_VERBALISATION'
 };
 
 function val(v) { return (v && (v.name !== undefined ? v.name : v)) || ''; }
@@ -152,11 +152,19 @@ async function upsertGrilleReferent(candidat_id, champs) {
       .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
       .firstPage();
     const payload = { candidat_id, ...champs };
+
+    // typecast : Airtable refuse une valeur de liste déroulante qui ne correspond
+    // pas EXACTEMENT à un choix configuré — un espace en trop dans un libellé
+    // suffit à faire échouer l'écriture. Sans cette tolérance, un détail de
+    // configuration ferait tomber une production entière. L'écart reste visible
+    // en base (un choix supplémentaire apparaît) : il se voit et se corrige.
+    const OPTIONS = { typecast: true };
+
     if (existants.length) {
-      await base(TABLES.GRILLE_REFERENT).update([{ id: existants[0].id, fields: payload }]);
+      await base(TABLES.GRILLE_REFERENT).update([{ id: existants[0].id, fields: payload }], OPTIONS);
       logger.info('Grille référent — mise à jour', { candidat_id });
     } else {
-      await base(TABLES.GRILLE_REFERENT).create([{ fields: payload }]);
+      await base(TABLES.GRILLE_REFERENT).create([{ fields: payload }], OPTIONS);
       logger.info('Grille référent — créée', { candidat_id });
     }
     return true;
@@ -187,7 +195,7 @@ async function insertVerbalisations(candidat_id, lignes) {
       horodatage
     }}));
     for (let i = 0; i < records.length; i += 10) {
-      await base(TABLES.VERBALISATION).create(records.slice(i, i + 10));
+      await base(TABLES.VERBALISATION).create(records.slice(i, i + 10), { typecast: true });
     }
     logger.info('Grille — verbalisations écrites', { candidat_id, count: records.length });
     return records.length;
