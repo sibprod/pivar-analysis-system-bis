@@ -11,15 +11,17 @@
 //
 'use strict';
 
-const Airtable = require('airtable');
-const logger   = require('../../utils/logger');
+const Airtable       = require('airtable');
+const airtableConfig = require('../../config/airtable');
+const logger         = require('../../utils/logger');
 
-// Mêmes variables d'environnement que airtableService — aucune configuration nouvelle.
+// MÊME configuration que airtableService : on passe par config/airtable
+// (TOKEN + BASE_ID), jamais par process.env en direct — sinon deux sources de
+// vérité pour une même connexion, et une panne le jour où l'une des deux change.
 let _base = null;
 function getBase() {
   if (!_base) {
-    _base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
-      .base(process.env.AIRTABLE_BASE_ID);
+    _base = new Airtable({ apiKey: airtableConfig.TOKEN }).base(airtableConfig.BASE_ID);
   }
   return _base;
 }
