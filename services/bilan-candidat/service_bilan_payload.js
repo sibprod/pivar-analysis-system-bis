@@ -173,7 +173,7 @@ async function lireFormulationsModeRapide(candidat_id) {
     for (const v of Object.values(ligne.fields || {})) {
       if (typeof v !== 'string' || !v.trim().startsWith('[')) continue;
       try {
-        const j = JSON.parse(v);
+        const j = JSON.parse(v.replace(/\u00a0/g, ' '));
         if (Array.isArray(j) && j.length && j[0] && j[0].nom && j[0].verbatim) { gestes = j; break; }
       } catch {}
     }
