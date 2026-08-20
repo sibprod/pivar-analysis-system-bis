@@ -110,15 +110,24 @@ function controleVigilance(sortie, payload, referentiel) {
    énoncé d'injonction cite la voix de l'entourage, encadrée comme telle au
    rendu. Le « il/elle » désignant le candidat relève de la relecture de
    l'agent (consigne au prompt) : indétectable mécaniquement sans faux rejets. */
-const TUTOIEMENT = /\b(tu|te|toi|ton|ta|tes)\b/i;
+/* ⚠ v3.5 — la détection doit connaître l'alphabet français : avec les
+   frontières de mots standard (\b, ASCII), le « ê » de « tête » casse le mot
+   et « te » déclenchait un faux tutoiement (constaté au run du 20/08 14:39).
+   La frontière est donc définie sur TOUTE lettre Unicode. Deux protections
+   de plus : « ton » précédé d'un article est le nom commun (« un ton sec »),
+   et les citations entre guillemets « … » sont la voix de l'entourage. */
+const TUTOIEMENT = /(?:^|[^\p{L}])(tu|te|toi|ton|ta|tes)(?![\p{L}])/iu;
+const horsCitations = s => String(s || '').replace(/«[^»]*»/g, ' ').replace(/\u00ab[^\u00bb]*\u00bb/g, ' ');
+const sansTonNom = s => s.replace(/\b(un|le|ce|du|au|quel|leur|son)\s+ton(?![\p{L}])/giu, ' ');
+const tutoie = s => TUTOIEMENT.test(sansTonNom(horsCitations(s)));
 function controleRegistre(sortie) {
   const echecs = [];
   for (const t of (sortie.titres_parles || [])) {
-    if (TUTOIEMENT.test(t.titre || '')) echecs.push(`titre « ${t.titre} » : tutoiement — le bilan vouvoie`);
+    if (tutoie(t.titre)) echecs.push(`titre « ${t.titre} » : tutoiement — le bilan vouvoie`);
   }
   for (const p of (sortie.points_vigilance || [])) {
-    if (TUTOIEMENT.test(p.titre || '')) echecs.push(`point « ${p.titre} » : tutoiement dans le titre — le bilan vouvoie`);
-    if (TUTOIEMENT.test(p.transposition || '')) echecs.push(`point « ${p.titre} » : tutoiement dans la transposition — le bilan vouvoie`);
+    if (tutoie(p.titre)) echecs.push(`point « ${p.titre} » : tutoiement dans le titre — le bilan vouvoie`);
+    if (tutoie(p.transposition)) echecs.push(`point « ${p.titre} » : tutoiement dans la transposition — le bilan vouvoie`);
   }
   return echecs;
 }
