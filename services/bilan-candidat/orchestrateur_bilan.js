@@ -36,7 +36,7 @@ async function genererBilan(candidatId, airtable) {
 
   const resultat = await produireAvecControles(payload, referentiel,
     (p, r, alertes, precedente) => appelerAgent(p, r, alertes, precedente, formulations),
-    3, console);
+    formulations, 3, console);
 
   const enchainement = genererEnchainement(payload);   // par le code, sans agent
   const titres = resultat.sortie?.titres_parles || [];
@@ -62,7 +62,7 @@ async function genererBilan(candidatId, airtable) {
     [F.nb_rediges]: titres.filter(t => t.provenance === 'redige').length,
     [F.nb_vigilance]: (resultat.sortie?.points_vigilance || []).length,
     [F.date]: new Date().toISOString(),
-    [F.version]: `prompt v2 · ${MODELE} · ${resultat.tentatives} tentative(s)`
+    [F.version]: `prompt v3 · ${MODELE} · ${resultat.tentatives} tentative(s)`
   };
 
   await ecrireBilanPresente(airtable, candidatId, champs);
