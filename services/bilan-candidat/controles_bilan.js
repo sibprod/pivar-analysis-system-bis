@@ -35,62 +35,41 @@ const normalise = s => String(s||'').toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .replace(/[’']/g,"'").replace(/\b[a-z]'/g,' ').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(m => m.length > 1);
 
-/* C1 — chaque titre est contrôlé SELON SA PROVENANCE (AM garante du 20/08) :
-   « repris »  : la formulation du mode rapide, telle quelle — prompts déjà
-                 conformes à la doctrine, donc légitime par construction.
-                 Contrôle : elle doit exister mot pour mot parmi les formulations
-                 fournies, et appartenir au même outil que le geste.
-   « officiel »: le libellé du geste dans le bilan complet, ajusté au plus léger.
-                 Contrôle : chaque mot porteur vient du libellé officiel ou de la
-                 matière du geste (l'ajustement puise dans la matière, jamais ailleurs).
-   « redige »  : dernier recours — chaque mot porteur vient de la matière du geste.
-   Dans tous les cas, un mot étranger aux sources autorisées rejette le bilan. */
-const normStr = s => String(s||'').toLowerCase()
-  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-  .replace(/[’']/g," ").replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
-const sansPrefixe = s => normStr(s).replace(/^(votre|vos)\s+/, '');
-
-function controleTitres(sortie, payload, formulations = []) {
+/* C1 — chaque mot porteur d'un titre doit venir du DÉTAIL COMPLET du geste
+   (AM-16, 20/08, qui remplace AM-14) : libellé officiel, narration, résumé,
+   renfort et phrases du candidat. Le titre est composé — le plus compréhensible
+   possible — mais jamais avec une notion étrangère à cette matière. */
+function controleTitres(sortie, payload, formulations = []) {   // formulations : conservé pour compatibilité, inutilisé (AM-16)
   const echecs = [];
   const matiereParCode = new Map();
-  const officielParCode = new Map();
   for (const o of payload.outils) {
     const g = o.gestes;
-    if (Array.isArray(g)) g.forEach(x => {
-      matiereParCode.set(x.code, [x.narration, x.resume, x.renfort, JSON.stringify(x.verbatims)].join(' '));
-      officielParCode.set(x.code, x.libelle_officiel || '');
-    });
+    if (Array.isArray(g)) g.forEach(x => matiereParCode.set(x.code,
+      [x.libelle_officiel, x.narration, x.resume, x.renfort, JSON.stringify(x.verbatims)].join(' ')));
     else (g.codes_retenus||[]).forEach(c => matiereParCode.set(c, g.texte_integral));
   }
-  const formIndex = (formulations||[]).map(f => ({ cle: sansPrefixe(f.formulation), pilier: String(f.pilier||'') }));
-
   for (const t of (sortie.titres_parles||[])) {
     const matiere = new Set(normalise(matiereParCode.get(t.code_geste)));
-    const racines = [...matiere].map(m => m.slice(0, 5));
-    const connu = (m, extra) => matiere.has(m) || extra.has(m)
-      || (m.length >= 5 && racines.includes(m.slice(0, 5)));
-
-    if (t.provenance === 'repris') {
-      const cle = sansPrefixe(t.titre);
-      const f = formIndex.find(x => x.cle === cle);
-      if (!f) { echecs.push(`titre « ${t.titre} » : déclaré repris mais introuvable parmi les formulations du mode rapide`); continue; }
-      const pilierGeste = String(t.code_geste||'').slice(0, 2);
-      if (f.pilier && f.pilier !== pilierGeste)
-        echecs.push(`titre « ${t.titre} » : formulation de l'outil ${f.pilier} attribuée à un geste ${pilierGeste}`);
-      continue;   // formulation validée en amont : aucun contrôle de mots
-    }
-
-    if (t.provenance === 'officiel') {
-      const officiel = new Set(normalise(officielParCode.get(t.code_geste)));
-      if (!officiel.size) { echecs.push(`titre « ${t.titre} » : déclaré officiel mais le geste n'a pas de libellé officiel`); continue; }
-      const orphelins = normalise(t.titre).filter(m => !LIAISON.has(m) && !connu(m, officiel));
-      if (orphelins.length) echecs.push(`titre « ${t.titre} » : mots hors libellé officiel et matière → ${orphelins.join(', ')}`);
-      continue;
-    }
-
-    // provenance « redige » (ou absente) : la règle d'origine, mots de la matière.
-    const orphelins = normalise(t.titre).filter(m => !LIAISON.has(m) && !connu(m, new Set()));
-    if (orphelins.length) echecs.push(`titre « ${t.titre} » : mots absents de la matière → ${orphelins.join(', ')}`);
+    // Un mot du titre est admis s'il figure dans la matière, ou s'il en partage
+    // la racine — accords ET conjugaisons : « vagabonder » → « vagabonde »,
+    // « ouvrant » → « ouvre ». Le radical est obtenu en ôtant les terminaisons
+    // usuelles du français ; deux mots au même radical (≥ 4 lettres) sont le
+    // même mot. Ce qui reste interdit : une notion étrangère à la matière.
+    const radical = m => {
+      const r = m.replace(/(issements?|issant|issons|assent|aient|erait|erions|erons|antes?|ants?|ions|ent|ant|ees?|es|er|ez|e|s)$/,'');
+      return r.length >= 4 ? r : m;
+    };
+    const racines  = new Set([...matiere].filter(m => m.length >= 5).map(m => m.slice(0, 5)));
+    const radicaux = new Set([...matiere].map(radical));
+    const connu = m => matiere.has(m)
+      || (m.length >= 5 && racines.has(m.slice(0, 5)))
+      || radicaux.has(radical(m));
+    const orphelins = normalise(t.titre).filter(m => !LIAISON.has(m) && !connu(m));
+    if (orphelins.length) echecs.push(`titre « ${t.titre} » : mots absents du détail du geste → ${orphelins.join(', ')}`);
+    // Plafond de longueur (v3.1) : le compréhensible prime, mais au-delà de
+    // quinze mots ce n'est plus un titre. Le motif dit exactement quoi corriger.
+    const nbMots = String(t.titre||'').trim().split(/\s+/).filter(Boolean).length;
+    if (nbMots > 15) echecs.push(`titre « ${t.titre} » : trop long (${nbMots} mots, plafond 15) — raccourcis-le en gardant les mots du candidat`);
   }
   if ((sortie.titres_parles||[]).length !== matiereParCode.size)
     echecs.push(`nombre de titres (${(sortie.titres_parles||[]).length}) ≠ nombre de gestes (${matiereParCode.size})`);
