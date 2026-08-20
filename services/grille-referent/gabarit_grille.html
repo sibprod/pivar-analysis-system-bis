@@ -1,0 +1,265 @@
+<!--
+  GABARIT DE LA GRILLE RÉFÉRENT
+  Référence : la maquette validée 08-MAQUETTE-GRILLE-REFERENT-vivante.html
+
+  Deux natures de contenu, et une seule règle pour les distinguer :
+    · {{ancre}}          → vient de la grille produite (agents + base)
+    · texte en clair     → GABARIT : identique pour tous les candidats,
+                           écrit une fois, jamais produit par un agent.
+
+  Boucles : <!--{{#liste}}--> … <!--{{/liste}}-->
+  Conditions : <!--{{#champ}}--> … <!--{{/champ}}-->  (affiché si non vide)
+
+  Chaque élément variable porte son point d'ancrage dans data-src : c'est la
+  traçabilité, lisible dans le HTML rendu, invisible pour le lecteur.
+-->
+
+<div class="entete">
+  <div class="marque">
+    <div>
+      <div class="lab">Profil Cognitif · grille de lecture</div>
+      <h1 data-src="VISITEUR.civilite + nom">{{civilite}} {{nom}}</h1>
+      <div class="sous">Comment le candidat s'y prend — document destiné au référent</div>
+    </div>
+    <div class="ident">
+      Référent : {{referent_nom}}<br>
+      Entreprise : {{referent_entreprise}}<br>
+      Consultation : {{date_consultation}}<br>
+      Réf. : {{reference}}
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CARTOUCHE DE LECTURE RAPIDE ═══════════ -->
+<div class="cart">
+  <div class="cart-h">
+    <span class="lab-c">Lecture rapide</span>
+    <span class="zone" data-src="REFERENTIEL_PROFILS.zone">{{cartouche.zone}}</span>
+    <span class="sig" data-src="REFERENTIEL_PROFILS.titre">{{cartouche.signature}}</span>
+  </div>
+  <div class="cart-b">
+    <div class="cl socle" data-pilier="{{cartouche.socle.pilier}}">
+      <span class="role">★ Socle</span>
+      <span class="nom" data-src="T3_BILAN.pilier_socle_label">{{cartouche.socle.libelle}}</span>
+      <span class="mode" data-src="T3_PILIER.pilier_mode">{{cartouche.socle.mode}}</span>
+      <span class="filt" data-src="T3_BILAN.filtre"><span class="k">Filtre · ON</span>{{cartouche.socle.filtre}}</span>
+    </div>
+    <div class="cl" data-pilier="{{cartouche.amont.pilier}}">
+      <span class="role">Amont</span>
+      <span class="nom" data-src="T3_PILIER.pilier_label">{{cartouche.amont.libelle}}</span>
+      <span class="mode" data-src="T3_PILIER.pilier_mode">{{cartouche.amont.mode}}</span>
+    </div>
+    <div class="cl" data-pilier="{{cartouche.aval.pilier}}">
+      <span class="role">Aval</span>
+      <span class="nom" data-src="T3_PILIER.pilier_label">{{cartouche.aval.libelle}}</span>
+      <span class="mode" data-src="T3_PILIER.pilier_mode">{{cartouche.aval.mode}}</span>
+    </div>
+    <div class="cdim">
+      <span class="role">Dimensions</span>
+      <!--{{#cartouche.dimensions}}-->
+      <span class="dch" data-src="T5B.excellence + niveau"><b>{{nom}}</b><span>{{libelle_niveau}}</span></span>
+      <!--{{/cartouche.dimensions}}-->
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 1 · CE QU'IL APPORTE ═══════════ -->
+<section>
+  <div class="snum">1</div>
+  <h2>Ce qu'il apporte</h2>
+  <div class="chapo">Le profil se lit au croisement de deux choses : l'outil qu'il sort en premier — ce qu'il apporte — et la manière dont il l'exerce — sous quel régime. Ce croisement dit dans quelles situations l'appeler, indépendamment de tout métier.</div>
+
+  <div class="tuile">
+    <div class="zt">
+      <span class="zb">{{apport.zone}}</span>
+      <span class="sb">{{apport.socle}}</span>
+      <span class="sb">{{apport.type}}</span>
+    </div>
+    <h3 data-src="REFERENTIEL_PROFILS.titre">{{apport.titre}}</h3>
+    <div class="deft" data-src="REFERENTIEL_PROFILS.definition_type">{{apport.definition_type}}</div>
+    <div class="app" data-src="REFERENTIEL_PROFILS.application_au_socle">{{apport.application_au_socle}}</div>
+
+    <div class="chaine" data-src="agent_grille_apport">
+      <span class="k">Ce que sa chaîne y ajoute</span>{{apport.chaine_ajoute}}
+    </div>
+
+    <div class="duo">
+      <div class="at">
+        <h4>Là où c'est un atout</h4>
+        <ul>
+          <!--{{#apport.atouts}}-->
+          <li class="{{classe}}" data-origine="{{origine}}">{{texte}}</li>
+          <!--{{/apport.atouts}}-->
+        </ul>
+      </div>
+      <div class="co">
+        <h4>Là où le même trait coûte</h4>
+        <ul>
+          <!--{{#apport.couts}}-->
+          <li data-origine="{{origine}}">{{texte}}</li>
+          <!--{{/apport.couts}}-->
+        </ul>
+      </div>
+    </div>
+
+    <div class="portee">La zone indique une <b>portée</b>, jamais une valeur : un profil d'exécution n'est pas « moins bon » qu'un profil stratégique — on ne les appelle simplement pas dans les mêmes situations.</div>
+  </div>
+</section>
+
+<!-- ═══════════ 2 · SON PROFIL ═══════════ -->
+<section>
+  <div class="snum">2</div>
+  <h2>Son profil</h2>
+  <div class="chapo">Un seul réglage gouverne tout le reste. Chaque outil porte sa manière et ce que ses gestes établissent ensemble ; le détail des gestes se déplie.</div>
+
+  <div class="reglage">
+    <div class="rl">Son réglage — il ne sort jamais neutre</div>
+    <div class="socle-nom" data-src="T3_BILAN.pilier_socle_label">{{profil.socle_libelle}}</div>
+    <div class="rp" data-src="T3_BILAN.filtre">« {{profil.filtre}} »</div>
+    <div class="rn">Ce réglage se déclenche avant toute réflexion, dans chaque situation. Il ne se choisit pas.</div>
+  </div>
+
+  <!--{{#profil.outils}}-->
+  <div class="od {{classe_socle}}" data-pilier="{{pilier}}">
+    <div class="t">
+      <span class="r" data-src="T3_PILIER.pilier_role_label">{{role}}</span>
+      <h3 data-src="T3_PILIER.pilier_label">{{libelle}}</h3>
+      <span class="m" data-src="T3_PILIER.pilier_mode">{{mode}}</span>
+    </div>
+    <div class="b">
+      <div class="synthese" data-src="T3_PILIER.bloc_{{bloc_retenu}}_candidat">{{synthese}}</div>
+
+      <details class="g">
+        <summary>Le détail de ses gestes</summary>
+        <div class="gl">
+          <!--{{#gestes}}-->
+          <div class="ge" data-circuit="{{code}}" data-src="T3_CIRCUIT.explication_courte_ch4">
+            <!--{{#titre}}--><b>{{titre}}</b><!--{{/titre}}-->
+            <span>{{narration}}</span>
+            <!--{{#renfort}}--><div class="renfort" data-src="T3_CIRCUIT.en_renfort"><span class="k">En renfort</span>{{renfort}}</div><!--{{/renfort}}-->
+          </div>
+          <!--{{/gestes}}-->
+        </div>
+      </details>
+    </div>
+  </div>
+  <!--{{/profil.outils}}-->
+
+  <div class="chaine-note"><b>Sa chaîne.</b> {{profil.chaine}}</div>
+
+  <!--{{#profil.registres}}-->
+  <div class="porte" data-src="T3_BILAN.registres">
+    <b>Ce qui le porte, ce qui le freine</b>
+    <p>{{profil.registres}}</p>
+  </div>
+  <!--{{/profil.registres}}-->
+</section>
+
+<!-- ═══════════ 3 · SES DIMENSIONS D'EXCELLENCE ═══════════ -->
+<section>
+  <div class="snum">3</div>
+  <h2>Ses dimensions d'excellence</h2>
+  <div class="chapo">Elles s'ajoutent au fonctionnement décrit ci-dessus et en étendent la portée. Seules figurent celles qui sont établies.</div>
+
+  <!--{{#portrait}}-->
+  <div class="portrait" data-src="ETAPE2_BILAN4EXCELLENCES.portrait_un_mot">« {{portrait}} »</div>
+  <!--{{/portrait}}-->
+
+  <!--{{#dimensions}}-->
+  <div class="dim" data-src="T5B.synthese + declencheur + gradient">
+    <h4>{{nom}}</h4>
+    <p>{{constat}}</p>
+    <p><b>Quand cela s'active</b>{{quand}}</p>
+    <p><b>Ce qu'il ne faut pas en attendre</b>{{ne_pas_attendre}}</p>
+  </div>
+  <!--{{/dimensions}}-->
+
+  <div class="dimnote">Une dimension qui ne s'est pas manifestée ne figure pas ici : ce document ne dit que ce qui est établi. Si le poste en exige une qui n'apparaît pas, elle relève du développement et se discute avec le candidat.</div>
+</section>
+
+<!-- ═══════════ 4 · À QUOI S'ATTENDRE AU TRAVAIL ═══════════ -->
+<section>
+  <div class="snum">4</div>
+  <h2>À quoi s'attendre au travail — et comment le vérifier</h2>
+  <div class="chapo">Ce qui suit n'énumère pas des faiblesses : chaque point est le <b>revers d'une force réelle</b>, décrit pour que vous sachiez à quel moment elle demande un cadre. La force s'affiche ; dépliez pour voir la bascule et la question qui permet de la vérifier.</div>
+
+  <div class="reserve">Ce sont des <b>possibles, selon les situations</b> — pas des certitudes. Chaque point est retenu parce qu'un geste réel du candidat l'atteste ; c'est à vous de juger lesquels concernent le poste que vous avez en tête.</div>
+
+  <!--{{#vigilances}}-->
+  <div class="pv {{classe_type}}" data-origine="{{item_origine}}" data-ancrage="{{ancrage}}">
+    <div class="h">
+      <div class="ax">{{intitule_type}} · {{outil}}</div>
+      <h4>{{titre}}</h4>
+    </div>
+    <div class="force" data-src="agent_grille_vigilances">{{force}}</div>
+
+    <!--{{#preuve}}-->
+    <!-- Un point démontre, il n'affirme pas (charte §5) : le geste réel sur
+         lequel il s'établit s'affiche, jamais l'énoncé interne du référentiel. -->
+    <div class="preuve-pt"><span class="k">Ce qui l'établit</span>{{preuve}}</div>
+    <!--{{/preuve}}-->
+
+    <!--{{#citations}}-->
+    <!-- Les injonctions sont l'exception : l'énoncé EST le contenu, il s'affiche
+         mot pour mot (charte §5). Ce sont les phrases que l'entourage dit. -->
+    <div class="cit" data-src="BILAN_DESALIGNEMENT.INJONCTIONS">
+      <span class="k">Ce qu'on lui dit</span>
+      <!--{{#items}}--><q>{{.}}</q><!--{{/items}}-->
+    </div>
+    <!--{{/citations}}-->
+
+    <details class="att">
+      <summary>À quel moment cela demande un cadre</summary>
+      <div class="att-c">
+        <div class="bascule">{{bascule}}</div>
+        <div class="bureau"><span class="k">Au travail</span>{{au_travail}}</div>
+        <div class="verif">
+          <div class="k">Question de vérification</div>
+          <div class="q">{{question}}</div>
+          <div class="ec"><span class="kk">Ce que la réponse indique</span>{{ce_que_la_reponse_indique}}</div>
+        </div>
+      </div>
+    </details>
+  </div>
+  <!--{{/vigilances}}-->
+</section>
+
+<!-- ═══════════ 5 · ENCADRER ET MANAGER — gabarit intégral ═══════════ -->
+<section style="border-bottom:none">
+  <div class="snum">5</div>
+  <h2>Encadrer et manager</h2>
+  <div class="chapo">Ces deux capacités ne concernent pas tous les postes. Elles font l'objet d'une évaluation distincte, qui ne figure pas dans cette grille.</div>
+
+  <div class="annonce">
+    <h3>Deux métiers dans le même métier</h3>
+    <div class="deux">
+      <div class="f">
+        <div class="role">Encadrement · référentiel métier</div>
+        <b>« Faire avancer le travail »</b>
+        <div class="dfn">Superviser et sécuriser l'exécution du travail collectif.</div>
+        <div class="meta">Pour se le représenter : le rôle du <b>directeur technique</b> — il est expert du geste métier. C'est de là que vient le mot « technique » : son autorité tient à la maîtrise du métier lui-même. Il transmet, il forme, il montre comment le geste se fait, il veille à la qualité de son exécution.</div>
+      </div>
+      <div class="f">
+        <div class="role">Management · référentiel personne</div>
+        <b>« Révéler le potentiel de chacun »</b>
+        <div class="dfn">Faire grandir les personnes, partir de leur fonctionnement propre.</div>
+        <div class="meta">Pour se le représenter : le rôle de l'<b>entraîneur</b> — il définit l'objectif et la mission, du groupe comme de chacun, il pose le cadre d'exécution de cette mission, il prend en compte les individualités, et il organise le travail de l'équipe et les synergies entre ses membres. Jamais il ne descend sur le terrain jouer à la place d'un joueur.</div>
+      </div>
+    </div>
+    <div class="diff">La différence tient en une phrase : <b>l'un est expert du geste et le transmet ; l'autre fixe l'objectif, tient le cadre, et compose avec les personnes telles qu'elles sont.</b></div>
+    <div class="renvoi">L'évaluation de ces deux capacités pour ce candidat est disponible dans votre espace, avec la conversion d'une offre en profil cognitif, le matching candidat/offre et la comparaison de deux candidats.</div>
+    <a class="lien" href="{{lien_espace_referent}}">Ouvrir dans mon espace référent →</a>
+  </div>
+</section>
+
+<!-- ═══════════ LES DEUX PIEDS — gabarits, jamais omis ═══════════ -->
+<div class="preuve">
+  <b>Sur quoi reposent ces constats</b>
+  Chaque élément de ce document est établi sur les réponses écrites du candidat à un protocole de mise en situation. Ces réponses sont conservées et auditables ; le candidat en dispose dans son propre bilan et peut les produire. Les constats vous sont livrés dans leur portée professionnelle : ni les réponses brutes, ni les situations personnelles qui ont servi à les recueillir ne figurent ici.
+</div>
+
+<div class="rappel">
+  <strong>Comment lire ce document.</strong> Il décrit comment le candidat s'y prend — pas ce qu'il vaut, ni ce qu'il sait faire. Ces constats éclairent votre décision : ils ne la remplacent jamais. À croiser avec l'entretien, les mises en situation et les références.
+</div>
+
+<footer>Profil Cognitif · projet SIBPROD — Grille de lecture, vue référent · {{reference}} · document confidentiel</footer>
