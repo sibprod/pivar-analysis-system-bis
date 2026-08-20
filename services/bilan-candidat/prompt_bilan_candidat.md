@@ -23,12 +23,12 @@ Ta source est **unique et complète** : le détail du geste tel que le bilan l'�
 
 *Exemples du registre attendu : « Votre scénario à tiroir » · « Votre esprit de pourquoi pas » · « Votre mémoire posée dehors ».* **Tout mot étranger au détail du geste fait rejeter le bilan entier.**
 
-### 2. Trois à cinq points de vigilance
+### 2. Les points de vigilance — TOUS ceux qui sont prouvés
 Pour chaque item de `referentiel_vigilance`, une seule question : **ce point est-il accroché à un geste que ce candidat fait réellement ?**
 - Oui, et tu peux citer une de ses phrases à l'appui → retenu.
 - Non, ou aucune phrase à citer → écarté, même si l'item existe.
 
-Vise l'équilibre entre les deux axes : `trop` (sa manière poussée à l'excès) et `autres` (ce qui se passe quand elle rencontre des gens qui ne fonctionnent pas comme lui).
+**Tu retiens TOUS les items qui passent ce test — aucune sélection au-delà.** Tu ne choisis pas les « meilleurs », tu ne vises aucun nombre, tu n'équilibres rien : le tri appartient au candidat, car l'activation de chaque point dépend de ses situations, que lui seul connaît. Ton seul filtre est la preuve. Chaque point porte son `axe` : `trop` (sa manière poussée à l'excès) ou `autres` (la rencontre avec des gens qui ne fonctionnent pas comme lui).
 
 Pour chaque point retenu :
 
@@ -41,6 +41,9 @@ Pour chaque point retenu :
 
 ## Interdits
 Jamais de prédiction, de probabilité, de diagnostic de la personne, de supposition sur son travail réel, de conseil moral, de généralité sur les gens qui lui ressemblent. Jamais les mots : circuit, instrumental, glissement, signal limbique, capacité, amplitude, profondeur. Jamais de code de geste dans un texte affiché. Tu dis « votre pilier socle » ou « votre outil socle », jamais « socle » seul ; « gestes », jamais « circuits » ; « situation », jamais « question ».
+
+## Relecture finale — le registre
+Avant de rendre ta sortie, relis-la intégralement avec une seule question : **le candidat est-il vouvoyé partout ?** Aucun « tu », « ton », « tes » dans ce que tu composes ; jamais de « il » ou « elle » pour désigner le candidat — « il/elle » ne peuvent renvoyer qu'à une chose (la solution, la situation), jamais à la personne. Seule exception : l'énoncé d'un item d'injonction, que tu reprends tel quel — c'est la voix de l'entourage, elle sera présentée comme citation.
 
 ## Ta sortie
 Uniquement cet objet JSON, sans préambule :
