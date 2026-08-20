@@ -12,9 +12,17 @@
 const logger = require('../../utils/logger');
 
 // ── Ce qui ne doit JAMAIS apparaître dans une grille (D95 + D-PREUVE) ──
+// Les situations du test — en clair ET déguisées.
+// ⚠️ Une paraphrase est une fuite : « responsabilité d'un vivant » vaut « l'animal ».
+// Cette liste s'est allongée après le passage du 20/08, qui avait laissé filer
+// « responsabilité d'un vivant » et « véhicule, logis, évacuation ».
 const SCENARIOS = [
   /\bsommeil\b/i, /\bweek-?end\b/i, /\banimal\b/i, /\bpanne\b/i,
-  /\bcroquettes?\b/i, /\bv[ée]t[ée]rinaire\b/i
+  /\bcroquettes?\b/i, /\bv[ée]t[ée]rinaire\b/i,
+  /\bvivant\b/i, /\bpropri[ée]taires?\b/i, /\bma[îi]tres?\b/i,
+  /\bv[ée]hicule\b/i, /\blogis\b/i, /\b[ée]vacuation\b/i,
+  /\bvoiture de location\b/i, /\bses enfants\b/i, /\bson budget\b/i,
+  /\bado(?:lescent)?s?\b/i, /\bs[ée]jour\b/i, /\bvacances\b/i
 ];
 const MECANIQUE = [
   /\b\d+\s*\/\s*(?:25|20|10|9|5|4)\b/,          // 12/25, 1/4…
@@ -23,6 +31,10 @@ const MECANIQUE = [
   /\bP[1-5]C\d+\b/,                              // codes de circuits
   /\bP[1-5]Q\d+\b/,                              // identifiants de questions
   /\b(?:tr[èe]s souvent|occasionnels)\b/i,       // blocs de fréquence
+  /\b[àa] (?:pleine|demi|faible) intensit[ée]\b/i,
+  /\bintensit[ée] partielle\b/i,
+  /\bdiagnostique\b/i,                           // « l'absence est diagnostique »
+  /\bcette disposition\b/i,
   /\b(?:HAUT|MOYEN|FAIBLE)\b/,                   // amplitudes
   /\bpalier\b/i, /\bniveau\s+[1-9]\b/i           // R5bis : plus de paliers
 ];
@@ -101,6 +113,44 @@ function controler(grille, payload) {
       if (mots.length && recoupe === 0) {
         bloquants.push(`titre introuvable dans la narration source : « ${g.titre} » — production libre interdite (R1)`);
       }
+    }
+  }
+
+  // ── 3bis · Aucune synthèse d'outil ne peut être vide ──
+  // Le passage du 20/08 les a toutes laissées vides : la grille perdait ce qui
+  // justifie la manière de chaque outil. C'est le défaut le plus grave possible,
+  // parce qu'il ne se voit pas — la grille a l'air complète.
+  for (const outil of (grille.bloc_profil?.outils || [])) {
+    if (!String(outil.synthese || '').trim()) {
+      bloquants.push(`synthèse vide pour « ${outil.libelle || '?'} » — ce que ses gestes établissent ensemble manque`);
+    }
+  }
+
+  // ── 3ter · Un titre ne recopie jamais sa narration (R1bis) ──
+  for (const outil of (grille.bloc_profil?.outils || [])) {
+    for (const g of (outil.gestes || [])) {
+      const t = normaliser(g.titre), n = normaliser(g.narration);
+      if (t && n && (t === n || n.startsWith(t) && n.length - t.length < 12)) {
+        bloquants.push(`titre redondant avec sa narration : « ${g.titre} » — laisser le titre vide (R1bis)`);
+      }
+    }
+  }
+
+  // ── 3quater · La signature n'est pas un champ brut ──
+  const sig = String(grille.cartouche?.signature || '');
+  if (/type\s+[AF]\b|environnement\s+[A-ZÉ]{4,}|\(\d\)/i.test(sig)) {
+    bloquants.push(`signature brute : « ${sig} » — attendu : le titre de la tuile`);
+  }
+
+  // ── 3quinquies · Chaque vigilance est ancrée dans le référentiel ──
+  // Le passage du 20/08 a produit trois points élégants qu'aucun référentiel ne
+  // contenait. Un point inventé n'est adossé à rien : il n'est pas opposable.
+  for (const v of (grille.bloc_vigilances || [])) {
+    if (!String(v.item_origine || '').trim()) {
+      bloquants.push(`point de vigilance sans origine : « ${v.titre || '?'} » — l'item du référentiel doit être cité`);
+    }
+    if (!String(v.ancrage || '').trim()) {
+      signalements.push(`point de vigilance sans ancrage déclaré : « ${v.titre || '?'} »`);
     }
   }
 

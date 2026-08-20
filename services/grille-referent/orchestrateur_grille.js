@@ -32,11 +32,22 @@ async function produire(candidat_id) {
     return { ok: false, motif: `matière incomplète : ${e.message}`, cost, revision_humaine: true };
   }
 
-  // ── 2 · L'agent.
-  const { grille, cost: coutAgent } = await agent.executer(payload);
+  // ── 2 · Les quatre agents, et l'assemblage de leurs sorties.
+  const { grille, cost: coutAgent, manquantes } = await agent.executer(payload);
   cost += coutAgent;
   if (!grille) {
-    return { ok: false, motif: 'aucune sortie exploitable de l\'agent', cost, revision_humaine: true };
+    return { ok: false, motif: 'aucune sortie exploitable des agents', cost, revision_humaine: true };
+  }
+  // Une mission qui n'a rien rendu laisse un bloc vide. On ne le comble pas :
+  // on refuse la grille, parce qu'une grille amputée d'un bloc n'est pas la
+  // grille validée — c'est une grille au rabais.
+  if (manquantes && manquantes.length) {
+    logger.error('Grille référent — mission(s) sans sortie', { candidat_id, manquantes });
+    return {
+      ok: false,
+      motif: `mission(s) sans sortie : ${manquantes.join(', ')}`,
+      cost, revision_humaine: true
+    };
   }
 
   // ── 2bis · Sauvegarde de travail AVANT les contrôles.
