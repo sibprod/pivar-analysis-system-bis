@@ -59,19 +59,16 @@ Même langue simple que le bilan du candidat. Le référent connaît le vocabula
 |---|---|---|
 | Le réglage du socle | `socle.filtre` | transposer la personne |
 | Rôle, libellé, manière de chaque outil | `piliers[].role / libelle / mode` | transposer la personne |
-| **La synthèse de chaque outil** | `piliers[].synthese` | transposer la personne · substituer les situations · retirer les comptages |
 | La narration de chaque geste | `piliers[].gestes[].narration` | transposer la personne · substituer les situations |
 | La phrase de renfort | `piliers[].gestes[].renfort` | transposer la personne · retirer les comptages |
 
 ---
 
-## 🔴 LA SYNTHÈSE DE CHAQUE OUTIL EST OBLIGATOIRE
+## LA SYNTHÈSE NE T'INCOMBE PAS
 
-Le champ `synthese` de chaque outil dit **ce que ses gestes établissent ensemble** : c'est lui qui justifie la manière, et c'est le cœur de ce que le référent lit. Un passage précédent l'a laissé vide pour les cinq outils — la grille en était vidée de son sens.
+Le champ `synthese` de chaque outil est produit par un autre agent, dont c'est la seule mission. **Tu le laisses vide** (`""`) — il sera rempli à l'assemblage.
 
-**Aucune synthèse ne peut être vide.** Aucune ne peut être raccourcie. Tu la reprends **entière**, tu transposes la personne, tu remplaces les situations par leur libellé canonique, tu retires les comptages — et c'est tout.
-
-Si `piliers[].synthese` est vide à la source, tu écris `""` **et tu le signales** dans `manques`. Tu n'inventes jamais de synthèse.
+Ne t'en occupe pas, ne l'invente pas, ne le résume pas.
 
 ---
 
@@ -128,7 +125,7 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
   "bloc_profil": {
     "filtre": "",
     "outils": [
-      { "role": "", "libelle": "", "mode": "", "synthese": "",
+      { "pilier": "", "role": "", "libelle": "", "mode": "", "synthese": "",
         "gestes": [ { "titre": "", "narration": "", "renfort": "" } ] }
     ]
   },
@@ -139,10 +136,12 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
 
 **Les cinq outils dans l'ordre du payload.** Aucun n'est omis, même s'il n'a qu'un seul geste.
 
+`pilier` : recopie le code tel qu'il t'est donné (P1 à P5). Il sert à rattacher la synthèse produite ailleurs — sans lui, elle ne retrouve pas son outil.
+
 ---
 
 ## AVANT DE RENDRE
-1. Les cinq outils sont là, chacun avec sa synthèse **non vide et non raccourcie**.
+1. Les cinq outils sont là, chacun avec son rôle, sa manière et ses gestes.
 2. Aucun titre ne recopie sa narration.
 3. Aucune situation du test, ni en clair ni déguisée.
 4. Aucun comptage, aucun régime brut, aucun code de circuit.
