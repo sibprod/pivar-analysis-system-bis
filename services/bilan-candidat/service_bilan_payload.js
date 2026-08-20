@@ -129,11 +129,12 @@ async function construirePayload(candidat_id, airtableService) {
                         bilan.filtre_preuve_4, bilan.filtre_preuve_5].filter(Boolean),
     filtre_revelation: bilan.filtre_lecture_candidat || '',
     outils,
-    cout_intro:        bilan.cout_intro || '',
-    cout_constat:      bilan.cout_constat || '',
-    affects_intro:     bilan.limbique_intro || '',
-    affects_registres: bilan.limbique_registres || '',
-    affects_synthese:  bilan.limbique_synthese || '',
+    // Noms vérifiés en base le 20/08 — les précédents (cout_intro, limbique_*) n'existaient pas.
+    cout_intro:        bilan.s06_intro || '',      // définition de la zone de coût
+    cout_constat:      bilan.s06_cloture || '',    // le constat pour ce candidat
+    affects_intro:     bilan.s05_intro || '',      // introduction du signal affectif
+    affects_registres: bilan.registres || '',      // les registres rédigés
+    affects_synthese:  bilan.s05_cloture || '',    // ce que ces registres disent ensemble
     signature_ligne:   bilan.note_profil_global || ''
   };
 
