@@ -56,7 +56,9 @@ function controleTitres(sortie, payload, formulations = []) {   // formulations 
     // usuelles du français ; deux mots au même radical (≥ 4 lettres) sont le
     // même mot. Ce qui reste interdit : une notion étrangère à la matière.
     const radical = m => {
-      const r = m.replace(/(issements?|issant|issons|assent|aient|erait|erions|erons|antes?|ants?|ions|ent|ant|ees?|es|er|ez|e|s)$/,'');
+      // v3.6 : les NOMS D'ACTION rejoignent leur verbe — « passage » ↔ « passez »,
+      // « ajustement » ↔ « ajustez » (constaté sur le candidat V, run 15:58).
+      const r = m.replace(/(issements?|issant|issons|assent|ements?|ations?|aient|erait|erions|erons|antes?|ants?|ages?|ions|ent|ant|ees?|es|er|ez|e|s)$/,'');
       return r.length >= 4 ? r : m;
     };
     const racines  = new Set([...matiere].filter(m => m.length >= 5).map(m => m.slice(0, 5)));
