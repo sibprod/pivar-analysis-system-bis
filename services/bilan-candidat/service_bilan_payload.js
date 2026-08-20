@@ -1,11 +1,16 @@
 // services/bilan-candidat/service_bilan_payload.js
 // TRANSPORT PUR — payload du bilan présenté au candidat.
 //
-// ⚠ VERSION DU 20/08 (audit) — chaque nom de champ ci-dessous a été ATTESTÉ par
-// lecture directe de la base (schéma complet + lignes réelles de Monsieur R).
-// Relevé de preuve : AUDIT_V15_CONTRE_BASE_2026-08-20.md.
-// Les noms des versions précédentes (s06_*, s05_*, registres, bloc_*_candidat,
-// en_renfort, verbatim_1) N'EXISTENT PAS dans le schéma — ne jamais y revenir.
+// ⚠ VERSION v3 DU 20/08 — DEUX ESPACES DE NOMS, ne plus jamais les confondre :
+//   · les noms AIRTABLE (schéma de la base) ;
+//   · les CLÉS DU SERVICE MAISON (airtable.js → *_FIELDS), mappées par fldID.
+// CE FICHIER LIT À TRAVERS LE SERVICE MAISON : il emploie donc les CLÉS DU
+// SERVICE. Exemples de correspondance (attestés, config lue le 20/08) :
+//   verbatim_1 ↔ soleil_verbatim · en_renfort ↔ renfort_phrase ·
+//   role_pilier ↔ pilier_role · bloc_tres_souvent_candidat ↔ synth_bloc_… ·
+//   s06_intro/s06_cloture ↔ ch3_cout_intro/cloture ·
+//   s05_intro/registres/s05_cloture ↔ ch3_signal_intro/registres/cloture.
+// Relevé de preuve : AUDIT_V15_CONTRE_BASE_2026-08-20.md (+ rectificatif).
 //
 // Sources (fonctions du service maison, aucune autre) :
 //   getEtape1T3Bilan     → signature, filtre et ses preuves, coûts, affects
@@ -25,9 +30,12 @@ const RANG_ROLE = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
 
 function normaliseRole(r) {
   const v = String(r || '').toLowerCase();
-  if (v.includes('socle')) return 'socle';
+  // ⚠ amont/aval AVANT socle : les libellés en clair « Pilier amont — ce qui
+  // alimente le socle » et « Pilier aval — … » contiennent le mot « socle ».
+  // L'ordre inverse a classé P3 en socle le 20/08 et cassé l'enchaînement.
   if (v.includes('amont')) return 'amont';
   if (v.includes('aval'))  return 'aval';
+  if (v.includes('socle')) return 'socle';
   return 'fonctionnel';
 }
 
@@ -89,29 +97,30 @@ async function construirePayload(candidat_id, airtableService) {
   }
 
   const outils = piliers.map(p => {
-    // ⚠ Le champ T3_PILIER s'appelle « pilier_role » (attesté 20/08) — « role_pilier »
-    // n'existe pas. Le repli sur le libellé clair reste possible.
-    const role = normaliseRole(p.pilier_role || p.pilier_role_label);
+    // Clé du SERVICE : role_pilier (↔ champ Airtable pilier_role, via fldID).
+    const role = normaliseRole(p.role_pilier || p.pilier_role_label);
     const blocRetenu = blocParPilier.get(String(p.pilier)) || '';
     const gestes = gestesRetenus
       .filter(x => String(x.m.pilier) === String(p.pilier))
       .sort((a, b) => (a.m.ordre_circuit || 0) - (b.m.ordre_circuit || 0))
       .map(({ code, m }) => ({
         code,                                        // P4C15 — clé interne, jamais affichée
+        // ⭐ AM du 20/08 (garante) — le nom du geste dans le bilan complet
+        // (libellé de circuit du référentiel, déjà ajusté par la chaîne).
+        // Source de titre de PRIORITÉ 2 pour l'agent, après le mode rapide.
+        libelle_officiel: m.circuit_nom || '',
         narration: m.n3_nuance || m.n1_definition || '',   // attesté plein : n3_nuance
         resume:    m.explication_courte_ch4 || '',   // la phrase courte du protocole
-        // ⚠ Le champ s'appelle « renfort_phrase » (attesté 20/08) — « en_renfort »
-        // n'existe pas. Il CONTIENT codes et comptages « (P4) — 4 fois » :
-        // le nettoyage (transport ou rendu) est un arbitrage garante OUVERT.
-        // Transport tel quel en attendant la décision.
-        renfort:   m.renfort_phrase || '',
-        // ⚠ Le premier verbatim s'appelle « soleil_verbatim » (attesté 20/08) —
-        // « verbatim_1 » n'existe pas. Les suivants sont bien verbatim_2..4.
+        // Clé du SERVICE : en_renfort (↔ champ Airtable renfort_phrase).
+        // ⚠ Il CONTIENT codes et comptages « (P4) — 4 fois » : le nettoyage
+        // (transport ou rendu) est un arbitrage garante OUVERT — transport tel quel.
+        renfort:   m.en_renfort || '',
+        // Clés du SERVICE : verbatim_1/_ref (↔ soleil_verbatim/_ref), puis 2..4.
         verbatims: [
-          { texte: m.soleil_verbatim, recit: m.soleil_verbatim_ref },
-          { texte: m.verbatim_2,      recit: m.verbatim_2_ref },
-          { texte: m.verbatim_3,      recit: m.verbatim_3_ref },
-          { texte: m.verbatim_4,      recit: m.verbatim_4_ref }
+          { texte: m.verbatim_1, recit: m.verbatim_1_ref },
+          { texte: m.verbatim_2, recit: m.verbatim_2_ref },
+          { texte: m.verbatim_3, recit: m.verbatim_3_ref },
+          { texte: m.verbatim_4, recit: m.verbatim_4_ref }
         ].filter(v => v.texte)
       }));
 
@@ -127,11 +136,11 @@ async function construirePayload(candidat_id, airtableService) {
       mode_explication: p.mode_explication || '',
       // ⚠ JAMAIS synth_interpretee : c'est la vue d'ensemble INTERNE — elle contient
       // les codes de gestes, les libellés du référentiel et les comptages.
-      // La matière candidat vit dans « synth_bloc_*_candidat » (noms attestés 20/08 —
-      // les noms « bloc_*_candidat » sans préfixe n'existent pas).
-      synthese:         ({ 'tres souvent': p.synth_bloc_tres_souvent_candidat,
-                           'souvent':      p.synth_bloc_souvent_candidat,
-                           'occasionnels': p.synth_bloc_occasionnels_candidat })[blocRetenu] || '',
+      // La matière candidat vit sous les clés du SERVICE bloc_*_candidat
+      // (↔ champs Airtable synth_bloc_*_candidat, via fldID).
+      synthese:         ({ 'tres souvent': p.bloc_tres_souvent_candidat,
+                           'souvent':      p.bloc_souvent_candidat,
+                           'occasionnels': p.bloc_occasionnels_candidat })[blocRetenu] || '',
       bloc:             blocRetenu,                 // très souvent · souvent · occasionnels
       intitule_bloc:    INTITULE_BLOC[blocRetenu] || 'Ce que vous faites',
       gestes
@@ -156,13 +165,12 @@ async function construirePayload(candidat_id, airtableService) {
     // la barrière du serveur de rendu les rejetterait sinon.
     filtre_revelation: nettoyerCodes(bilan.ch4_filtre_revelation || bilan.filtre_synthese || ''),
     outils,
-    // Noms ATTESTÉS en base le 20/08 (audit, schéma + lecture pleine) :
-    // ch3_cout_* et ch3_signal_* — les noms s06_* / s05_* / registres n'existent pas.
-    cout_intro:        bilan.ch3_cout_intro || '',       // définition de la zone de coût
-    cout_constat:      bilan.ch3_cout_cloture || '',     // le constat pour ce candidat
-    affects_intro:     bilan.ch3_signal_intro || '',     // introduction du signal affectif
-    affects_registres: bilan.ch3_signal_registres || '', // les registres rédigés
-    affects_synthese:  bilan.ch3_signal_cloture || '',   // ce que ces registres disent ensemble
+    // Clés du SERVICE (↔ champs Airtable ch3_cout_* / ch3_signal_*, via fldID) :
+    cout_intro:        bilan.s06_intro || '',      // définition de la zone de coût
+    cout_constat:      bilan.s06_cloture || '',    // le constat pour ce candidat
+    affects_intro:     bilan.s05_intro || '',      // introduction du signal affectif
+    affects_registres: bilan.registres || '',      // les registres rédigés
+    affects_synthese:  bilan.s05_cloture || '',    // ce que ces registres disent ensemble
     // ⚠ Attesté le 20/08 : sig_recit, sig_resultat_ligne1/2 et note_profil_global
     // sont tous VIDES pour le candidat de référence. Le texte de clôture de la
     // maquette v15 est une COMPOSITION (socle + filtre reformulé) : son sort
