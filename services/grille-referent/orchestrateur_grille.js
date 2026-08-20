@@ -39,6 +39,22 @@ async function produire(candidat_id) {
     return { ok: false, motif: 'aucune sortie exploitable de l\'agent', cost, revision_humaine: true };
   }
 
+  // ── 2bis · Sauvegarde de travail AVANT les contrôles.
+  // L'appel d'agent coûte cher (≈16 min, ≈0,90 $). Sans cette trace, chaque
+  // itération sur les contrôles imposerait de le rappeler. Le fichier permet
+  // de rejouer les contrôles autant de fois qu'il le faut, gratuitement.
+  // Fichier temporaire, écrasé à chaque passage : ce n'est pas une archive.
+  try {
+    const fs = require('fs');
+    fs.writeFileSync(`/tmp/grille_${candidat_id}.json`,
+      JSON.stringify({ grille, tuile: payload.profil.tuile }, null, 2));
+    logger.info('Grille référent — sortie sauvegardée', {
+      candidat_id, fichier: `/tmp/grille_${candidat_id}.json`
+    });
+  } catch (e) {
+    logger.warn('Grille référent — sauvegarde de travail impossible', { candidat_id, error: e.message });
+  }
+
   // ── 3 · Les contrôles. Un bloquant interdit l'écriture.
   const verdict = controles.controler(grille, payload);
   if (!verdict.conforme) {
