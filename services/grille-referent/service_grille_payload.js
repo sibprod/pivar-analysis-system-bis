@@ -237,7 +237,14 @@ async function construire(candidat_id) {
       cle_tuile,
       socle:         socleCode,
       type_cognitif,
-      type_complet:  b4.type_complet || '',
+      // ⛔ `type_complet` N'EST PAS TRANSMIS. Il porte trois vestiges de l'ancienne
+      //    génération d'un coup : « ORCHESTRATEUR (7) · Environnement STRATÉGIQUE · Type A »
+      //      · le numéro (7) → les paliers n'existent plus (R5bis)
+      //      · « Environnement » → vocabulaire abandonné
+      //      · « Type A » → classement A/F périmé, absent de tous nos référentiels
+      //    Un agent l'a recopié tel quel dans la signature. Ce qu'il ne reçoit pas,
+      //    il ne peut pas le recopier — c'est plus sûr qu'un contrôle en aval.
+      //    La signature est `tuile.titre` (« Orchestrateur de solutions »), et rien d'autre.
       type_ecarte:   b4.type_ecarte  || '',   // contrôle de cohérence R8
       tuile                                    // la tuile ENTIÈRE : elle est le cadre
     },
