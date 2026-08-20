@@ -59,7 +59,10 @@ function controleTitres(sortie, payload, formulations = []) {   // formulations 
       // v3.6 : les NOMS D'ACTION rejoignent leur verbe — « passage » ↔ « passez »,
       // « ajustement » ↔ « ajustez » (constaté sur le candidat V, run 15:58).
       const r = m.replace(/(issements?|issant|issons|assent|ements?|ations?|aient|erait|erions|erons|antes?|ants?|ages?|ions|ent|ant|ees?|es|er|ez|e|s)$/,'');
-      return r.length >= 4 ? r : m;
+      // v3.7 : racine minimale abaissée à 3 — les verbes courts (poser, loger,
+      // jeter…) ont une racine de 3 lettres ; la garde à 4 empêchait « posée »
+      // de retrouver « posez » (constaté sur Cécile et R test, runs du 20/08).
+      return r.length >= 3 ? r : m;
     };
     const racines  = new Set([...matiere].filter(m => m.length >= 5).map(m => m.slice(0, 5)));
     const radicaux = new Set([...matiere].map(radical));
