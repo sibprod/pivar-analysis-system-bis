@@ -80,9 +80,10 @@ function controleTitres(sortie, payload, formulations = []) {   // formulations 
 function controleVigilance(sortie, payload, referentiel) {
   const echecs = [];
   const pts = sortie.points_vigilance || [];
-  if (pts.length < 3 || pts.length > 5) echecs.push(`points de vigilance : ${pts.length} (attendu 3 à 5)`);
-  const axes = new Set(pts.map(p => p.axe));
-  if (!(axes.has('trop') && axes.has('autres'))) echecs.push('les deux axes ne sont pas représentés');
+  // AM-17 (20/08) : plus de sélection — TOUS les items prouvés sont retenus.
+  // Aucun plafond, aucun équilibre d'axes imposé : le seul contrôle est la
+  // preuve, point par point. Un bilan sans aucun point reste suspect.
+  if (pts.length < 1) echecs.push('points de vigilance : aucun retenu — au moins un item du référentiel devrait être prouvé par la matière');
   const tousVerbatims = JSON.stringify(payload.outils);
   for (const p of pts) {
     // L'item source n'est exigé que si un référentiel a pu être lu.
@@ -100,6 +101,24 @@ function controleVigilance(sortie, payload, referentiel) {
     for (const interdit of [/\bvous (finirez|serez|deviendrez|allez)\b/i, /\b\d+\s?%/, /\b(probabilité|risque élevé|risque faible)\b/i, /\bvous (souffrez|êtes en (souffrance|burn))\b/i]) {
       if (interdit.test(texte)) echecs.push(`point « ${p.titre} » : registre interdit (prédiction, probabilité ou diagnostic)`);
     }
+  }
+  return echecs;
+}
+
+/* C5 — registre (garante, 20/08) : le bilan vouvoie. Aucun tutoiement dans ce
+   que l'agent COMPOSE — titres et transpositions. L'ancrage est exempté : un
+   énoncé d'injonction cite la voix de l'entourage, encadrée comme telle au
+   rendu. Le « il/elle » désignant le candidat relève de la relecture de
+   l'agent (consigne au prompt) : indétectable mécaniquement sans faux rejets. */
+const TUTOIEMENT = /\b(tu|te|toi|ton|ta|tes)\b/i;
+function controleRegistre(sortie) {
+  const echecs = [];
+  for (const t of (sortie.titres_parles || [])) {
+    if (TUTOIEMENT.test(t.titre || '')) echecs.push(`titre « ${t.titre} » : tutoiement — le bilan vouvoie`);
+  }
+  for (const p of (sortie.points_vigilance || [])) {
+    if (TUTOIEMENT.test(p.titre || '')) echecs.push(`point « ${p.titre} » : tutoiement dans le titre — le bilan vouvoie`);
+    if (TUTOIEMENT.test(p.transposition || '')) echecs.push(`point « ${p.titre} » : tutoiement dans la transposition — le bilan vouvoie`);
   }
   return echecs;
 }
@@ -136,7 +155,8 @@ async function produireAvecControles(payload, referentiel, appelerAgent, formula
       ...controleIntegrite(sortie),
       ...controleTitres(sortie, payload, formulations),
       ...controleVigilance(sortie, payload, referentiel.map(r => r.id)),
-      ...controleEtancheite(sortie)
+      ...controleEtancheite(sortie),
+      ...controleRegistre(sortie)
     ];
     if (sortie._reponse_non_json) alertes.unshift(`l'agent a répondu hors format : « ${sortie._reponse_non_json.slice(0,120)}… »`);
     if (!alertes.length) return { statut: 'publie', sortie, tentatives: n, alertes: [] };
@@ -155,4 +175,4 @@ async function produireAvecControles(payload, referentiel, appelerAgent, formula
   return { statut: 'anomalie', sortie: meilleure, tentatives: maxTentatives, alertes: meilleuresAlertes.length ? meilleuresAlertes : dernieresAlertes };
 }
 
-module.exports = { produireAvecControles, controleTitres, controleVigilance, controleIntegrite, controleEtancheite, INTERDITS_TEXTE, LIAISON };
+module.exports = { produireAvecControles, controleTitres, controleVigilance, controleIntegrite, controleEtancheite, controleRegistre, INTERDITS_TEXTE, LIAISON };
