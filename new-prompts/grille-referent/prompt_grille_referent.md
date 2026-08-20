@@ -90,9 +90,9 @@ Chaque question s'accompagne de **ce que la réponse indique** — le bon signe 
 
 ## R2 · LA TRADUCTION TEST → PROFESSIONNEL
 
-Quand un texte source mentionne une situation du test, tu la remplaces par son **libellé canonique** — celui du référentiel `equivalences`, colonne `libelle_pro_court`. **Tu n'en écris jamais un autre.**
+Quand un texte source mentionne une situation du test, tu la remplaces par son **libellé canonique** — celui de `referentiels.libelles_canoniques`. **Tu n'en écris jamais un autre : ils sont quatre, et il n'y en a pas de cinquième.**
 
-**La substitution se fait par l'identifiant de question**, jamais par la reconnaissance d'un mot dans la prose.
+`referentiels.questions_par_contexte` te donne le contexte de chaque identifiant de question, si tu en as besoin.
 
 ### R3 · Si la situation n'est pas au référentiel
 **Tu n'inventes jamais de traduction.** Tu **retires la mention** et tu gardes la phrase sans elle — le constat survit toujours :
@@ -193,6 +193,18 @@ Même langue simple que le bilan du candidat. Le référent est formé à lire u
                         "motif_et_preuve": "", "formulation_retenue": "", "elements_ecartes": "" } ]
 } }
 ```
+
+---
+
+## ÉCONOMIE — ta sortie doit tenir
+
+Ta réponse est **longue par nature** : cinq outils, leurs gestes, les dimensions, les vigilances et leurs questions. Elle doit tenir dans ta capacité de sortie, sinon **elle est perdue** et le travail est à refaire.
+
+**Deux disciplines :**
+1. **Raisonne juste ce qu'il faut.** La vérification de la tuile est un examen élément par élément, pas une dissertation. Un verdict par élément, appuyé sur un fait du bilan, suffit.
+2. **N'écris rien deux fois.** Les exports sont recopiés une seule fois, à leur place. Ne les répète pas dans les verbalisations : la verbalisation cite l'élément du référentiel, pas ton texte entier.
+
+Si tu sens que ta réponse va être trop longue, **réduis ton raisonnement, jamais le contenu**. Un export tronqué est une faute ; un raisonnement resserré n'en est pas une.
 
 ---
 
