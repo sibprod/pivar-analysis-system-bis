@@ -25,7 +25,11 @@ const MISSIONS = [
   { cle: 'PROFIL',     service: 'agent_grille_profil',     prompt: 'prompt_1_profil.md' },
   { cle: 'APPORT',     service: 'agent_grille_apport',     prompt: 'prompt_2_apport.md' },
   { cle: 'DIMENSIONS', service: 'agent_grille_dimensions', prompt: 'prompt_3_dimensions.md' },
-  { cle: 'VIGILANCES', service: 'agent_grille_vigilances', prompt: 'prompt_4_vigilances.md' }
+  { cle: 'VIGILANCES', service: 'agent_grille_vigilances', prompt: 'prompt_4_vigilances.md' },
+  // ⭐ Mission séparée (20/08) : deux passages ont laissé les synthèses vides
+  // parce que l'agent du profil avait autre chose à faire et a sauté la recopie.
+  // Isolée, elle ne peut plus être esquivée — c'est le seul travail de cet agent.
+  { cle: 'SYNTHESES',  service: 'agent_grille_syntheses',  prompt: 'prompt_5_syntheses.md' }
 ];
 
 function tab(v) { return Array.isArray(v) ? v : []; }
@@ -87,6 +91,15 @@ function payloadPour(cle, p) {
         socle: { libelle: p.socle.libelle, filtre: p.socle.filtre }
       };
 
+    case 'SYNTHESES':
+      // Rien que les cinq textes à transposer. Aucune autre matière : c'est ce
+      // qui rend la tâche inesquivable.
+      return { ...commun,
+        syntheses: (p.piliers || []).map(x => ({
+          pilier: x.pilier, libelle: x.libelle, synthese: x.synthese
+        })).filter(x => x.synthese)
+      };
+
     default:
       return commun;
   }
@@ -142,12 +155,28 @@ function assembler(resultats, payload) {
   const dims   = par.DIMENSIONS || {};
   const prof   = par.PROFIL || {};
   const vig    = par.VIGILANCES || {};
+  const synth  = par.SYNTHESES || {};
+
+  // Les synthèses viennent de leur agent dédié : on les repose sur leurs outils.
+  // Le rapprochement se fait sur le code de pilier, puis sur le libellé — un
+  // agent peut renvoyer l'un ou l'autre.
+  const parPilier = {};
+  for (const s of tab(synth.syntheses)) {
+    if (s.pilier)  parPilier[String(s.pilier).toUpperCase()] = s.synthese || '';
+    if (s.libelle) parPilier[String(s.libelle).toLowerCase()] = s.synthese || '';
+  }
+  const outils = tab((prof.bloc_profil || {}).outils).map((o, i) => {
+    const cle1 = String(o.pilier || '').toUpperCase();
+    const cle2 = String(o.libelle || '').toLowerCase();
+    const trouvee = parPilier[cle1] || parPilier[cle2] || '';
+    return { ...o, synthese: o.synthese || trouvee };
+  });
 
   return {
     candidat_id: payload.candidat_id,
     cartouche:   prof.cartouche || {},
     bloc_apport: apport.bloc_apport || {},
-    bloc_profil: prof.bloc_profil || {},
+    bloc_profil: { ...(prof.bloc_profil || {}), outils },
     bloc_dimensions: tab(dims.bloc_dimensions),
     portrait:        dims.portrait || '',
     bloc_vigilances: tab(vig.bloc_vigilances),
@@ -155,7 +184,7 @@ function assembler(resultats, payload) {
       typeof x === 'string' ? x : JSON.stringify(x)))],
     revision_humaine: apport.revision_humaine === true,
     motif_revision:   apport.motif_revision || '',
-    manques:          tab(prof.manques),
+    manques:          [...tab(prof.manques), ...tab(synth.manques)],
     verbalisations:   tab(apport.verbalisations)
   };
 }

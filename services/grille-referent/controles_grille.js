@@ -106,12 +106,24 @@ function controler(grille, payload) {
     const source = sourceParOutil[normaliser(outil.libelle)] || '';
     for (const g of (outil.gestes || [])) {
       const t = normaliser(g.titre);
-      if (!t) { bloquants.push(`geste sans titre (${outil.libelle})`); continue; }
+      // ⚠️ R1bis : un titre VIDE est légitime — c'est même la règle quand la
+      // narration tient en une seule phrase. Ne jamais bloquer là-dessus.
+      // (Ce contrôle bloquait auparavant, en contradiction avec la règle.)
+      if (!t) continue;
       if (!source) continue;                       // pas de source à confronter
       const mots = t.split(' ').filter(w => w.length > 4).slice(0, 3);
       const recoupe = mots.filter(w => source.includes(w.slice(0, Math.max(5, w.length - 2)))).length;
       if (mots.length && recoupe === 0) {
         bloquants.push(`titre introuvable dans la narration source : « ${g.titre} » — production libre interdite (R1)`);
+      }
+    }
+  }
+
+  // ── 3pre · Une narration vide est une faute (le titre, lui, peut l'être) ──
+  for (const outil of (grille.bloc_profil?.outils || [])) {
+    for (const g of (outil.gestes || [])) {
+      if (!String(g.narration || '').trim()) {
+        bloquants.push(`geste sans narration (${outil.libelle || '?'}) — le geste n'existe pas sans son texte`);
       }
     }
   }
