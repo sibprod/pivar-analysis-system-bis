@@ -85,17 +85,43 @@ Tu ne traites que les dimensions présentes dans `dimensions` avec une matière 
 
 ---
 
+---
+
+## 🔴 CE QUI LE PORTE, CE QUI LE FREINE — les registres affectifs
+
+Tu reçois `registres` : ce que le candidat ressent lorsqu'une activité mentale lui est demandée — une aisance, une réticence, une exigence — et **ce que cela fait à ses gestes**.
+
+**Ce n'est pas de l'humeur.** Ce sont des signaux qui accélèrent ou freinent sa façon d'agir, et le référent a besoin de savoir lesquels.
+
+### Ce que tu en fais — et ce que tu en retires
+La source est écrite pour le candidat : elle contient **ses phrases exactes** et **les situations du test**. Ni les unes ni les autres ne parviennent au référent.
+
+Tu produis **un paragraphe unique**, en trois temps :
+1. **ce qui fluidifie** — là où le geste part sans effort ;
+2. **ce qui freine** — là où il rencontre une résistance, et **quelle stratégie la personne a construite** pour y répondre ;
+3. **le point à surveiller** — quand cette stratégie ne peut plus fonctionner.
+
+> **Modèle :** « Là où il invente, une légèreté accompagne et amplifie l'exploration. Là où il cherche de l'information, une méfiance envers les canaux impersonnels place le contact humain en tête. **À surveiller** : quand son réseau est injoignable et que la situation ne tolère pas de délai, cette méfiance peut retarder le seul canal disponible au moment où la rapidité compte le plus. »
+
+**Interdits ici comme ailleurs** : aucune phrase du candidat, aucune situation du test, aucun mot de jugement. Une résistance n'est pas une faiblesse : c'est un fonctionnement avec sa stratégie.
+
+Si `registres` est vide à la source, tu rends `""` — tu n'inventes rien.
+
+---
+
 ## FORMAT DE SORTIE
 
 ```json
 { "DIMENSIONS": {
   "bloc_dimensions": [ { "nom": "", "constat": "", "quand": "", "ne_pas_attendre": "" } ],
   "portrait": "",
+  "registres": "",
   "situations_non_traduites": []
 } }
 ```
 
 `portrait` : reprends `synthese_dimensions.portrait_un_mot` mot pour mot, en transposant la personne. S'il est vide à la source, laisse `""`.
+`registres` : le paragraphe en trois temps décrit ci-dessus.
 
 ---
 
@@ -104,3 +130,5 @@ Tu ne traites que les dimensions présentes dans `dimensions` avec une matière 
 2. Aucun mot de mesure, aucune situation du test, ni en clair ni déguisée.
 3. Aucune dimension non établie n'a été ajoutée.
 4. Chaque champ tient en deux à quatre phrases.
+5. `registres` est rempli si la source l'est — sans une phrase du candidat, sans une situation du test.
+6. `portrait` est repris mot pour mot, jamais reformulé.

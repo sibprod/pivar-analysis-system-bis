@@ -97,6 +97,18 @@ Et **jamais** le libellé du référentiel de circuits comme titre.
 
 ---
 
+## 🔴 LE RENFORT — un geste dit souvent où il sert ailleurs
+
+Chaque geste peut porter un `renfort` : une phrase qui dit **à quel autre outil ce geste rend service**. C'est ce qui montre au référent que les outils ne travaillent pas en silos.
+
+> *« Ce geste sert d'abord sa création de solutions — hiérarchiser les pistes dès qu'il faut décider quoi construire — et sa mise en œuvre : cadrer l'enjeu principal pour orienter l'action collective. »*
+
+**Tu le reprends mot pour mot**, en transposant la personne et en retirant les comptages (« 3 fois » disparaît, « massivement » reste).
+
+**Si la source n'en porte pas**, tu laisses `""`. Tu n'en inventes jamais : un renfort inventé donnerait à croire à une articulation entre outils qui n'a pas été mesurée.
+
+---
+
 ## LE CARTOUCHE
 
 | Champ | Ce que tu y mets |
@@ -126,7 +138,7 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
     "filtre": "",
     "outils": [
       { "pilier": "", "role": "", "libelle": "", "mode": "", "synthese": "",
-        "gestes": [ { "titre": "", "narration": "", "renfort": "" } ] }
+        "gestes": [ { "code": "", "titre": "", "narration": "", "renfort": "" } ] }
     ]
   },
   "situations_non_traduites": [],
@@ -138,6 +150,8 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
 
 `pilier` : recopie le code tel qu'il t'est donné (P1 à P5). Il sert à rattacher la synthèse produite ailleurs — sans lui, elle ne retrouve pas son outil.
 
+`code` : **recopie le code du geste tel qu'il t'est donné** (P4C15, P1C2…). Il ne s'affiche pas au référent — il sert à retrouver la source de chaque narration. Sans lui, plus personne ne peut vérifier qu'une phrase vient bien de la base : elle devient indistinguable d'une invention.
+
 ---
 
 ## AVANT DE RENDRE
@@ -145,4 +159,5 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
 2. Aucun titre ne recopie sa narration.
 3. Aucune situation du test, ni en clair ni déguisée.
 4. Aucun comptage, aucun régime brut, aucun code de circuit.
-5. La signature est le titre de la tuile.
+5. La signature est le titre de la tuile — jamais un champ brut.
+6. Chaque geste dont la source porte un renfort l'affiche ; aucun renfort inventé.

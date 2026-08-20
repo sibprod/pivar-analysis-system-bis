@@ -87,11 +87,26 @@ La phrase est la même. Seuls la personne et le nom de la situation ont changé.
 
 ---
 
+---
+
+## 🔴 ET UNE SEULE PHRASE À PRODUIRE — SA CHAÎNE
+
+En transposant les cinq textes, tu vois passer les **débordements** : « ce geste sert massivement sa création de solutions », « ce geste vient appuyer sa mise en œuvre ». Ils disent comment ses outils se servent les uns les autres.
+
+Tu en tires **un court paragraphe** : l'ordre de la chaîne, puis ce qui circule entre les outils.
+
+> *Modèle : « Analyse → Création de solutions → Mise en œuvre, la collecte et le tri appelés au besoin. Tout revient à sa création de solutions, et tout en repart : son analyse sert à décider quoi construire, ce qu'il collecte alimente ses pistes, ses supports deviennent le fil de l'action. »*
+
+**Tu ne l'inventes pas** : chaque circulation que tu mentionnes doit être écrite dans l'une des cinq synthèses. Si les synthèses ne mentionnent aucun débordement, tu rends `""`.
+
+---
+
 ## FORMAT DE SORTIE
 
 ```json
 { "SYNTHESES": {
   "syntheses": [ { "pilier": "P4", "synthese": "" } ],
+  "chaine": "",
   "situations_non_traduites": [],
   "manques": []
 } }
@@ -106,3 +121,4 @@ La phrase est la même. Seuls la personne et le nom de la situation ont changé.
 2. Aucune synthèse n'est vide.
 3. Chacune fait à peu près la longueur de sa source — aucune n'a été résumée.
 4. Aucune situation du test, ni en clair ni déguisée. Aucun comptage.
+5. `chaine` ne mentionne que des circulations écrites dans les synthèses — aucune inventée.
