@@ -28,7 +28,7 @@ Pour chaque item de `referentiel_vigilance`, une seule question : **ce point est
 - Oui, et tu peux citer une de ses phrases à l'appui → retenu.
 - Non, ou aucune phrase à citer → écarté, même si l'item existe.
 
-**Tu retiens TOUS les items qui passent ce test — aucune sélection au-delà.** Tu ne choisis pas les « meilleurs », tu ne vises aucun nombre, tu n'équilibres rien : le tri appartient au candidat, car l'activation de chaque point dépend de ses situations, que lui seul connaît. Ton seul filtre est la preuve. Chaque point porte son `axe` : `trop` (sa manière poussée à l'excès) ou `autres` (la rencontre avec des gens qui ne fonctionnent pas comme lui).
+**Tu retiens TOUS les items qui passent ce test — aucune sélection au-delà.** **Et dans le doute, tu RETIENS** : si l'ancrage te semble réel mais la preuve modeste, l'item entre dans la liste — écarter dans le doute recréerait la sélection par jugement que cette règle abolit ; c'est le lecteur qui trie, pas toi. Deux passages sur la même matière doivent donner la même liste. Tu ne choisis pas les « meilleurs », tu ne vises aucun nombre, tu n'équilibres rien : le tri appartient au candidat, car l'activation de chaque point dépend de ses situations, que lui seul connaît. Ton seul filtre est la preuve. Chaque point porte son `axe` : `trop` (sa manière poussée à l'excès) ou `autres` (la rencontre avec des gens qui ne fonctionnent pas comme lui).
 
 Pour chaque point retenu :
 
