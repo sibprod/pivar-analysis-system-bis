@@ -1,172 +1,197 @@
-/**
- * ORCHESTRATEUR — dépôt ANALYSE.
- * payload → agent → contrôles → écriture dans BILAN_PRESENTE_CANDIDAT.
- * Aucune validation humaine : le statut est décidé par les contrôles.
- */
-const { construirePayload, lireFormulationsModeRapide } = require('./service_bilan_payload');
-const { produireAvecControles } = require('./controles_bilan');
-const { genererEnchainement }   = require('./generateur_enchainement');
-const { appelerAgent, MODELE }  = require('./agent_bilan_candidat');
+// services/bilan-candidat/service_bilan_payload.js
+// TRANSPORT PUR — payload du bilan présenté au candidat.
+//
+// Sources (fonctions du service maison, aucune autre) :
+//   getEtape1T3Bilan     → signature, filtre et ses preuves, clôture
+//   getEtape1T3Piliers   → rôle, mode, synthèse de chaque outil
+//   getEtape1T3Circuits  → UN ENREGISTREMENT PAR GESTE : narration, verbatims, renfort
+//   MODE_RAPIDE (API)    → formulations parlées + leur verbatim d'ancrage (facultatif)
+//
+// Doctrine : liste nommée de champs, jamais « tout sauf ».
+// N'entrent JAMAIS : nom du référentiel, niveaux, régimes, comptages,
+// champs _technique et _rattachement. Ce qui n'est pas ici est inatteignable.
 
-const BASE_ID = process.env.AIRTABLE_BASE_ID;
-const API_KEY = process.env.AIRTABLE_API_KEY;
+'use strict';
 
-/* Champs cibles — identifiants relevés le 18/08 */
-const F = {
-  candidat_id:'fld1MiowhyU35TI1T', civilite:'fld1qvpFqRERvtxhv', nom:'fldNxNtocICKNYGbM', prenom:'fldctpUd455biJpJE',
-  socle_code:'fldRxe1XxxITuT4py', socle_libelle:'fldQugQK2bJhgznu2',
-  filtre:'fldpxUuTizXKhvKVd', filtre_preuves:'fldYxlBcSnW8Rns7h', filtre_revelation:'fldaTJUTtEWmHDG1F',
-  outils_json:'fld8zRzqwbOspcIFx', cout_intro:'fldCMAt4foMrctdtL', cout_constat:'fldvj6A7M9mj3D3wS',
-  affects_intro:'fldzduQReukYJ0Icm', affects_registres:'fldPK2Xd0SfBfleLM', affects_synthese:'fldSZM4yZtLlUM2gb',
-  signature_ligne:'fldjIaXvQOLARyBF1',
-  titres:'fldSTTWq82u2z1hoU', vigilance:'fldjVPX2pMoemeWyt', enchainement:'fldrrClGYct6A3Koi',
-  statut:'fld4GxJKCDJTcAith', integrite:'fldITK77nXrgShkIS', empreinte:'fld9FpRcKf8j3IKCi', alertes:'fldkCF1qKuEuj6inC',
-  nb_gestes:'fldCAgSwbYItyDdBN', nb_repris:'fldVZ3cwyiNSV1UPG', nb_rediges:'fld3C1V8b8j0MZW3B', nb_vigilance:'fldQDVetAiAufIB4x',
-  date:'fldLEws3WjgGH4rUW', version:'fldHAukNos5fCoLAE'
+const crypto = require('crypto');
+
+const RANG_ROLE = { socle: 0, amont: 1, aval: 2, fonctionnel: 3 };
+
+function normaliseRole(r) {
+  const v = String(r || '').toLowerCase();
+  if (v.includes('socle')) return 'socle';
+  if (v.includes('amont')) return 'amont';
+  if (v.includes('aval'))  return 'aval';
+  return 'fonctionnel';
+}
+
+/* Le classement vient de « bloc_final » (ETAPE1_T2_CIRCUITS_POURBILAN) — jamais
+   de « bloc », qui reste à BLOC_EN_ATTENTE. Il vaut « très souvent », « souvent »
+   ou « occasionnels ».
+
+   RÈGLE DE SÉLECTION, par outil : on retient le bloc le plus fréquent que
+   l'outil possède. Très souvent s'il en a ; sinon souvent ; sinon occasionnels.
+   Un outil n'est jamais muet : un fonctionnel qui n'a que deux gestes occasionnels
+   a tout de même une manière de faire, et le candidat doit la connaître. */
+const RANG_BLOC = { 'tres souvent': 0, 'souvent': 1, 'occasionnels': 2 };
+const normBloc = v => String(v == null ? '' : v).toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+/* Intitulé affiché au candidat — il doit dire la vérité sur la fréquence réelle. */
+const INTITULE_BLOC = {
+  'tres souvent': 'Ce que vous faites très souvent',
+  'souvent':      'Ce que vous faites souvent',
+  'occasionnels': 'Ce que vous faites quand vous vous en servez'
 };
 
-async function genererBilan(candidatId, airtable) {
-  const payload      = await construirePayload(candidatId, airtable);
-  const referentiel  = await lireReferentiel(payload.socle_code);
-  const formulations = await lireFormulationsModeRapide(candidatId);   // peut être vide
+async function construirePayload(candidat_id, airtableService) {
+  const bilan = await airtableService.getEtape1T3Bilan(candidat_id);
+  if (!bilan) throw new Error(`Aucun bilan T3 pour ${candidat_id}`);
 
-  console.log(`[bilan ${candidatId}] reçu : ${referentiel.length} items de référentiel · ` +
-              `${payload.outils.reduce((t,o)=>t+(o.gestes?.length||0),0)} gestes · ` +
-              `${formulations.length} formulations`);
+  const piliers  = await airtableService.getEtape1T3Piliers(candidat_id)  || [];
+  // Deux sources, jointes sur le code : POURBILAN dit LESQUELS, T3_CIRCUIT dit QUOI.
+  const pourbilan = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id) || [];
+  const matiere   = await airtableService.getEtape1T3Circuits(candidat_id) || [];
 
-  const resultat = await produireAvecControles(payload, referentiel,
-    (p, r, alertes, precedente) => appelerAgent(p, r, alertes, precedente, formulations),
-    3, console);
+  // Index de la matière par code complet (P4 + C15 → P4C15)
+  const parCode = new Map(matiere.map(g => [`${g.pilier}${g.circuit_id}`, g]));
 
-  const enchainement = genererEnchainement(payload);   // par le code, sans agent
-  const titres = resultat.sortie?.titres_parles || [];
+  // Par outil : le bloc le plus fréquent qu'il possède, et les gestes de ce bloc.
+  const blocParPilier = new Map();
+  const gestesParPilier = new Map();
+  for (const l of pourbilan) {
+    const code = String(l.circuit_code || '');
+    const m = parCode.get(code);
+    if (!m) continue;                              // pas de matière rédigée → non affichable
+    const bloc = normBloc(l.bloc_final);
+    if (!(bloc in RANG_BLOC)) continue;            // bloc non attribué → ignoré
+    const pil = String(m.pilier);
+    const actuel = blocParPilier.get(pil);
+    if (actuel === undefined || RANG_BLOC[bloc] < RANG_BLOC[actuel]) {
+      blocParPilier.set(pil, bloc);                // un bloc plus fréquent est trouvé
+      gestesParPilier.set(pil, []);
+    }
+    if (blocParPilier.get(pil) === bloc) gestesParPilier.get(pil).push({ code, m });
+  }
+  const gestesRetenus = [...gestesParPilier.values()].flat();
 
-  const champs = {
-    [F.candidat_id]: candidatId, [F.civilite]: payload.civilite, [F.nom]: payload.nom,
-    [F.socle_code]: payload.socle_code, [F.socle_libelle]: payload.socle_libelle,
-    [F.filtre]: payload.filtre,
-    [F.filtre_preuves]: txt(payload.filtre_preuves), [F.filtre_revelation]: txt(payload.filtre_revelation),
-    [F.outils_json]: JSON.stringify(payload.outils),
-    [F.cout_intro]: txt(payload.cout_intro), [F.cout_constat]: txt(payload.cout_constat),
-    [F.affects_intro]: txt(payload.affects_intro), [F.affects_registres]: txt(payload.affects_registres),
-    [F.affects_synthese]: txt(payload.affects_synthese), [F.signature_ligne]: txt(payload.signature_ligne),
-    [F.titres]: JSON.stringify(titres),
-    [F.vigilance]: JSON.stringify(resultat.sortie?.points_vigilance || []),
-    [F.enchainement]: JSON.stringify(enchainement),
-    [F.statut]: resultat.statut,                      // publie | anomalie
-    [F.integrite]: resultat.statut === 'publie',
-    [F.empreinte]: payload._empreinte,
-    [F.alertes]: resultat.alertes.join(' · '),
-    [F.nb_gestes]: nombreDeGestes(payload),
-    [F.nb_repris]: titres.filter(t => t.provenance === 'repris').length,
-    [F.nb_rediges]: titres.filter(t => t.provenance === 'redige').length,
-    [F.nb_vigilance]: (resultat.sortie?.points_vigilance || []).length,
-    [F.date]: new Date().toISOString(),
-    [F.version]: `prompt v2 · ${MODELE} · ${resultat.tentatives} tentative(s)`
+  // Aucun geste retenu = matière absente : on échoue ici, jamais côté agent.
+  if (!gestesRetenus.length) {
+    throw new Error(`Aucun geste « très souvent » pour ${candidat_id} — ` +
+      `${pourbilan.length} ligne(s) POURBILAN, bloc_final : ${[...new Set(pourbilan.map(l => l.bloc_final || '?'))].join(', ')} · ` +
+      `${matiere.length} geste(s) en matière`);
+  }
+
+  const outils = piliers.map(p => {
+    const role = normaliseRole(p.role_pilier || p.pilier_role_label);
+    const blocRetenu = blocParPilier.get(String(p.pilier)) || '';
+    const gestes = gestesRetenus
+      .filter(x => String(x.m.pilier) === String(p.pilier))
+      .sort((a, b) => (a.m.ordre_circuit || 0) - (b.m.ordre_circuit || 0))
+      .map(({ code, m }) => ({
+        code,                                        // P4C15 — clé interne, jamais affichée
+        narration: m.n1_definition || '',            // le texte rédigé pour le candidat
+        resume:    m.explication_courte_ch4 || '',   // la phrase courte du protocole
+        renfort:   m.en_renfort || '',
+        verbatims: [
+          { texte: m.verbatim_1, recit: m.verbatim_1_ref },
+          { texte: m.verbatim_2, recit: m.verbatim_2_ref },
+          { texte: m.verbatim_3, recit: m.verbatim_3_ref },
+          { texte: m.verbatim_4, recit: m.verbatim_4_ref }
+        ].filter(v => v.texte)
+      }));
+
+    return {
+      pilier_code:      p.pilier,
+      pilier_libelle:   p.pilier_label,             // substitué AU RENDU (lexique)
+      role,
+      role_clair:       p.pilier_role_label || '',
+      mode_libelle:     p.pilier_mode || '',
+      mode_explication: p.mode_explication || '',
+      synthese:         p.synth_interpretee || p.synth_courte || '',
+      bloc:             blocRetenu,
+      intitule_bloc:    INTITULE_BLOC[blocRetenu] || 'Ce que vous faites',
+      bloc:             blocRetenu,                    // très souvent · souvent · occasionnels
+      intitule_bloc:    INTITULE_BLOC[blocRetenu] || 'Ce que vous faites',
+      gestes
+    };
+  }).sort((a, b) => (RANG_ROLE[a.role] ?? 9) - (RANG_ROLE[b.role] ?? 9));
+
+  const payload = {
+    candidat_id,
+    civilite:          bilan.civilite || '',
+    nom:               bilan.nom || '',
+    prenom:            bilan.prenom || '',
+    socle_code:        bilan.pilier_socle || '',
+    socle_libelle:     bilan.pilier_socle_label || '',
+    filtre:            bilan.filtre_label || '',
+    filtre_preuves:    [bilan.filtre_preuve_1, bilan.filtre_preuve_2, bilan.filtre_preuve_3,
+                        bilan.filtre_preuve_4, bilan.filtre_preuve_5].filter(Boolean),
+    filtre_revelation: bilan.filtre_lecture_candidat || '',
+    outils,
+    cout_intro:        bilan.cout_intro || '',
+    cout_constat:      bilan.cout_constat || '',
+    affects_intro:     bilan.limbique_intro || '',
+    affects_registres: bilan.limbique_registres || '',
+    affects_synthese:  bilan.limbique_synthese || '',
+    signature_ligne:   bilan.note_profil_global || ''
   };
 
-  await ecrireBilanPresente(airtable, candidatId, champs);
-  return { statut: resultat.statut, alertes: resultat.alertes, tentatives: resultat.tentatives };
+  payload._empreinte = empreinte(payload);
+  return payload;
 }
 
-const txt = v => typeof v === 'string' ? v : (v == null ? '' : JSON.stringify(v));
-const nombreDeGestes = p => (p.outils || []).reduce((n, o) =>
-  n + (Array.isArray(o.gestes) ? o.gestes.length : (o.gestes?.codes_retenus?.length || 0)), 0);
-
-/* Le référentiel du pilier socle, tel qu'il existe en base.
-   L'agent y puise les énoncés ; il rédige lui-même titre et transposition,
-   sous le contrôle des règles du prompt et des contrôles bloquants.
-   titre_court / transposition_pro : facultatifs — s'ils existent, ils font foi
-   et l'agent les reprend tels quels (mémoire des formulations validées). */
-async function lireReferentiel(socleCode) {
-  // Table BILAN_DESALIGNEMENT — lecture directe.
-  // On ne dépend NI des noms de champs NI de leurs identifiants : on reconnaît
-  // chaque valeur à son contenu. C'est la seule lecture qui ne peut pas échouer
-  // si la table est renommée ou réorganisée.
+/**
+ * Formulations parlées du MODE RAPIDE, avec leur verbatim d'ancrage.
+ * Matière produite SANS le référentiel : langue naturelle, mais aucune hiérarchie.
+ * C'est le bilan complet qui dit lesquelles publier — d'où le recoupement par verbatim.
+ * Facultatif : si le mode rapide n'a pas tourné, la liste est vide et l'agent rédige tout.
+ */
+async function lireFormulationsModeRapide(candidat_id) {
+  // Table MODE_RAPIDE. On ne dépend NI des noms de champs NI de leurs identifiants :
+  // on reconnaît le bloc des gestes probants à son contenu — un JSON de la forme
+  // [{ pilier, nom, qid, verbatim }]. C'est la lecture qui ne peut pas échouer.
   const BASE  = process.env.AIRTABLE_BASE_ID;
   const KEY   = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
-  const TABLE = 'tbluJprmh9AJEJ6qQ';
-  if (!BASE || !KEY || !socleCode) return [];
-
-  // Le pilier y est nommé par son geste : P1=COLLECTE · P2=TRI · P3=ANALYSE · P4=SOLUTIONS · P5=MEO
-  const NOM = { P1:'COLLECTE', P2:'TRI', P3:'ANALYSE', P4:'SOLUTIONS', P5:'MEO' };
-  const cible = NOM[String(socleCode).toUpperCase()] || String(socleCode).toUpperCase();
-  const CATEGORIES = ['EMPECHEMENTS','INJONCTIONS','IMPACTS','SURDEPLOIEMENT'];
-
-  const valeurTexte = v => {
-    if (typeof v === 'string') return v;
-    if (Array.isArray(v)) return v.map(valeurTexte).join(' ');
-    if (v && typeof v === 'object') return v.name || '';
-    return '';
-  };
+  const TABLE = 'tbltOcRoreIYx0LT2';
+  if (!BASE || !KEY) return [];
 
   try {
+    // On lit les lignes du candidat sans filtre de formule (nom de champ non garanti)
     const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?pageSize=100`,
       { headers: { Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) { console.warn(`[referentiel] lecture refusée : ${r.status}`); return []; }
+    if (!r.ok) { console.warn(`[mode-rapide] lecture refusée : ${r.status}`); return []; }
     const data = await r.json();
-    console.log(`[referentiel] ${(data.records||[]).length} ligne(s) lue(s), pilier recherché « ${cible} »`);
 
-    const items = [];
-    for (const rec of (data.records || [])) {
-      const valeurs = Object.values(rec.fields || {}).map(valeurTexte);
+    // La ligne du candidat : une de ses valeurs porte son identifiant
+    const ligne = (data.records || []).find(rec =>
+      Object.values(rec.fields || {}).some(v => typeof v === 'string' && v === candidat_id));
+    if (!ligne) { console.log('[mode-rapide] aucune ligne pour ce candidat'); return []; }
 
-      // Cette ligne concerne-t-elle le pilier socle ?
-      // « contient » et non « égale » : la valeur peut être SOLUTIONS, SOLUTIONS_IMPACTS, etc.
-      const hautes = valeurs.map(v => v.toUpperCase());
-      if (!hautes.some(v => v.includes(cible))) continue;
-
-      // Quelle catégorie ? (une valeur contient l'une des quatre)
-      const cat = CATEGORIES.find(c => hautes.some(v => v.includes(c)));
-      if (!cat) continue;
-
-      // La clé lisible, si elle existe (ex. SOLUTIONS_SURDEPLOIEMENT)
-      const cle = valeurs.find(v => v.toUpperCase().startsWith(cible + '_')) || `${cible}_${cat}`;
-
-      // Le contenu : la valeur qui est un JSON portant « items »
-      let liste = [];
-      for (const v of Object.values(rec.fields || {})) {
-        if (typeof v !== 'string' || !v.includes('items')) continue;
-        try { const j = JSON.parse(v); if (Array.isArray(j.items)) { liste = j.items; break; } } catch {}
-      }
-
-      liste.forEach((texte, i) => {
-        if (typeof texte !== 'string' || !texte.trim()) return;
-        items.push({
-          id: `${cle}_${i + 1}`, categorie: cat, enonce: texte.trim(),
-          axe_suggere: (cat === 'SURDEPLOIEMENT' || cat === 'EMPECHEMENTS') ? 'trop' : 'autres'
-        });
-      });
+    // Le bloc des gestes : la valeur qui est un tableau JSON avec « nom » et « verbatim »
+    let gestes = [];
+    for (const v of Object.values(ligne.fields || {})) {
+      if (typeof v !== 'string' || !v.trim().startsWith('[')) continue;
+      try {
+        const j = JSON.parse(v);
+        if (Array.isArray(j) && j.length && j[0] && j[0].nom && j[0].verbatim) { gestes = j; break; }
+      } catch {}
     }
-    console.log(`[referentiel] ${items.length} item(s) retenu(s) pour ${cible}`);
-    return items;
-  } catch (e) { console.warn('[referentiel] échec :', e.message); return []; }
+
+    const formulations = gestes
+      .map(g => ({ formulation: String(g.nom || '').trim(), ancrage: String(g.verbatim || '').trim(), pilier: g.pilier || '' }))
+      .filter(f => f.formulation && f.ancrage);
+    console.log(`[mode-rapide] ${formulations.length} formulation(s) disponible(s)`);
+    return formulations;
+  } catch (e) {
+    console.warn('[mode-rapide] échec :', e.message);
+    return [];   // jamais bloquant : le bilan ne dépend pas de l'autre chaîne
+  }
 }
 
-
-module.exports = { genererBilan, F };
-
-
-/* Écriture dans BILAN_PRESENTE_CANDIDAT — via l'API Airtable, table dédiée */
-async function ecrireBilanPresente(airtableService, candidatId, champs) {
-  const BASE = process.env.AIRTABLE_BASE_ID;
-  const KEY  = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
-  const TABLE = 'tbllTlzNbml7AoGZt';
-  const F_ID  = 'fld1MiowhyU35TI1T';
-  const entetes = { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
-
-  const formule = encodeURIComponent(`{candidat_id}="${String(candidatId).replace(/"/g,'')}"`);
-  const rCherche = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?filterByFormula=${formule}&maxRecords=1`, { headers: entetes });
-  const data = rCherche.ok ? await rCherche.json() : { records: [] };
-  const existante = data.records && data.records[0];
-
-  const corps = JSON.stringify({
-    records: [existante ? { id: existante.id, fields: champs } : { fields: champs }],
-    typecast: true
-  });
-  const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}`, {
-    method: existante ? 'PATCH' : 'POST', headers: entetes, body: corps
-  });
-  if (!r.ok) throw new Error(`Écriture BILAN_PRESENTE_CANDIDAT : ${r.status} ${(await r.text()).slice(0,200)}`);
-  return true;
+function empreinte(objet) {
+  const { _empreinte, ...reste } = objet;
+  return crypto.createHash('sha256').update(JSON.stringify(reste)).digest('hex');
 }
+
+module.exports = { construirePayload, lireFormulationsModeRapide, empreinte, normaliseRole };
