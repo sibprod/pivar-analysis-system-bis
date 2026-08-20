@@ -248,8 +248,26 @@ async function construire(candidat_id) {
     },
 
     referentiels: {
-      equivalences,        // R2 · libellés canoniques
-      desalignement,       // vigilances par outil
+      // R2 · la substitution ne demande QUE la correspondance contexte → libellé.
+      // Envoyer les 25 lignes entières (situation du test, contrainte, ce que le
+      // test demande…) noyait l'agent sous une matière qu'il n'utilise pas — et
+      // lui faisait dépasser sa capacité de sortie. On envoie la table réduite.
+      libelles_canoniques: [...new Map(
+        (equivalences || [])
+          .filter(e => e.contexte_test && e.libelle_pro_court)
+          .map(e => [e.contexte_test, { contexte: e.contexte_test, libelle: e.libelle_pro_court }])
+      ).values()],
+
+      // Les questions par contexte, pour retrouver un contexte depuis un identifiant.
+      questions_par_contexte: (equivalences || [])
+        .filter(e => e.id_question && e.contexte_test)
+        .map(e => ({ id: e.id_question, contexte: e.contexte_test })),
+
+      // Vigilances : seuls les blocs qui servent, et leur contenu.
+      desalignement: (desalignement || [])
+        .filter(d => ['SURDEPLOIEMENT', 'INJONCTIONS', 'IMPACTS'].includes(String(d.bloc_type || '').toUpperCase()))
+        .map(d => ({ pilier: d.pilier, bloc_type: d.bloc_type, contenu: d.contenu })),
+
       version_profils:      new Date().toISOString().slice(0, 10),
       version_equivalences: new Date().toISOString().slice(0, 10)
     },
