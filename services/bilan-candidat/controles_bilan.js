@@ -35,23 +35,61 @@ const normalise = s => String(s||'').toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .replace(/[’']/g,"'").replace(/\b[a-z]'/g,' ').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(m => m.length > 1);
 
-/* C1 — chaque mot porteur d'un titre doit venir de la matière du geste */
-function controleTitres(sortie, payload) {
+/* C1 — chaque titre est contrôlé SELON SA PROVENANCE (AM garante du 20/08) :
+   « repris »  : la formulation du mode rapide, telle quelle — prompts déjà
+                 conformes à la doctrine, donc légitime par construction.
+                 Contrôle : elle doit exister mot pour mot parmi les formulations
+                 fournies, et appartenir au même outil que le geste.
+   « officiel »: le libellé du geste dans le bilan complet, ajusté au plus léger.
+                 Contrôle : chaque mot porteur vient du libellé officiel ou de la
+                 matière du geste (l'ajustement puise dans la matière, jamais ailleurs).
+   « redige »  : dernier recours — chaque mot porteur vient de la matière du geste.
+   Dans tous les cas, un mot étranger aux sources autorisées rejette le bilan. */
+const normStr = s => String(s||'').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .replace(/[’']/g," ").replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+const sansPrefixe = s => normStr(s).replace(/^(votre|vos)\s+/, '');
+
+function controleTitres(sortie, payload, formulations = []) {
   const echecs = [];
   const matiereParCode = new Map();
+  const officielParCode = new Map();
   for (const o of payload.outils) {
     const g = o.gestes;
-    if (Array.isArray(g)) g.forEach(x => matiereParCode.set(x.code, [x.narration, x.resume, x.renfort, JSON.stringify(x.verbatims)].join(' ')));
+    if (Array.isArray(g)) g.forEach(x => {
+      matiereParCode.set(x.code, [x.narration, x.resume, x.renfort, JSON.stringify(x.verbatims)].join(' '));
+      officielParCode.set(x.code, x.libelle_officiel || '');
+    });
     else (g.codes_retenus||[]).forEach(c => matiereParCode.set(c, g.texte_integral));
   }
+  const formIndex = (formulations||[]).map(f => ({ cle: sansPrefixe(f.formulation), pilier: String(f.pilier||'') }));
+
   for (const t of (sortie.titres_parles||[])) {
     const matiere = new Set(normalise(matiereParCode.get(t.code_geste)));
-    // Un mot du titre est admis s'il figure dans la matière, ou s'il en partage
-    // la racine (accords et conjugaisons : « vagabonder » → « vagabonde »).
-    // Ce qui reste interdit : une notion qui n'existe nulle part dans la matière.
     const racines = [...matiere].map(m => m.slice(0, 5));
-    const connu = m => matiere.has(m) || (m.length >= 5 && racines.includes(m.slice(0, 5)));
-    const orphelins = normalise(t.titre).filter(m => !LIAISON.has(m) && !connu(m));
+    const connu = (m, extra) => matiere.has(m) || extra.has(m)
+      || (m.length >= 5 && racines.includes(m.slice(0, 5)));
+
+    if (t.provenance === 'repris') {
+      const cle = sansPrefixe(t.titre);
+      const f = formIndex.find(x => x.cle === cle);
+      if (!f) { echecs.push(`titre « ${t.titre} » : déclaré repris mais introuvable parmi les formulations du mode rapide`); continue; }
+      const pilierGeste = String(t.code_geste||'').slice(0, 2);
+      if (f.pilier && f.pilier !== pilierGeste)
+        echecs.push(`titre « ${t.titre} » : formulation de l'outil ${f.pilier} attribuée à un geste ${pilierGeste}`);
+      continue;   // formulation validée en amont : aucun contrôle de mots
+    }
+
+    if (t.provenance === 'officiel') {
+      const officiel = new Set(normalise(officielParCode.get(t.code_geste)));
+      if (!officiel.size) { echecs.push(`titre « ${t.titre} » : déclaré officiel mais le geste n'a pas de libellé officiel`); continue; }
+      const orphelins = normalise(t.titre).filter(m => !LIAISON.has(m) && !connu(m, officiel));
+      if (orphelins.length) echecs.push(`titre « ${t.titre} » : mots hors libellé officiel et matière → ${orphelins.join(', ')}`);
+      continue;
+    }
+
+    // provenance « redige » (ou absente) : la règle d'origine, mots de la matière.
+    const orphelins = normalise(t.titre).filter(m => !LIAISON.has(m) && !connu(m, new Set()));
     if (orphelins.length) echecs.push(`titre « ${t.titre} » : mots absents de la matière → ${orphelins.join(', ')}`);
   }
   if ((sortie.titres_parles||[]).length !== matiereParCode.size)
@@ -107,7 +145,7 @@ function controleEtancheite(sortie) {
 }
 
 /* Orchestration : 3 tentatives, puis anomalie */
-async function produireAvecControles(payload, referentiel, appelerAgent, maxTentatives = 3, journal = console) {
+async function produireAvecControles(payload, referentiel, appelerAgent, formulations = [], maxTentatives = 3, journal = console) {
   let dernieresAlertes = [];
   let derniereSortie = null;
   let meilleure = null, meilleuresAlertes = [];
@@ -117,7 +155,7 @@ async function produireAvecControles(payload, referentiel, appelerAgent, maxTent
     derniereSortie = sortie;
     const alertes = [
       ...controleIntegrite(sortie),
-      ...controleTitres(sortie, payload),
+      ...controleTitres(sortie, payload, formulations),
       ...controleVigilance(sortie, payload, referentiel.map(r => r.id)),
       ...controleEtancheite(sortie)
     ];
