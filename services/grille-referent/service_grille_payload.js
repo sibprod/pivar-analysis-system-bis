@@ -45,8 +45,17 @@ function selectionnerGestes(lignesPourBilan, narrations, anomalies) {
     const bloc   = val(l['bloc_final']);          // ⚠️ JAMAIS l['bloc']
     const code   = l['circuit_code'];
 
-    if (!pilier || !bloc || !code) {
-      anomalies.push(`ligne de classement incomplète (pilier=${pilier || '—'} bloc=${bloc || '—'} code=${code || '—'})`);
+    // La table mêle deux natures de lignes : les gestes, et des lignes de
+    // STRUCTURE (en-tête générale + un séparateur avant chaque bloc de chaque
+    // pilier). Ces dernières n'ont pas de code de geste : on les ignore en
+    // silence — ce ne sont pas des anomalies, c'est la forme de la table.
+    // Vérifié sur M. R. : 50 lignes = 40 gestes + 10 lignes de structure.
+    if (!code) continue;
+
+    // En revanche, une ligne QUI PORTE un geste mais à qui il manque son pilier
+    // ou son bloc est une vraie anomalie : on ne peut ni la classer ni la placer.
+    if (!pilier || !bloc) {
+      anomalies.push(`geste non classable : ${code} (pilier=${pilier || '—'} bloc=${bloc || '—'})`);
       continue;
     }
     (parPilier[pilier] = parPilier[pilier] || {});
