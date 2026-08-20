@@ -28,11 +28,14 @@ const F = {
 async function genererBilan(candidatId, airtable) {
   const payload      = await construirePayload(candidatId, airtable);
   const referentiel  = await lireReferentiel(payload.socle_code);
-  const formulations = await lireFormulationsModeRapide(candidatId);   // peut être vide
+  // AM-16 (20/08) : le mode rapide n'est plus une source de titres — trop
+  // risqué pour la fiabilité du profil. L'agent titre depuis le détail complet
+  // du geste (bilan complet), déjà transporté dans le payload.
+  const formulations = [];
 
   console.log(`[bilan ${candidatId}] reçu : ${referentiel.length} items de référentiel · ` +
               `${payload.outils.reduce((t,o)=>t+(o.gestes?.length||0),0)} gestes · ` +
-              `${formulations.length} formulations`);
+              `titres depuis le détail complet (AM-16)`);
 
   const resultat = await produireAvecControles(payload, referentiel,
     (p, r, alertes, precedente) => appelerAgent(p, r, alertes, precedente, formulations),
@@ -62,7 +65,7 @@ async function genererBilan(candidatId, airtable) {
     [F.nb_rediges]: titres.filter(t => t.provenance === 'redige').length,
     [F.nb_vigilance]: (resultat.sortie?.points_vigilance || []).length,
     [F.date]: new Date().toISOString(),
-    [F.version]: `prompt v3 · ${MODELE} · ${resultat.tentatives} tentative(s)`
+    [F.version]: `prompt v4 · ${MODELE} · ${resultat.tentatives} tentative(s)`
   };
 
   await ecrireBilanPresente(airtable, candidatId, champs);
