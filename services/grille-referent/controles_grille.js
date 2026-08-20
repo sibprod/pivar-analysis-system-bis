@@ -19,16 +19,20 @@ const SCENARIOS = [
 const MECANIQUE = [
   /\b\d+\s*\/\s*(?:25|20|10|9|5|4)\b/,          // 12/25, 1/4…
   /\b\d+\s+activations?\b/i,
-  /\bdensit[ée]\b/i, /\bpattern\b/i, /\bseuil\b/i,
+  /\bdensit[ée]\b/i, /\bpattern d'activation\b/i,
   /\bP[1-5]C\d+\b/,                              // codes de circuits
   /\bP[1-5]Q\d+\b/,                              // identifiants de questions
   /\b(?:tr[èe]s souvent|occasionnels)\b/i,       // blocs de fréquence
   /\b(?:HAUT|MOYEN|FAIBLE)\b/,                   // amplitudes
   /\bpalier\b/i, /\bniveau\s+[1-9]\b/i           // R5bis : plus de paliers
 ];
+// Les régimes BRUTS qui doivent être traduits avant affichage.
+// ⚠️ « régulière et ancrée » et « ancrée en régime modéré » NE SONT PAS ici :
+// ce sont les libellés que le bilan du candidat affiche tel quel — même
+// vocabulaire des deux côtés, c'est voulu. Seuls les régimes que le bilan
+// candidat traduit doivent l'être ici aussi.
 const REGIMES = [
-  /R[ÉE]GULI[ÈE]RE ET ANCR[ÉE]E/i, /ANCR[ÉE]E EN R[ÉE]GIME MOD[ÉE]R[ÉE]/i,
-  /\bOBSERV[ÉE]E\b/, /\bABSENTE\b/, /\bPLEIN R[ÉE]GIME\b/i
+  /\bOBSERV[ÉE]E\b/, /\bABSENTE\b/, /\bNULLE\b/, /\bPLEIN R[ÉE]GIME\b/i
 ];
 
 function texteVisible(g) {
@@ -112,8 +116,13 @@ function controler(grille, payload) {
 
   // ── 5 · aucun écart au référentiel sans verbalisation ──
   const tuile = payload?.profil?.tuile || {};
-  const refAtouts = String(tuile.atouts || '').split('\n').map(x => normaliser(x.replace(/^•\s*/, ''))).filter(Boolean);
-  const refCouts  = String(tuile.couts  || '').split('\n').map(x => normaliser(x.replace(/^•\s*/, ''))).filter(Boolean);
+  // ⚠️ Les atouts et coûts de la tuile arrivent en LISTE (airtable_grille les
+  // découpe déjà). Les traiter comme du texte faisait échouer toute comparaison
+  // et signalait chaque élément comme un écart. On accepte les deux formes.
+  const enListe = (v) => (Array.isArray(v) ? v : String(v || '').split('\n'))
+    .map(x => normaliser(String(x).replace(/^•\s*/, ''))).filter(Boolean);
+  const refAtouts = enListe(tuile.atouts);
+  const refCouts  = enListe(tuile.couts);
   const verbalises = (grille.verbalisations || []).map(v => normaliser(v.element_concerne));
 
   const ecartsSilencieux = [];
@@ -145,7 +154,9 @@ function controler(grille, payload) {
   if (nonTraduites > 0) {
     signalements.push(`${nonTraduites} situation(s) non traduite(s) — le référentiel doit être complété`);
     if (nonTraduites >= 5) {
-      bloquants.push(`seuil de non-traduction franchi (${nonTraduites}) — bilan issu d'une version non couverte (R3)`);
+      const liste = (grille.situations_non_traduites || []).map(x =>
+        typeof x === 'string' ? x : JSON.stringify(x)).join(' · ');
+      bloquants.push(`seuil de non-traduction franchi (${nonTraduites}) : ${liste} (R3)`);
     }
   }
 
