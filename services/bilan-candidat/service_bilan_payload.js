@@ -148,26 +148,43 @@ async function construirePayload(candidat_id, airtableService) {
  * Facultatif : si le mode rapide n'a pas tourné, la liste est vide et l'agent rédige tout.
  */
 async function lireFormulationsModeRapide(candidat_id) {
+  // Table MODE_RAPIDE. On ne dépend NI des noms de champs NI de leurs identifiants :
+  // on reconnaît le bloc des gestes probants à son contenu — un JSON de la forme
+  // [{ pilier, nom, qid, verbatim }]. C'est la lecture qui ne peut pas échouer.
   const BASE  = process.env.AIRTABLE_BASE_ID;
   const KEY   = process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY;
-  const TABLE = 'tbltOcRoreIYx0LT2';   // MODE_RAPIDE
+  const TABLE = 'tbltOcRoreIYx0LT2';
   if (!BASE || !KEY) return [];
 
   try {
-    const formule = encodeURIComponent(`{candidat_id}="${String(candidat_id).replace(/"/g, '')}"`);
-    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?filterByFormula=${formule}&maxRecords=1`,
+    // On lit les lignes du candidat sans filtre de formule (nom de champ non garanti)
+    const r = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}?pageSize=100`,
       { headers: { Authorization: `Bearer ${KEY}` } });
-    if (!r.ok) return [];
+    if (!r.ok) { console.warn(`[mode-rapide] lecture refusée : ${r.status}`); return []; }
     const data = await r.json();
-    const ligne = data.records && data.records[0] && data.records[0].fields;
-    if (!ligne) return [];
 
-    const brut = ligne.gestes_probants_json || ligne.gestes_probants || '[]';
-    const liste = typeof brut === 'string' ? JSON.parse(brut) : brut;
-    return (Array.isArray(liste) ? liste : [])
-      .map(g => ({ formulation: g.nom || g.formulation || '', ancrage: g.verbatim || g.ancrage || '' }))
+    // La ligne du candidat : une de ses valeurs porte son identifiant
+    const ligne = (data.records || []).find(rec =>
+      Object.values(rec.fields || {}).some(v => typeof v === 'string' && v === candidat_id));
+    if (!ligne) { console.log('[mode-rapide] aucune ligne pour ce candidat'); return []; }
+
+    // Le bloc des gestes : la valeur qui est un tableau JSON avec « nom » et « verbatim »
+    let gestes = [];
+    for (const v of Object.values(ligne.fields || {})) {
+      if (typeof v !== 'string' || !v.trim().startsWith('[')) continue;
+      try {
+        const j = JSON.parse(v);
+        if (Array.isArray(j) && j.length && j[0] && j[0].nom && j[0].verbatim) { gestes = j; break; }
+      } catch {}
+    }
+
+    const formulations = gestes
+      .map(g => ({ formulation: String(g.nom || '').trim(), ancrage: String(g.verbatim || '').trim(), pilier: g.pilier || '' }))
       .filter(f => f.formulation && f.ancrage);
-  } catch {
+    console.log(`[mode-rapide] ${formulations.length} formulation(s) disponible(s)`);
+    return formulations;
+  } catch (e) {
+    console.warn('[mode-rapide] échec :', e.message);
     return [];   // jamais bloquant : le bilan ne dépend pas de l'autre chaîne
   }
 }
