@@ -100,14 +100,15 @@ async function construire(candidat_id) {
   const manques   = [];
   const anomalies = [];
 
-  // ── 1 · Identité — la civilité commande l'accord ; l'agent écrit à l'aveugle du genre
-  const civilite = await airtableService.getCiviliteCandidat(candidat_id).catch(() => null);
-  if (!civilite) anomalies.push('civilité absente — accord au masculin par défaut');
-
-  // ── 2 · Le socle et son réglage
+  // ── 1 · Le socle et son réglage
   const t3 = await airtableService.getEtape1T3Bilan(candidat_id);
   if (!t3) throw new Error(`Grille : aucun bilan T3 pour ${candidat_id}`);
   if (!t3.filtre) manques.push('filtre du socle');
+
+  // La civilité commande l'accord. Elle est portée par le bilan lui-même :
+  // une source de moins à interroger, et la même que celle du bilan candidat.
+  const civilite = t3.civilite || await airtableService.getCiviliteCandidat(candidat_id).catch(() => null);
+  if (!civilite) anomalies.push('civilité absente — accord au masculin par défaut');
 
   const socleCode = val(t3.pilier_socle) || 'P4';
 
@@ -137,10 +138,22 @@ async function construire(candidat_id) {
       libelle:  p.pilier_label || '',
       role:     p.pilier_role_label || '',
       mode:     p.pilier_mode || '',
-      synthese: p.synth_bloc_tres_souvent_candidat || ''
+      // ⚠️ Le champ s'appelle `bloc_tres_souvent_candidat` — SANS préfixe `synth_`.
+      // Un préfixe supposé a fait échouer trois passages : la synthèse sortait
+      // vide et on accusait l'agent. Les noms de champs se lisent, ils ne
+      // s'inventent pas. Les deux blocs inférieurs servent à la cascade R9.
+      synthese: p.bloc_tres_souvent_candidat || '',
+      synthese_souvent:      p.bloc_souvent_candidat || '',
+      synthese_occasionnels: p.bloc_occasionnels_candidat || ''
     };
   }
-  for (const c of ORDRE_PILIERS) if (!piliers[c]) manques.push(`pilier ${c} absent`);
+  for (const c of ORDRE_PILIERS) {
+    if (!piliers[c]) { manques.push(`pilier ${c} absent`); continue; }
+    // Une synthèse vide à la source doit se voir ICI, pas trois agents plus loin.
+    if (!piliers[c].synthese && !piliers[c].synthese_souvent && !piliers[c].synthese_occasionnels) {
+      manques.push(`aucune synthèse pour ${c} — vérifier le nom du champ en base`);
+    }
+  }
 
   // ── 4 · Les gestes : classement (T2, bloc_final) + matière (T3_CIRCUIT)
   const pourBilan   = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id);
@@ -152,7 +165,10 @@ async function construire(candidat_id) {
     const cid    = c.circuit_id || '';
     const entree = {
       narration: c.explication_courte_ch4 || c.n1_definition || '',
-      renfort:   c.renfort_phrase || ''
+      // ⚠️ Le champ s'appelle `en_renfort` — pas `renfort_phrase`.
+      // Vérifié sur les clés réelles le 20/08 : c'est ce qui faisait sortir
+      // « renfort: "" » sur tous les gestes.
+      renfort:   c.en_renfort || ''
     };
     // Les codes se présentent sous deux formes selon les tables : « C4 » et « P4C4 ».
     narrations[cid] = entree;
@@ -232,13 +248,26 @@ async function construire(candidat_id) {
       filtre:  t3.filtre || ''
     },
 
-    piliers: ORDRE_PILIERS.map(c => ({
-      ...piliers[c],
-      bloc_retenu: gestesParPilier[c].bloc_retenu,   // interne : ne s'affiche jamais (D95)
-      gestes:      gestesParPilier[c].gestes
-    })),
+    piliers: ORDRE_PILIERS.map(c => {
+      const bloc = gestesParPilier[c].bloc_retenu;
+      // La synthèse doit décrire LE BLOC RETENU, pas un autre : si la cascade
+      // est descendue sur « souvent », c'est la synthèse de « souvent » qui
+      // explique les gestes affichés.
+      const synthese =
+        bloc === 'souvent'      ? (piliers[c].synthese_souvent      || piliers[c].synthese) :
+        bloc === 'occasionnels' ? (piliers[c].synthese_occasionnels || piliers[c].synthese) :
+                                   piliers[c].synthese;
+      const { synthese_souvent, synthese_occasionnels, ...reste } = piliers[c];
+      return {
+        ...reste,
+        synthese,
+        bloc_retenu: bloc,                            // interne : ne s'affiche jamais (D95)
+        gestes:      gestesParPilier[c].gestes
+      };
+    }),
 
-    registres_affectifs: t3.ch3_signal_registres || '',
+    // ⚠️ Le champ s'appelle `registres` — pas `ch3_signal_registres`.
+    registres_affectifs: t3.registres || '',
 
     dimensions,
     synthese_dimensions: {
