@@ -35,6 +35,39 @@ async function produire(candidat_id) {
   // ── 2 · Les quatre agents, et l'assemblage de leurs sorties.
   const { grille, cost: coutAgent, manquantes } = await agent.executer(payload);
   cost += coutAgent;
+
+  // ── 2bis · SAUVEGARDE — première opération après les agents, avant TOUT contrôle
+  //          et avant tout retour anticipé.
+  //
+  // ⚠️ Cette sauvegarde était placée APRÈS le contrôle des missions manquantes.
+  //    Le 21/08, l'agent des vigilances a échoué : le contrôle a rendu la main,
+  //    la sauvegarde n'a jamais été atteinte, et TOUT ce que les quatre autres
+  //    agents avaient produit a été perdu — 14 minutes, 0,36 $, et surtout la
+  //    matière qui aurait permis de comprendre.
+  //
+  //    Un refus ne doit JAMAIS détruire la pièce à conviction. On écrit d'abord,
+  //    on juge ensuite. Le fichier porte aussi les missions manquantes et le
+  //    payload, pour qu'un passage partiel reste auditable.
+  try {
+    const fs = require('fs');
+    fs.writeFileSync(`/tmp/grille_${candidat_id}.json`, JSON.stringify({
+      horodatage: new Date().toISOString(),
+      candidat_id,
+      manquantes: manquantes || [],
+      cout: cost,
+      grille: grille || null,
+      tuile: payload.profil.tuile,
+      piliers: payload.piliers,
+      referentiels: { desalignement: payload.referentiels.desalignement }
+    }, null, 2));
+    logger.info('Grille référent — sortie sauvegardée', {
+      candidat_id, fichier: `/tmp/grille_${candidat_id}.json`,
+      manquantes: (manquantes || []).length ? manquantes : 'aucune'
+    });
+  } catch (e) {
+    logger.warn('Grille référent — sauvegarde impossible', { candidat_id, error: e.message });
+  }
+
   if (!grille) {
     return { ok: false, motif: 'aucune sortie exploitable des agents', cost, revision_humaine: true };
   }
@@ -48,22 +81,6 @@ async function produire(candidat_id) {
       motif: `mission(s) sans sortie : ${manquantes.join(', ')}`,
       cost, revision_humaine: true
     };
-  }
-
-  // ── 2bis · Sauvegarde de travail AVANT les contrôles.
-  // L'appel d'agent coûte cher (≈16 min, ≈0,90 $). Sans cette trace, chaque
-  // itération sur les contrôles imposerait de le rappeler. Le fichier permet
-  // de rejouer les contrôles autant de fois qu'il le faut, gratuitement.
-  // Fichier temporaire, écrasé à chaque passage : ce n'est pas une archive.
-  try {
-    const fs = require('fs');
-    fs.writeFileSync(`/tmp/grille_${candidat_id}.json`,
-      JSON.stringify({ grille, tuile: payload.profil.tuile }, null, 2));
-    logger.info('Grille référent — sortie sauvegardée', {
-      candidat_id, fichier: `/tmp/grille_${candidat_id}.json`
-    });
-  } catch (e) {
-    logger.warn('Grille référent — sauvegarde de travail impossible', { candidat_id, error: e.message });
   }
 
   // ── 3 · Les contrôles. Un bloquant interdit l'écriture.

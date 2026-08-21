@@ -25,7 +25,15 @@ const MISSIONS = [
   { cle: 'PROFIL',     service: 'agent_grille_profil',     prompt: 'prompt_1_profil.md' },
   { cle: 'APPORT',     service: 'agent_grille_apport',     prompt: 'prompt_2_apport.md' },
   { cle: 'DIMENSIONS', service: 'agent_grille_dimensions', prompt: 'prompt_3_dimensions.md' },
-  { cle: 'VIGILANCES', service: 'agent_grille_vigilances', prompt: 'prompt_4_vigilances.md' },
+  // ⭐ Les vigilances en DEUX missions (21/08) : un agent unique devait
+  // sélectionner (jugement, comparatif) ET rédiger (composition). Son
+  // raisonnement a consommé tout son quota avant qu'une ligne ne sorte — 27 330
+  // caractères de thinking, zéro texte, mission perdue. Deux métiers dans un
+  // agent, c'est D115 violé ; relever le plafond n'aurait fait que repousser
+  // le mur. La rédaction reçoit la sélection : elle n'a plus à juger.
+  { cle: 'SELECTION',  service: 'agent_grille_selection',  prompt: 'prompt_4a_selection.md' },
+  { cle: 'VIGILANCES', service: 'agent_grille_redaction',  prompt: 'prompt_4b_redaction.md',
+    depend: 'SELECTION' },
   // ⭐ Mission séparée (20/08) : deux passages ont laissé les synthèses vides
   // parce que l'agent du profil avait autre chose à faire et a sauté la recopie.
   // Isolée, elle ne peut plus être esquivée — c'est le seul travail de cet agent.
@@ -39,7 +47,7 @@ function tab(v) { return Array.isArray(v) ? v : []; }
 // Chaque agent ne reçoit QUE ce dont il a besoin. Lui donner le reste, c'est
 // le noyer — et c'est ce qui a fait dépasser sa capacité à l'agent unique.
 // ═══════════════════════════════════════════════════════════════════════════
-function payloadPour(cle, p) {
+function payloadPour(cle, p, acquis = {}) {
   const commun = {
     candidat_id: p.candidat_id,
     civilite:    p.civilite,
@@ -83,11 +91,23 @@ function payloadPour(cle, p) {
         registres: p.registres_affectifs || ''
       };
 
-    case 'VIGILANCES':
+    case 'SELECTION':
       return { ...commun,
         // Le référentiel où choisir…
         referentiels: { ...commun.referentiels, desalignement: p.referentiels.desalignement },
         // …et de quoi vérifier l'ancrage chez CE candidat.
+        piliers: (p.piliers || []).map(x => ({
+          pilier: x.pilier, libelle: x.libelle, mode: x.mode,
+          gestes: (x.gestes || []).map(g => g.narration)
+        })),
+        socle: { libelle: p.socle.libelle, filtre: p.socle.filtre }
+      };
+
+    case 'VIGILANCES':
+      // La rédaction reçoit le résultat de la sélection — pas le référentiel.
+      // Elle n'a plus à juger : elle écrit ce qui a été retenu.
+      return { ...commun,
+        retenus: (acquis.SELECTION || {}).retenus || [],
         piliers: (p.piliers || []).map(x => ({
           pilier: x.pilier, libelle: x.libelle, mode: x.mode,
           gestes: (x.gestes || []).map(g => g.narration)
@@ -110,13 +130,17 @@ function payloadPour(cle, p) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-async function executerMission(mission, payloadComplet) {
+async function executerMission(mission, payloadComplet, acquis = {}) {
   const candidat_id = payloadComplet.candidat_id;
-  const payload = payloadPour(mission.cle, payloadComplet);
+  const payload = payloadPour(mission.cle, payloadComplet, acquis);
   let sortie = null, cout = 0;
 
-  // Deux tentatives : une sortie illisible est souvent une troncature,
-  // pas une erreur de fond.
+  // Deux tentatives — SAUF si l'échec est définitif.
+  // Une troncature par dépassement de capacité se reproduira à l'identique :
+  // réessayer coûte cinq minutes pour rien. Le 21/08, l'agent des vigilances a
+  // ainsi brûlé deux tentatives sur le même mur alors que le diagnostic disait
+  // « retry inutile, le prompt doit être réduit ».
+  const DEFINITIF = /max_tokens|output_truncated|tronqué|no text content/i;
   for (let essai = 1; essai <= 2 && sortie === null; essai++) {
     try {
       const res = await agentBase.callAgent({
@@ -129,6 +153,13 @@ async function executerMission(mission, payloadComplet) {
       sortie = res.result;
     } catch (e) {
       logger.warn(`Grille · ${mission.cle} — sortie illisible`, { candidat_id, essai, error: e.message });
+      if (DEFINITIF.test(e.message || '')) {
+        logger.error(`Grille · ${mission.cle} — échec définitif, seconde tentative abandonnée`, {
+          candidat_id,
+          action: `relever max_tokens de ${mission.service} dans config/claude.js, ou alléger sa commande`
+        });
+        break;
+      }
     }
   }
 
@@ -208,13 +239,28 @@ async function executer(payload) {
   const resultats = [];
   let cost = 0;
 
+  const acquis = {};
   for (const mission of MISSIONS) {
-    const r = await executerMission(mission, payload);
+    // Une mission qui dépend d'une autre ne part pas si celle-ci a échoué :
+    // la rédaction sans sélection n'écrirait rien, ou pire, inventerait.
+    if (mission.depend && !acquis[mission.depend]) {
+      logger.warn(`Grille · ${mission.cle} — non lancée`, {
+        candidat_id, motif: `dépend de ${mission.depend}, qui n'a rien rendu`
+      });
+      resultats.push({ cle: mission.cle, contenu: null, cost: 0 });
+      continue;
+    }
+    const r = await executerMission(mission, payload, acquis);
+    if (r.contenu) acquis[r.cle] = r.contenu;
     resultats.push(r);
     cost += r.cost;
   }
 
-  const manquantes = resultats.filter(r => !r.contenu).map(r => r.cle);
+  // SELECTION est une étape intermédiaire, pas un bloc de la grille : son échec
+  // se lit dans celui de VIGILANCES, qui en dépend. On ne la compte pas deux fois.
+  const manquantes = resultats
+    .filter(r => !r.contenu && r.cle !== 'SELECTION')
+    .map(r => r.cle);
   if (manquantes.length === MISSIONS.length) {
     logger.error('Grille référent — les quatre missions ont échoué', { candidat_id });
     return { grille: null, cost, manquantes };
