@@ -54,7 +54,7 @@ Même langue simple que le bilan du candidat. Le référent connaît le vocabula
 ---
 
 ## CE QUE TU REPRENDS MOT POUR MOT
-`tuile.titre` · `tuile.zone` · `tuile.definition_type` · `tuile.application_au_socle`.
+`profil.tuile.titre` · `profil.tuile.zone` · `profil.tuile.definition_type` · `profil.tuile.application_au_socle`.
 **Aucune retouche.** Ces textes sont le référentiel.
 
 ---
@@ -79,7 +79,7 @@ Tout élément marqué `"ajuste"` **doit** avoir sa ligne dans `verbalisations` 
 > Une grille dont les écarts ne sont pas documentés n'est pas validable.
 
 ### Contrôle de cohérence
-`type_ecarte` dit pourquoi les types voisins n'ont pas été retenus. **Si ton ajustement contredit un de ces motifs**, c'est un signal : remonte en révision plutôt que d'ajuster.
+`profil.type_ecarte` dit pourquoi les types voisins n'ont pas été retenus. **Si ton ajustement contredit un de ces motifs**, c'est un signal : remonte en révision plutôt que d'ajuster.
 
 ---
 
