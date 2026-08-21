@@ -95,17 +95,28 @@ module.exports = {
     // restent à 64000 : la profondeur d'analyse des candidats est intouchable (doctrine).
     agent_testdec_cod:       64000,  // ⭐ Étape 2c (02/07) — codeur du test de décentration
 
-    // ── Étape 1.5 — la grille référent, QUATRE missions (20/08/2026) ──────
-    // Un agent unique a dépassé sa capacité (51 991 jetons, 81 % du plafond) et
-    // bâclé ce qu'il traitait en dernier. Découpé en quatre missions concentrées
-    // (D115), chacune tient largement — et une itération ne coûte plus que le quart.
-    agent_grille_profil:     32000,  // le plus gros volume : 5 outils, synthèses et gestes
-    agent_grille_apport:     24000,  // vérification de la tuile élément par élément (R8)
-    agent_grille_dimensions: 16000,  // transposition en trois temps
-    agent_grille_vigilances: 16000,  // sélection ancrée + questions de vérification
-    agent_grille_syntheses:  24000,  // recopie transposée des 5 synthèses — mission séparée
-                                     // parce que deux passages l'ont esquivée quand elle
-                                     // était mêlée à d'autres tâches (20/08)
+    // ── Étape 1.5 — la grille référent, SIX missions (21/08/2026) ─────────
+    // Plafonds calés sur la charge RÉELLE mesurée au passage du 21/08, et non
+    // au jugé. Règle : toute exigence ajoutée à un prompt impose de revérifier
+    // le plafond du service — c'est l'interdépendance manquée le 20/08 au soir,
+    // qui a coûté une mission entière.
+    //
+    //   agent          mesuré   plafond   marge
+    //   profil          2 329    16 000    85 %   (aucun thinking)
+    //   apport          8 246    24 000    66 %
+    //   dimensions      6 982    20 000    65 %
+    //   sélection          —     24 000     —     (sortie courte, thinking lourd)
+    //   rédaction          —     32 000     —     (sortie longue, thinking allégé)
+    //   synthèses       1 732    16 000    89 %   (aucun thinking)
+    //
+    // ⚠️ L'ancien `agent_grille_vigilances` (16 000) a saturé : 27 330 caractères
+    //    de raisonnement, zéro texte. Il portait DEUX missions — il est découpé.
+    agent_grille_profil:     16000,
+    agent_grille_apport:     24000,
+    agent_grille_dimensions: 20000,
+    agent_grille_selection:  24000,
+    agent_grille_redaction:  32000,
+    agent_grille_syntheses:  16000,
 
     // ── Certificateur lexique (objet distinct du vérificateur T1) ─────────
     certificateur_lexique:   64000,
@@ -136,11 +147,12 @@ module.exports = {
     agent_t5a:               true,   // ⭐ v11.7 — distinction fine des niveaux par excellence
     agent_testdec_gen:       true,   // ⭐ Étape 2c — construction calibrée des contrastes
     agent_testdec_cod:       true,   // ⭐ Étape 2c — codage de l'ancrage contre deux référentiels
-    agent_grille_profil:     false,  // ⭐ Étape 1.5 — de l'export et une règle de titre : pas de raisonnement
-    agent_grille_apport:     true,   // ⭐ Étape 1.5 — la vérification de la tuile EST un raisonnement comparatif
-    agent_grille_dimensions: true,   // ⭐ Étape 1.5 — transposer sans perdre le fond demande de peser
-    agent_grille_vigilances: true,   // ⭐ Étape 1.5 — sélectionner et ancrer demande de confronter
-    agent_grille_syntheses:  false,  // ⭐ Étape 1.5 — transposer n'est pas raisonner : pas de thinking
+    agent_grille_profil:     false,  // ⭐ export et une règle de titre : rien à raisonner
+    agent_grille_apport:     true,   // ⭐ la vérification de la tuile EST un raisonnement comparatif
+    agent_grille_dimensions: true,   // ⭐ transposer sans perdre le fond demande de peser
+    agent_grille_selection:  true,   // ⭐ confronter 42 items aux gestes réels : du jugement
+    agent_grille_redaction:  false,  // ⭐ le choix est fait : composer n'est pas juger
+    agent_grille_syntheses:  false,  // ⭐ transposer n'est pas raisonner
     agent_t5bc:              true,   // conservé pour compatibilité — non utilisé depuis v2.0
     agent_t5b:               true,   // ⭐ A11 — portraits par excellence, raisonnement régime
     agent_t5c:               true,   // ⭐ A11 — verdicts deux faces, raisonnement comparatif
