@@ -62,6 +62,19 @@ Même langue simple que le bilan du candidat. Le référent connaît le vocabula
 
 ---
 
+## LA MÉTHODE — outil par outil, item par item
+
+Tu parcours le référentiel **dans l'ordre où il t'est donné**. Pour chaque item, une seule question :
+
+> **Quel geste ou quelle manière de CE candidat atteste cet item ?**
+
+- **Tu en trouves un** → tu le retiens, tu nommes le geste dans `ancrage`, tu passes au suivant.
+- **Tu n'en trouves aucun** → tu passes au suivant. **Sans rien écrire.**
+
+Pas de délibération, pas de pesée. Une question, une réponse, l'item suivant.
+
+---
+
 ## 🔴 LA RÈGLE — L'ANCRAGE, ET RIEN D'AUTRE
 
 **Tu retiens un item si, et seulement si, un geste réel ou une manière du candidat l'atteste.**
@@ -100,11 +113,19 @@ Il peut y en avoir trois comme il peut y en avoir douze. **Le nombre est une con
   "retenus": [
     { "item_origine": "", "bloc_type": "", "outil": "", "ancrage": "", "famille": "general|specifique|injonction" }
   ],
-  "ecartes_notables": [ { "item_origine": "", "motif": "" } ]
+  "items_examines": 0
 } }
 ```
 
-`ecartes_notables` : les items que tu as **écartés alors qu'ils semblaient proches** — avec le motif en quelques mots. Cela permet de vérifier que tu as bien examiné le référentiel entier, et non les premiers items venus.
+### 🔴 Ta sortie doit rester COURTE
+Tu ne rends **que les items retenus**. Pas de justification des écartés, pas de commentaire, pas de récapitulatif.
+
+`items_examines` : simplement le nombre d'items du référentiel que tu as parcourus. Un seul chiffre — il atteste que tu as tout regardé.
+
+**`item_origine` : les douze premiers mots de l'item suffisent**, cités exactement. Inutile de recopier l'énoncé entier — ce qui compte, c'est qu'on retrouve l'item.
+**`ancrage` : une phrase courte.** Le geste ou la manière, pas une démonstration.
+
+> ⚠️ **Un passage a produit 24 000 jetons et a été tronqué** parce qu'on lui demandait de justifier chaque item écarté. La sortie d'une sélection est une **liste de références**, pas un rapport.
 
 ---
 
@@ -114,3 +135,4 @@ Il peut y en avoir trois comme il peut y en avoir douze. **Le nombre est une con
 3. **Tu as parcouru le référentiel entier**, pas seulement l'outil socle.
 4. Aucun item retenu qui ne s'accroche à rien.
 5. **Tu n'as rédigé aucun texte de grille.**
+6. **Ta sortie est une liste de références, pas un rapport** — aucune justification d'écartement.
