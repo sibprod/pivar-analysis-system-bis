@@ -93,19 +93,28 @@ Tu reçois `registres` : ce que le candidat ressent lorsqu'une activité mentale
 
 **Ce n'est pas de l'humeur.** Ce sont des signaux qui accélèrent ou freinent sa façon d'agir, et le référent a besoin de savoir lesquels.
 
-### Ce que tu en fais — et ce que tu en retires
-La source est écrite pour le candidat : elle contient **ses phrases exactes** et **les situations du test**. Ni les unes ni les autres ne parviennent au référent.
+### La source est STRUCTURÉE — tu en respectes la structure
+Elle contient **un bloc par registre**, chacun bâti de la même façon :
+1. l'intitulé — « Aversion — dans l'organisation… », « Sérénité — dans l'analyse sous pression » ;
+2. le **constat** — quand le geste s'enclenche, ou résiste ;
+3. les **verbatims** du candidat avec leurs références ⛔ *(à retirer)* ;
+4. ce que cela **signifie au quotidien** — la stratégie que la personne a construite ;
+5. un **point de vigilance**, marqué ⚠ — le moment où cette stratégie cesse d'opérer.
 
-Tu produis **un paragraphe unique**, en trois temps :
-1. **ce qui fluidifie** — là où le geste part sans effort ;
-2. **ce qui freine** — là où il rencontre une résistance, et **quelle stratégie la personne a construite** pour y répondre ;
-3. **le point à surveiller** — quand cette stratégie ne peut plus fonctionner.
+Et elle se termine par une **synthèse transversale**, marquée ⚠⚠ : ce que ces registres donnent **ensemble**.
 
-> **Modèle :** « Là où il invente, une légèreté accompagne et amplifie l'exploration. Là où il cherche de l'information, une méfiance envers les canaux impersonnels place le contact humain en tête. **À surveiller** : quand son réseau est injoignable et que la situation ne tolère pas de délai, cette méfiance peut retarder le seul canal disponible au moment où la rapidité compte le plus. »
+> 🔴 **Tu rends un bloc par registre, et la synthèse transversale. Aucun ne se perd.**
+> Un passage a condensé quatre mille cinq cents caractères en huit cents et **omis entièrement la synthèse transversale** — souvent le passage le plus utile au référent, parce qu'il dit dans quelles configurations la personne n'aura pas de compensation.
 
-**Interdits ici comme ailleurs** : aucune phrase du candidat, aucune situation du test, aucun mot de jugement. Une résistance n'est pas une faiblesse : c'est un fonctionnement avec sa stratégie.
+### Ce que tu retires, ce que tu gardes
+**Tu retires** : les phrases du candidat et leurs références (`P1Q15 · Week-end`) · les noms de situations.
+**Tu gardes** : l'intitulé du registre · le constat entier · la stratégie entière · le point de vigilance entier · la synthèse transversale.
 
-Si `registres` est vide à la source, tu rends `""` — tu n'inventes rien.
+**Ce n'est pas une condensation, c'est une transposition.** La longueur reste du même ordre.
+
+**Interdits ici comme ailleurs** : aucun mot de jugement. Une résistance n'est pas une faiblesse : c'est un fonctionnement, avec la stratégie que la personne a construite pour y répondre.
+
+Si `registres` est vide à la source, tu rends une liste vide — tu n'inventes rien.
 
 ---
 
@@ -115,13 +124,18 @@ Si `registres` est vide à la source, tu rends `""` — tu n'inventes rien.
 { "DIMENSIONS": {
   "bloc_dimensions": [ { "nom": "", "constat": "", "quand": "", "ne_pas_attendre": "" } ],
   "portrait": "",
-  "registres": "",
+  "registres_blocs": [
+    { "titre": "", "constat": "", "strategie": "", "vigilance": "" }
+  ],
+  "registres_synthese": "",
   "situations_non_traduites": []
 } }
 ```
 
 `portrait` : reprends `synthese_dimensions.portrait_un_mot` mot pour mot, en transposant la personne. S'il est vide à la source, laisse `""`.
-`registres` : le paragraphe en trois temps décrit ci-dessus.
+`registres_blocs` : **un objet par registre** de la source, dans l'ordre.
+  `titre` = l'intitulé, repris tel quel · `constat` · `strategie` (ce que cela produit) · `vigilance` (le moment à repérer, le ⚠).
+`registres_synthese` : la synthèse transversale (le ⚠⚠), transposée.
 
 ---
 
@@ -130,5 +144,7 @@ Si `registres` est vide à la source, tu rends `""` — tu n'inventes rien.
 2. Aucun mot de mesure, aucune situation du test, ni en clair ni déguisée.
 3. Aucune dimension non établie n'a été ajoutée.
 4. Chaque champ tient en deux à quatre phrases.
-5. `registres` est rempli si la source l'est — sans une phrase du candidat, sans une situation du test.
+5. **Il y a autant de `registres_blocs` que de registres dans la source**, chacun avec ses quatre champs remplis.
+6. **`registres_synthese` est rempli** si la source porte une synthèse transversale (⚠⚠).
+7. Aucune phrase du candidat, aucune référence de question, aucune situation du test.
 6. `portrait` est repris mot pour mot, jamais reformulé.

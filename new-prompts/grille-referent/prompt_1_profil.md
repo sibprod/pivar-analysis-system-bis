@@ -74,6 +74,29 @@ Ne t'en occupe pas, ne l'invente pas, ne le résume pas.
 
 ## LES GESTES — deux cas, selon ce que la source contient
 
+### 🔴 COMMENT TRANCHER — un critère, pas une impression
+
+> **La narration dépasse-t-elle 150 caractères ?**
+> **OUI → il FAUT un titre.** **NON → `titre` vaut `""`.**
+
+Compte les caractères. Ce n'est pas une appréciation.
+
+**Deux passages de suite ont rendu presque tous les gestes sans titre**, alors que ceux du socle font 200 à 300 caractères. Sans titre, le référent lit sept paragraphes d'affilée sans savoir ce que chacun établit.
+
+### Comment fabriquer le titre — mécaniquement
+
+1. Prends **la première proposition** de la narration : ce qui précède le deux-points, ou la première phrase.
+2. Mets le verbe **à l'infinitif** et retire le sujet.
+3. La narration affichée devient **la suite**.
+
+| Narration source (252 car.) | Ce que tu produis |
+|---|---|
+| « Il mène de front plusieurs raisonnements distincts : il identifie des options de natures différentes, il les maintient toutes actives en parallèle, et il conçoit leur combinaison possible. » | **titre** : « Mener de front plusieurs raisonnements distincts »<br>**narration** : « Il identifie des options de natures différentes, il les maintient toutes actives en parallèle, et il conçoit leur combinaison possible. » |
+
+Si la narration n'a pas de deux-points, prends sa première phrase et applique la même transformation.
+
+---
+
 ### Cas A · la narration est un paragraphe *(c'est le cas du socle)*
 Elle commence par sa proposition principale, suivie d'un développement.
 - **Titre** = cette première proposition, mise à l'infinitif.
@@ -161,3 +184,4 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
 4. Aucun comptage, aucun régime brut, aucun code de circuit.
 5. La signature est le titre de la tuile — jamais un champ brut.
 6. Chaque geste dont la source porte un renfort l'affiche ; aucun renfort inventé.
+7. **Tout geste dont la narration dépasse 150 caractères PORTE un titre.** Compte les caractères de chaque narration avant de rendre — c'est vérifiable, et c'est vérifié.
