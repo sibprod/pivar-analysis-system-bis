@@ -29,6 +29,109 @@ const CASCADE = ['très souvent', 'souvent', 'occasionnels'];
 const SOCLE_VERS_CLE = { P1: 'COLLECTE', P2: 'TRI', P3: 'ANALYSE', P4: 'SOLUTIONS', P5: 'MEO' };
 
 function val(v) { return (v && (v.name !== undefined ? v.name : v)) || ''; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEUTRALISATION DES SITUATIONS — mécanique, avant tout agent
+//
+// Les textes sources citent les situations du test : « la voiture de location »,
+// « l'animal », « le week-end ». D-PREUVE les interdit côté référent.
+//
+// ⚠️ POURQUOI ICI ET NON DANS UN PROMPT
+//    On l'a demandé aux agents pendant quatre passages. Ils l'ont fait la plupart
+//    du temps — et oublié une fois, ce qui a suffi à faire refuser la grille
+//    entière. Une substitution est une opération MÉCANIQUE : la confier à un
+//    modèle, c'est accepter qu'elle échoue de temps en temps.
+//    Le code, lui, ne l'oublie jamais.
+//
+// Les agents gardent leur consigne : c'est une ceinture, pas un remplacement.
+// ═══════════════════════════════════════════════════════════════════════════
+const SUBSTITUTIONS = [
+  // — l'incident sous contrainte de temps —
+  [/\bla voiture de location\b/gi,        'une solution de rechange'],
+  [/\bune voiture de location\b/gi,       'une solution de rechange'],
+  [/\bde la voiture de location\b/gi,     "d'une solution de rechange"],
+  [/\bvoiture de location\b/gi,           'solution de rechange'],
+  [/\ble train\b/gi,                      'une option au résultat garanti'],
+  [/\bdu train\b/gi,                      "de l'option garantie"],
+  [/\ble garage\b/gi,                     'un prestataire'],
+  [/\bau garage\b/gi,                     'à un prestataire'],
+  [/\bla panne\b/gi,                      'un incident sous contrainte de temps'],
+  [/\bde la panne\b/gi,                   "d'un incident sous contrainte de temps"],
+  [/\bsur la panne\b/gi,                  'dans un incident sous contrainte de temps'],
+  [/\bl'h[ée]bergement\b/gi,              'un repli'],
+  [/\bà l'h[ée]bergement\b/gi,            'à un repli'],
+  [/\bl'ami\b/gi,                         'un appui personnel'],
+  [/\bla d[ée]panneuse\b/gi,              'un secours extérieur'],
+  [/\ble banquier\b/gi,                   'un appui extérieur'],
+
+  // — la responsabilité confiée —
+  // ⚠️ L'ordre compte : les formes longues d'abord, sinon la courte les mange.
+  //    Et l'apostrophe peut être droite (') ou typographique (').
+  [/\bde\s+l['’]\s*animal(?:_\d)?\b/gi,   "d'une responsabilité confiée"],
+  [/\bsur\s+l['’]\s*animal(?:_\d)?\b/gi,  'sur une responsabilité confiée'],
+  [/\bl['’]\s*animal(?:_\d)?\b/gi,         'une responsabilité confiée'],
+  [/\bun\s+animal\b/gi,                   'une responsabilité confiée'],
+  [/\banimal(?:_\d)?\b/gi,                 'responsabilité confiée'],
+  [/\bses propri[ée]taires\b/gi,          'ceux qui la lui ont confiée'],
+  [/\bles propri[ée]taires\b/gi,          'ceux qui la lui ont confiée'],
+  [/\ble v[ée]t[ée]rinaire\b/gi,          'un spécialiste'],
+  [/\bdu v[ée]t[ée]rinaire\b/gi,          "d'un spécialiste"],
+  [/\bles croquettes\b/gi,                'les consignes reçues'],
+  [/\bun vivant\b/gi,                     'un tiers qui dépend de lui'],
+  [/\bd'un vivant\b/gi,                   "d'un tiers qui dépend de lui"],
+  [/\bun [êe]tre vivant\b/gi,             'un tiers qui dépend de lui'],
+
+  // — le projet collectif —
+  [/\ble week-?end\b/gi,                  'un projet collectif'],
+  [/\bdu week-?end\b/gi,                  "d'un projet collectif"],
+  [/\bsur le week-?end\b/gi,              'dans un projet collectif'],
+  [/\ble s[ée]jour\b/gi,                  'le projet'],
+  [/\bla location\b/gi,                   'la réservation'],
+
+  // — le sujet de fond traité seul —
+  [/\ble sommeil\b/gi,                    'un sujet de fond traité seul'],
+  [/\bsur le sommeil\b/gi,                'sur un sujet de fond traité seul'],
+  [/\bdu sommeil\b/gi,                    "d'un sujet de fond traité seul"],
+
+  // — les références de question —
+  [/\s*\(P[1-5]Q\d+[^)]*\)/g,             ''],
+  [/\bP[1-5]Q\d+\b/g,                     ''],
+];
+
+/** Retire les situations du test d'un texte destiné au référent. */
+function neutraliser(texte) {
+  if (!texte || typeof texte !== 'string') return texte;
+  let t = texte;
+  for (const [motif, remplacement] of SUBSTITUTIONS) t = t.replace(motif, remplacement);
+  // Élisions créées par la substitution : « plutôt que une » → « plutôt qu'une ».
+  // Uniquement devant un article indéfini — sinon on casse « parce que le… ».
+  t = t
+    .replace(/\bque\s+(un|une)\b/gi, (m, art) => "qu'" + art)
+    .replace(/\bde\s+(un|une)\b/g, (m, art) => (art === 'un' ? "d'un" : "d'une"))
+    .replace(/\bà\s+l\s+repli\b/gi, 'à un repli')
+    // Répétitions créées par la substitution : « la responsabilité d'une
+    // responsabilité confiée » → « la responsabilité qui lui est confiée ».
+    .replace(/responsabilit[ée]\s+d['’]une\s+responsabilit[ée]\s+confi[ée]e/gi,
+             'responsabilité qui lui est confiée')
+    .replace(/(une\s+responsabilit[ée]\s+confi[ée]e)\s+dont\s+vous\s+avez\s+la\s+garde/gi,
+             'une responsabilité qui vous est confiée')
+    .replace(/(d['’]une\s+)(responsabilit[ée]\s+confi[ée]e)\s+\2/gi, '$1$2')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1');
+  return t;
+}
+
+/** Applique la neutralisation à tous les textes d'un objet, en profondeur. */
+function neutraliserTout(o) {
+  if (typeof o === 'string') return neutraliser(o);
+  if (Array.isArray(o)) return o.map(neutraliserTout);
+  if (o && typeof o === 'object') {
+    const r = {};
+    for (const k of Object.keys(o)) r[k] = neutraliserTout(o[k]);
+    return r;
+  }
+  return o;
+}
 function sansAccents(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -229,7 +332,9 @@ async function construire(candidat_id) {
   }
   if (anomalies.length) logger.warn('Payload grille — anomalies non bloquantes', { candidat_id, anomalies });
 
-  return {
+  // Tout ce qui part vers un agent est d'abord neutralisé : plus aucune
+  // situation du test ne peut atteindre un modèle, donc en ressortir.
+  const brut = {
     candidat_id,
     civilite: val(civilite) || '',
 
@@ -310,6 +415,15 @@ async function construire(candidat_id) {
 
     anomalies
   };
+
+  // Les référentiels ne contiennent pas de situations : on les préserve tels
+  // quels pour que les libellés canoniques et les items restent exacts.
+  const referentiels = brut.referentiels;
+  const sortie = neutraliserTout({ ...brut, referentiels: null });
+  sortie.referentiels = referentiels;
+
+  logger.info('Payload grille — situations neutralisées', { candidat_id });
+  return sortie;
 }
 
 module.exports = { construire, selectionnerGestes, CASCADE, ORDRE_PILIERS, SOCLE_VERS_CLE };
