@@ -157,6 +157,16 @@ async function getBilan4Profil(candidat_id) {
       type_complet:      f['type_complet'] || '',
       type_ecarte:       f['type_ecarte']  || '',
       portrait_un_mot:   f['portrait_un_mot'] || '',
+      // ── LES QUATRE NIVEAUX DE DIMENSION — déjà fusionnés post-test ──
+      // La chaîne agent_etape2_c_TESTDEC met le bilan à jour quand le test
+      // complémentaire est passé. C'est donc ICI que les niveaux font foi,
+      // pas dans RESPONSES_ETAPE2_ EXCELLENCE, qui garde la mesure d'origine.
+      // Vérifié sur deux candidats : les comptages correspondent exactement.
+      niv_anticipation:  f['fldHMPW083IKtUMb3'] || f['anticipation_spontanee_niveau'] || '',
+      niv_vue:           f['fldFyU6yc1bnFsRtJ'] || f['vue_systemique_niveau'] || '',
+      niv_decentration:  f['fld05ugiziwG3jMZY'] || f['decentration_niveau'] || '',
+      niv_metacognition: f['fldRLNC7YpPtXy9Pv'] || f['metacognition_niveau'] || '',
+      ordre_dimensions:  f['fldDHH8ZBF2gGnTpI'] || '',
       combinaison:       f['combinaison'] || '',
       reserves_globales: f['reserves_globales'] || '',
       ordre_excellences: f['ordre_excellences'] || ''
@@ -232,7 +242,71 @@ async function insertVerbalisations(candidat_id, lignes) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LE TEST COMPLÉMENTAIRE DE DÉCENTRATION — tblA6VvPlrTbPWuQG
+//
+// LA DÉCENTRATION A DEUX MESURES, et les deux comptent :
+//   1. la fenêtre principale — RESPONSES_ETAPE2_ EXCELLENCE
+//      (Rémi : « Non évalué — test à passer » · Véronique : « 8/20 — posé avec
+//       réserve » · Cécile : « 11/20 »)
+//   2. le test complémentaire — CETTE TABLE
+//      (Rémi : 1/4 OBSERVÉE · Véronique : 2/4 MOYENNE)
+//
+// ETAPE2_BILAN4EXCELLENCES porte leur FUSION, et la cite explicitement :
+//   « OBSERVÉE (1/4 — test complémentaire ; fenêtre principale : non évaluée) »
+//
+// ⛔ DEUX CHAMPS NE SORTENT JAMAIS
+//    fldImdWGAFOt0isZb — verbatims bruts du candidat (D-PREUVE)
+//    fldmsBtAXDECwV0Fl — journal de laboratoire : fréquences, verdicts internes,
+//                        prénoms de scénario (D95)
+// ═══════════════════════════════════════════════════════════════════════════
+const T_DECENTRATION = 'tblA6VvPlrTbPWuQG';
+const F_DEC = {
+  candidat:    'fldLE2jxEAd6S96uC',
+  niveau:      'fldITxKSvyuFvzZnI',   // 1 à 4
+  libelle:     'fldEARFIM9tl974iT',   // « 2/4 — mesuré par le test complémentaire »
+  regime:      'flddOosL6deFoEo7H',   // « ANCRÉE EN RÉGIME MODÉRÉ »
+  intensite:   'fldS5KkaaJgH10SRS',   // MOYENNE · FAIBLE
+  synthese:    'fldeYyzP6sTRDb8iT',   // l'analyse complète
+  ce_qui_est:  'fld0NcuYf7uYf93rT',   // ce qu'il fait · ce qui reste à explorer
+  declencheur: 'fldDQ9wHHZGKh8ZOQ',   // quand cela s'active, quand cela faiblit
+  gradient:    'fldBv7tvjxsCi4Emm'    // là où c'est solide, là où ça cède
+};
+
+/**
+ * La seconde mesure de la décentration, si le test complémentaire a été passé.
+ * @returns {Object|null} null si le test n'a pas été passé — ce n'est pas une
+ *                        anomalie : il n'est demandé que lorsque la fenêtre
+ *                        principale reste sous le seuil.
+ */
+async function getTestDecentration(candidat_id) {
+  try {
+    const records = await getBase()(T_DECENTRATION)
+      .select({ filterByFormula: `{${F_DEC.candidat}} = "${candidat_id}"`, maxRecords: 1 })
+      .firstPage();
+    if (!records.length) return null;
+    const f = records[0].fields || {};
+    return {
+      niveau:      f[F_DEC.niveau] ?? null,
+      libelle:     val(f[F_DEC.libelle]),
+      regime:      val(f[F_DEC.regime]),
+      intensite:   val(f[F_DEC.intensite]),
+      synthese:    f[F_DEC.synthese]    || '',
+      ce_qui_est:  f[F_DEC.ce_qui_est]  || '',
+      declencheur: f[F_DEC.declencheur] || '',
+      gradient:    f[F_DEC.gradient]    || ''
+    };
+  } catch (e) {
+    logger.warn('Test complémentaire de décentration — lecture impossible', {
+      candidat_id, error: e.message,
+      consequence: 'seule la fenêtre principale sera lue'
+    });
+    return null;
+  }
+}
+
 module.exports = {
+  getTestDecentration,
   getReferentielProfilVsPilier,
   getReferentielTestEquivalentPro,
   getBilanDesalignement,
