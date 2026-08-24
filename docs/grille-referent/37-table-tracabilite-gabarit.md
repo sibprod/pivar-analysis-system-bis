@@ -210,6 +210,36 @@
 | `ETAPE1_T3_BILAN.filtre_finalite` | `fldobIgYtfa3Qiy4v` | à quoi sert le réglage |
 | `ETAPE1_T3_BILAN.sig_*` (6 champs) | `fld1PZRqPxejsYc0Z` … | signature cognitive — **vides pour les 4 bilans** |
 
+## ⚠️ LES NIVEAUX DE DIMENSION — LE BILAN FAIT FOI, PAS LES RÉPONSES
+
+Deux tables portent les dimensions, et **elles ne disent pas la même chose** :
+
+| Table | Ce qu'elle contient |
+|---|---|
+| `RESPONSES_ETAPE2_ EXCELLENCE` | la mesure du parcours principal — **jamais mise à jour** |
+| `ETAPE2_BILAN4EXCELLENCES` | la mesure **fusionnée post-test** |
+
+Quand le candidat passe le **test complémentaire de décentration**, la chaîne étape 2 (`agent_etape2_c_TESTDEC`) met le **bilan** à jour. La table des réponses, elle, garde « Non évalué — test à passer ».
+
+**Lire les réponses seules a fait afficher cette mention à un candidat testé un mois plus tôt.**
+
+| Dimension | Champ du bilan | Rémi | Véronique |
+|---|---|---|---|
+| Anticipation | `fldHMPW083IKtUMb3` | MOYENNE (12/25) | DENSE (15/25) |
+| Vue systémique | `fldFyU6yc1bnFsRtJ` | FAIBLE (9/25) | MOYENNE (13/25) |
+| **Décentration** | `fld05ugiziwG3jMZY` | OBSERVÉE (1/4 — test complémentaire) | 2/4 — test complémentaire |
+| Méta-cognition | `fldRLNC7YpPtXy9Pv` | FAIBLE (0/25) | ABSENTE (4/25) |
+| Ordre des dimensions | `fldDHH8ZBF2gGnTpI` | — | — |
+
+**La règle** :
+- **le niveau** → `ETAPE2_BILAN4EXCELLENCES` (fusionné) ;
+- **les textes** (constat · déclencheur · gradient) → `RESPONSES_ETAPE2_ EXCELLENCE` ;
+- **la lecture réconciliée de la décentration** → `ETAPE2_BILAN4EXCELLENCES.reserves_globales` (`fldXOMtejqdUdg7CQ`).
+
+⚠️ Ces champs portent des **comptages** (« 12/25 », « 1/4 ») : la neutralisation les retire (D95).
+
+---
+
 ## LA SÉLECTION DES GESTES — cascade R9
 
 `ETAPE1_T2_CIRCUITS_POURBILAN` (`tblV8UBCgEOzJ2Tch`)

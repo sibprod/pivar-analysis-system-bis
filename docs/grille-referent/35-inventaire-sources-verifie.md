@@ -94,6 +94,36 @@ Vérifié chez C. : *« la Priorisation hiérarchique s'active **2 fois** en ser
 
 ## Bloc 3 · Ses dimensions d'excellence
 
+### 🔴 UNE DIMENSION PEUT AVOIR DEUX MESURES — vérifié sur trois candidats
+
+| Mesure | Table | Rémi | Véronique | Cécile |
+|---|---|---|---|---|
+| **1 · fenêtre principale** | `RESPONSES_ETAPE2_ EXCELLENCE` · `niveau_global` | Non évalué — test à passer | 8/20 (40 %) — posé avec réserve | 11/20 (55 %) |
+| **2 · test complémentaire** | `tblA6VvPlrTbPWuQG` | 1/4 — OBSERVÉE | 2/4 — MOYENNE | *(non vérifié)* |
+| **fusion** | `ETAPE2_BILAN4EXCELLENCES` · `fld05ugiziwG3jMZY` | OBSERVÉE (1/4 — test complémentaire ; fenêtre principale : non évaluée) | 2/4 — test complémentaire (fenêtre principale : 8/20) | — |
+
+**Les quatre niveaux fusionnés**, dans `ETAPE2_BILAN4EXCELLENCES` :
+
+| Dimension | Champ | Rémi | Véronique |
+|---|---|---|---|
+| Anticipation | `fldHMPW083IKtUMb3` | MOYENNE (12/25) | DENSE (15/25) |
+| Vue systémique | `fldFyU6yc1bnFsRtJ` | FAIBLE (9/25) | MOYENNE (13/25) |
+| Décentration | `fld05ugiziwG3jMZY` | OBSERVÉE (1/4) | 2/4 |
+| Méta-cognition | `fldRLNC7YpPtXy9Pv` | FAIBLE (0/25) | ABSENTE (4/25) |
+| Ordre | `fldDHH8ZBF2gGnTpI` | — | — |
+| Lecture réconciliée | `fldXOMtejqdUdg7CQ` | — | — |
+
+**La règle** : le **niveau** vient du bilan fusionné · les **textes** viennent des réponses · la **réconciliation** vient de `reserves_globales`.
+
+⚠️ Ces champs portent des comptages (« 12/25 », « 1/4 ») — la neutralisation les retire (D95).
+
+### ❓ CE QUE JE NE SAIS PAS
+La garante mentionne que l'agent d'étape 2 « a repris toutes ses conclusions sur les 4 dimensions **par exigence et par incidence** ». **Ces deux notions ne figurent ni dans la doctrine dont je dispose, ni dans les champs que j'ai lus.** Elles sont probablement définies dans les prompts `prompt_etape2_b_T5B_*`. **À lire avant d'aller plus loin sur ce point.**
+
+---
+
+## Bloc 3 · Ses dimensions d'excellence — les champs
+
 | Élément | Source vérifiée | Nature |
 |---|---|---|
 | Constat · quand · limite | `RESPONSES_ETAPE2_ EXCELLENCE` · `synthese` · `declencheur` · `gradient` | **AGENT** — la source porte comptages et scénarios, interdits (D95) |
