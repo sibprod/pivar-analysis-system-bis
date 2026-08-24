@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grille référent — Monsieur R.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bleu:#3B6BC4; --magenta:#E4266F; --cyan:#3FC4EF; --rouge:#dc2626;
+  --ink:#1a1a1a; --muted:#6b7280; --rule:#e5e7eb; --paper:#fff; --paper2:#f7f6f3;
+  --serif:'Playfair Display',Georgia,serif; --sans:'DM Sans',sans-serif; --mono:'DM Mono',monospace;
+  --ex:#0369a1; --ex-bg:#eff8fd; --ex-bd:#7dd3fc;
+  --dv:#5b21b6; --dv-bg:#f5f3ff; --dv-bd:#c4b5fd;
+  --ag:#b45309; --ag-bg:#fffbeb; --ag-bd:#fcd34d;
+  --ga:#64748b; --ga-bg:#f8fafc; --ga-bd:#cbd5e1;
+  --nl:#b91c1c; --nl-bg:#fef2f2; --nl-bd:#fca5a5;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);color:var(--ink);background:var(--paper2);font-size:15px;line-height:1.62}
+.page{max-width:960px;margin:0 auto;background:var(--paper)}
+.tag{display:inline-block;font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;border-radius:3px;padding:2px 6px;vertical-align:middle;margin-left:7px;white-space:nowrap}
+.t-ex{background:var(--ex-bg);color:var(--ex);border:1px solid var(--ex-bd)}
+.t-dv{background:var(--dv-bg);color:var(--dv);border:1px solid var(--dv-bd)}
+.t-ag{background:var(--ag-bg);color:var(--ag);border:1px solid var(--ag-bd)}
+.t-ga{background:var(--ga-bg);color:var(--ga);border:1px solid var(--ga-bd)}
+.t-nl{background:var(--nl-bg);color:var(--nl);border:1px solid var(--nl-bd)}
+.z{border-left:4px solid transparent;padding-left:13px;margin:10px 0}
+.z-ex{border-left-color:var(--ex-bd);background:linear-gradient(90deg,var(--ex-bg),transparent 62%)}
+.z-dv{border-left-color:var(--dv-bd);background:linear-gradient(90deg,var(--dv-bg),transparent 62%)}
+.z-ag{border-left-color:var(--ag-bd);background:linear-gradient(90deg,var(--ag-bg),transparent 62%)}
+.z-ga{border-left-color:var(--ga-bd);background:linear-gradient(90deg,var(--ga-bg),transparent 62%)}
+.z-nl{border:1px dashed var(--nl-bd);border-left:4px solid var(--nl-bd);background:var(--nl-bg);padding:13px 15px;border-radius:0 9px 9px 0;margin:10px 0}
+.src{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:5px;line-height:1.55}
+.mission{background:#fff;border:1px solid var(--ag-bd);border-radius:8px;padding:9px 12px;margin-top:7px;font-size:11.5px;color:#78350f}
+.mission b{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;display:block;margin-bottom:3px;color:var(--ag)}
+.mission.dv{border-color:var(--dv-bd);color:#4c1d95}
+.mission.dv b{color:var(--dv)}
+
+.bandeau{background:#0f172a;color:#e2e8f0;padding:15px 40px;font-size:12.5px}
+.bandeau b{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#fff;display:block;margin-bottom:5px}
+.legende{display:flex;gap:8px;flex-wrap:wrap;padding:12px 40px;border-bottom:2px solid var(--ink);background:#fafaf9;font-size:11px}
+.legende div{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:7px;padding:6px 10px;background:#fff}
+.legende i{width:12px;height:12px;border-radius:3px;flex:0 0 12px}
+
+.entete{padding:28px 40px 22px;border-bottom:3px solid var(--bleu)}
+.marque{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.marque .lab{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.marque h1{font-family:var(--serif);font-size:28px;font-weight:700;margin-top:5px}
+.marque .sous{font-style:italic;color:#4b5563;font-size:14px;margin-top:3px}
+.ident{font-size:11px;color:var(--muted);text-align:right;line-height:1.8;font-family:var(--mono)}
+
+section{padding:28px 40px;border-bottom:1px solid var(--rule)}
+.snum{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--bleu)}
+section>h2{font-family:var(--serif);font-size:23px;font-weight:600;margin:5px 0 8px}
+section>.chapo{color:#4b5563;max-width:720px;font-size:14px}
+
+.vue{background:#fdf9fb;border:2px solid var(--magenta);border-radius:13px;padding:20px 22px;margin-top:16px}
+.socle-tete{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;padding-bottom:16px;margin-bottom:16px;border-bottom:1px dashed #f9a8d4}
+.socle-tete .c1{flex:1;min-width:230px}
+.socle-tete .k{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--magenta);margin-bottom:4px}
+.socle-tete .nom{font-family:var(--serif);font-size:23px;font-weight:600;margin-bottom:8px}
+.bouton{display:inline-flex;align-items:center;gap:7px;background:var(--rouge);color:#fff;border-radius:999px;padding:5px 14px 5px 9px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em}
+.bouton::before{content:"";width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+.socle-tete .reg{font-family:var(--serif);font-size:17px;line-height:1.5;color:#1f2937}
+.mini{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.mc{border:1.5px solid var(--rule);border-radius:10px;padding:11px 12px;background:#fff}
+.mc.s{border:2px solid var(--magenta);background:#fdf2f7}
+.mc.c{border-color:#c7d2fe;background:#f7f9ff}
+.mc .r{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);line-height:1.3}
+.mc h4{font-family:var(--serif);font-size:14px;font-weight:600;margin:4px 0 6px;line-height:1.2}
+.mc .mk{font-family:var(--mono);font-size:7.5px;letter-spacing:.09em;text-transform:uppercase;color:#7c2d12;border-top:1px dashed var(--rule);padding-top:6px;display:block}
+.mc .m{font-size:11.5px;font-style:italic;color:#7c2d12;line-height:1.35;margin-top:2px}
+
+.od{border:1px solid var(--rule);border-radius:12px;margin-top:14px;overflow:hidden;background:#fff}
+.od.s{border:2px solid var(--magenta)}
+.od .t{padding:13px 18px;background:var(--paper2);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.od.s .t{background:#fdf2f7}
+.od .t .r{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.od .t h3{font-family:var(--serif);font-size:18px;font-weight:600}
+.od .t .m{font-size:12.5px;font-style:italic;color:#7c2d12;margin-left:auto}
+.od .b{padding:14px 18px 16px}
+.synthese{font-size:13.8px;color:#1f2937;line-height:1.6}
+details.g{margin-top:12px;border-top:1px dashed var(--rule);padding-top:10px}
+details.g summary{list-style:none;cursor:pointer;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--bleu)}
+details.g summary::-webkit-details-marker{display:none}
+details.g summary::before{content:"+ "}
+details.g[open] summary::before{content:"– "}
+.ge{padding:9px 0;border-bottom:1px dashed #f1f0ec}
+.ge:last-child{border-bottom:none}
+.ge b{font-family:var(--serif);font-size:14.5px;font-weight:600;display:block}
+.ge .fait{font-size:13px;color:#374151;margin-top:2px}
+
+.dim{border:1px solid var(--rule);border-radius:12px;padding:16px 20px;margin-bottom:12px;background:#fff}
+.dim h4{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--bleu);margin-bottom:8px}
+.dim p{font-size:13.8px;color:#374151;margin-bottom:8px}
+.dim p:last-of-type{margin-bottom:0}
+
+.annonce{border:2px solid var(--bleu);border-radius:12px;background:#f8faff;padding:18px 22px;margin-top:14px}
+.annonce h3{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--bleu);margin-bottom:10px}
+.annonce .deux{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.annonce .f{background:#fff;border:1px solid #dbeafe;border-radius:9px;padding:14px 16px}
+.annonce .f .role{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--bleu);margin-bottom:5px}
+.annonce .f b{font-family:var(--serif);font-size:16px;display:block;margin-bottom:5px}
+.annonce .f .def{font-size:13px;color:#1f2937;line-height:1.5}
+.annonce .f .meta{font-size:12.5px;color:#4b5563;font-style:italic;margin-top:7px;padding-top:7px;border-top:1px dashed #dbeafe;line-height:1.5}
+.annonce .lien{display:inline-block;margin-top:12px;background:var(--bleu);color:#fff;border-radius:8px;padding:9px 16px;font-size:13px;text-decoration:none}
+
+.preuve{margin:18px 40px;border:1.5px solid var(--ex-bd);border-radius:11px;background:var(--ex-bg);padding:14px 18px;font-size:12.8px;color:#0c4a6e}
+.preuve b{font-family:var(--serif);font-size:14.5px;display:block;margin-bottom:4px;color:#075985}
+.rappel{margin:18px 40px;border:1.5px solid var(--rule);border-radius:11px;background:var(--paper2);padding:14px 18px;font-size:13px;color:#4b5563}
+footer{padding:18px 40px 26px;font-family:var(--mono);font-size:9.5px;color:var(--muted);background:var(--paper2)}
+@media(max-width:880px){.entete,section,.bandeau,.legende,footer{padding-left:16px;padding-right:16px}
+.rappel,.preuve{margin-left:16px;margin-right:16px}.mini{grid-template-columns:1fr 1fr}.annonce .deux{grid-template-columns:1fr}
+.od .t .m{margin-left:0;flex-basis:100%}}
+@media print{.bandeau{background:#fff;color:#000}details.g .ge{display:block}}
+
+/* ─── BLOC PROFIL (tuile socle × type) ─── */
+.tuile{border:2px solid var(--bleu);border-radius:14px;background:linear-gradient(180deg,#f8faff,#fff);padding:22px 24px;margin-top:16px}
+.tuile .zt{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.tuile .zb{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:#0e7490;color:#fff;border-radius:999px;padding:3px 11px}
+.tuile .sb{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--rule);border-radius:999px;padding:3px 11px;color:var(--muted)}
+.tuile h3{font-family:var(--serif);font-size:24px;font-weight:600;margin-bottom:8px}
+.tuile .deft{font-size:13px;color:#5b21b6;background:#f5f3ff;border-left:3px solid #c4b5fd;border-radius:0 8px 8px 0;padding:9px 13px;font-style:italic;margin-bottom:11px}
+.tuile .app{font-size:14.5px;color:#1f2937;margin-bottom:12px}
+.tuile .chaine{background:#fff;border:1px solid #dbeafe;border-radius:9px;padding:12px 15px;font-size:13.5px;color:#1e3a5f;margin-bottom:14px}
+.tuile .chaine .k{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--bleu);display:block;margin-bottom:4px}
+.tuile .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tuile .at,.tuile .co{border-radius:9px;padding:12px 14px}
+.tuile .at{background:#f0fdf4;border:1px solid #bbf7d0}
+.tuile .co{background:#fffbeb;border:1px solid #fde68a}
+.tuile .at h4,.tuile .co h4{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px}
+.tuile .at h4{color:#15803d} .tuile .co h4{color:#b45309}
+.tuile ul{list-style:none}
+.tuile li{font-size:12.8px;line-height:1.5;padding-left:13px;position:relative;margin-bottom:4px;color:#374151}
+.tuile .at li::before{content:"▸";position:absolute;left:0;color:#22c55e}
+.tuile .co li::before{content:"▸";position:absolute;left:0;color:#f59e0b}
+.tuile li.aj{color:#4c1d95}
+.tuile li.aj::before{color:#8b5cf6}
+.portee{margin-top:12px;font-size:12.3px;color:var(--muted);background:var(--paper2);border-radius:8px;padding:10px 13px}
+@media(max-width:880px){.tuile .duo{grid-template-columns:1fr}}
+
+/* ─── CARTOUCHE DE LECTURE RAPIDE ─── */
+.cart{margin:0 40px 4px;border:2px solid var(--ink);border-radius:13px;background:#fff;overflow:hidden}
+.cart-h{background:var(--ink);color:#fff;padding:9px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.cart-h .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8}
+.cart-h .zone{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:#0e7490;border-radius:999px;padding:3px 11px}
+.cart-h .sig{font-family:var(--serif);font-size:17px;font-weight:600;margin-left:auto}
+.cart-b{padding:14px 18px}
+.cl{display:flex;gap:12px;padding:9px 0;border-bottom:1px dashed var(--rule);align-items:baseline;flex-wrap:wrap}
+.cl:last-child{border-bottom:none}
+.cl .role{flex:0 0 96px;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.cl.socle .role{color:var(--magenta)}
+.cl .nom{font-family:var(--serif);font-size:15.5px;font-weight:600;flex:0 0 auto;min-width:170px}
+.cl .mode{font-size:12.5px;font-style:italic;color:#7c2d12}
+.cl .filt{flex-basis:100%;margin-left:108px;font-size:12.5px;color:#9f1239;background:#fdf2f7;border-left:3px solid var(--rouge);border-radius:0 7px 7px 0;padding:7px 11px;margin-top:5px}
+.cl .filt .k{font-family:var(--mono);font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--rouge);margin-right:6px}
+.cdim{display:flex;gap:9px;flex-wrap:wrap;padding-top:11px;margin-top:4px;border-top:1px solid var(--rule)}
+.cdim .role{flex:0 0 96px;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--bleu)}
+.dch{border:1px solid #dbeafe;background:#f8faff;border-radius:999px;padding:4px 13px;font-size:12.5px;color:#1e3a5f}
+.dch b{font-family:var(--serif);font-weight:600}
+.dch span{font-family:var(--mono);font-size:10px;color:var(--bleu);margin-left:5px}
+@media(max-width:880px){.cart{margin-left:16px;margin-right:16px}.cl .filt{margin-left:0}.cl .role{flex-basis:100%}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="bandeau">
+  <b>Grille référent · maquette v3 · sources appliquées</b>
+  Titres de gestes <b style="display:inline">dérivés mécaniquement</b> de la narration source (R1) · situations remplacées par les <b style="display:inline">libellés canoniques</b> du référentiel (R2) · encadrer/manager rétabli sur le <b style="display:inline">texte du protocole</b>, métaphore en illustration (R4) · aucun verbatim (D-PREUVE).
+</div>
+
+<div class="legende">
+  <div><i style="background:var(--ex-bg);border:1px solid var(--ex-bd)"></i> <b>Export</b> — mot pour mot</div>
+  <div><i style="background:var(--dv-bg);border:1px solid var(--dv-bd)"></i> <b>Dérivé</b> — extrait mécaniquement de la source</div>
+  <div><i style="background:var(--ag-bg);border:1px solid var(--ag-bd)"></i> <b>Agent</b> — transposition sous mission</div>
+  <div><i style="background:var(--ga-bg);border:1px solid var(--ga-bd)"></i> <b>Gabarit</b></div>
+  <div><i style="background:var(--nl-bg);border:1px dashed var(--nl-bd)"></i> <b>Source non lue</b></div>
+</div>
+
+<div class="entete">
+  <div class="marque">
+    <div>
+      <div class="lab">Profil Cognitif · grille de lecture</div>
+      <h1>Monsieur R.</h1>
+      <div class="sous">Comment le candidat s'y prend — document destiné au référent</div>
+    </div>
+    <div class="ident">Référent : ____________<br>Entreprise : ____________<br>Consultation : __ / __ / ____<br>Réf. : PC-____________</div>
+  </div>
+</div>
+
+<div class="cart">
+  <div class="cart-h">
+    <span class="lab">Lecture rapide</span>
+    <span class="zone">Zone stratégique</span>
+    <span class="sig">Orchestrateur de solutions</span>
+  </div>
+  <div class="cart-b">
+    <div class="cl socle">
+      <span class="role">★ Socle</span>
+      <span class="nom">Création de solutions</span>
+      <span class="mode">combinatoire et ouvert · assembler, tester, explorer</span>
+      <span class="filt"><span class="k">Filtre · ON</span>Il ouvre simultanément plusieurs fronts, il les maintient tous actifs, il intègre des branches de secours dès la conception, et il ajuste en avançant.</span>
+    </div>
+    <div class="cl">
+      <span class="role">Amont</span>
+      <span class="nom">Analyse et diagnostic</span>
+      <span class="mode">arbitré et orienté action · focalisé sur l'enjeu</span>
+    </div>
+    <div class="cl">
+      <span class="role">Aval</span>
+      <span class="nom">Mise en œuvre et exécution</span>
+      <span class="mode">adaptatif et multi-flux · agir sans bloquer</span>
+    </div>
+    <div class="cdim">
+      <span class="role">Dimensions</span>
+      <span class="dch"><b>Anticipation</b><span>ancrée en régime modéré</span></span>
+      <span class="dch"><b>Vue d'ensemble</b><span>mobilisable en situation</span></span>
+    </div>
+  </div>
+</div>
+<div class="src" style="margin:6px 40px 14px">Cartouche : <b>export intégral</b> — zone et signature depuis le référentiel des profils · rôles, libellés, modes et filtre depuis le bilan · libellés de niveau des dimensions <b>dérivés du régime mesuré</b>, selon la table de correspondance du bilan candidat (même vocabulaire des deux côtés). <span class="tag t-ex">export</span><span class="tag t-dv">dérivé</span></div>
+
+<section>
+  <div class="snum">1</div>
+  <h2>Ce qu'il apporte</h2>
+  <div class="chapo">Le profil se lit au croisement de deux choses : l'outil qu'il sort en premier — ce qu'il apporte — et la manière dont il l'exerce — sous quel régime. Ce croisement dit dans quelles situations l'appeler, indépendamment de tout métier.</div>
+
+  <div class="tuile">
+    <div class="zt"><span class="zb">Zone stratégique</span><span class="sb">Création de solutions</span><span class="sb">Orchestrateur</span></div>
+    <h3>Orchestrateur de solutions</h3>
+    <div class="deft">Coordonne PLUSIEURS systèmes en parallèle. Gère les interdépendances complexes avec points de basculement.<span class="tag t-ex">export lexique</span></div>
+    <div class="app">Il conduit plusieurs solutions de front, gère leurs interdépendances, et tient les points de bascule — le moment où l'on passe d'une voie à l'autre sans que l'action s'arrête.<span class="tag t-ex">export référentiel</span></div>
+
+    <div class="chaine"><span class="k">Ce que sa chaîne y ajoute</span>Ses ouvertures ne sont pas de la dispersion : <b>son amont les ordonne</b> — avant de construire, il classe selon un critère constant, ce qui avance le plus vite, ce qui sécurise, ce qui est certain. Et elles ne restent pas sur le papier : <b>son aval les porte en parallèle</b> — il conduit plusieurs flux sans que l'un bloque l'autre, et une perturbation ne l'arrête pas. <i>Revers de cette chaîne : son analyse travaille pour décider, pas pour comprendre — sur un sujet qui exige une compréhension approfondie sans décision à la clé, ce n'est pas son terrain.</i><span class="tag t-ag">agent</span></div>
+
+    <div class="duo">
+      <div class="at"><h4>Là où c'est un atout</h4><ul>
+        <li>Quand aucune option ne suffit seule et qu'il faut composer entre des contraintes qui s'excluent</li>
+        <li>Quand l'issue est incertaine et qu'il faut garder des voies ouvertes sans immobiliser l'action</li>
+        <li>Quand plusieurs chantiers avancent ensemble et que leurs interdépendances doivent être tenues</li>
+        <li>Quand le plan se périme vite, à condition qu'un critère de décision reste identifiable <span class="tag t-ag">ajusté</span></li>
+        <li>Au démarrage, quand rien n'est cadré et qu'il faut ouvrir le champ avant de le refermer</li>
+        <li>Sur un dossier bloqué parce que la voie unique a été épuisée</li>
+      </ul></div>
+      <div class="co"><h4>Là où le même trait coûte</h4><ul>
+        <li>Quand la solution est connue et qu'il faut l'exécuter à l'identique</li>
+        <li>Quand il faut trancher vite et tenir la décision sans la rouvrir</li>
+        <li>Quand la stabilité vaut mieux que l'adaptation permanente</li>
+      </ul></div>
+    </div>
+
+    <div class="portee">La zone indique une <b>portée</b>, jamais une valeur : un profil d'exécution n'est pas « moins bon » qu'un profil stratégique — on ne les appelle simplement pas dans les mêmes situations.<span class="tag t-ga">gabarit</span></div>
+  </div>
+
+  <div class="mission" style="margin-top:12px"><b>Mission de l'agent — R5 à R8</b>
+    <b style="display:inline;text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:11.5px">Désigner</b> la tuile au croisement socle × type dans <span style="font-family:var(--mono)">REFERENTIEL_PROFIL_VS_PILIER</span> — jamais en inventer une. <b style="display:inline;text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:11.5px">Vérifier</b> ensuite chaque élément contre le bilan du candidat : s'applique → conserver tel quel · s'applique avec ajustement → rester dans la tuile, ajuster, et <b style="display:inline;text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:11.5px">verbaliser dans GRILLE_VERBALISATION</b> · ne s'applique pas du tout → ne rien réécrire, remonter en révision humaine (l'attribution est peut-être fausse). <b style="display:inline;text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:11.5px">Produire</b> le seul paragraphe « ce que sa chaîne y ajoute », depuis l'amont et l'aval réels, avec son revers. Interdits : modifier la définition ou le titre · retourner un coût en atout · retirer un coût · introduire une situation rattachable à un métier.
+  </div>
+</section>
+
+<section>
+  <div class="snum">2</div>
+  <h2>Son profil</h2>
+  <div class="chapo">La vue d'ensemble d'abord : ses cinq outils avec leur manière. Puis, outil par outil, ce que ses gestes établissent — et le détail en dépliant.</div>
+
+  <div class="vue">
+    <div class="socle-tete">
+      <div class="c1">
+        <div class="k">Socle — le pilier qui gouverne tout le reste <span class="tag t-ex">export</span></div>
+        <div class="nom">Création de solutions</div>
+        <span class="bouton">FILTRE · ON</span><span class="tag t-ga">gabarit</span>
+      </div>
+      <div class="c1" style="flex:1.5">
+        <div class="k">Son réglage — il ne sort jamais neutre <span class="tag t-ex">export</span></div>
+        <div class="reg">« Il ouvre simultanément plusieurs fronts, il les maintient tous actifs, il intègre des branches de secours dès la conception, et il ajuste en avançant. »</div>
+        <span class="src">ETAPE1_T3_BILAN · filtre (fld9vAKpKEMIcRiTB) — export intégral, « vous » → « il »</span>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mc c"><div class="r">Pilier amont — ce qui alimente le socle</div><h4>Analyse et diagnostic</h4><span class="mk">Sa manière</span><div class="m">arbitré et orienté action · focalisé sur l'enjeu</div></div>
+      <div class="mc s"><div class="r">Socle — gouverne tout le reste</div><h4>Création de solutions</h4><span class="mk">Sa manière</span><div class="m">combinatoire et ouvert · assembler, tester, explorer</div></div>
+      <div class="mc c"><div class="r">Pilier aval — ce qui conclut</div><h4>Mise en œuvre et exécution</h4><span class="mk">Sa manière</span><div class="m">adaptatif et multi-flux · agir sans bloquer</div></div>
+      <div class="mc"><div class="r">Pilier fonctionnel — activé sous contrainte</div><h4>Collecte d'information</h4><span class="mk">Sa manière</span><div class="m">réseau humain en tête · canaux multipliés selon le besoin</div></div>
+      <div class="mc"><div class="r">Pilier fonctionnel — activé sous contrainte</div><h4>Tri et organisation</h4><span class="mk">Sa manière</span><div class="m">externalisé et distribué · supports multiples en filet de sécurité</div></div>
+    </div>
+    <span class="src" style="margin-top:9px">ETAPE1_T3_PILIER · pilier_role_label · pilier_label · pilier_mode — <b>export intégral</b> <span class="tag t-ex">export</span></span>
+  </div>
+
+  <!-- SOCLE -->
+  <div class="od s">
+    <div class="t"><span class="r">★ Socle</span><h3>Création de solutions</h3><span class="m">combinatoire et ouvert · assembler, tester, explorer</span></div>
+    <div class="b">
+      <div class="z z-ag">
+        <div class="synthese">Ses gestes de création ne se succèdent pas : ils s'activent ensemble, dans le même mouvement. Dans un incident sous contrainte de temps, il pense simultanément à plusieurs sorties — la réparation, la solution de repli, l'appui d'un tiers, la sécurisation des moyens — qu'il maintient toutes disponibles pour les assembler selon ce qui tient, et il engage une voie tout en continuant à sécuriser l'autre. Dans la conduite d'un projet collectif, il laisse d'abord venir les possibilités, explore des options que la logique ordinaire n'emprunte pas, bâtit un dispositif à plusieurs branches avec des replis prêts pour les imprévus, et prévoit un cadrage individuel pour chaque participant. Sur un sujet de fond traité seul, il ouvre des angles inhabituels, envisage la solution contraire, se donne un plan d'expérimentation, et réactive ce que les tentatives précédentes ont déposé. Le même réflexe traverse toutes ces situations : il ne construit pas une solution unique et arrêtée — il ouvre plusieurs entrées, les maintient actives, les ajuste à mesure, et les assemble selon ce qui se confirme. Aucun de ces gestes ne déborde vers un autre outil : sa création s'active presque entièrement en propre.<span class="tag t-ag">agent</span></div>
+        <span class="src">ETAPE1_T3_PILIER · synth_bloc_tres_souvent_candidat (fldBLvofzosLTPUOr) — texte intégral, aucune condensation.</span>
+        <div class="mission"><b>Mission — transposition sous contrainte</b>Exporter le texte intégral · transposer la personne · substituer chaque situation par son <b>libellé canonique</b> (R2), repéré par l'identifiant de question, jamais par un mot de la prose · retirer les comptages · <b>ne rien retrancher au fond, ne pas condenser</b>. Si une situation n'est pas au référentiel : retirer la mention, garder la phrase, signaler (R3).</div>
+      </div>
+
+      <details class="g">
+        <summary>Le détail de ses gestes</summary>
+        <div class="z z-dv" style="margin-top:8px">
+          <div class="ge"><b>Mener de front plusieurs raisonnements distincts<span class="tag t-dv">dérivé</span></b><div class="fait">Il identifie des options de natures différentes, il les maintient toutes actives en parallèle, et il conçoit leur combinaison possible — c'est leur réunion qui fait la solution, pas une option unique arrêtée.<span class="tag t-ex">export</span></div></div>
+          <div class="ge"><b>Laisser venir les idées sans forcer la direction<span class="tag t-dv">dérivé</span></b><div class="fait">Parfois en dérivant librement pour laisser surgir, parfois en assemblant délibérément des éléments pour voir ce que leur combinaison produit. Il est attentif à ce qui émerge et le note au passage.<span class="tag t-ex">export</span></div></div>
+          <div class="ge"><b>Intégrer ce qui pourrait ne pas tenir, dès la conception<span class="tag t-dv">dérivé</span></b><div class="fait">Il dresse des branches de secours selon comment la situation pourrait évoluer, il lance une action tout en maintenant une alternative prête à prendre le relais, et il prévoit des dispositifs explicites pour les cas non anticipés.<span class="tag t-ex">export</span></div></div>
+          <div class="ge"><b>Ajuster la solution pendant qu'il la construit<span class="tag t-dv">dérivé</span></b><div class="fait">Quand une variable se confirme, il change d'option ; quand le plan existant ne suffit plus, il lui ajoute des éléments ; quand une voie bute, il insiste différemment ou ouvre une direction nouvelle.<span class="tag t-ex">export</span></div></div>
+          <div class="ge"><b>Ne pas repartir de zéro<span class="tag t-dv">dérivé</span></b><div class="fait">Une tentative déjà faite mais pas assez creusée devient le point de départ d'une nouvelle exploration, une option antérieure est réactivée et réintégrée, et l'expérience acquise sur le terrain est mobilisée directement dans la décision.<span class="tag t-ex">export</span></div></div>
+          <div class="ge"><b>Organiser délibérément une démarche de mise à l'épreuve<span class="tag t-dv">dérivé</span></b><div class="fait">Il définit ce qu'on va tester, il se donne un plan d'expérimentation dans un esprit de pourquoi pas, et il structure l'essai avant de le lancer.<span class="tag t-ex">export</span></div></div>
+          <div class="ge"><b>Chercher délibérément ce qui n'est pas la voie évidente<span class="tag t-dv">dérivé</span></b><div class="fait">Il ouvre des angles que la logique ordinaire n'emprunte pas, il envisage la solution contraire à celle qui s'impose d'abord.<span class="tag t-ex">export</span></div></div>
+          <span class="src">ETAPE1_T3_BILAN · filtre_gestes (fldQr5PWbmaTH2uwv), champ <i>fait</i> — narrations en export intégral, verbatims retirés (D-PREUVE), situations neutralisées (R2).</span>
+          <div class="mission dv"><b>Mission — R1 · le titre se dérive</b>Le titre est la <b>première proposition de la narration</b>, mise à l'infinitif. Aucune production libre. Aucun libellé du référentiel de circuits (D95). Contrôle : le titre doit se retrouver mot pour mot au début du champ <i>fait</i>.</div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- AMONT -->
+  <div class="od">
+    <div class="t"><span class="r">Pilier amont</span><h3>Analyse et diagnostic</h3><span class="m">arbitré et orienté action · focalisé sur l'enjeu</span></div>
+    <div class="b">
+      <div class="z z-ag">
+        <div class="synthese">Dans son analyse, un seul geste sort nettement du lot : avant d'agir ou de construire une solution, il pose un ordre entre les options en fonction d'un critère constant — ce qui fait progresser le plus vite, ce qui sécurise la sortie, ce qui est certain plutôt qu'aléatoire. Dans un incident sous contrainte de temps, il retient l'option dont le résultat est garanti plutôt que celle qui serait théoriquement plus rapide mais incertaine ; il formule aussi l'enjeu pour les autres, afin que le groupe ne s'éparpille pas. Ce geste sert massivement sa création de solutions, et sa mise en œuvre : c'est surtout quand il décide quelle option retenir ou qu'il organise l'action collective qu'il s'active, bien plus que lorsqu'il analyse pour lui-même.<span class="tag t-ag">agent</span></div>
+        <span class="src">synth_bloc_tres_souvent_candidat — même mission de transposition.</span>
+      </div>
+      <details class="g"><summary>Le détail de ses gestes</summary><div class="z-nl" style="margin-top:8px"><b style="font-family:var(--serif)">Source non lue<span class="tag t-nl">à extraire</span></b><div style="font-size:13px;margin-top:5px">Les narrations de gestes des piliers hors socle vivent dans <span style="font-family:var(--mono);font-size:11.5px">ETAPE1_T2_CIRCUITS_POURBILAN</span> / <span style="font-family:var(--mono);font-size:11.5px">ETAPE1_3_BILAN_CIRCUIT</span> — non ouvertes. Emplacement laissé vide. <b>La règle R1 s'y appliquera à l'identique.</b></div></div></details>
+    </div>
+  </div>
+
+  <!-- AVAL -->
+  <div class="od">
+    <div class="t"><span class="r">Pilier aval</span><h3>Mise en œuvre et exécution</h3><span class="m">adaptatif et multi-flux · agir sans bloquer</span></div>
+    <div class="b">
+      <div class="z z-ag">
+        <div class="synthese">Ses deux gestes les plus fréquents dessinent la colonne vertébrale de son exécution. Le premier : quand une perturbation surgit, il ne bloque pas — il la met de côté et continue, ou il l'intègre et adapte l'étape en cours, selon ce qu'elle demande. Dans les deux cas, l'action avance. Le second : il ne fait pas les choses l'une après l'autre quand il peut les faire ensemble — il organise plusieurs flux en parallèle en assignant chaque lieu et chaque créneau à une action précise, et il place les tâches dans les fenêtres d'attente. Son ajustement opérationnel déborde vers sa création de solutions : quand il modifie un planning ou change de mode d'action, l'ajustement devient aussi une solution qui se reconfigure. L'orchestration, elle, ne sort jamais de ce pilier — elle s'active entièrement en propre.<span class="tag t-ag">agent</span></div>
+        <span class="src">synth_bloc_tres_souvent_candidat — même mission.</span>
+      </div>
+      <details class="g"><summary>Le détail de ses gestes</summary><div class="z-nl" style="margin-top:8px"><b style="font-family:var(--serif)">Source non lue<span class="tag t-nl">à extraire</span></b><div style="font-size:13px;margin-top:5px">Même source. Emplacement laissé vide.</div></div></details>
+    </div>
+  </div>
+
+  <!-- COLLECTE -->
+  <div class="od">
+    <div class="t"><span class="r">Pilier fonctionnel</span><h3>Collecte d'information</h3><span class="m">réseau humain en tête · canaux multipliés selon le besoin</span></div>
+    <div class="b">
+      <div class="z z-ag">
+        <div class="synthese">Ses deux gestes de collecte les plus fréquents disent la même chose : il va chercher l'information là où elle est la plus fiable et la plus concrète. D'abord chez les gens — ceux qui ont le bon contact, ceux qui ont déjà vécu la même situation, ceux qui connaissent le terrain, ceux dont il peut solliciter les idées. Ensuite par tous les canaux que la situation met à sa disposition : recherche en largeur ou en profondeur, cartes, sites spécialisés, annuaires, et si rien ne suffit, un repérage sur place ou quelqu'un envoyé. Ces deux gestes se combinent souvent : le réseau humain ouvre des pistes qu'il complète ensuite par d'autres voies, et inversement. Les deux débordent massivement vers sa création de solutions : les contacts et les sources qu'il mobilise ne restent pas dans la collecte, ils alimentent directement ce qu'il construit ensuite.<span class="tag t-ag">agent</span></div>
+        <span class="src">synth_bloc_tres_souvent_candidat — même mission.</span>
+      </div>
+      <details class="g"><summary>Le détail de ses gestes</summary><div class="z-nl" style="margin-top:8px"><b style="font-family:var(--serif)">Source non lue<span class="tag t-nl">à extraire</span></b><div style="font-size:13px;margin-top:5px">Même source. Emplacement laissé vide.</div></div></details>
+    </div>
+  </div>
+
+  <!-- TRI -->
+  <div class="od">
+    <div class="t"><span class="r">Pilier fonctionnel</span><h3>Tri et organisation</h3><span class="m">externalisé et distribué · supports multiples en filet de sécurité</span></div>
+    <div class="b">
+      <div class="z z-ag">
+        <div class="synthese">Son geste dominant est le même dans toutes les situations : il ne garde rien dans la tête, il pose l'information quelque part — et toujours sur le support qui correspond à la situation. Une vue d'ensemble affichée pour tout embrasser d'un coup quand il organise un projet. Des rappels placés aux endroits mêmes où l'action doit avoir lieu. Un calendrier avec alertes pour ne pas avoir à y penser. Et en dessous, une réserve en vrac — mémos, historiques — pour ce qui ne peut pas encore être mobilisé mais qui pourrait servir de repli. Enfin, il repasse en revue l'ensemble de ces supports pour vérifier que rien n'est passé à travers les mailles. Ce geste ne reste pas dans le tri : il vient appuyer sa mise en œuvre — les supports qu'il a posés deviennent le fil conducteur quand il passe à l'action.<span class="tag t-ag">agent</span></div>
+        <span class="src">synth_bloc_tres_souvent_candidat — même mission.</span>
+      </div>
+      <details class="g"><summary>Le détail de ses gestes</summary><div class="z-nl" style="margin-top:8px"><b style="font-family:var(--serif)">Source non lue<span class="tag t-nl">à extraire</span></b><div style="font-size:13px;margin-top:5px">Même source. Emplacement laissé vide.</div></div></details>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="snum">3</div>
+  <h2>Ses dimensions d'excellence</h2>
+  <div class="chapo">Elles s'ajoutent au fonctionnement ci-dessus et en étendent la portée. Seules figurent celles qui sont établies.</div>
+
+  <div class="z z-ex" style="margin-top:14px">
+    <div style="font-family:var(--serif);font-size:17px;line-height:1.5;color:#1f2937">« Il construit des sorties là où d'autres voient des impasses — sa force est opérationnelle et multi-fronts, elle s'exprime pleinement sous pression réelle. Il lit ce qui constitue les autres ; laisser leur chemin entier sans l'architecturer lui-même est la construction qui est devant lui. »<span class="tag t-ex">export</span></div>
+    <span class="src">ETAPE2_BILAN4EXCELLENCES · portrait_un_mot (fldf6Wdb6eY5c3jSC) — export intégral</span>
+  </div>
+
+  <div style="margin-top:14px">
+    <div class="dim">
+      <h4>Anticipation</h4>
+      <div class="z z-ag">
+        <p>Il construit des branchements conditionnels explicites — si telle situation se présente, alors telle réponse avec telle ressource déjà réservée — et prépare des solutions de repli avant que le problème ne se soit imposé. La disposition est ancrée : elle fait partie de sa façon de travailler, pas d'un effort ponctuel.</p>
+        <p><b>Quand elle s'active</b> — dès qu'il y a une charge opérationnelle réelle : une responsabilité concrète envers quelqu'un, une contrainte logistique forte, une ressource à sécuriser. Plus la contrainte est réelle et plus quelqu'un dépend de lui, plus elle est franche.</p>
+        <p><b>Ce qu'il ne faut pas en attendre</b> — elle ne s'enclenche pas d'elle-même sur un sujet de fond traité seul, sans urgence. Et elle reste au premier ordre : elle prépare la parade au problème visible, elle ne devance pas les conséquences des conséquences ni les problèmes hors du périmètre immédiat.<span class="tag t-ag">agent</span></p>
+        <span class="src">RESPONSES_ETAPE2_ EXCELLENCE · synthese (fldeNio6Sb6TYvF21) · declencheur (fldRTSu8grkD5Qu5H) · gradient (fldpFNQdeOtTTV6SE)</span>
+        <div class="mission"><b>Mission — transposition en trois temps</b>Le constat · quand cela s'active · ce qu'il ne faut pas en attendre. Fond intégral. Disparaissent : comptages, dénominateurs, régimes, noms de scénarios (libellés canoniques R2). Aucune dimension non établie ne peut être présentée comme un manque.</div>
+      </div>
+    </div>
+
+    <div class="dim">
+      <h4>Vue d'ensemble</h4>
+      <div class="z z-ag">
+        <p>Il perçoit un réseau d'interdépendances vivant, pas une liste d'éléments : plusieurs fronts tenus ensemble avec leurs effets croisés, deux plans conduits en parallèle avec un point de bascule maintenu en temps réel, l'articulation entre l'environnement, les comportements et le suivi. C'est une lecture réelle, et de haut niveau quand elle s'exprime.</p>
+        <p><b>Quand elle s'active</b> — uniquement lorsque la situation impose de tenir simultanément plusieurs fronts de nature différente — technique, logistique, humain, temporel — sous contrainte de temps. Dans un environnement à forte densité opérationnelle où ces conditions sont fréquentes, la performance effective est nettement supérieure à ce que la mesure globale laisse voir.</p>
+        <p><b>Ce qu'il ne faut pas en attendre</b> — elle ne se déploie pas spontanément en régime calme : une revue de risques à froid, une analyse d'impact posée sans urgence, une coordination légère ne la déclenchent pas. Elle est à provoquer, pas à présumer.<span class="tag t-ag">agent</span></p>
+        <span class="src">Mêmes champs. La nuance sur la densité opérationnelle provient de reserves_globales (fldXOMtejqdUdg7CQ), note de lecture destinée au praticien et au recruteur.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="z z-ga">
+    <div style="font-size:12.8px">Les autres dimensions ne figurent pas ici : elles n'ont pas été établies par ce parcours. Une dimension non manifestée n'est pas un manque constaté. Si le poste en exige une qui n'apparaît pas, elle relève du développement et se discute avec le candidat.<span class="tag t-ga">gabarit</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="snum">4</div>
+  <h2>À quoi s'attendre au travail — et comment le vérifier</h2>
+  <div class="chapo">Chaque point d'attention est suivi de la question qui permet de le vérifier en entretien, et de ce que la réponse indique.</div>
+
+  <div class="z-nl" style="margin-top:16px">
+    <b style="font-family:var(--serif);font-size:17px">Bloc à produire — source non relue<span class="tag t-nl">à construire</span></b>
+    <div style="font-size:13.5px;margin-top:8px">Les points de vigilance des maquettes précédentes provenaient de la maquette candidat sans que leur source ait été revérifiée. Ils sont retirés plutôt que recopiés.</div>
+    <div class="mission" style="background:#fff;border-color:var(--nl-bd);color:#7f1d1d;margin-top:12px">
+      <b style="color:var(--nl)">Mission de l'agent — quatre gestes</b>
+      1 · <b style="display:inline">Sélectionner</b> dans <span style="font-family:var(--mono);font-size:11px">BILAN_DESALIGNEMENT</span> — référentiel générique couvrant les cinq outils (surdéploiement · injonctions · impacts) — <b style="display:inline">uniquement les items accrochés à un geste réel du candidat</b>, vérifiable dans son bilan.<br>
+      2 · <b style="display:inline">Distinguer</b> les points <b style="display:inline">généraux</b> (ce que le mode produit en excès) et <b style="display:inline">spécifiques</b> (ce qui frotte avec d'autres manières), s'il y en a.<br>
+      3 · <b style="display:inline">Traduire</b> chaque point en situation de travail par le <b style="display:inline">libellé canonique</b> du référentiel (R2), repéré par l'identifiant de question. Situation absente : retirer la mention, garder le constat, signaler (R3).<br>
+      4 · <b style="display:inline">Produire une question de vérification par point retenu</b>, avec ce que la réponse indique — le bon signe ET le signe contraire. Aucune question hors de ce lien.
+    </div>
+  </div>
+</section>
+
+<section style="border-bottom:none">
+  <div class="snum">5</div>
+  <h2>Encadrer et manager</h2>
+  <div class="chapo">Ces deux capacités ne concernent pas tous les postes. Elles font l'objet d'une évaluation distincte, qui ne figure pas dans cette grille.</div>
+
+  <div class="annonce">
+    <h3>Deux métiers dans le même métier</h3>
+    <div class="deux">
+      <div class="f">
+        <div class="role">Encadrement · référentiel métier</div>
+        <b>« Faire avancer le travail »</b>
+        <div class="def">Superviser et sécuriser l'exécution du travail collectif.<span class="tag t-ex">export</span></div>
+        <div class="meta">Pour se le représenter : le rôle du <b>directeur technique</b> — il est expert du geste métier. C'est de là que vient le mot « technique » : son autorité tient à la maîtrise du métier lui-même. Il transmet, il forme, il montre comment le geste se fait, il veille à la qualité de son exécution.</div>
+      </div>
+      <div class="f">
+        <div class="role">Management · référentiel personne</div>
+        <b>« Révéler le potentiel de chacun »</b>
+        <div class="def">Faire grandir les personnes, partir de leur fonctionnement propre.<span class="tag t-ex">export</span></div>
+        <div class="meta">Pour se le représenter : le rôle de l'<b>entraîneur</b> — il définit l'objectif et la mission, du groupe comme de chacun, il pose le cadre d'exécution de cette mission, il prend en compte les individualités, et il organise le travail de l'équipe et les synergies entre ses membres. Jamais il ne descend sur le terrain jouer à la place d'un joueur.</div>
+      </div>
+    </div>
+    <div style="font-size:13.3px;color:#1e3a5f;background:#fff;border-left:3px solid var(--magenta);border-radius:0 8px 8px 0;padding:11px 15px;margin-top:4px">La différence tient en une phrase : <b>l'un est expert du geste et le transmet ; l'autre fixe l'objectif, tient le cadre, et compose avec les personnes telles qu'elles sont.</b><span class="tag t-ga">gabarit</span></div>
+    <div style="font-size:13.3px;color:#1e3a5f;margin-top:8px">L'évaluation de ces deux capacités pour ce candidat est disponible dans votre espace, avec la conversion d'une offre en profil cognitif, le matching candidat/offre et la comparaison de deux candidats.<span class="tag t-ga">gabarit</span></div>
+    <a class="lien" href="#">Ouvrir dans mon espace référent →</a>
+    <span class="src">Définitions : texte source du protocole, export intégral · métaphores : illustration, gabarit</span>
+  </div>
+</section>
+
+<div class="preuve">
+  <b>Sur quoi reposent ces constats</b>
+  Chaque élément de ce document est établi sur les réponses écrites du candidat à un protocole de mise en situation. Ces réponses sont conservées et auditables ; le candidat en dispose dans son propre bilan et peut les produire. Les constats vous sont livrés dans leur portée professionnelle : ni les réponses brutes, ni les situations personnelles qui ont servi à les recueillir ne figurent ici.<span class="tag t-ga">gabarit</span>
+</div>
+
+<div class="rappel">
+  <strong style="font-family:var(--serif)">Comment lire ce document.</strong> Il décrit comment le candidat s'y prend — pas ce qu'il vaut, ni ce qu'il sait faire. Ces constats éclairent votre décision : ils ne la remplacent jamais. À croiser avec l'entretien, les mises en situation et les références.<span class="tag t-ga">gabarit</span>
+</div>
+
+<footer>Profil Cognitif · projet SIBPROD — Grille référent · maquette v3, règles R1-R4 appliquées · contenu réel de Monsieur R. · document confidentiel</footer>
+
+</div>
+</body>
+</html>
