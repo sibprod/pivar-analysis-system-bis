@@ -323,3 +323,18 @@ body.production .manque{display:none}
   text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
 .pv.inj .h{background:#f8fafc;border-left-color:#64748b}
 .pv.inj .h h4,.pv.inj .h .ax{color:#334155}
+
+/* ── registres affectifs : trois blocs + leur synthèse ── */
+.sst{font-family:var(--serif);font-size:19px;font-weight:600;margin:26px 0 12px;color:var(--ink)}
+.reg{border:1px solid var(--rule);border-left:4px solid #7c2d12;border-radius:0 12px 12px 0;
+  padding:15px 19px;margin-bottom:11px;background:#fff}
+.reg h4{font-family:var(--serif);font-size:16.5px;font-weight:600;color:#7c2d12;margin-bottom:7px}
+.reg p{font-size:13.5px;color:#374151;margin-bottom:8px;line-height:1.6}
+.reg p:last-child{margin-bottom:0}
+.reg p b{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:2px}
+.reg .reg-v{background:#fffbeb;border-radius:8px;padding:10px 13px;color:#78350f}
+.reg .reg-v b{color:#b45309}
+.reg-tot{background:var(--paper2);border-radius:11px;padding:15px 19px;margin-top:6px}
+.reg-tot b{font-family:var(--serif);font-size:15.5px;display:block;margin-bottom:6px}
+.reg-tot p{font-size:13.5px;color:#374151;line-height:1.6}

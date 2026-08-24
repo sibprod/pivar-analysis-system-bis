@@ -124,6 +124,10 @@ function preparer(grille, opts) {
     },
 
     portrait: g.portrait || '',
+    // Les registres affectifs : trois blocs (constat · ce que cela produit ·
+    // le moment à repérer) et leur synthèse transversale. Aucun ne se perd.
+    registres_blocs:    g.registres_blocs || [],
+    registres_synthese: g.registres_synthese || '',
     dimensions: g.bloc_dimensions || [],
 
     vigilances: (g.bloc_vigilances || []).map(v => {

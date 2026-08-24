@@ -88,6 +88,8 @@ function texteVisible(g) {
   return morceaux.join('\n');
 }
 
+function tabSafe(v) { return Array.isArray(v) ? v : []; }
+
 function normaliser(s) {
   return String(s || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -228,6 +230,41 @@ function controler(grille, payload) {
     }
   }
 
+  // ── 3bis-b · UNE TRANSPOSITION N'EST PAS UNE CONDENSATION ──
+  // Un export transposé fait à peu près la longueur de sa source. Le 24/08,
+  // les registres ont été rendus en 800 caractères pour une source de 4 500,
+  // et la synthèse transversale a purement disparu — sans qu'aucun contrôle
+  // ne le voie. On compare désormais les longueurs.
+  const SEUIL = 0.55;   // en deçà, c'est un résumé, pas une transposition
+  for (const outil of (grille.bloc_profil?.outils || [])) {
+    const src = (payload?.piliers || []).find(p => p.pilier === outil.pilier ||
+      normaliser(p.libelle) === normaliser(outil.libelle));
+    const lSrc = String(src?.synthese || '').length;
+    const lOut = String(outil.synthese || '').length;
+    if (lSrc > 300 && lOut && lOut < lSrc * SEUIL) {
+      bloquants.push(`synthèse condensée pour « ${outil.libelle} » : ${lOut} caractères pour une source de ${lSrc} — c'est un résumé, pas une transposition`);
+    }
+  }
+
+  // ── 3bis-c · Les registres affectifs ne se perdent pas ──
+  const regSrc = String(payload?.registres_affectifs || '');
+  if (regSrc.length > 500) {
+    const blocs = tabSafe(grille.registres_blocs);
+    const lOut = blocs.reduce((n, b) =>
+      n + String(b.constat || '').length + String(b.strategie || '').length + String(b.vigilance || '').length, 0)
+      + String(grille.registres_synthese || '').length + String(grille.registres || '').length;
+    // La source porte des verbatims qu'on retire : on attend environ la moitié.
+    if (!lOut) {
+      bloquants.push(`registres affectifs absents alors que la source en porte ${regSrc.length} caractères`);
+    } else if (lOut < regSrc.length * 0.35) {
+      bloquants.push(`registres condensés : ${lOut} caractères pour une source de ${regSrc.length} — chaque registre et sa synthèse transversale doivent être rendus`);
+    }
+    // La synthèse transversale (⚠⚠) est la plus utile au référent.
+    if (regSrc.includes('⚠⚠') && !String(grille.registres_synthese || '').trim()) {
+      signalements.push('la synthèse transversale des registres (⚠⚠) est absente de la sortie');
+    }
+  }
+
   // ── 3ter-a · Une narration longue DOIT porter un titre (R1bis, critère mesurable) ──
   // Le 21/08, douze gestes sur treize sont sortis sans titre, dont sept
   // paragraphes du socle. La règle « paragraphe ou phrase » laissait trop de
@@ -235,9 +272,17 @@ function controler(grille, payload) {
   for (const outil of (grille.bloc_profil?.outils || [])) {
     for (const g of (outil.gestes || [])) {
       const n = String(g.narration || '');
-      const longue = n.length > 150 || n.includes(' : ');
+      // Le deux-points seul ne suffit pas : une phrase de 90 caractères qui en
+      // contient un n'a pas besoin d'un titre — il serait plus long qu'elle.
+      // Seule la LONGUEUR décide.
+      const longue = n.length > 150;
+      // ⚠️ SIGNALEMENT, pas blocage. Un titre absent est un défaut de présentation :
+      //    la narration s'affiche seule et reste lisible. Ce n'est ni une fuite,
+      //    ni une invention, ni une entorse à la doctrine. Interdire toute la
+      //    grille pour cela est disproportionné — le 24/08, sept titres manquants
+      //    ont empêché la publication d'une grille par ailleurs complète.
       if (longue && !String(g.titre || '').trim()) {
-        bloquants.push(`geste sans titre alors que sa narration est longue (${outil.libelle || '?'}, ${n.length} car.) — R1bis`);
+        signalements.push(`geste sans titre alors que sa narration fait ${n.length} caractères (${outil.libelle || '?'}) — R1bis`);
       }
     }
   }

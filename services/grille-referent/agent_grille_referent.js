@@ -290,7 +290,11 @@ function assembler(resultats, payload) {
     bloc_profil: { ...(prof.bloc_profil || {}), outils },
     bloc_dimensions: tab(dims.bloc_dimensions),
     portrait:        dims.portrait || '',
-    registres:       dims.registres || '',
+    // Les registres, dans leur structure d'origine : un bloc par registre,
+    // plus la synthèse transversale. Le format plat est accepté en repli.
+    registres_blocs:    tab(dims.registres_blocs),
+    registres_synthese: dims.registres_synthese || '',
+    registres:          dims.registres || '',
     // « Sa chaîne » : l'ordre des outils et ce qui circule entre eux. Produit par
     // l'agent des synthèses, qui voit passer les débordements en les transposant.
     chaine:          synth.chaine || '',

@@ -1,27 +1,67 @@
 <!--
-  GABARIT DE LA GRILLE RÉFÉRENT
-  Référence : la maquette validée 08-MAQUETTE-GRILLE-REFERENT-vivante.html
+  ═══════════════════════════════════════════════════════════════════════════
+  GABARIT DE LA GRILLE RÉFÉRENT — TRAÇABILITÉ EXHAUSTIVE
+  Référence : maquette validée 08-MAQUETTE-GRILLE-REFERENT-vivante.html
+  Base Airtable : appgghhXjYBdFRras
+  ═══════════════════════════════════════════════════════════════════════════
 
-  Deux natures de contenu, et une seule règle pour les distinguer :
-    · une ancre entre doubles accolades → vient de la grille produite (agents + base)
-    · texte en clair     → GABARIT : identique pour tous les candidats,
-                           écrit une fois, jamais produit par un agent.
+  CHAQUE ÉLÉMENT PORTE SA TRAÇABILITÉ :
+    data-src = TABLE.champ       (le nom du champ EN BASE)
+    data-fld = fldXXXXXXXXXXXX   (l'identifiant Airtable — l'ancre sûre)
+    data-par = qui le produit    (export · agent_X · gabarit · mécanique · saisie référent)
 
-  Boucles et conditions : un commentaire ouvrant #nom, un commentaire fermant /nom.
-  Une condition affiche son contenu si le champ n'est pas vide.
+  ⚠️ PIÈGE MAJEUR : le nom du champ en base ≠ la clé renvoyée par airtableService.
+     Le service traduit par identifiant via config/airtable, et des préfixes
+     disparaissent. Exemple vérifié :
+       en base   : synth_bloc_tres_souvent_candidat
+       en sortie : bloc_tres_souvent_candidat
+     data-src donne le nom EN BASE ; data-fld permet de retrouver le champ à coup sûr.
 
-  Chaque élément variable porte son point d'ancrage dans data-src : c'est la
-  traçabilité, lisible dans le HTML rendu, invisible pour le lecteur.
+  ⛔ CHAMPS EXISTANTS QUI NE DOIVENT JAMAIS S'AFFICHER
+     ETAPE1_T2_CIRCUITS_POURBILAN.circuit_nom_clair  fld2TDRWOnwCNmG1H
+        → nom de référentiel (« Conception multidimensionnelle de solutions
+          complexes ») : vocabulaire de laboratoire, coffre (D95)
+     ETAPE1_T2_CIRCUITS_POURBILAN.bloc                fldnsWT41zOsFpuJz
+        → résidu « BLOC_EN_ATTENTE ». Seul bloc_final (fld5caHteonsyxrji) fait foi.
+     ETAPE1_T3_CIRCUIT.circuit_niveau
+        → amplitude absolue (HAUT/MOYEN/FAIBLE), PAS le rang dans le pilier
+     ETAPE2_BILAN4EXCELLENCES.type_complet            fldZDHd6nlAv7Fk4Y
+        → « ORCHESTRATEUR (7) · Environnement STRATÉGIQUE · Type A » : un rang,
+          un vocabulaire abandonné, un classement A/F périmé
+     ETAPE1_T3_BILAN.filtre_gestes → dit              fldQr5PWbmaTH2uwv
+        → les verbatims du candidat (D-PREUVE)
+     ETAPE1_T3_BILAN.filtre_gestes → nom / coeur
+        → nom de référentiel · comptage (D95)
+
+  SÉLECTION DES GESTES — ETAPE1_T2_CIRCUITS_POURBILAN (tblV8UBCgEOzJ2Tch)
+     bloc_final       fld5caHteonsyxrji   ← LE SEUL qui fait foi
+     circuit_code     fldrv1p6mMsjnSTKw
+     pilier_owner     fldp5Ue0WF1Mg7kgT
+     rang_dans_pilier fld3rF69PhfHPcimw
+     type_ligne       fld0fuDYqc7ekPU2a   ← « TOTAL_PILIER » n'est pas un geste
+     CASCADE R9 : très souvent → sinon souvent → sinon occasionnels, PAR PILIER.
+
+  MATIÈRE DISPONIBLE ET NON EMPLOYÉE (vérifiée en base)
+     filtre_gestes → revele      : ce que le geste établit — jamais affiché
+     filtre_gestes → rang        : « votre geste le plus fréquent »
+     ETAPE2_BILAN4EXCELLENCES.combinaison        fldXMasJ4RoJaUjmm
+     ETAPE2_BILAN4EXCELLENCES.reserves_globales  fldXOMtejqdUdg7CQ
+     ETAPE1_T3_BILAN.filtre_finalite             fldobIgYtfa3Qiy4v
+     ETAPE1_T3_BILAN.sig_*  (6 champs)           → VIDES pour les 4 bilans
+
+  BOUCLES ET CONDITIONS
+     Un commentaire ouvrant #nom, un commentaire fermant /nom.
+     Une condition affiche son contenu si le champ n'est pas vide.
 -->
 
 <div class="entete">
   <div class="marque">
     <div>
-      <div class="lab">Profil Cognitif · grille de lecture</div>
-      <h1 data-src="VISITEUR.civilite + nom">{{civilite}} {{nom}}</h1>
-      <div class="sous">Comment le candidat s'y prend — document destiné au référent</div>
+      <div class="lab" data-par="gabarit">Profil Cognitif · grille de lecture</div>
+      <h1 data-src="ETAPE1_T3_BILAN.civilite + nom" data-fld="fld8yjgv2jIp2dzvW + fldFjVTaedAE8iXkU" data-par="export">{{civilite}} {{nom}}</h1>
+      <div class="sous" data-par="gabarit">Comment le candidat s'y prend — document destiné au référent</div>
     </div>
-    <div class="ident">
+    <div class="ident" data-par="saisie référent">
       Référent : {{referent_nom}}<br>
       Entreprise : {{referent_entreprise}}<br>
       Consultation : {{date_consultation}}<br>
@@ -33,31 +73,31 @@
 <!-- ═══════════ CARTOUCHE DE LECTURE RAPIDE ═══════════ -->
 <div class="cart">
   <div class="cart-h">
-    <span class="lab-c">Lecture rapide</span>
-    <span class="zone" data-src="REFERENTIEL_PROFILS.zone">{{cartouche.zone}}</span>
-    <span class="sig" data-src="REFERENTIEL_PROFILS.titre">{{cartouche.signature}}</span>
+    <span class="lab-c" data-par="gabarit">Lecture rapide</span>
+    <span class="zone" data-src="REFERENTIEL_PROFIL_VS_PILIER.zone" data-fld="fldHkqmdEHKGQS12J" data-par="export">{{cartouche.zone}}</span>
+    <span class="sig" data-src="REFERENTIEL_PROFIL_VS_PILIER.titre" data-fld="fld1kvA9OyzsdMik5" data-par="export">{{cartouche.signature}}</span>
   </div>
   <div class="cart-b">
     <div class="cl socle" data-pilier="{{cartouche.socle.pilier}}">
-      <span class="role">★ Socle</span>
-      <span class="nom" data-src="T3_BILAN.pilier_socle_label">{{cartouche.socle.libelle}}</span>
-      <span class="mode" data-src="T3_PILIER.pilier_mode">{{cartouche.socle.mode}}</span>
-      <span class="filt" data-src="T3_BILAN.filtre"><span class="k">Filtre · ON</span>{{cartouche.socle.filtre}}</span>
+      <span class="role" data-par="gabarit">★ Socle</span>
+      <span class="nom" data-src="ETAPE1_T3_BILAN.pilier_socle_label" data-fld="fldUf6rhEyR3MKI1x" data-par="export">{{cartouche.socle.libelle}}</span>
+      <span class="mode" data-src="ETAPE1_T3_PILIER.pilier_mode" data-fld="fldoGY71vyiaUeFl6" data-par="export">{{cartouche.socle.mode}}</span>
+      <span class="filt" data-src="ETAPE1_T3_BILAN.filtre" data-fld="fld9vAKpKEMIcRiTB" data-par="export"><span class="k">Filtre · ON</span>{{cartouche.socle.filtre}}</span>
     </div>
     <div class="cl" data-pilier="{{cartouche.amont.pilier}}">
       <span class="role">Amont</span>
-      <span class="nom" data-src="T3_PILIER.pilier_label">{{cartouche.amont.libelle}}</span>
-      <span class="mode" data-src="T3_PILIER.pilier_mode">{{cartouche.amont.mode}}</span>
+      <span class="nom" data-src="ETAPE1_T3_PILIER.pilier_label" data-fld="fldbDYECHFEGkh0Ng" data-par="export">{{cartouche.amont.libelle}}</span>
+      <span class="mode" data-src="ETAPE1_T3_PILIER.pilier_mode" data-fld="fldoGY71vyiaUeFl6" data-par="export">{{cartouche.amont.mode}}</span>
     </div>
     <div class="cl" data-pilier="{{cartouche.aval.pilier}}">
       <span class="role">Aval</span>
-      <span class="nom" data-src="T3_PILIER.pilier_label">{{cartouche.aval.libelle}}</span>
-      <span class="mode" data-src="T3_PILIER.pilier_mode">{{cartouche.aval.mode}}</span>
+      <span class="nom" data-src="ETAPE1_T3_PILIER.pilier_label" data-fld="fldbDYECHFEGkh0Ng" data-par="export">{{cartouche.aval.libelle}}</span>
+      <span class="mode" data-src="ETAPE1_T3_PILIER.pilier_mode" data-fld="fldoGY71vyiaUeFl6" data-par="export">{{cartouche.aval.mode}}</span>
     </div>
     <div class="cdim">
-      <span class="role">Dimensions</span>
+      <span class="role" data-par="gabarit">Dimensions</span>
       <!--{{#cartouche.dimensions}}-->
-      <span class="dch" data-src="T5B.excellence + niveau"><b>{{nom}}</b><span>{{libelle_niveau}}</span></span>
+      <span class="dch" data-src="RESPONSES_ETAPE2_EXCELLENCE.excellence + niveau_global" data-fld="fldpoyLIgYJ7buqE4 + fldep6lx5NmVJp8qS" data-par="agent_grille_profil"><b data-src="RESPONSES_ETAPE2_EXCELLENCE.excellence" data-fld="fldpoyLIgYJ7buqE4" data-par="export">{{nom}}</b><span data-src="RESPONSES_ETAPE2_EXCELLENCE.niveau_global" data-fld="fldep6lx5NmVJp8qS" data-par="agent_grille_profil · traduit">{{libelle_niveau}}</span></span>
       <!--{{/cartouche.dimensions}}-->
     </div>
   </div>
@@ -67,19 +107,19 @@
 <section>
   <div class="snum">1</div>
   <h2>Ce qu'il apporte</h2>
-  <div class="chapo">Le profil se lit au croisement de deux choses : l'outil qu'il sort en premier — ce qu'il apporte — et la manière dont il l'exerce — sous quel régime. Ce croisement dit dans quelles situations l'appeler, indépendamment de tout métier.</div>
+  <div class="chapo" data-par="gabarit">Le profil se lit au croisement de deux choses : l'outil qu'il sort en premier — ce qu'il apporte — et la manière dont il l'exerce — sous quel régime. Ce croisement dit dans quelles situations l'appeler, indépendamment de tout métier.</div>
 
   <div class="tuile">
     <div class="zt">
-      <span class="zb">{{apport.zone}}</span>
-      <span class="sb">{{apport.socle}}</span>
-      <span class="sb">{{apport.type}}</span>
+      <span class="zb" data-src="REFERENTIEL_PROFIL_VS_PILIER.zone" data-fld="fldHkqmdEHKGQS12J" data-par="export">{{apport.zone}}</span>
+      <span class="sb" data-src="REFERENTIEL_PROFIL_VS_PILIER.socle" data-fld="fldizY3Ki8peAutcH" data-par="export">{{apport.socle}}</span>
+      <span class="sb" data-src="ETAPE2_BILAN4EXCELLENCES.type_cognitif" data-fld="fld1hwz9INvp5Qyo9" data-par="export">{{apport.type}}</span>
     </div>
-    <h3 data-src="REFERENTIEL_PROFILS.titre">{{apport.titre}}</h3>
-    <div class="deft" data-src="REFERENTIEL_PROFILS.definition_type">{{apport.definition_type}}</div>
-    <div class="app" data-src="REFERENTIEL_PROFILS.application_au_socle">{{apport.application_au_socle}}</div>
+    <h3 data-src="REFERENTIEL_PROFIL_VS_PILIER.titre" data-fld="fld1kvA9OyzsdMik5" data-par="export">{{apport.titre}}</h3>
+    <div class="deft" data-src="REFERENTIEL_PROFIL_VS_PILIER.definition_type" data-fld="fldYyLOdEqCI1WgFF" data-par="export · lexique PROFILS_PIVAR">{{apport.definition_type}}</div>
+    <div class="app" data-src="REFERENTIEL_PROFIL_VS_PILIER.application_au_socle" data-fld="fldMfkbgQwxGflMLx" data-par="export">{{apport.application_au_socle}}</div>
 
-    <div class="chaine" data-src="agent_grille_apport">
+    <div class="chaine" data-src="ETAPE1_T3_PILIER.synth_bloc_*_candidat (amont + aval)" data-fld="fldBLvofzosLTPUOr" data-par="agent_grille_apport · R6">
       <span class="k">Ce que sa chaîne y ajoute</span>{{apport.chaine_ajoute}}
     </div>
 
@@ -88,7 +128,7 @@
         <h4>Là où c'est un atout</h4>
         <ul>
           <!--{{#apport.atouts}}-->
-          <li class="{{classe}}" data-origine="{{origine}}">{{texte}}</li>
+          <li class="{{classe}}" data-origine="{{origine}}" data-src="REFERENTIEL_PROFIL_VS_PILIER.atouts" data-fld="fldAl8WlfdUCMy6Tq" data-par="export | agent_grille_apport si origine=ajuste">{{texte}}</li>
           <!--{{/apport.atouts}}-->
         </ul>
       </div>
@@ -96,13 +136,13 @@
         <h4>Là où le même trait coûte</h4>
         <ul>
           <!--{{#apport.couts}}-->
-          <li data-origine="{{origine}}">{{texte}}</li>
+          <li data-origine="{{origine}}" data-src="REFERENTIEL_PROFIL_VS_PILIER.couts" data-fld="fld1elsdr5rrWSw1O" data-par="export · aucun coût ne peut être retiré (R7)">{{texte}}</li>
           <!--{{/apport.couts}}-->
         </ul>
       </div>
     </div>
 
-    <div class="portee">La zone indique une <b>portée</b>, jamais une valeur : un profil d'exécution n'est pas « moins bon » qu'un profil stratégique — on ne les appelle simplement pas dans les mêmes situations.</div>
+    <div class="portee" data-par="gabarit">La zone indique une <b>portée</b>, jamais une valeur : un profil d'exécution n'est pas « moins bon » qu'un profil stratégique — on ne les appelle simplement pas dans les mêmes situations.</div>
   </div>
 </section>
 
@@ -110,33 +150,33 @@
 <section>
   <div class="snum">2</div>
   <h2>Son profil</h2>
-  <div class="chapo">Un seul réglage gouverne tout le reste. Chaque outil porte sa manière et ce que ses gestes établissent ensemble ; le détail des gestes se déplie.</div>
+  <div class="chapo" data-par="gabarit">Un seul réglage gouverne tout le reste. Chaque outil porte sa manière et ce que ses gestes établissent ensemble ; le détail des gestes se déplie.</div>
 
   <div class="reglage">
-    <div class="rl">Son réglage — il ne sort jamais neutre</div>
-    <div class="socle-nom" data-src="T3_BILAN.pilier_socle_label">{{profil.socle_libelle}}</div>
-    <div class="rp" data-src="T3_BILAN.filtre">« {{profil.filtre}} »</div>
-    <div class="rn">Ce réglage se déclenche avant toute réflexion, dans chaque situation. Il ne se choisit pas.</div>
+    <div class="rl" data-par="gabarit">Son réglage — il ne sort jamais neutre</div>
+    <div class="socle-nom" data-src="ETAPE1_T3_BILAN.pilier_socle_label" data-fld="fldUf6rhEyR3MKI1x" data-par="export">{{profil.socle_libelle}}</div>
+    <div class="rp" data-src="ETAPE1_T3_BILAN.filtre" data-fld="fld9vAKpKEMIcRiTB" data-par="export">« {{profil.filtre}} »</div>
+    <div class="rn" data-par="gabarit">Ce réglage se déclenche avant toute réflexion, dans chaque situation. Il ne se choisit pas.</div>
   </div>
 
   <!--{{#profil.outils}}-->
-  <div class="od {{classe_socle}}" data-pilier="{{pilier}}">
+  <div class="od {{classe_socle}}" data-pilier="{{pilier}}" data-bloc-retenu="{{bloc_retenu}}">
     <div class="t">
-      <span class="r" data-src="T3_PILIER.pilier_role_label">{{role}}</span>
-      <h3 data-src="T3_PILIER.pilier_label">{{libelle}}</h3>
-      <span class="m" data-src="T3_PILIER.pilier_mode">{{mode}}</span>
+      <span class="r" data-src="ETAPE1_T3_PILIER.pilier_role_label" data-fld="fld1X3FQYRcxB2Qwy" data-par="export">{{role}}</span>
+      <h3 data-src="ETAPE1_T3_PILIER.pilier_label" data-fld="fldbDYECHFEGkh0Ng" data-par="export">{{libelle}}</h3>
+      <span class="m" data-src="ETAPE1_T3_PILIER.pilier_mode" data-fld="fldoGY71vyiaUeFl6" data-par="export">{{mode}}</span>
     </div>
     <div class="b">
-      <div class="synthese" data-src="T3_PILIER.bloc_{{bloc_retenu}}_candidat">{{synthese}}</div>
+      <div class="synthese" data-src="ETAPE1_T3_PILIER.synth_bloc_{{bloc_retenu}}_candidat" data-fld="fldBLvofzosLTPUOr | flda16lg5Dt1HrXrF | fld68H41z6b9XtFoZ" data-par="agent_grille_syntheses · transposition">{{synthese}}</div>
 
       <details class="g">
         <summary>Le détail de ses gestes</summary>
         <div class="gl">
           <!--{{#gestes}}-->
-          <div class="ge" data-circuit="{{code}}" data-src="T3_CIRCUIT.explication_courte_ch4">
-            <!--{{#titre}}--><b>{{titre}}</b><!--{{/titre}}-->
-            <span>{{narration}}</span>
-            <!--{{#renfort}}--><div class="renfort" data-src="T3_CIRCUIT.en_renfort"><span class="k">En renfort</span>{{renfort}}</div><!--{{/renfort}}-->
+          <div class="ge" data-circuit="{{code}}" data-src="ETAPE1_T3_BILAN.filtre_gestes → fait" data-fld="fldQr5PWbmaTH2uwv" data-par="export · socle uniquement">
+            <!--{{#titre}}--><b data-src="ETAPE1_T3_CIRCUIT.explication_courte_ch4" data-fld="fld3zZ8SteMWedetW" data-par="agent_grille_profil · dérivé R1">{{titre}}</b><!--{{/titre}}-->
+            <span data-src="ETAPE1_T3_BILAN.filtre_gestes → fait" data-fld="fldQr5PWbmaTH2uwv" data-par="export · socle uniquement">{{narration}}</span>
+            <!--{{#renfort}}--><div class="renfort" data-src="ETAPE1_T3_CIRCUIT.en_renfort" data-fld="fldixMQDcsD7cCyd3" data-par="export · comptages retirés"><span class="k">En renfort</span>{{renfort}}</div><!--{{/renfort}}-->
           </div>
           <!--{{/gestes}}-->
         </div>
@@ -147,10 +187,35 @@
 
   <div class="chaine-note"><b>Sa chaîne.</b> {{profil.chaine}}</div>
 
+  <h3 class="sst" data-par="gabarit">Ce qui la porte, ce qui la freine</h3>
+
+  <!-- CE QUI LE PORTE, CE QUI LE FREINE — les registres affectifs.
+       Source : ETAPE1_T3_BILAN.registres (fldgeeC3lg3M89ESA), ~4 500 caractères.
+       ⚠️ La source contient les VERBATIMS du candidat et les RÉFÉRENCES de
+          situation (« P1Q15 · Week-end ») : transposition obligatoire (D-PREUVE).
+       ⚠️ Elle contient AUSSI un point de vigilance (⚠) par registre, et une
+          synthèse transversale (⚠⚠) — c'est souvent la plus utile au référent.
+          Aucun ne doit être perdu : ce bloc se transpose, il ne se condense pas. -->
+  <!--{{#registres_blocs}}-->
+  <div class="reg" data-src="ETAPE1_T3_BILAN.registres" data-fld="fldgeeC3lg3M89ESA" data-par="agent_grille_dimensions · transposition">
+    <h4 data-par="export · intitulé du registre">{{titre}}</h4>
+    <p class="reg-c" data-par="agent_grille_dimensions">{{constat}}</p>
+    <p class="reg-s" data-par="agent_grille_dimensions"><b>Ce que cela produit</b>{{strategie}}</p>
+    <p class="reg-v" data-par="agent_grille_dimensions"><b>Le moment à repérer</b>{{vigilance}}</p>
+  </div>
+  <!--{{/registres_blocs}}-->
+
+  <!--{{#registres_synthese}}-->
+  <div class="reg-tot" data-src="ETAPE1_T3_BILAN.registres → synthèse transversale" data-fld="fldgeeC3lg3M89ESA" data-par="agent_grille_dimensions">
+    <b data-par="gabarit">Ce que ces registres donnent ensemble</b>
+    <p>{{registres_synthese}}</p>
+  </div>
+  <!--{{/registres_synthese}}-->
+
   <!--{{#profil.registres}}-->
-  <div class="porte" data-src="T3_BILAN.registres">
+  <div class="porte" data-src="ETAPE1_T3_BILAN.registres" data-fld="fldgeeC3lg3M89ESA" data-par="agent_grille_dimensions · verbatims et situations à retirer">
     <b>Ce qui le porte, ce qui le freine</b>
-    <p>{{profil.registres}}</p>
+    <p data-src="ETAPE1_T3_BILAN.registres" data-fld="fldgeeC3lg3M89ESA" data-par="agent_grille_dimensions">{{profil.registres}}</p>
   </div>
   <!--{{/profil.registres}}-->
 </section>
@@ -159,64 +224,64 @@
 <section>
   <div class="snum">3</div>
   <h2>Ses dimensions d'excellence</h2>
-  <div class="chapo">Elles s'ajoutent au fonctionnement décrit ci-dessus et en étendent la portée. Seules figurent celles qui sont établies.</div>
+  <div class="chapo" data-par="gabarit">Elles s'ajoutent au fonctionnement décrit ci-dessus et en étendent la portée. Seules figurent celles qui sont établies.</div>
 
   <!--{{#portrait}}-->
-  <div class="portrait" data-src="ETAPE2_BILAN4EXCELLENCES.portrait_un_mot">« {{portrait}} »</div>
+  <div class="portrait" data-src="ETAPE2_BILAN4EXCELLENCES.portrait_un_mot" data-fld="fldf6Wdb6eY5c3jSC" data-par="export">« {{portrait}} »</div>
   <!--{{/portrait}}-->
 
   <!--{{#dimensions}}-->
-  <div class="dim" data-src="T5B.synthese + declencheur + gradient">
-    <h4>{{nom}}</h4>
-    <p>{{constat}}</p>
-    <p><b>Quand cela s'active</b>{{quand}}</p>
-    <p><b>Ce qu'il ne faut pas en attendre</b>{{ne_pas_attendre}}</p>
+  <div class="dim" data-src="RESPONSES_ETAPE2_EXCELLENCE.synthese · declencheur · gradient" data-fld="fldeNio6Sb6TYvF21 | fldRTSu8grkD5Qu5H | fldpFNQdeOtTTV6SE" data-par="agent_grille_dimensions · comptages et régimes à retirer">
+    <h4 data-src="RESPONSES_ETAPE2_EXCELLENCE.excellence" data-fld="fldpoyLIgYJ7buqE4" data-par="export">{{nom}}</h4>
+    <p data-src="RESPONSES_ETAPE2_EXCELLENCE.synthese" data-fld="fldeNio6Sb6TYvF21" data-par="agent_grille_dimensions">{{constat}}</p>
+    <p data-src="RESPONSES_ETAPE2_EXCELLENCE.declencheur" data-fld="fldRTSu8grkD5Qu5H" data-par="agent_grille_dimensions"><b>Quand cela s'active</b>{{quand}}</p>
+    <p data-src="RESPONSES_ETAPE2_EXCELLENCE.gradient" data-fld="fldpFNQdeOtTTV6SE" data-par="agent_grille_dimensions"><b>Ce qu'il ne faut pas en attendre</b>{{ne_pas_attendre}}</p>
   </div>
   <!--{{/dimensions}}-->
 
-  <div class="dimnote">Une dimension qui ne s'est pas manifestée ne figure pas ici : ce document ne dit que ce qui est établi. Si le poste en exige une qui n'apparaît pas, elle relève du développement et se discute avec le candidat.</div>
+  <div class="dimnote" data-par="gabarit">Une dimension qui ne s'est pas manifestée ne figure pas ici : ce document ne dit que ce qui est établi. Si le poste en exige une qui n'apparaît pas, elle relève du développement et se discute avec le candidat.</div>
 </section>
 
 <!-- ═══════════ 4 · À QUOI S'ATTENDRE AU TRAVAIL ═══════════ -->
 <section>
   <div class="snum">4</div>
   <h2>À quoi s'attendre au travail — et comment le vérifier</h2>
-  <div class="chapo">Ce qui suit n'énumère pas des faiblesses : chaque point est le <b>revers d'une force réelle</b>, décrit pour que vous sachiez à quel moment elle demande un cadre. La force s'affiche ; dépliez pour voir la bascule et la question qui permet de la vérifier.</div>
+  <div class="chapo" data-par="gabarit">Ce qui suit n'énumère pas des faiblesses : chaque point est le <b>revers d'une force réelle</b>, décrit pour que vous sachiez à quel moment elle demande un cadre. La force s'affiche ; dépliez pour voir la bascule et la question qui permet de la vérifier.</div>
 
-  <div class="reserve">Ce sont des <b>possibles, selon les situations</b> — pas des certitudes. Chaque point est retenu parce qu'un geste réel du candidat l'atteste ; c'est à vous de juger lesquels concernent le poste que vous avez en tête.</div>
+  <div class="reserve" data-par="gabarit">Ce sont des <b>possibles, selon les situations</b> — pas des certitudes. Chaque point est retenu parce qu'un geste réel du candidat l'atteste ; c'est à vous de juger lesquels concernent le poste que vous avez en tête.</div>
 
   <!--{{#vigilances}}-->
-  <div class="pv {{classe_type}}" data-origine="{{item_origine}}" data-ancrage="{{ancrage}}">
+  <div class="pv {{classe_type}}" data-origine="{{item_origine}}" data-ancrage="{{ancrage}}" data-bloc-type="{{bloc_type}}" data-src="BILAN_DESALIGNEMENT.contenu_json" data-fld="fldTGvpMnG4hqvLlS">
     <div class="h">
-      <div class="ax">{{intitule_type}} · {{outil}}</div>
-      <h4>{{titre}}</h4>
+      <div class="ax" data-src="BILAN_DESALIGNEMENT.bloc_type" data-fld="fldJPw1KAK4JbOzrx" data-par="mécanique">{{intitule_type}} · {{outil}}</div>
+      <h4 data-par="agent_grille_redaction">{{titre}}</h4>
     </div>
-    <div class="force" data-src="agent_grille_vigilances">{{force}}</div>
+    <div class="force" data-par="agent_grille_redaction">{{force}}</div>
 
     <!--{{#preuve}}-->
     <!-- Un point démontre, il n'affirme pas (charte §5) : le geste réel sur
          lequel il s'établit s'affiche, jamais l'énoncé interne du référentiel. -->
-    <div class="preuve-pt"><span class="k">Ce qui l'établit</span>{{preuve}}</div>
+    <div class="preuve-pt" data-src="ETAPE1_T3_CIRCUIT.explication_courte_ch4" data-fld="fld3zZ8SteMWedetW" data-par="agent_grille_redaction"><span class="k">Ce qui l'établit</span>{{preuve}}</div>
     <!--{{/preuve}}-->
 
     <!--{{#citations}}-->
     <!-- Les injonctions sont l'exception : l'énoncé EST le contenu, il s'affiche
          mot pour mot (charte §5). Ce sont les phrases que l'entourage dit. -->
-    <div class="cit" data-src="BILAN_DESALIGNEMENT.INJONCTIONS">
+    <div class="cit" data-src="BILAN_DESALIGNEMENT.contenu_json → INJONCTIONS" data-fld="fldTGvpMnG4hqvLlS" data-par="export mot pour mot">
       <span class="k">Ce qu'on lui dit</span>
-      <!--{{#items}}--><q>{{.}}</q><!--{{/items}}-->
+      <!--{{#items}}--><q data-src="BILAN_DESALIGNEMENT.contenu_json → INJONCTIONS" data-fld="fldTGvpMnG4hqvLlS" data-par="export mot pour mot">{{.}}</q><!--{{/items}}-->
     </div>
     <!--{{/citations}}-->
 
     <details class="att">
       <summary>À quel moment cela demande un cadre</summary>
       <div class="att-c">
-        <div class="bascule">{{bascule}}</div>
-        <div class="bureau"><span class="k">Au travail</span>{{au_travail}}</div>
+        <div class="bascule" data-par="agent_grille_redaction">{{bascule}}</div>
+        <div class="bureau" data-par="agent_grille_redaction"><span class="k">Au travail</span>{{au_travail}}</div>
         <div class="verif">
           <div class="k">Question de vérification</div>
-          <div class="q">{{question}}</div>
-          <div class="ec"><span class="kk">Ce que la réponse indique</span>{{ce_que_la_reponse_indique}}</div>
+          <div class="q" data-par="agent_grille_redaction">{{question}}</div>
+          <div class="ec" data-par="agent_grille_redaction"><span class="kk">Ce que la réponse indique</span>{{ce_que_la_reponse_indique}}</div>
         </div>
       </div>
     </details>
@@ -228,9 +293,9 @@
 <section style="border-bottom:none">
   <div class="snum">5</div>
   <h2>Encadrer et manager</h2>
-  <div class="chapo">Ces deux capacités ne concernent pas tous les postes. Elles font l'objet d'une évaluation distincte, qui ne figure pas dans cette grille.</div>
+  <div class="chapo" data-par="gabarit">Ces deux capacités ne concernent pas tous les postes. Elles font l'objet d'une évaluation distincte, qui ne figure pas dans cette grille.</div>
 
-  <div class="annonce">
+  <div class="annonce" data-par="gabarit">
     <h3>Deux métiers dans le même métier</h3>
     <div class="deux">
       <div class="f">
@@ -253,13 +318,13 @@
 </section>
 
 <!-- ═══════════ LES DEUX PIEDS — gabarits, jamais omis ═══════════ -->
-<div class="preuve">
+<div class="preuve" data-par="gabarit">
   <b>Sur quoi reposent ces constats</b>
   Chaque élément de ce document est établi sur les réponses écrites du candidat à un protocole de mise en situation. Ces réponses sont conservées et auditables ; le candidat en dispose dans son propre bilan et peut les produire. Les constats vous sont livrés dans leur portée professionnelle : ni les réponses brutes, ni les situations personnelles qui ont servi à les recueillir ne figurent ici.
 </div>
 
-<div class="rappel">
+<div class="rappel" data-par="gabarit">
   <strong>Comment lire ce document.</strong> Il décrit comment le candidat s'y prend — pas ce qu'il vaut, ni ce qu'il sait faire. Ces constats éclairent votre décision : ils ne la remplacent jamais. À croiser avec l'entretien, les mises en situation et les références.
 </div>
 
-<footer>Profil Cognitif · projet SIBPROD — Grille de lecture, vue référent · {{reference}} · document confidentiel</footer>
+<footer data-par="gabarit">Profil Cognitif · projet SIBPROD — Grille de lecture, vue référent · {{reference}} · document confidentiel</footer>
