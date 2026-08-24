@@ -3,12 +3,12 @@
   Référence : la maquette validée 08-MAQUETTE-GRILLE-REFERENT-vivante.html
 
   Deux natures de contenu, et une seule règle pour les distinguer :
-    · {{ancre}}          → vient de la grille produite (agents + base)
+    · une ancre entre doubles accolades → vient de la grille produite (agents + base)
     · texte en clair     → GABARIT : identique pour tous les candidats,
                            écrit une fois, jamais produit par un agent.
 
-  Boucles : <!--{{#liste}}--> … <!--{{/liste}}-->
-  Conditions : <!--{{#champ}}--> … <!--{{/champ}}-->  (affiché si non vide)
+  Boucles et conditions : un commentaire ouvrant #nom, un commentaire fermant /nom.
+  Une condition affiche son contenu si le champ n'est pas vide.
 
   Chaque élément variable porte son point d'ancrage dans data-src : c'est la
   traçabilité, lisible dans le HTML rendu, invisible pour le lecteur.

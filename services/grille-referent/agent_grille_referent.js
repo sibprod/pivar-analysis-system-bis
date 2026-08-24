@@ -50,7 +50,14 @@ function tab(v) { return Array.isArray(v) ? v : []; }
 function aplatirReferentiel(desalignement) {
   const items = [];
   for (const ligne of tab(desalignement)) {
-    const c = ligne.contenu;
+    let c = ligne.contenu;
+    // Ceinture et bretelles : si le contenu arrive encore sous forme de chaîne
+    // (espaces insécables, JSON malformé…), on en extrait les items plutôt que
+    // de rendre une liste vide en silence. Un référentiel muet ne se voit pas.
+    if (typeof c === 'string') {
+      const items = (c.match(/"([^"]{4,})"/g) || []).map(s => s.slice(1, -1)).filter(s => s !== 'items');
+      c = { items };
+    }
     const liste = Array.isArray(c) ? c : (c && Array.isArray(c.items) ? c.items : []);
     const famille = /INJONCTION/i.test(String(ligne.bloc_type || '')) ? 'injonction'
                   : /IMPACT/i.test(String(ligne.bloc_type || ''))     ? 'specifique'

@@ -161,7 +161,11 @@ function controler(grille, payload) {
     }
   }
   const codesConnus = Object.keys(narrationsSource).length;
-  for (const outil of (grille.bloc_profil?.outils || [])) {
+  // ⚠️ Sans source à confronter, ce contrôle n'a rien à dire — il doit se taire,
+  //    pas bloquer. Le 21/08, un rejeu sur un payload sans piliers a produit
+  //    treize blocages faux : « geste absent du payload » alors que c'était le
+  //    payload de contrôle qui était vide. Un contrôle sans matière ne conclut pas.
+  if (codesConnus) for (const outil of (grille.bloc_profil?.outils || [])) {
     for (const g of (outil.gestes || [])) {
       if (!String(g.code || '').trim()) {
         if (codesConnus) signalements.push(`geste sans code source (${outil.libelle || '?'}) — narration non rattachable`);
@@ -201,6 +205,19 @@ function controler(grille, payload) {
     signalements.push(`${renfortsPerdus} renfort(s) présent(s) à la source mais absent(s) de la sortie`);
   }
 
+  // ── 3nonies-bis · Les blocs essentiels ne peuvent pas être vides ──
+  // Même raisonnement : un agent qui rend une liste vide n'est pas « manquant »,
+  // et passait donc entre les mailles.
+  if (!(grille.bloc_profil?.outils || []).length) {
+    bloquants.push('aucun outil — le bloc 2 est vide');
+  }
+  if (!(grille.bloc_dimensions || []).length) {
+    signalements.push("aucune dimension d'excellence — à vérifier : le candidat en a-t-il vraiment aucune d'établie ?");
+  }
+  if (!String(grille.bloc_apport?.titre || '').trim()) {
+    bloquants.push('aucun profil au bloc 1 — la tuile n\'a pas été rendue');
+  }
+
   // ── 3bis · Aucune synthèse d'outil ne peut être vide ──
   // Le passage du 20/08 les a toutes laissées vides : la grille perdait ce qui
   // justifie la manière de chaque outil. C'est le défaut le plus grave possible,
@@ -208,6 +225,20 @@ function controler(grille, payload) {
   for (const outil of (grille.bloc_profil?.outils || [])) {
     if (!String(outil.synthese || '').trim()) {
       bloquants.push(`synthèse vide pour « ${outil.libelle || '?'} » — ce que ses gestes établissent ensemble manque`);
+    }
+  }
+
+  // ── 3ter-a · Une narration longue DOIT porter un titre (R1bis, critère mesurable) ──
+  // Le 21/08, douze gestes sur treize sont sortis sans titre, dont sept
+  // paragraphes du socle. La règle « paragraphe ou phrase » laissait trop de
+  // place au jugement : elle est devenue un seuil.
+  for (const outil of (grille.bloc_profil?.outils || [])) {
+    for (const g of (outil.gestes || [])) {
+      const n = String(g.narration || '');
+      const longue = n.length > 150 || n.includes(' : ');
+      if (longue && !String(g.titre || '').trim()) {
+        bloquants.push(`geste sans titre alors que sa narration est longue (${outil.libelle || '?'}, ${n.length} car.) — R1bis`);
+      }
     }
   }
 
@@ -300,6 +331,18 @@ function controler(grille, payload) {
     if (!estInjonction && (v.citations || []).length) {
       signalements.push(`citations sur un point qui n'est pas une injonction : « ${v.titre || '?'} »`);
     }
+  }
+
+  // ── 3decies · UNE GRILLE SANS POINT D'ATTENTION N'EST PAS UNE GRILLE ──
+  // Le 24/08, une grille est partie en base avec ZÉRO point : la rédaction avait
+  // rendu une liste vide — non nulle, donc pas « mission manquante », et aucun
+  // contrôle n'exigeait qu'elle contînt quelque chose. Un échec silencieux.
+  //
+  // Le référentiel compte ~198 items. Qu'aucun ne s'accroche à un candidat qui
+  // a treize gestes établis n'est pas crédible : c'est le signe que la sélection
+  // ou la rédaction a échoué sans le dire.
+  if (!(grille.bloc_vigilances || []).length) {
+    bloquants.push("aucun point d'attention — le bloc 4 est vide alors que le référentiel compte des centaines d'items : la sélection ou la rédaction a échoué en silence");
   }
 
   // ── 4 · chaque question est rattachée à un point de vigilance ──

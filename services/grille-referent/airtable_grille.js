@@ -99,9 +99,30 @@ async function getBilanDesalignement() {
       .all();
     return records.map(r => {
       const f = r.fields || {};
+      // ⚠️ Le contenu_json de cette table est indenté avec des ESPACES INSÉCABLES
+      //    (U+00A0). Ce n'est pas un caractère d'espacement valide en JSON :
+      //    JSON.parse échoue silencieusement et le contenu reste une chaîne.
+      //    Résultat le 24/08 : zéro item transmis à la sélection, aucun point
+      //    d'attention produit, et une grille écrite en base sans son bloc 4.
+      //    On normalise avant d'analyser, et on garde un repli si l'analyse échoue.
       let contenu = f['contenu_json'];
       if (typeof contenu === 'string') {
-        try { contenu = JSON.parse(contenu); } catch (e) { /* laissé brut */ }
+        const propre = contenu
+          .replace(/\u00a0/g, ' ')      // espace insécable
+          .replace(/\u202f/g, ' ')      // espace fine insécable
+          .replace(/\u2028|\u2029/g, '\n');
+        try {
+          contenu = JSON.parse(propre);
+        } catch (e) {
+          // Repli : on extrait les items entre guillemets, ligne à ligne.
+          const items = (propre.match(/"([^"]{4,})"/g) || [])
+            .map(s => s.slice(1, -1))
+            .filter(s => s !== 'items');
+          logger.warn('Désalignement — contenu_json illisible, extraction de secours', {
+            pilier: val(f['pilier']), bloc_type: val(f['bloc_type']), items: items.length
+          });
+          contenu = { items };
+        }
       }
       return {
         pilier:    val(f['pilier']),
