@@ -80,9 +80,13 @@ async function getReferentielTestEquivalentPro() {
         contexte_test:              val(f['contexte_test']),
         outil:                      val(f['outil']),
         id_question:                f['id_question'] || '',
-        libelle_pro_court:          val(f['libelle_pro_court']),   // ⭐ le seul libellé autorisé
+        libelle_pro_court:          val(f['libelle_pro_court']),   // R2 · nommer la situation
+        // ── La clé de transposition (pièce 09) — ce qui manquait ──
         equivalent_pro_contexte:    val(f['equivalent_pro_contexte']),
-        ce_que_ca_donne_au_travail: f['ce_que_ca_donne_au_travail'] || ''
+        contrainte_contexte:        val(f['contrainte_contexte']),
+        ce_que_le_test_demande:     f['ce_que_le_test_demande'] || '',
+        ce_que_ca_donne_au_travail: f['ce_que_ca_donne_au_travail'] || '',
+        situation_test:             f['situation_test'] || ''
       };
     });
   } catch (error) {
