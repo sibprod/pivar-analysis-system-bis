@@ -97,7 +97,17 @@
     <div class="cdim">
       <span class="role" data-par="gabarit">Dimensions</span>
       <!--{{#cartouche.dimensions}}-->
-      <span class="dch" data-src="RESPONSES_ETAPE2_EXCELLENCE.excellence + niveau_global" data-fld="fldpoyLIgYJ7buqE4 + fldep6lx5NmVJp8qS" data-par="agent_grille_profil"><b data-src="RESPONSES_ETAPE2_EXCELLENCE.excellence" data-fld="fldpoyLIgYJ7buqE4" data-par="export">{{nom}}</b><span data-src="RESPONSES_ETAPE2_EXCELLENCE.niveau_global" data-fld="fldep6lx5NmVJp8qS" data-par="agent_grille_profil · traduit">{{libelle_niveau}}</span></span>
+      <!-- ⚠️ LE NIVEAU VIENT DU BILAN, PAS DES RÉPONSES.
+           ETAPE2_BILAN4EXCELLENCES est mis à jour par la chaîne étape 2
+           (agent_etape2_c_TESTDEC) quand le test complémentaire est passé.
+           RESPONSES_ETAPE2_ EXCELLENCE garde la mesure d'origine — pour la
+           décentration : « Non évalué — test à passer ». Lire les réponses
+           seules affichait cette mention à un candidat testé un mois plus tôt.
+             Anticipation   fldHMPW083IKtUMb3
+             Vue systémique fldFyU6yc1bnFsRtJ
+             Décentration   fld05ugiziwG3jMZY  ← porte « test complémentaire »
+             Méta-cognition fldRLNC7YpPtXy9Pv                                  -->
+      <span class="dch"><b data-src="RESPONSES_ETAPE2_EXCELLENCE.excellence" data-fld="fldpoyLIgYJ7buqE4" data-par="export">{{nom}}</b><span data-src="ETAPE2_BILAN4EXCELLENCES.niveau (fusionné post-test)" data-fld="fldHMPW083IKtUMb3 | fldFyU6yc1bnFsRtJ | fld05ugiziwG3jMZY | fldRLNC7YpPtXy9Pv" data-par="export · niveau du bilan">{{libelle_niveau}}</span></span>
       <!--{{/cartouche.dimensions}}-->
     </div>
   </div>
@@ -236,6 +246,12 @@
     <p data-src="RESPONSES_ETAPE2_EXCELLENCE.synthese" data-fld="fldeNio6Sb6TYvF21" data-par="agent_grille_dimensions">{{constat}}</p>
     <p data-src="RESPONSES_ETAPE2_EXCELLENCE.declencheur" data-fld="fldRTSu8grkD5Qu5H" data-par="agent_grille_dimensions"><b>Quand cela s'active</b>{{quand}}</p>
     <p data-src="RESPONSES_ETAPE2_EXCELLENCE.gradient" data-fld="fldpFNQdeOtTTV6SE" data-par="agent_grille_dimensions"><b>Ce qu'il ne faut pas en attendre</b>{{ne_pas_attendre}}</p>
+
+    <!--{{#lecture_fusionnee}}-->
+    <!-- Quand une dimension a été affinée par le test complémentaire, sa lecture
+         réconciliée vit dans ETAPE2_BILAN4EXCELLENCES.reserves_globales. -->
+    <p class="dim-fus" data-src="ETAPE2_BILAN4EXCELLENCES.reserves_globales" data-fld="fldXOMtejqdUdg7CQ" data-par="agent_grille_dimensions"><b>Ce que le test complémentaire a précisé</b>{{lecture_fusionnee}}</p>
+    <!--{{/lecture_fusionnee}}-->
   </div>
   <!--{{/dimensions}}-->
 
