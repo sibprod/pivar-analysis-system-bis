@@ -139,6 +139,49 @@ Même risque de dérive : si l'agent traduit librement, chaque bilan aura sa for
 
 ---
 
+## R2bis ✅ LES QUATRE LIBELLÉS NOMMENT LA SITUATION — LA CLÉ DE TRANSPOSITION TRAITE LE GESTE
+
+⚠️ **Correction du 24/08 — R2 était incomplète, et c'est ma faute.**
+
+Le 19/08, j'ai écrit « quatre libellés canoniques, et rien d'autre ». J'ai ainsi réduit une **clé de traduction complète** à un dictionnaire de quatre étiquettes — et jeté les quatre colonnes qui font l'essentiel du travail.
+
+**La raison d'être du référentiel, écrite dans la pièce 09 :**
+> *« Elle sert de clé de traduction pour tout ce qui est destiné au référent — points de vigilance, questions d'entretien, matching — **afin qu'aucun constat ne soit livré sans son équivalent professionnel**. »*
+
+**Et son principe fondateur :**
+> *« Le geste observé dans un contexte **EST** le geste que la personne produira dans son équivalent professionnel. »*
+
+### Ce que le référentiel contient réellement — 25 lignes, contexte × outil
+
+| Colonne | Rôle |
+|---|---|
+| `libelle_pro_court` | **nommer** la situation — les 4 libellés canoniques (R2) |
+| `equivalent_pro_contexte` | le cadre professionnel complet du contexte |
+| `contrainte_contexte` | ce qui pèse dans la situation |
+| `ce_que_le_test_demande` | le geste observé |
+| **`ce_que_ca_donne_au_travail`** | **ce que ce geste devient au bureau, outil par outil** |
+
+### Le défaut que la réduction a produit
+Sans ces colonnes, l'agent sait remplacer « le week-end » par « la conduite d'un projet collectif ». Mais il ne sait pas quoi faire des **objets concrets** que les synthèses citent — *Google Maps, les Pages jaunes, les post-its, le roadbook, le calendrier* — et il les laisse passer.
+
+Le 24/08, une grille est sortie avec **onze objets de la vie privée du candidat**. Aucune règle ne les interdisait nommément ; aucune ne disait non plus par quoi les remplacer.
+
+### La règle
+- **Pour NOMMER une situation** → les quatre libellés canoniques, et rien d'autre (R2 inchangée).
+- **Pour TRANSPOSER un geste ou un objet** → `ce_que_ca_donne_au_travail`, croisé **contexte × outil**.
+
+> *« Internet en largeur, Google Maps, les Pages jaunes »* → la ligne `WEEKEND-P1` dit : *« Comment il avance sur un marché, un client ou un sujet sans données publiques — et quels canaux il invente. »*
+> L'agent écrit donc : **« il mobilise les canaux disponibles pour avancer là où l'information publique manque »**.
+
+### 📌 À SE RAPPELER — les trois usages prévus dès l'origine
+1. **Les points de vigilance** ✅ *(en service)*
+2. **Les questions d'entretien** ⏳ — la colonne `ce_que_ca_donne_au_travail` dit exactement ce qu'il faut vérifier chez le candidat, outil par outil. **À rebrancher une fois la grille livrée.**
+3. **Le matching** ⏳ — la même clé sert à convertir une offre en profil cognitif.
+
+**Ces deux derniers usages restent à faire. Ne pas les perdre.**
+
+---
+
 ## R3 ✅ SITUATION ABSENTE DU RÉFÉRENTIEL — LA RÈGLE DE REPLI
 
 **Cas prévus** (question de la garante : « et si le référentiel n'a pas la situation ? ») :
