@@ -128,7 +128,8 @@ function preparer(grille, opts) {
     // le moment à repérer) et leur synthèse transversale. Aucun ne se perd.
     registres_blocs:    g.registres_blocs || [],
     registres_synthese: g.registres_synthese || '',
-    dimensions: g.bloc_dimensions || [],
+    // Chaque dimension peut porter la lecture réconciliée du test complémentaire.
+    dimensions: (g.bloc_dimensions || []).map(d => ({ ...d, lecture_fusionnee: d.lecture_fusionnee || '' })),
 
     vigilances: (g.bloc_vigilances || []).map(v => {
       // Une injonction se reconnaît par SON TYPE ou par son bloc_type d'origine.
