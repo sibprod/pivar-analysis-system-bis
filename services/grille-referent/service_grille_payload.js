@@ -8,68 +8,176 @@
 //
 // RÈGLES APPLIQUÉES ICI (les autres vivent dans le prompt) :
 //   · toute lecture est filtrée sur candidat_id, JAMAIS sur le contenu
-//   · R9 : la sélection des gestes se fait sur bloc_final, jamais sur circuit_niveau,
-//          et jamais sur le champ `bloc` (résidu « BLOC_EN_ATTENTE »)
+//   · R9 : sélection des gestes sur bloc_final — jamais `bloc` (résidu BLOC_EN_ATTENTE),
+//          jamais circuit_niveau (amplitude absolue, pas rang dans le pilier)
 //   · R9 : cascade de repli par pilier — très souvent, sinon souvent, sinon occasionnels
+//   · D-PREUVE : aucun verbatim n'entre dans le payload
+//   · D95 : aucun libellé de circuit du référentiel n'entre dans le payload
 //   · les trois référentiels sont chargés INTÉGRALEMENT : ils sont le cadre de l'agent
 //
 'use strict';
 
-const airtable = require('../infrastructure/airtableService');
-const logger   = require('../../utils/logger');
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ADAPTATION AU DÉPÔT — les seules primitives attendues du service Airtable.
-// Si les noms diffèrent dans l'infrastructure existante, mapper ICI et nulle part
-// ailleurs : le reste du fichier n'y touche pas.
-//   selectByFormula(table, formula)  → [{ id, fields }]
-//   selectAll(table)                 → [{ id, fields }]
-// ═══════════════════════════════════════════════════════════════════════════
-const selectByFormula = airtable.selectByFormula || airtable.getRecordsByFormula;
-const selectAll       = airtable.selectAll       || airtable.getAllRecords;
-
-const T = {
-  VISITEUR:            'VISITEUR',
-  T3_BILAN:            'ETAPE1_T3_BILAN',
-  T3_PILIER:           'ETAPE1_T3_PILIER',
-  T3_CIRCUIT:          'ETAPE1_T3_CIRCUIT',
-  CIRCUITS_POURBILAN:  'ETAPE1_T2_CIRCUITS_POURBILAN',
-  EXCELLENCE:          'RESPONSES_ETAPE2_ EXCELLENCE',   // l'espace du nom est réel
-  BILAN4:              'ETAPE2_BILAN4EXCELLENCES',
-  REF_PROFILS:         'REFERENTIEL_PROFIL_VS_PILIER(bilan pro)',
-  REF_EQUIVALENCES:    'REFERENTIEL_TEST_EQUIVALENT_PRO',
-  REF_DESALIGNEMENT:   'BILAN_DESALIGNEMENT'
-};
+const airtableService = require('../infrastructure/airtableService');
+const refGrille       = require('./airtable_grille');   // les 3 lecteurs de référentiels
+const logger          = require('../../utils/logger');
 
 // L'ordre du chemin cognitif, pour la présentation.
 const ORDRE_PILIERS = ['P4', 'P3', 'P5', 'P1', 'P2'];
 // Les trois blocs, du plus fréquent au moins fréquent (R9).
 const CASCADE = ['très souvent', 'souvent', 'occasionnels'];
+// Composition mécanique de la clé de tuile — aucune interprétation.
+const SOCLE_VERS_CLE = { P1: 'COLLECTE', P2: 'TRI', P3: 'ANALYSE', P4: 'SOLUTIONS', P5: 'MEO' };
 
-function esc(v) { return String(v || '').replace(/'/g, "\\'"); }
-function val(v) { return (v && (v.name || v)) || ''; }
+function val(v) { return (v && (v.name !== undefined ? v.name : v)) || ''; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEUTRALISATION DES SITUATIONS — mécanique, avant tout agent
+//
+// Les textes sources citent les situations du test : « la voiture de location »,
+// « l'animal », « le week-end ». D-PREUVE les interdit côté référent.
+//
+// ⚠️ POURQUOI ICI ET NON DANS UN PROMPT
+//    On l'a demandé aux agents pendant quatre passages. Ils l'ont fait la plupart
+//    du temps — et oublié une fois, ce qui a suffi à faire refuser la grille
+//    entière. Une substitution est une opération MÉCANIQUE : la confier à un
+//    modèle, c'est accepter qu'elle échoue de temps en temps.
+//    Le code, lui, ne l'oublie jamais.
+//
+// Les agents gardent leur consigne : c'est une ceinture, pas un remplacement.
+// ═══════════════════════════════════════════════════════════════════════════
+const SUBSTITUTIONS = [
+  // — l'incident sous contrainte de temps —
+  [/\bla voiture de location\b/gi,        'une solution de rechange'],
+  [/\bune voiture de location\b/gi,       'une solution de rechange'],
+  [/\bde la voiture de location\b/gi,     "d'une solution de rechange"],
+  [/\bvoiture de location\b/gi,           'solution de rechange'],
+  [/\ble train\b/gi,                      'une option au résultat garanti'],
+  [/\bdu train\b/gi,                      "de l'option garantie"],
+  [/\ble garage\b/gi,                     'un prestataire'],
+  [/\bau garage\b/gi,                     'à un prestataire'],
+  [/\bla panne\b/gi,                      'un incident sous contrainte de temps'],
+  [/\bde la panne\b/gi,                   "d'un incident sous contrainte de temps"],
+  [/\bsur la panne\b/gi,                  'dans un incident sous contrainte de temps'],
+  [/\bl'h[ée]bergement\b/gi,              'un repli'],
+  [/\bà l'h[ée]bergement\b/gi,            'à un repli'],
+  [/\bl'ami\b/gi,                         'un appui personnel'],
+  [/\bla d[ée]panneuse\b/gi,              'un secours extérieur'],
+  [/\ble banquier\b/gi,                   'un appui extérieur'],
+
+  // — la responsabilité confiée —
+  // ⚠️ L'ordre compte : les formes longues d'abord, sinon la courte les mange.
+  //    Et l'apostrophe peut être droite (') ou typographique (').
+  [/\bde\s+l['’]\s*animal(?:_\d)?\b/gi,   "d'une responsabilité confiée"],
+  [/\bsur\s+l['’]\s*animal(?:_\d)?\b/gi,  'sur une responsabilité confiée'],
+  [/\bl['’]\s*animal(?:_\d)?\b/gi,         'une responsabilité confiée'],
+  [/\bun\s+animal\b/gi,                   'une responsabilité confiée'],
+  [/\banimal(?:_\d)?\b/gi,                 'responsabilité confiée'],
+  [/\bses propri[ée]taires\b/gi,          'ceux qui la lui ont confiée'],
+  [/\bles propri[ée]taires\b/gi,          'ceux qui la lui ont confiée'],
+  [/\ble v[ée]t[ée]rinaire\b/gi,          'un spécialiste'],
+  [/\bdu v[ée]t[ée]rinaire\b/gi,          "d'un spécialiste"],
+  [/\bles croquettes\b/gi,                'les consignes reçues'],
+  [/\bun vivant\b/gi,                     'un tiers qui dépend de lui'],
+  [/\bd'un vivant\b/gi,                   "d'un tiers qui dépend de lui"],
+  [/\bun [êe]tre vivant\b/gi,             'un tiers qui dépend de lui'],
+
+  // — le projet collectif —
+  [/\ble week-?end\b/gi,                  'un projet collectif'],
+  [/\bdu week-?end\b/gi,                  "d'un projet collectif"],
+  [/\bsur le week-?end\b/gi,              'dans un projet collectif'],
+  [/\ble s[ée]jour\b/gi,                  'le projet'],
+  [/\bla location\b/gi,                   'la réservation'],
+
+  // — le sujet de fond traité seul —
+  [/\ble sommeil\b/gi,                    'un sujet de fond traité seul'],
+  [/\bsur le sommeil\b/gi,                'sur un sujet de fond traité seul'],
+  [/\bdu sommeil\b/gi,                    "d'un sujet de fond traité seul"],
+
+  // — vocabulaire hérité, abandonné par R5bis —
+  //   `type_ecarte` dit encore « Pas palier 4 (…) · Pas palier 6 (…) ».
+  //   Les paliers n'existent plus : trois zones, des types dedans, aucune
+  //   supériorité. Ce champ sert au contrôle de cohérence R8, il n'est jamais
+  //   affiché — mais un agent l'a recopié dans un texte visible le 24/08.
+  //   Ce qu'il ne reçoit pas, il ne peut pas le répéter.
+  [/\bpas\s+palier\s*\d+\b/gi,           'type voisin écarté'],
+  [/\bpaliers?\s*\d+\b/gi,               'type voisin'],
+  [/\bpaliers?\b/gi,                      'type'],
+  [/\bniveau\s+[1-9]\b/gi,                'type'],
+  [/\benvironnement\s+(STRAT[ÉE]GIQUE|OP[ÉE]RATIONNEL|EX[ÉE]CUTION)\b/gi, 'zone'],
+  [/\s*·?\s*type\s+[AF](?![a-zà-ÿ])/gi,     ''],
+  [/\s*\(\s*[1-9]\s*\)\s*·?/g,             ' '],
+
+  // — les références de question —
+  [/\s*\(P[1-5]Q\d+[^)]*\)/g,             ''],
+  [/\bP[1-5]Q\d+\b/g,                     ''],
+];
+
+/** Retire les situations du test d'un texte destiné au référent. */
+function neutraliser(texte) {
+  if (!texte || typeof texte !== 'string') return texte;
+  let t = texte;
+  for (const [motif, remplacement] of SUBSTITUTIONS) t = t.replace(motif, remplacement);
+  // Élisions créées par la substitution : « plutôt que une » → « plutôt qu'une ».
+  // Uniquement devant un article indéfini — sinon on casse « parce que le… ».
+  t = t
+    .replace(/\bque\s+(un|une)\b/gi, (m, art) => "qu'" + art)
+    .replace(/\bde\s+(un|une)\b/g, (m, art) => (art === 'un' ? "d'un" : "d'une"))
+    .replace(/\bà\s+l\s+repli\b/gi, 'à un repli')
+    // Répétitions créées par la substitution : « la responsabilité d'une
+    // responsabilité confiée » → « la responsabilité qui lui est confiée ».
+    .replace(/responsabilit[ée]\s+d['’]une\s+responsabilit[ée]\s+confi[ée]e/gi,
+             'responsabilité qui lui est confiée')
+    .replace(/(une\s+responsabilit[ée]\s+confi[ée]e)\s+dont\s+vous\s+avez\s+la\s+garde/gi,
+             'une responsabilité qui vous est confiée')
+    .replace(/(d['’]une\s+)(responsabilit[ée]\s+confi[ée]e)\s+\2/gi, '$1$2')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1');
+  return t;
+}
+
+/** Applique la neutralisation à tous les textes d'un objet, en profondeur. */
+function neutraliserTout(o) {
+  if (typeof o === 'string') return neutraliser(o);
+  if (Array.isArray(o)) return o.map(neutraliserTout);
+  if (o && typeof o === 'object') {
+    const r = {};
+    for (const k of Object.keys(o)) r[k] = neutraliserTout(o[k]);
+    return r;
+  }
+  return o;
+}
+function sansAccents(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // R9 · LA SÉLECTION DES GESTES
-// Pour chaque pilier : on prend le bloc le plus haut qui EXISTE pour lui.
+// Pour chaque pilier : le bloc le plus haut qui EXISTE pour lui.
 // Un pilier fonctionnel n'est appelé que sous contrainte : il peut n'avoir aucun
 // geste au bloc le plus fréquent. Sans repli, sa carte serait vide — ce serait faux.
 // ═══════════════════════════════════════════════════════════════════════════
-function selectionnerGestes(lignesPourBilan, narrations) {
+function selectionnerGestes(lignesPourBilan, narrations, anomalies) {
   const parPilier = {};
 
   for (const l of lignesPourBilan) {
-    const pilier = val(l.fields['pilier_owner']);
-    const bloc   = val(l.fields['bloc_final']);          // ⚠️ JAMAIS l.fields['bloc']
-    const code   = l.fields['circuit_code'];
+    const pilier = val(l['pilier_owner']);
+    const bloc   = val(l['bloc_final']);          // ⚠️ JAMAIS l['bloc']
+    const code   = l['circuit_code'];
 
-    // Ligne incomplète (ni code, ni bloc) : on l'ignore et on la signale.
-    if (!pilier || !bloc || !code) continue;
+    // La table mêle deux natures de lignes : les gestes, et des lignes de
+    // STRUCTURE (en-tête générale + un séparateur avant chaque bloc de chaque
+    // pilier). Ces dernières n'ont pas de code de geste : on les ignore en
+    // silence — ce ne sont pas des anomalies, c'est la forme de la table.
+    // Vérifié sur M. R. : 50 lignes = 40 gestes + 10 lignes de structure.
+    if (!code) continue;
 
+    // En revanche, une ligne QUI PORTE un geste mais à qui il manque son pilier
+    // ou son bloc est une vraie anomalie : on ne peut ni la classer ni la placer.
+    if (!pilier || !bloc) {
+      anomalies.push(`geste non classable : ${code} (pilier=${pilier || '—'} bloc=${bloc || '—'})`);
+      continue;
+    }
     (parPilier[pilier] = parPilier[pilier] || {});
     (parPilier[pilier][bloc] = parPilier[pilier][bloc] || []).push({
-      code,
-      rang: l.fields['rang_dans_pilier'] || 99
+      code, rang: l['rang_dans_pilier'] || 99
     });
   }
 
@@ -84,14 +192,15 @@ function selectionnerGestes(lignesPourBilan, narrations) {
     const gestes = parPilier[pilier][blocRetenu]
       .sort((a, b) => a.rang - b.rang)
       .map(g => {
-        const n = narrations[`${pilier}|${g.code}`] || narrations[g.code] || null;
-        return n ? {
+        const n = narrations[g.code] || null;
+        if (!n) { anomalies.push(`narration introuvable pour le geste ${g.code}`); return null; }
+        return {
           code: g.code,
-          narration: n.explication_courte_ch4 || n.n1_definition || '',
-          renfort:   n.renfort_phrase || ''
-          // Le libellé de référentiel (circuit_nom) N'EST PAS transmis : D95.
-          // Les verbatims NE SONT PAS transmis : D-PREUVE.
-        } : null;
+          narration: n.narration,
+          renfort:   n.renfort
+          // circuit_nom (libellé du référentiel) : NON transmis — D95
+          // verbatims : NON transmis — D-PREUVE
+        };
       })
       .filter(Boolean);
 
@@ -105,68 +214,85 @@ function selectionnerGestes(lignesPourBilan, narrations) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function construire(candidat_id) {
   logger.info('Payload grille référent — construction', { candidat_id });
-  const f = `{candidat_id} = '${esc(candidat_id)}'`;
-  const manques = [];
+  const manques   = [];
+  const anomalies = [];
 
-  // ── 1 · Identité (la civilité commande l'accord — l'agent écrit à l'aveugle du genre)
-  const [visiteur] = await selectByFormula(T.VISITEUR, `{candidate_ID} = '${esc(candidat_id)}'`);
-  if (!visiteur) throw new Error(`Grille : aucun visiteur pour ${candidat_id}`);
-
-  // ── 2 · Le socle et son réglage
-  const [t3] = await selectByFormula(T.T3_BILAN, f);
+  // ── 1 · Le socle et son réglage
+  const t3 = await airtableService.getEtape1T3Bilan(candidat_id);
   if (!t3) throw new Error(`Grille : aucun bilan T3 pour ${candidat_id}`);
-  if (!t3.fields['filtre']) manques.push('filtre du socle');
+  if (!t3.filtre) manques.push('filtre du socle');
 
+  // La civilité commande l'accord. Elle est portée par le bilan lui-même :
+  // une source de moins à interroger, et la même que celle du bilan candidat.
+  const civilite = t3.civilite || await airtableService.getCiviliteCandidat(candidat_id).catch(() => null);
+  if (!civilite) anomalies.push('civilité absente — accord au masculin par défaut');
+
+  const socleCode = val(t3.pilier_socle) || 'P4';
+
+  // Les gestes du socle ont leur source propre : le JSON filtre_gestes.
   let gestesSocle = [];
   try {
-    const brut = t3.fields['filtre_gestes'];
+    const brut = t3.filtre_gestes;
     const json = typeof brut === 'string' ? JSON.parse(brut) : (brut || []);
     gestesSocle = (Array.isArray(json) ? json : []).map(g => ({
-      code: g.code || '', narration: g.fait || '', revele: g.revele || ''
-      // g.dit (les verbatims) volontairement écarté : D-PREUVE
-    }));
+      code:      g.code || '',
+      narration: g.fait || '',
+      renfort:   ''
+      // g.dit (verbatims) volontairement écarté — D-PREUVE
+    })).filter(g => g.narration);
   } catch (e) {
-    manques.push('gestes du socle illisibles (filtre_gestes)');
+    anomalies.push('filtre_gestes illisible — repli sur la source commune');
   }
 
   // ── 3 · Les cinq piliers
-  const piliersRows = await selectByFormula(T.T3_PILIER, f);
+  const piliersRows = await airtableService.getEtape1T3Piliers(candidat_id);
   const piliers = {};
   for (const p of piliersRows) {
-    const code = val(p.fields['pilier']);
+    const code = val(p.pilier);
     if (!code) continue;
     piliers[code] = {
-      pilier:     code,
-      libelle:    p.fields['pilier_label'] || '',
-      role:       p.fields['pilier_role_label'] || '',
-      mode:       p.fields['pilier_mode'] || '',
-      synthese:   p.fields['synth_bloc_tres_souvent_candidat'] || ''
-      // Les synthèses « souvent » et « occasionnels » ne sont pas transmises :
-      // la grille affiche UNE synthèse par outil, celle du bloc retenu.
+      pilier:   code,
+      libelle:  p.pilier_label || '',
+      role:     p.pilier_role_label || '',
+      mode:     p.pilier_mode || '',
+      // ⚠️ Le champ s'appelle `bloc_tres_souvent_candidat` — SANS préfixe `synth_`.
+      // Un préfixe supposé a fait échouer trois passages : la synthèse sortait
+      // vide et on accusait l'agent. Les noms de champs se lisent, ils ne
+      // s'inventent pas. Les deux blocs inférieurs servent à la cascade R9.
+      synthese: p.bloc_tres_souvent_candidat || '',
+      synthese_souvent:      p.bloc_souvent_candidat || '',
+      synthese_occasionnels: p.bloc_occasionnels_candidat || ''
     };
   }
-  for (const c of ORDRE_PILIERS) if (!piliers[c]) manques.push(`pilier ${c} absent`);
+  for (const c of ORDRE_PILIERS) {
+    if (!piliers[c]) { manques.push(`pilier ${c} absent`); continue; }
+    // Une synthèse vide à la source doit se voir ICI, pas trois agents plus loin.
+    if (!piliers[c].synthese && !piliers[c].synthese_souvent && !piliers[c].synthese_occasionnels) {
+      manques.push(`aucune synthèse pour ${c} — vérifier le nom du champ en base`);
+    }
+  }
 
-  // ── 4 · Les gestes : classement (T2) + matière (T3_CIRCUIT), jointure sur le code
-  const pourBilan   = await selectByFormula(T.CIRCUITS_POURBILAN, f);
-  const circuitRows = await selectByFormula(T.T3_CIRCUIT, f);
-  const narrations  = {};
+  // ── 4 · Les gestes : classement (T2, bloc_final) + matière (T3_CIRCUIT)
+  const pourBilan   = await airtableService.getEtape1T2CircuitsPourbilan(candidat_id);
+  const circuitRows = await airtableService.getEtape1T3Circuits(candidat_id);
+
+  const narrations = {};
   for (const c of circuitRows) {
-    const pilier = val(c.fields['pilier']);
-    const cid    = c.fields['circuit_id'] || '';
+    const pilier = val(c.pilier);
+    const cid    = c.circuit_id || '';
     const entree = {
-      explication_courte_ch4: c.fields['explication_courte_ch4'] || '',
-      n1_definition:          c.fields['n1_definition'] || '',
-      renfort_phrase:         c.fields['renfort_phrase'] || ''
+      narration: c.explication_courte_ch4 || c.n1_definition || '',
+      // ⚠️ Le champ s'appelle `en_renfort` — pas `renfort_phrase`.
+      // Vérifié sur les clés réelles le 20/08 : c'est ce qui faisait sortir
+      // « renfort: "" » sur tous les gestes.
+      renfort:   c.en_renfort || ''
     };
-    narrations[`${pilier}|${pilier}${cid}`] = entree;  // P4 + C4 → « P4C4 »
-    narrations[`${pilier}|${cid}`] = entree;
+    // Les codes se présentent sous deux formes selon les tables : « C4 » et « P4C4 ».
     narrations[cid] = entree;
+    narrations[`${pilier}${cid}`] = entree;
   }
-  const gestesParPilier = selectionnerGestes(pourBilan, narrations);
 
-  // Le socle a sa propre source (filtre_gestes) : on la préfère si elle est fournie.
-  const socleCode = val(t3.fields['pilier_socle']) || 'P4';
+  const gestesParPilier = selectionnerGestes(pourBilan, narrations, anomalies);
   if (gestesSocle.length) {
     gestesParPilier[socleCode] = { bloc_retenu: 'très souvent', gestes: gestesSocle };
   }
@@ -177,87 +303,169 @@ async function construire(candidat_id) {
   }
 
   // ── 5 · Les dimensions
-  const excRows = await selectByFormula(T.EXCELLENCE, f);
-  const dimensions = excRows.map(r => ({
-    excellence:    val(r.fields['excellence']),
-    niveau_global: r.fields['niveau_global'] || '',
-    pattern:       r.fields['pattern'] || '',
-    synthese:      r.fields['synthese'] || '',
-    declencheur:   r.fields['declencheur'] || '',
-    gradient:      r.fields['gradient'] || ''
-  })).filter(d => d.excellence);
+  const t5b = await airtableService.getEtape2T5BRows(candidat_id);
+  const dimensions = (t5b || []).map(r => ({
+    excellence:    val(r.excellence),
+    niveau_global: r.niveau_global || '',
+    pattern:       r.pattern || '',
+    synthese:      r.synthese || '',
+    declencheur:   r.declencheur || '',
+    gradient:      r.gradient || ''
+  })).filter(d => d.excellence && (d.synthese || d.niveau_global));
 
-  const [b4] = await selectByFormula(T.BILAN4, f);
+  const b4 = await refGrille.getBilan4Profil(candidat_id);
   if (!b4) throw new Error(`Grille : aucun bilan 4 dimensions pour ${candidat_id}`);
 
-  const type_cognitif = b4.fields['type_cognitif'] || '';
+  const type_cognitif = b4.type_cognitif || '';
   if (!type_cognitif) manques.push('type cognitif absent — la tuile ne peut pas être désignée');
 
-  // ── 6 · La clé de tuile : composition MÉCANIQUE, aucune interprétation
-  const SOCLE_VERS_CLE = { P1: 'COLLECTE', P2: 'TRI', P3: 'ANALYSE', P4: 'SOLUTIONS', P5: 'MEO' };
+  // ── 6 · La clé de tuile — composition MÉCANIQUE
   const cle_tuile = (SOCLE_VERS_CLE[socleCode] && type_cognitif)
-    ? `${SOCLE_VERS_CLE[socleCode]}-${type_cognitif.normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`
+    ? `${SOCLE_VERS_CLE[socleCode]}-${sansAccents(type_cognitif).toUpperCase()}`
     : null;
   if (!cle_tuile) manques.push('clé de tuile non composable');
 
   // ── 7 · Les trois référentiels — chargés INTÉGRALEMENT, ils sont le cadre
-  const [refProfils, refEquivalences, refDesalignement] = await Promise.all([
-    selectAll(T.REF_PROFILS), selectAll(T.REF_EQUIVALENCES), selectAll(T.REF_DESALIGNEMENT)
+  const [tuiles, equivalences, desalignement] = await Promise.all([
+    refGrille.getReferentielProfilVsPilier(),
+    refGrille.getReferentielTestEquivalentPro(),
+    refGrille.getBilanDesalignement()
   ]);
 
-  const tuile = refProfils.find(t => t.fields['cle'] === cle_tuile);
+  const tuile = tuiles.find(t => t.cle === cle_tuile) || null;
   if (!tuile) manques.push(`tuile ${cle_tuile} introuvable au référentiel`);
 
-  // ── 8 · Refus de construire sur une matière incomplète (règle : interdit de supposer)
+  // ── 8 · Refus de construire sur une matière incomplète (interdit de supposer)
   if (manques.length) {
-    logger.error('Payload grille — matière incomplète, construction refusée', { candidat_id, manques });
+    logger.error('Payload grille — matière incomplète, construction refusée', { candidat_id, manques, anomalies });
     const err = new Error(`Grille : matière incomplète — ${manques.join(' · ')}`);
     err.manques = manques;
+    err.anomalies = anomalies;
     err.revision_humaine = true;
     throw err;
   }
+  if (anomalies.length) logger.warn('Payload grille — anomalies non bloquantes', { candidat_id, anomalies });
 
-  return {
+  // Tout ce qui part vers un agent est d'abord neutralisé : plus aucune
+  // situation du test ne peut atteindre un modèle, donc en ressortir.
+  const brut = {
     candidat_id,
-    civilite: val(visiteur.fields['Civilite']) || val(visiteur.fields['civilite']) || '',
+    civilite: val(civilite) || '',
 
     profil: {
       cle_tuile,
-      socle: socleCode,
+      socle:         socleCode,
       type_cognitif,
-      type_complet: b4.fields['type_complet'] || '',
-      type_ecarte:  b4.fields['type_ecarte'] || '',   // sert au contrôle de cohérence (R8)
-      tuile: tuile.fields                              // la tuile ENTIÈRE : elle est le cadre
+      // ⛔ `type_complet` N'EST PAS TRANSMIS. Il porte trois vestiges de l'ancienne
+      //    génération d'un coup : « ORCHESTRATEUR (7) · Environnement STRATÉGIQUE · Type A »
+      //      · le numéro (7) → les paliers n'existent plus (R5bis)
+      //      · « Environnement » → vocabulaire abandonné
+      //      · « Type A » → classement A/F périmé, absent de tous nos référentiels
+      //    Un agent l'a recopié tel quel dans la signature. Ce qu'il ne reçoit pas,
+      //    il ne peut pas le recopier — c'est plus sûr qu'un contrôle en aval.
+      //    La signature est `tuile.titre` (« Orchestrateur de solutions »), et rien d'autre.
+      type_ecarte:   b4.type_ecarte  || '',   // contrôle de cohérence R8
+      tuile                                    // la tuile ENTIÈRE : elle est le cadre
     },
 
     socle: {
       pilier:  socleCode,
-      libelle: t3.fields['pilier_socle_label'] || '',
-      filtre:  t3.fields['filtre'] || ''
+      libelle: t3.pilier_socle_label || '',
+      filtre:  t3.filtre || ''
     },
 
-    piliers: ORDRE_PILIERS.map(c => ({
-      ...piliers[c],
-      bloc_retenu: gestesParPilier[c].bloc_retenu,     // interne : ne s'affiche jamais (D95)
-      gestes:      gestesParPilier[c].gestes
-    })),
+    piliers: ORDRE_PILIERS.map(c => {
+      const bloc = gestesParPilier[c].bloc_retenu;
+      // La synthèse doit décrire LE BLOC RETENU, pas un autre : si la cascade
+      // est descendue sur « souvent », c'est la synthèse de « souvent » qui
+      // explique les gestes affichés.
+      const synthese =
+        bloc === 'souvent'      ? (piliers[c].synthese_souvent      || piliers[c].synthese) :
+        bloc === 'occasionnels' ? (piliers[c].synthese_occasionnels || piliers[c].synthese) :
+                                   piliers[c].synthese;
+      const { synthese_souvent, synthese_occasionnels, ...reste } = piliers[c];
+      return {
+        ...reste,
+        synthese,
+        bloc_retenu: bloc,                            // interne : ne s'affiche jamais (D95)
+        gestes:      gestesParPilier[c].gestes
+      };
+    }),
 
-    registres_affectifs: t3.fields['ch3_signal_registres'] || '',
+    // ⚠️ Le champ s'appelle `registres` — pas `ch3_signal_registres`.
+    registres_affectifs: t3.registres || '',
 
     dimensions,
     synthese_dimensions: {
-      portrait_un_mot:   b4.fields['portrait_un_mot'] || '',
-      combinaison:       b4.fields['combinaison'] || '',
-      reserves_globales: b4.fields['reserves_globales'] || ''  // lecture, jamais affichage
+      portrait_un_mot:   b4.portrait_un_mot   || '',
+      combinaison:       b4.combinaison       || '',
+      reserves_globales: b4.reserves_globales || ''   // lecture seule, jamais affiché
     },
 
     referentiels: {
-      equivalences: refEquivalences.map(r => r.fields),   // R2 · libellés canoniques
-      desalignement: refDesalignement.map(r => r.fields), // vigilances par outil
+      // ── R2 · LES QUATRE LIBELLÉS CANONIQUES — pour NOMMER la situation ──
+      // L'agent n'en écrit jamais d'autre : une traduction libre donnerait une
+      // formulation différente à chaque bilan.
+      libelles_canoniques: [...new Map(
+        (equivalences || [])
+          .filter(e => e.contexte_test && e.libelle_pro_court)
+          .map(e => [e.contexte_test, { contexte: e.contexte_test, libelle: e.libelle_pro_court }])
+      ).values()],
+
+      // ── R2bis · LA CLÉ DE TRANSPOSITION — pour transposer le GESTE ──
+      // ⚠️ Ces colonnes étaient laissées de côté depuis le 19/08, quand R2 a été
+      //    réduite à « quatre libellés et rien d'autre ». C'était une erreur de
+      //    ma part : le référentiel a été construit comme une CLÉ DE TRADUCTION
+      //    COMPLÈTE (pièce 09), pas comme un dictionnaire de quatre étiquettes.
+      //
+      //    Sa raison d'être, écrite le 19/08 : « afin qu'aucun constat ne soit
+      //    livré sans son équivalent professionnel ». Et son principe fondateur :
+      //    « le geste observé dans un contexte EST le geste que la personne
+      //    produira dans son équivalent professionnel ».
+      //
+      //    Sans ces colonnes, l'agent sait remplacer « le week-end » par « un
+      //    projet collectif », mais ne sait pas quoi faire de « Google Maps »,
+      //    « les Pages jaunes » ou « les post-its » — les objets concrets que
+      //    les synthèses citent. C'est ce qui a fait sortir une grille avec
+      //    onze objets de la vie privée du candidat.
+      //
+      //    Usages prévus dès l'origine : les points de vigilance · les questions
+      //    d'entretien · le matching.
+      cle_transposition: (equivalences || [])
+        .filter(e => e.contexte_test && e.outil)
+        .map(e => ({
+          contexte:      e.contexte_test,
+          outil:         e.outil,
+          libelle_pro:   e.libelle_pro_court,
+          contexte_pro:  e.equivalent_pro_contexte,
+          au_travail:    e.ce_que_ca_donne_au_travail
+        })),
+
+      // Les questions par contexte, pour retrouver un contexte depuis un identifiant.
+      questions_par_contexte: (equivalences || [])
+        .filter(e => e.id_question && e.contexte_test)
+        .map(e => ({ id: e.id_question, contexte: e.contexte_test })),
+
+      // Vigilances : seuls les blocs qui servent, et leur contenu.
+      desalignement: (desalignement || [])
+        .filter(d => ['SURDEPLOIEMENT', 'INJONCTIONS', 'IMPACTS'].includes(String(d.bloc_type || '').toUpperCase()))
+        .map(d => ({ pilier: d.pilier, bloc_type: d.bloc_type, contenu: d.contenu })),
+
       version_profils:      new Date().toISOString().slice(0, 10),
       version_equivalences: new Date().toISOString().slice(0, 10)
-    }
+    },
+
+    anomalies
   };
+
+  // Les référentiels ne contiennent pas de situations : on les préserve tels
+  // quels pour que les libellés canoniques et les items restent exacts.
+  const referentiels = brut.referentiels;
+  const sortie = neutraliserTout({ ...brut, referentiels: null });
+  sortie.referentiels = referentiels;
+
+  logger.info('Payload grille — situations neutralisées', { candidat_id });
+  return sortie;
 }
 
-module.exports = { construire, selectionnerGestes, CASCADE, ORDRE_PILIERS };
+module.exports = { construire, selectionnerGestes, CASCADE, ORDRE_PILIERS, SOCLE_VERS_CLE };
