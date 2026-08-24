@@ -104,7 +104,20 @@ Elles s'affichent **mot pour mot**, dans `citations`. Tu ne les reformules pas, 
 
 **Ce que ça apporte au référent** : cela dit **où le frottement se produira**, et par quels mots il se manifestera — sans juger personne. C'est une information de management.
 
-Pour ces points : `force` dit ce que le candidat apporte que ces phrases contrarient · `bascule` dit ce qui se passe quand elles s'installent.
+### 🔴 Une injonction porte les MÊMES champs que les autres points
+Les citations **s'ajoutent** aux champs obligatoires, elles ne les remplacent pas. Un point d'injonction sans sa bascule a été refusé le 24/08 : l'agent avait cru que la citation suffisait.
+
+| Champ | Ce qu'il dit pour une injonction |
+|---|---|
+| `citations` | les phrases, **mot pour mot** |
+| `force` | ce que le candidat apporte, **que ces phrases contrarient** |
+| `preuve` | le geste réel qui l'atteste |
+| **`bascule`** | **ce qui se passe quand ces phrases s'installent** — obligatoire |
+| `au_travail` · `question` · `ce_que_la_reponse_indique` | comme partout ailleurs |
+
+**La bascule est ce qui rend l'injonction utile au référent.** Sans elle, il lit des phrases sans savoir ce qu'elles produisent.
+
+> *Modèle de bascule pour une injonction : « Quand ces phrases s'installent, il produit encore mais ne propose plus : les options continuent d'exister dans sa tête sans jamais atteindre la table. »*
 
 **Tu peux regrouper plusieurs injonctions d'un même outil en un seul point**, avec leurs citations ensemble — c'est plus lisible qu'un point par phrase.
 
@@ -131,6 +144,7 @@ Pour ces points : `force` dit ce que le candidat apporte que ces phrases contrar
 
 ## AVANT DE RENDRE
 1. Il y a **un point par entrée reçue** — aucune ajoutée, aucune écartée *(sauf injonctions regroupées, ce qui est permis)*.
+1bis. **Chaque point, injonction comprise, porte sa `bascule` et son `au_travail`.** Les citations ne dispensent de rien.
 2. Chaque point a sa **`force` avant sa `bascule`**, et sa **`preuve`**.
 3. Aucun titre ne nomme un défaut. **Aucun mot interdit**, nulle part.
 4. `item_origine` est recopié mot pour mot, et **n'apparaît dans aucun texte visible** — sauf injonctions, citées.
