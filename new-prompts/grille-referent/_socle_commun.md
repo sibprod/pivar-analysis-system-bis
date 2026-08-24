@@ -28,6 +28,25 @@ Ne pas nommer la situation ne veut pas dire écrire une phrase creuse. **Tu remp
 
 > ⚠️ Le 24/08, un agent a écrit « voiture de location » : la grille entière a été refusée. **Un seul mot de la vie privée du candidat suffit à la rendre non livrable.**
 
+### 🔴 ET POUR LES OBJETS CONCRETS — `referentiels.cle_transposition`
+
+Les textes sources ne citent pas que des situations : ils citent des **objets** — *Google Maps, les Pages jaunes, des post-its, un calendrier, un roadbook, un panneau en carte heuristique*. Ce sont les outils de la vie privée du candidat. **Ils n'ont rien à faire dans un document professionnel.**
+
+Mais ne les remplace pas au hasard : **le référentiel te dit ce qu'ils deviennent au travail.**
+
+`cle_transposition` te donne, pour chaque **contexte × outil** :
+- `libelle_pro` — le libellé canonique de la situation ;
+- `contexte_pro` — le cadre professionnel complet ;
+- **`au_travail`** — **ce que ce geste devient au bureau**.
+
+> **Exemple.** La source dit : *« internet en largeur ou en profondeur, Google Maps, les sites de réservation, les Pages jaunes, et si rien ne suffit, un rapide voyage de repérage »*.
+> La ligne `WEEKEND` × `P1 Collecte` dit : *« Comment il avance sur un marché, un client ou un sujet sans données publiques — et quels canaux il invente. »*
+> **Tu écris donc** : « il mobilise les canaux disponibles — numériques, documentaires, humains — et va sur place quand rien d'autre ne donne. »
+
+**Le geste survit entier. Seuls les objets personnels disparaissent.**
+
+Cette clé existe pour cela — c'est écrit dans sa raison d'être : *« afin qu'aucun constat ne soit livré sans son équivalent professionnel »*.
+
 ### Si rien ne convient
 **Tu retires la mention et tu gardes la phrase sans elle**, puis tu la consignes dans `situations_non_traduites`. Le constat survit toujours :
 
