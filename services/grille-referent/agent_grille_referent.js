@@ -42,6 +42,49 @@ const MISSIONS = [
 
 function tab(v) { return Array.isArray(v) ? v : []; }
 
+/**
+ * Aplatit le référentiel de désalignement en une liste numérotée.
+ * Chaque ligne du référentiel porte une liste d'items ; on les déplie tous,
+ * en conservant leur outil et leur famille.
+ */
+function aplatirReferentiel(desalignement) {
+  const items = [];
+  for (const ligne of tab(desalignement)) {
+    const c = ligne.contenu;
+    const liste = Array.isArray(c) ? c : (c && Array.isArray(c.items) ? c.items : []);
+    const famille = /INJONCTION/i.test(String(ligne.bloc_type || '')) ? 'injonction'
+                  : /IMPACT/i.test(String(ligne.bloc_type || ''))     ? 'specifique'
+                  : 'general';
+    for (const texte of liste) {
+      if (String(texte || '').trim()) {
+        items.push({ i: items.length + 1, outil: ligne.pilier, bloc_type: ligne.bloc_type, famille, texte });
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * Réattache à chaque numéro retenu son énoncé d'origine, tel qu'il est en base.
+ * C'est ce qui garantit que `item_origine` est EXACT : l'agent n'a jamais eu à
+ * le recopier, donc il n'a pas pu le déformer.
+ */
+function rehydrater(retenus, items) {
+  const parNumero = {};
+  for (const it of items) parNumero[it.i] = it;
+  return tab(retenus).map(r => {
+    const src = parNumero[r.i] || parNumero[Number(r.i)];
+    if (!src) return null;
+    return {
+      item_origine: src.texte,
+      bloc_type:    src.bloc_type,
+      outil:        src.outil,
+      famille:      src.famille,
+      ancrage:      r.ancrage || ''
+    };
+  }).filter(Boolean);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // LA MATIÈRE DE CHAQUE MISSION
 // Chaque agent ne reçoit QUE ce dont il a besoin. Lui donner le reste, c'est
@@ -93,8 +136,15 @@ function payloadPour(cle, p, acquis = {}) {
 
     case 'SELECTION':
       return { ...commun,
-        // Le référentiel où choisir…
-        referentiels: { ...commun.referentiels, desalignement: p.referentiels.desalignement },
+        // ⚠️ Le référentiel n'est PAS envoyé tel quel : chaque ligne contient une
+        //    LISTE de dix à douze items, soit ~200 items au total. Demander à
+        //    l'agent de les citer mot pour mot produisait 50 000 caractères et
+        //    saturait sa capacité — trois passages perdus là-dessus.
+        //    On les aplatit et on les NUMÉROTE : l'agent ne renvoie que des
+        //    numéros. Sa sortie tient en quelques lignes, et l'énoncé d'origine
+        //    est réattaché ici, à l'identique — plus aucune citation approximative
+        //    n'est possible.
+        items: aplatirReferentiel(p.referentiels.desalignement),
         // …et de quoi vérifier l'ancrage chez CE candidat.
         piliers: (p.piliers || []).map(x => ({
           pilier: x.pilier, libelle: x.libelle, mode: x.mode,
@@ -107,7 +157,8 @@ function payloadPour(cle, p, acquis = {}) {
       // La rédaction reçoit le résultat de la sélection — pas le référentiel.
       // Elle n'a plus à juger : elle écrit ce qui a été retenu.
       return { ...commun,
-        retenus: (acquis.SELECTION || {}).retenus || [],
+        retenus: rehydrater((acquis.SELECTION || {}).retenus,
+                            aplatirReferentiel(p.referentiels.desalignement)),
         piliers: (p.piliers || []).map(x => ({
           pilier: x.pilier, libelle: x.libelle, mode: x.mode,
           gestes: (x.gestes || []).map(g => g.narration)
@@ -170,6 +221,24 @@ async function executerMission(mission, payloadComplet, acquis = {}) {
 
   // L'agent peut envelopper sa réponse sous la clé de sa mission, ou non.
   const contenu = sortie[mission.cle] || sortie[mission.cle.toLowerCase()] || sortie;
+
+  // La sélection déclare combien d'items elle a parcourus. Si elle en a examiné
+  // moins qu'il n'y en a, elle s'est arrêtée en route — et des points d'attention
+  // manquent SANS que rien ne le signale. C'est le genre d'échec silencieux qui
+  // coûte des jours : on le rend visible ici.
+  if (mission.cle === 'SELECTION') {
+    const attendus = (payload.items || []).length;
+    const vus = Number(contenu.items_examines || 0);
+    const retenus = (contenu.retenus || []).length;
+    if (attendus && vus < attendus) {
+      logger.warn('Grille · SELECTION — référentiel parcouru en partie', {
+        candidat_id, examines: vus, attendus,
+        consequence: 'des points d\'attention peuvent manquer'
+      });
+    }
+    logger.info('Grille · SELECTION — bilan', { candidat_id, attendus, examines: vus, retenus });
+  }
+
   logger.info(`Grille · ${mission.cle} — reçu`, { candidat_id, cost_usd: cout.toFixed(4) });
   return { cle: mission.cle, contenu, cost: cout };
 }
@@ -279,4 +348,4 @@ async function executer(payload) {
   return { grille, cost, manquantes };
 }
 
-module.exports = { executer, assembler, payloadPour, MISSIONS };
+module.exports = { executer, assembler, payloadPour, aplatirReferentiel, rehydrater, MISSIONS };
