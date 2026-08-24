@@ -126,17 +126,30 @@ function preparer(grille, opts) {
     portrait: g.portrait || '',
     dimensions: g.bloc_dimensions || [],
 
-    vigilances: (g.bloc_vigilances || []).map(v => ({
+    vigilances: (g.bloc_vigilances || []).map(v => {
+      // Une injonction se reconnaît par SON TYPE ou par son bloc_type d'origine.
+      // Le second est réhydraté depuis la base : il ne dépend pas de l'agent.
+      // Sans ce repli, un oubli de conversion famille → type ferait disparaître
+      // le cadre « Ce qu'on lui dit » sans que rien ne le signale.
+      const inj = v.type === 'injonction' || /INJONCTION/i.test(String(v.bloc_type || ''));
+      return {
       ...v,
-      classe_type: v.type === 'specifique' ? 'spe' : '',
-      intitule_type: v.type === 'specifique'
-        ? "Ce qu'il apporte face à d'autres manières"
-        : "Ce que sa manière apporte",
+      type: inj ? 'injonction' : (v.type || 'general'),
+      classe_type: inj ? 'inj' : (v.type === 'specifique' ? 'spe' : ''),
+      intitule_type: inj
+        ? "Ce que son environnement lui dira"
+        : (v.type === 'specifique'
+            ? "Ce qu'il apporte face à d'autres manières"
+            : "Ce que sa manière apporte"),
       bascule: v.bascule || v.corps || '',
       // Les citations arrivent en liste de phrases ; le gabarit les parcourt
       // via une boucle imbriquée, d'où l'enveloppe { items }.
-      citations: (v.citations && v.citations.length) ? [{ items: v.citations }] : []
-    }))
+      // Une injonction sans citation explicite reprend son énoncé d'origine :
+      // pour cette famille, l'énoncé EST le contenu (charte §5).
+      citations: (v.citations && v.citations.length)
+        ? [{ items: v.citations }]
+        : (inj && v.item_origine ? [{ items: [v.item_origine] }] : [])
+    };})
   };
 }
 
