@@ -324,7 +324,10 @@ function controler(grille, payload) {
       bloquants.push(`point d'attention sans force : « ${nom} » — ce que sa manière apporte doit être écrit AVANT ce qu'elle coûte`);
     }
     if (!String(v.bascule || '').trim() && !String(v.corps || '').trim()) {
-      bloquants.push(`point d'attention sans bascule : « ${nom} »`);
+      const inj = v.type === 'injonction' || /INJONCTION/i.test(String(v.bloc_type || ''));
+      bloquants.push(inj
+        ? `injonction sans bascule : « ${nom} » — les citations s'ajoutent aux champs obligatoires, elles ne les remplacent pas ; sans bascule, le référent lit des phrases sans savoir ce qu'elles produisent`
+        : `point d'attention sans bascule : « ${nom} »`);
     }
     // Charte §5 : un point DÉMONTRE, il n'affirme pas.
     if (!String(v.preuve || '').trim()) {
