@@ -23,8 +23,26 @@ if (!fs.existsSync(fichier)) {
   process.exit(1);
 }
 
-const { grille, tuile } = JSON.parse(fs.readFileSync(fichier, 'utf8'));
-const verdict = controles.controler(grille, { profil: { tuile }, piliers: [] });
+const sauvegarde = JSON.parse(fs.readFileSync(fichier, 'utf8'));
+const { grille, tuile, piliers, referentiels, manquantes } = sauvegarde;
+
+if (!grille) {
+  console.error(`\n  Aucune grille dans la sauvegarde. Missions manquantes : ${(manquantes || []).join(', ') || '—'}\n`);
+  process.exit(2);
+}
+
+// ⚠️ Le payload de contrôle doit porter TOUTE la matière — piliers et référentiels.
+//    Le 21/08, il était reconstruit vide : treize blocages faux, « geste absent
+//    du payload », alors que c'était le payload de rejeu qui l'était.
+const verdict = controles.controler(grille, {
+  profil: { tuile },
+  piliers: piliers || [],
+  referentiels: referentiels || {}
+});
+
+if ((manquantes || []).length) {
+  console.log(`\n  \x1b[33m⚠ Passage PARTIEL\x1b[0m — mission(s) sans sortie : ${manquantes.join(', ')}`);
+}
 
 console.log(`\n\x1b[1mCONTRÔLES\x1b[0m  ${id}\n`);
 if (verdict.conforme) {
@@ -52,6 +70,8 @@ console.log(`  · dimensions : ${(grille.bloc_dimensions || []).length}`);
 console.log(`  · vigilances : ${(grille.bloc_vigilances || []).length}`);
 console.log(`  · verbalisations : ${(grille.verbalisations || []).length}`);
 console.log(`  · situations non traduites : ${(grille.situations_non_traduites || []).length}`);
+console.log(`  · gestes avec titre : ${(grille.bloc_profil?.outils || []).reduce((n,o)=>n+(o.gestes||[]).filter(g=>String(g.titre||'').trim()).length,0)} / ${(grille.bloc_profil?.outils || []).reduce((n,o)=>n+(o.gestes||[]).length,0)}`);
+console.log(`  · atouts : ${(grille.bloc_apport?.atouts||[]).length} · coûts : ${(grille.bloc_apport?.couts||[]).length}`);
 (grille.situations_non_traduites || []).forEach(s =>
   console.log(`      ${typeof s === 'string' ? s : JSON.stringify(s)}`));
 console.log('');
