@@ -1,7 +1,17 @@
 // services/flux/queueService.js
-// File d'attente d'analyse — Profil-Cognitif v12.3
+// File d'attente d'analyse — Profil-Cognitif v12.5
 //
 // ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// v12.5 (2026-08-24) — Détection du statut de l'étape 1.5 (grille référent) :
+//   - ⭐ Ajout de LANCER_BILAN_GRILLE_DRH dans STATUTS_DETECTES_PAR_POLLING.
+//     Sans lui, un candidat posé sur ce statut n'est JAMAIS ramassé : le statut
+//     reste en base, rien ne se passe, et rien ne le signale.
+//     L'aiguillage avait été branché dans orchestrator_principal sans que la
+//     SCRUTATION le soit — deux endroits, un seul traité (incident du 24/08).
+//   - NE PAS détecter BILAN_GRILLE_DRH_OK (terminal, posé par l'orchestrateur) :
+//     état d'arrêt, pas un déclencheur — même règle que BILAN_PRESENTE_CANDIDAT_OK.
+//   - Aucune autre modification : tout le reste est identique à v12.3.
 //
 // v12.3 (2026-08-13) — Détection du statut MODE RAPIDE (L4) :
 //   - ⭐ Ajout du statut MODE_RAPIDE dans STATUTS_DETECTES_PAR_POLLING :
@@ -102,7 +112,14 @@ const STATUTS_DETECTES_PAR_POLLING = [
   // ⭐ v12.4 (19/08/2026) — Étape 1.4 : bilan présenté au candidat (L1).
   //   Déclencheur uniquement. Terminal : BILAN_PRESENTE_CANDIDAT_OK (posé par
   //   l'orchestrateur) — NE PAS le détecter ici.
-  'LANCER BILAN_PRESENTE _CANDIDAT'
+  'LANCER BILAN_PRESENTE _CANDIDAT',
+  // ⭐ v12.5 (24/08/2026) — Étape 1.5 : grille de lecture référent.
+  //   Déclencheur uniquement. Terminal : BILAN_GRILLE_DRH_OK (posé par
+  //   l'orchestrateur) — NE PAS le détecter ici.
+  //   ⚠️ Sans cette ligne, le candidat posé sur ce statut n'est JAMAIS ramassé :
+  //      le statut reste en base et rien ne le signale. L'aiguillage avait été
+  //      branché dans orchestrator_principal sans que la scrutation le soit.
+  'LANCER_BILAN_GRILLE_DRH'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
