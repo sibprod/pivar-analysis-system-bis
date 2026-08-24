@@ -150,7 +150,11 @@ module.exports = {
     agent_grille_profil:     false,  // ⭐ export et une règle de titre : rien à raisonner
     agent_grille_apport:     true,   // ⭐ la vérification de la tuile EST un raisonnement comparatif
     agent_grille_dimensions: true,   // ⭐ transposer sans perdre le fond demande de peser
-    agent_grille_selection:  true,   // ⭐ confronter 42 items aux gestes réels : du jugement
+    // ⚠️ Thinking DÉSACTIVÉ le 21/08 : avec lui, l'agent a consommé 24 000 jetons
+    //    sans rendre une ligne. La sélection est une comparaison item par item —
+    //    une question, une réponse — pas une délibération. Le prompt la rend
+    //    mécanique ; le raisonnement invisible n'y ajoutait que du coût.
+    agent_grille_selection:  false,
     agent_grille_redaction:  false,  // ⭐ le choix est fait : composer n'est pas juger
     agent_grille_syntheses:  false,  // ⭐ transposer n'est pas raisonner
     agent_t5bc:              true,   // conservé pour compatibilité — non utilisé depuis v2.0
