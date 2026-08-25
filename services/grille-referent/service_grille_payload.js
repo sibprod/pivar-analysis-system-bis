@@ -77,9 +77,21 @@ const SUBSTITUTIONS = [
   [/\ble v[ée]t[ée]rinaire\b/gi,          'un spécialiste'],
   [/\bdu v[ée]t[ée]rinaire\b/gi,          "d'un spécialiste"],
   [/\bles croquettes\b/gi,                'les consignes reçues'],
-  [/\bun vivant\b/gi,                     'un tiers qui dépend de lui'],
-  [/\bd'un vivant\b/gi,                   "d'un tiers qui dépend de lui"],
+  //   Blocage du 24/08 18h01 : « vivant » passait hors des trois formes traitées
+  //   (« la responsabilité du vivant », « d'un vivant confié »). Les formes
+  //   longues d'abord, puis un repli sur le mot nu — le contrôle refuse
+  //   TOUT \bvivant\b, la couverture doit donc être totale.
+  //   ⚠️ \b est invalide après une lettre accentuée (« confié », « intensité ») :
+  //   on emploie (?![a-zà-ÿ]), comme la règle « modéré » plus bas.
+  [/\bd['’]un\s+vivant\s+confi[ée]e?s?(?![a-zà-ÿ])/gi, "d'une responsabilité confiée"],
+  [/\bun\s+vivant\s+confi[ée]e?s?(?![a-zà-ÿ])/gi,      'une responsabilité confiée'],
   [/\bun [êe]tre vivant\b/gi,             'un tiers qui dépend de lui'],
+  [/\bd['’]un vivant\b/gi,                "d'un tiers qui dépend de lui"],
+  [/\bun vivant\b/gi,                     'un tiers qui dépend de lui'],
+  [/\bdu\s+vivant\b/gi,                   'du tiers qui dépend de lui'],
+  [/\bau\s+vivant\b/gi,                   'au tiers qui dépend de lui'],
+  [/\ble\s+vivant\b/gi,                   'le tiers qui dépend de lui'],
+  [/\bvivant\b/gi,                        'tiers qui dépend de lui'],
 
   // — le projet collectif —
   [/\ble week-?end\b/gi,                  'un projet collectif'],
@@ -115,6 +127,32 @@ const SUBSTITUTIONS = [
   [/\b(?:[ÉE]LEV[ÉE]E?|MOYENNE?|FAIBLE)\s+r[ée]guliers?\b/gi, ''],
   [/\bau\s+niveau\s+(?:[ÉE]LEV[ÉE]|MOYEN|FAIBLE)\b/gi, 'au même niveau'],
   [/\bniveau\s+(?:[ÉE]LEV[ÉE]|MOYEN|FAIBLE)\b/gi, 'ce niveau'],
+  //   Blocage du 24/08 18h01 (« Cette disposition ») + jargon banni par le socle :
+  //   « à pleine intensité », « intensité partielle », « diagnostique »,
+  //   « disposition », « pattern ». Le socle le demandait aux agents ; un agent
+  //   l'a écrit quand même. Désormais mécanique, ici.
+  //   ⚠️ \b devant « à » ne matche jamais (accent) : on capture le caractère
+  //   précédent et on le restitue.
+  [/(^|[^a-zà-ÿ])[àa]\s+pleine\s+intensit[ée](?![a-zà-ÿ])/gi,  '$1à sa pleine expression'],
+  [/(^|[^a-zà-ÿ])[àa]\s+(?:demi|faible)\s+intensit[ée](?![a-zà-ÿ])/gi, '$1de façon partielle'],
+  [/\bpleine\s+intensit[ée](?![a-zà-ÿ])/gi,  'pleine expression'],
+  [/\bintensit[ée]\s+partielle\b/gi,      'expression partielle'],
+  [/\b(?:demi|faible)\s+intensit[ée](?![a-zà-ÿ])/gi, 'expression partielle'],
+  //   « pattern d'activation » se traite entier, AVANT la règle « activation »,
+  //   sinon elle produirait « pattern d'manifestations ».
+  [/\bpatterns?\s+d['’]activations?\b/gi, 'fonctionnement récurrent'],
+  [/\bpatterns\b/gi,                      'fonctionnements récurrents'],
+  [/\bpattern\b/gi,                       'fonctionnement récurrent'],
+  [/\bdiagnostiques\b/gi,                 "riches d'enseignement"],
+  [/\bdiagnostique\b/gi,                  "riche d'enseignement"],
+  //   « disposition » : formes déterminées seulement — le mot nu casserait
+  //   « les moyens à sa disposition ». Le contrôle ne refuse que
+  //   « cette disposition » : ces formes couvrent le blocage et au-delà.
+  [/\bcette\s+disposition\b/gi,           'cette manière de fonctionner'],
+  [/\bces\s+dispositions\b/gi,            'ces manières de fonctionner'],
+  [/\bune\s+disposition\b/gi,             'une manière de fonctionner'],
+  [/\bdispositions\s+cognitives\b/gi,     'manières de fonctionner'],
+  [/\bdisposition\s+cognitive\b/gi,       'manière de fonctionner'],
   [/\bdensit[ée]s?\b/gi,                  'fréquence'],
   [/\bactivations?\b/gi,                  'manifestations'],
   [/\b\d+\s+sur\s+\d+\b/g,                ''],
