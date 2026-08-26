@@ -162,11 +162,15 @@ async function getBilan4Profil(candidat_id) {
       // complémentaire est passé. C'est donc ICI que les niveaux font foi,
       // pas dans RESPONSES_ETAPE2_ EXCELLENCE, qui garde la mesure d'origine.
       // Vérifié sur deux candidats : les comptages correspondent exactement.
-      niv_anticipation:  f['fldHMPW083IKtUMb3'] || f['anticipation_spontanee_niveau'] || '',
-      niv_vue:           f['fldFyU6yc1bnFsRtJ'] || f['vue_systemique_niveau'] || '',
-      niv_decentration:  f['fld05ugiziwG3jMZY'] || f['decentration_niveau'] || '',
-      niv_metacognition: f['fldRLNC7YpPtXy9Pv'] || f['metacognition_niveau'] || '',
-      ordre_dimensions:  f['fldDHH8ZBF2gGnTpI'] || '',
+      // ⚠️ Le SDK Airtable indexe les champs par NOM — jamais par identifiant
+      //    fld… : les anciennes clés renvoyaient du vide en silence, et les
+      //    noms de secours étaient supposés. Noms PROUVÉS en base le 26/08
+      //    (résolution nom → identifiant vérifiée sur candidat réel) :
+      niv_anticipation:  f['ANT_densite'] || '',       // fldHMPW083IKtUMb3
+      niv_vue:           f['VUE_densite'] || '',       // fldFyU6yc1bnFsRtJ
+      niv_decentration:  f['DEC_densite'] || '',       // fld05ugiziwG3jMZY
+      niv_metacognition: f['MET_densite'] || '',       // fldRLNC7YpPtXy9Pv
+      ordre_dimensions:  f['ordre_excellences'] || '', // même champ que ci-dessous
       combinaison:       f['combinaison'] || '',
       reserves_globales: f['reserves_globales'] || '',
       ordre_excellences: f['ordre_excellences'] || ''
@@ -262,15 +266,18 @@ async function insertVerbalisations(candidat_id, lignes) {
 // ═══════════════════════════════════════════════════════════════════════════
 const T_DECENTRATION = 'tblA6VvPlrTbPWuQG';
 const F_DEC = {
-  candidat:    'fldLE2jxEAd6S96uC',
-  niveau:      'fldITxKSvyuFvzZnI',   // 1 à 4
-  libelle:     'fldEARFIM9tl974iT',   // « 2/4 — mesuré par le test complémentaire »
-  regime:      'flddOosL6deFoEo7H',   // « ANCRÉE EN RÉGIME MODÉRÉ »
-  intensite:   'fldS5KkaaJgH10SRS',   // MOYENNE · FAIBLE
-  synthese:    'fldeYyzP6sTRDb8iT',   // l'analyse complète
-  ce_qui_est:  'fld0NcuYf7uYf93rT',   // ce qu'il fait · ce qui reste à explorer
-  declencheur: 'fldDQ9wHHZGKh8ZOQ',   // quand cela s'active, quand cela faiblit
-  gradient:    'fldBv7tvjxsCi4Emm'    // là où c'est solide, là où ça cède
+  // ⚠️ Le SDK Airtable indexe les champs par NOM — jamais par identifiant fld….
+  //    Noms PROUVÉS en base le 26/08 (résolution nom → identifiant vérifiée) ;
+  //    les identifiants restent en commentaire pour la traçabilité.
+  candidat:    'candidat_id',          // fldLE2jxEAd6S96uC
+  niveau:      'A_sur_10',             // fldITxKSvyuFvzZnI — 1 à 4
+  libelle:     'niveau_global',        // fldEARFIM9tl974iT — « 2/4 — mesuré par le test complémentaire »
+  regime:      'pattern',              // flddOosL6deFoEo7H — « ANCRÉE EN RÉGIME MODÉRÉ »
+  intensite:   'niveau_densite',       // fldS5KkaaJgH10SRS — MOYENNE · FAIBLE
+  synthese:    'synthese',             // fldeYyzP6sTRDb8iT — l'analyse complète
+  ce_qui_est:  'portrait_excellence',  // fld0NcuYf7uYf93rT — ce qu'il fait · ce qui reste à explorer
+  declencheur: 'declencheur',          // fldDQ9wHHZGKh8ZOQ — quand cela s'active, quand cela faiblit
+  gradient:    'gradient'              // fldBv7tvjxsCi4Emm — là où c'est solide, là où ça cède
 };
 
 /**
