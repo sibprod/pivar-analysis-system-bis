@@ -496,7 +496,11 @@ async function getBilanExcellences(candidat_id, options) {
     // sa synthèse s'AJOUTE au bilan — l'initiale reste affichée telle quelle.
     // 🔒 (22/07) : en version AVANT-TEST, l'état du test est masqué — la page
     // rend l'invitation d'époque, pas le pavé.
-    if (_versionAvant) { profil.version_bilan = 'avant_test'; return profil; }
+    // ⚠️ La page exige { profil, excellences } — renvoyer `profil` seul
+    //    affichait « Données de bilan incomplètes » sur toute version
+    //    avant-test. Les cartes (T5B) ne sont jamais mises à jour : les
+    //    servir telles quelles EST l'état avant-test. (Corrigé 26/08.)
+    if (_versionAvant) { profil.version_bilan = 'avant_test'; return { profil, excellences }; }
     try {
       const synthTest = await getTestDecSynthese(candidat_id);
       if (synthTest && synthTest.niveau_global) {
