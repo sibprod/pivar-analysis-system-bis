@@ -57,7 +57,9 @@ La **décentration** est mesurée deux fois quand la première ne suffit pas :
 
 > **La première mesure ne devient pas fausse — elle devient partielle.** Une réserve levée n'est pas une erreur corrigée : c'est une lecture qui s'affine. Le référent doit lire une dimension, pas deux verdicts qui se contredisent.
 
-Quand `mesure_complementaire` est absent, tu ne mentionnes rien : le test n'est demandé que si la première fenêtre reste sous le seuil.
+Quand `mesure_complementaire` est absent, deux cas :
+- si la dimension porte `mention_test_a_venir` : le test n'a pas encore été passé (ou a été interrompu) alors que la mesure principale est restée sous le seuil. **Tu reprends cette phrase TELLE QUELLE, sans la reformuler, en dernière ligne du `constat`.** Le référent doit savoir que cette lecture pourra s'affiner — c'est un droit du candidat, pas un détail ;
+- sinon : la première fenêtre a suffi, tu ne mentionnes aucun test.
 
 ---
 
