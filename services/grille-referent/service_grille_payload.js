@@ -72,8 +72,19 @@ const SUBSTITUTIONS = [
   [/\bl['’]\s*animal(?:_\d)?\b/gi,         'une responsabilité confiée'],
   [/\bun\s+animal\b/gi,                   'une responsabilité confiée'],
   [/\banimal(?:_\d)?\b/gi,                 'responsabilité confiée'],
+  //   Blocage du 26/08 : « propriétaire » passait hors des deux formes traitées
+  //   (le singulier et les constructions du/au n'étaient pas couverts). Les
+  //   textes du test et de la fusion circulent depuis la réparation des noms —
+  //   avec leur vocabulaire de scénario. Couverture totale, repli nu en dernier.
   [/\bses propri[ée]taires\b/gi,          'ceux qui la lui ont confiée'],
   [/\bles propri[ée]taires\b/gi,          'ceux qui la lui ont confiée'],
+  [/\bdes\s+propri[ée]taires\b/gi,        'de ceux qui la lui ont confiée'],
+  [/\baux\s+propri[ée]taires\b/gi,        'à ceux qui la lui ont confiée'],
+  [/\ble\s+propri[ée]taire\b/gi,          'celui qui la lui a confiée'],
+  [/\bdu\s+propri[ée]taire\b/gi,          'de celui qui la lui a confiée'],
+  [/\bau\s+propri[ée]taire\b/gi,          'à celui qui la lui a confiée'],
+  [/\bpropri[ée]taires\b/gi,              'ceux qui la lui ont confiée'],
+  [/\bpropri[ée]taire\b/gi,               'celui qui la lui a confiée'],
   [/\ble v[ée]t[ée]rinaire\b/gi,          'un spécialiste'],
   [/\bdu v[ée]t[ée]rinaire\b/gi,          "d'un spécialiste"],
   [/\bles croquettes\b/gi,                'les consignes reçues'],
