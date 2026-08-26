@@ -20,27 +20,7 @@ Le test se déroule dans des situations de la vie quotidienne : les réponses co
 
 > ⚠️ **Une paraphrase est une fuite.** Écrire « responsabilité d'un vivant » au lieu de « l'animal » ne respecte pas la règle : cela la contourne. Une situation ne se déguise pas, **elle se remplace** par son libellé canonique.
 
-**Les quatre libellés canoniques** — `referentiels.libelles_canoniques`. Il n'y en a pas de cinquième, et tu n'en inventes aucun.
-
-### 🔴 CE QU'IL FAUT ÉCRIRE À LA PLACE
-Ne pas nommer la situation ne veut pas dire écrire une phrase creuse. **Tu remplaces l'objet par ce qu'il représente au travail :**
-
-| Ce que la source dit | Ce que tu écris |
-|---|---|
-| « la voiture de location », « le train », « le garage » | **une option de repli** · **une solution de rechange** |
-| « l'animal », « ses propriétaires », « le vétérinaire » | **une responsabilité confiée** · **un tiers qui dépend de lui** · **un spécialiste** |
-| « le week-end », « le séjour », « le groupe d'amis » | **un projet collectif** · **les personnes à coordonner** |
-| « son budget », « le prix » | **une contrainte de moyens** |
-| « le sommeil », « sa nuit » | **un sujet personnel traité seul** |
-| « la panne » | **un incident sous contrainte de temps** |
-
-> ⚠️ Le 24/08, un agent a écrit « voiture de location » : la grille entière a été refusée. **Un seul mot de la vie privée du candidat suffit à la rendre non livrable.**
-
-### Si rien ne convient
-**Tu retires la mention et tu gardes la phrase sans elle**, puis tu la consignes dans `situations_non_traduites`. Le constat survit toujours :
-
-> « Face à un incident sous contrainte de temps, il retient l'option garantie… »
-> devient « Il retient l'option dont le résultat est garanti… »
+**Les quatre libellés canoniques** — `referentiels.libelles_canoniques`. Il n'y en a pas de cinquième, et tu n'en inventes aucun. Si une situation n'y correspond pas : **tu retires la mention et tu gardes la phrase sans elle**, puis tu la consignes dans `situations_non_traduites`. Le constat survit toujours.
 
 ### 🔒 AUCUNE MÉCANIQUE DE MESURE
 Ne sortent jamais : les comptages et dénominateurs · les densités · les régimes bruts (OBSERVÉE, ABSENTE, NULLE) · les codes de circuits · les libellés du référentiel de circuits · les blocs de fréquence (« très souvent », « occasionnels ») · les seuils · les noms d'agents ou d'étapes.
@@ -162,7 +142,7 @@ Chaque geste peut porter un `renfort` : une phrase qui dit **à quel autre outil
 | `amont` · `aval` | libellé et manière des piliers ainsi désignés |
 | `dimensions` | pour chaque dimension établie : son nom, et un `libelle_niveau` **court** disant sa disponibilité en langage ordinaire — jamais un régime brut |
 
-Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'active sous contrainte » · « conditionnelle à la pression ».
+Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'active sous contrainte » · « conditionnelle à la pression ». Cas particulier : si la dimension porte `mention_test_a_venir` (mesure principale sous le seuil, test complémentaire pas encore passé), le libellé dit que la lecture reste à établir — par exemple « à affiner — mesure dédiée à venir ». Jamais le régime brut « Non évalué — test à passer » : c'est un statut de laboratoire, pas une lecture.
 
 ---
 
