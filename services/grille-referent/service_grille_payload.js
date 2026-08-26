@@ -220,6 +220,15 @@ function neutraliser(texte) {
     .replace(/\bde\s+l\s+(?=[a-zà-ÿ])/gi, "de la ")   // « de l responsabilité » → « de la »
     .replace(/\bl\s+(responsabilit[ée])/gi, 'la $1')
     .replace(/\s*\(\s*\)/g, '')          // parenthèses vidées par les suppressions
+    // ── Débris des libellés fusionnés (26/08) — les scores sont effacés par
+    //    doctrine, il ne doit rester ni parenthèse au contenu vidé
+    //    (« (fenêtre principale : ) »), ni tiret orphelin en tête, ni
+    //    « ( — texte » après effacement d'un score en tête de parenthèse.
+    .replace(/\s*\([^()]*[:;]\s*\)/g, '')            // « (fenêtre principale : ) » → supprimé
+    .replace(/\s*\(\s*\d+\s*%\s*\)/g, '')            // « (40%) » — un score aussi → supprimé
+    .replace(/\b\d+\s*%(?=\s|$|[,.;:)])/g, '')       // « 40% » nu                → supprimé
+    .replace(/\(\s*[—–-]\s*/g, '(')                  // « ( — test… »           → « (test… »
+    .replace(/^\s*[—–-]\s*/g, '')                    // «  — test… » en tête     → « test… »
     .replace(/\s*,\s*(?=[,.;:])/g, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([,.;:])/g, '$1')
