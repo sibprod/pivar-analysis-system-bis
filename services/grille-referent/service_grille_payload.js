@@ -415,7 +415,10 @@ async function construire(candidat_id) {
     MET: b4.niv_metacognition, METACOGNITION: b4.niv_metacognition
   };
   for (const d of dimensions) {
-    const cle = String(d.excellence || '').toUpperCase().replace(/[^A-Z]/g, '');
+    // ⚠️ sansAccents AVANT le filtre A-Z : sinon « Décentration » perd son É
+    //    et devient « DCENTRATION » — la clé « DCE » ne matche jamais DEC,
+    //    et la dimension garde son libellé d'avant-test. (Piège du 26/08.)
+    const cle = sansAccents(String(d.excellence || '')).toUpperCase().replace(/[^A-Z]/g, '');
     const niveau = NIVEAUX[cle] || NIVEAUX[cle.slice(0, 3)];
     if (niveau) {
       d.niveau_global = niveau;          // le niveau fusionné fait foi
@@ -442,7 +445,7 @@ async function construire(candidat_id) {
   const testDec = await refGrille.getTestDecentration(candidat_id);
   if (testDec) {
     const iDec = dimensions.findIndex(d =>
-      /^DEC/i.test(String(d.excellence || '').replace(/[^A-Za-z]/g, '')));
+      /^DEC/i.test(sansAccents(String(d.excellence || '')).replace(/[^A-Za-z]/g, '')));
     if (iDec >= 0) {
       dimensions[iDec].mesure_complementaire = {
         libelle:     testDec.libelle,
