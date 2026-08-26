@@ -83,6 +83,12 @@ async function produire(candidat_id) {
     };
   }
 
+  // ── 2bis · Le jargon D95 de la sortie des agents se remplace par le code.
+  // (24/08 : « Cette disposition » écrit par un agent ; 26/08 : récidive.
+  //  Le prompt seul ne suffit pas — la mécanique passe avant les contrôles.
+  //  Les mots de SCÉNARIO ne sont pas concernés : eux doivent bloquer.)
+  grille = payloadService.substituerJargonSortie(grille);
+
   // ── 3 · Les contrôles. Un bloquant interdit l'écriture.
   const verdict = controles.controler(grille, payload);
   if (!verdict.conforme) {
@@ -118,7 +124,11 @@ async function produire(candidat_id) {
     version_equivalences: payload.referentiels.version_equivalences,
     date_generation:      new Date().toISOString(),
     statut:               'produite',
-    alerte_revision:      verdict.signalements.length > 0
+    alerte_revision:      verdict.signalements.length > 0,
+    // ⚠️ La case d'alerte se levait sans dire POURQUOI : la garante voyait un
+    //    signal sans pouvoir le lire. Les signalements sont désormais écrits
+    //    en clair, un par ligne. Une alerte muette ne sert à personne.
+    signalements:         verdict.signalements.join('\n') || ''
   });
 
   logger.info('Grille référent — produite', {
