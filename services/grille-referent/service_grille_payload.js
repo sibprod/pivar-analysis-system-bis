@@ -250,6 +250,52 @@ function neutraliserTout(o) {
 function sansAccents(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// JARGON D95 — substitution mécanique de la SORTIE des agents (26/08)
+// Le socle bannit ces mots ; un agent en a écrit un le 24/08, un autre le
+// 26/08 — le prompt seul ne suffit pas. Ce qui est mécanique se fait par le
+// code : le jargon de laboratoire se remplace AVANT les contrôles.
+// ⚠️ PÉRIMÈTRE STRICT : uniquement des tics de langage sans danger à corriger.
+//    Les mots de SCÉNARIO (vivant, propriétaire, séjour…) ne figurent PAS ici
+//    et ne doivent JAMAIS y figurer : eux signalent une fuite de contenu du
+//    test — les substituer masquerait la fuite au lieu de la refuser. Pour
+//    eux, le contrôle D-PREUVE reste bloquant, c'est voulu.
+// ═══════════════════════════════════════════════════════════════════════════
+const JARGON_SORTIE = [
+  [/\bcette\s+disposition\b/gi,           'cette manière de fonctionner'],
+  [/\bces\s+dispositions\b/gi,            'ces manières de fonctionner'],
+  [/\bune\s+disposition\b/gi,             'une manière de fonctionner'],
+  [/\bdispositions\s+cognitives\b/gi,     'manières de fonctionner'],
+  [/\bdisposition\s+cognitive\b/gi,       'manière de fonctionner'],
+  [/\bpatterns?\s+d['’]activations?\b/gi, 'fonctionnement récurrent'],
+  [/\bpatterns\b/gi,                      'fonctionnements récurrents'],
+  [/\bpattern\b/gi,                       'fonctionnement récurrent'],
+  [/\bdiagnostiques\b/gi,                 "riches d'enseignement"],
+  [/\bdiagnostique\b/gi,                  "riche d'enseignement"],
+  [/\bactivations?\b/gi,                  'manifestations'],
+  [/\bdensit[ée]s?(?![a-zà-ÿ])/gi,        'fréquence'],
+  [/(^|[^a-zà-ÿ])[àa]\s+pleine\s+intensit[ée](?![a-zà-ÿ])/gi, '$1à sa pleine expression'],
+  [/\bpleine\s+intensit[ée](?![a-zà-ÿ])/gi, 'pleine expression'],
+  [/\bintensit[ée]\s+partielle\b/gi,      'expression partielle'],
+];
+
+/** Remplace le jargon D95 dans la sortie assemblée des agents, en profondeur. */
+function substituerJargonSortie(o) {
+  if (typeof o === 'string') {
+    let t = o;
+    for (const [motif, remplacement] of JARGON_SORTIE) t = t.replace(motif, remplacement);
+    return t;
+  }
+  if (Array.isArray(o)) return o.map(substituerJargonSortie);
+  if (o && typeof o === 'object') {
+    const r = {};
+    for (const k of Object.keys(o)) r[k] = substituerJargonSortie(o[k]);
+    return r;
+  }
+  return o;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // R9 · LA SÉLECTION DES GESTES
 // Pour chaque pilier : le bloc le plus haut qui EXISTE pour lui.
 // Un pilier fonctionnel n'est appelé que sous contrainte : il peut n'avoir aucun
@@ -659,4 +705,4 @@ async function construire(candidat_id) {
   return sortie;
 }
 
-module.exports = { construire, selectionnerGestes, CASCADE, ORDRE_PILIERS, SOCLE_VERS_CLE };
+module.exports = { construire, selectionnerGestes, substituerJargonSortie, CASCADE, ORDRE_PILIERS, SOCLE_VERS_CLE };
