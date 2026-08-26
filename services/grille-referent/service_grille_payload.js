@@ -463,6 +463,30 @@ async function construire(candidat_id) {
     });
   }
 
+  // ── 5quater · Cas « test non passé » — mention mécanique (garante, 26/08) ──
+  // Exigence : la grille dit toujours l'état le plus à jour du candidat.
+  // Si la fenêtre principale est restée sous le seuil et qu'AUCUN résultat de
+  // test complémentaire n'existe (jamais passé, ou arrêté en route), la grille
+  // doit le dire : la mesure pourra s'affiner, et le profil avec elle.
+  // La phrase part d'ici ; l'agent la reprend TELLE QUELLE (prompt_3).
+  {
+    const iDecM = dimensions.findIndex(d =>
+      /^DEC/i.test(sansAccents(String(d.excellence || '')).replace(/[^A-Za-z]/g, '')));
+    if (iDecM >= 0) {
+      const dM = dimensions[iDecM];
+      const niveauM = String(dM.niveau_global || '');
+      const sousSeuil = /non [ée]valu[ée]|test [àa] passer|r[ée]serve/i.test(niveauM);
+      const dejaFusionne = /test compl[ée]mentaire/i.test(niveauM) || !!dM.mesure_complementaire;
+      if (sousSeuil && !dejaFusionne) {
+        dM.mention_test_a_venir =
+          "La décentration n'a pas encore fait l'objet de sa mesure dédiée : " +
+          "un test complémentaire court pourra affiner cette lecture — et, avec elle, " +
+          "certaines conclusions du profil.";
+        logger.info('Grille — décentration : mention test à venir posée', { candidat_id });
+      }
+    }
+  }
+
   const type_cognitif = b4.type_cognitif || '';
   if (!type_cognitif) manques.push('type cognitif absent — la tuile ne peut pas être désignée');
 
