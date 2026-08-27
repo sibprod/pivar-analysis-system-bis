@@ -113,7 +113,9 @@ module.exports = {
     //    de raisonnement, zéro texte. Il portait DEUX missions — il est découpé.
     agent_grille_profil:     16000,
     agent_grille_apport:     24000,
-    agent_grille_dimensions: 20000,
+    agent_grille_dimensions: 64000,  // ⭐ 26/08 : thinking ON ⇒ 64000 (doctrine LOT 19 ci-dessus).
+                                     // À 20000, le thinking (observé : 26 357 chars) épuisait le
+                                     // quota partagé et tronquait le texte (échec Rémi 26/08).
     agent_grille_selection:  24000,
     agent_grille_redaction:  32000,
     agent_grille_syntheses:  16000,
