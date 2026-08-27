@@ -1,0 +1,179 @@
+// services/etape2/agentT5C.js
+// Agent T5C — Profil global + verdicts des deux faces du métier (Étape 2)
+//
+// ⚠️ AVANT MODIFICATION : lire docs/ARCHITECTURE_PROFIL_COGNITIF.md
+//
+// Rôle :
+//   - Lit les 4 lignes T5B déjà produites en base (comptages, régimes, densités,
+//     synthèses, réserves par excellence).
+//   - ⭐ 27/08/2026 (Mission 1) : lit les RÉFÉRENTIELS DES VERSANTS en base
+//     (REFERENTIEL_ENCADRER_MANAGER + REFERENTIEL_DIMENSIONS) et les injecte
+//     dans le payload — le prompt ne porte plus de cadrage doctrinal figé :
+//     la base fait foi (arbitrage garante 27/08/2026 : encadrer = ANT + MET
+//     fondatrices, VUE contributive · manager = DEC fondatrice, VUE + ANT
+//     contributives). Référentiel illisible = ARRÊT (aucun verdict sans
+//     doctrine — même logique que « une grille fausse ne s'écrit pas »).
+//   - Appelle le prompt new-prompts/etape2/prompt_etape2_b_T5C_profil.md qui en
+//     déduit le profil global + les verdicts des deux faces (« Faire avancer le
+//     travail » / « Révéler le potentiel de chacun »).
+//   - Écrit T5C (upsert sur candidat).
+//
+// Pattern : un service par prompt (aligné sur agentT5A / agentT5B …).
+// Pré-requis : T5B doit avoir été produit (agent B) avant d'appeler cet agent.
+//
+// Robustesse : si l'agent omet un verdict_*_niveau (dérivable), on le dérive ici.
+
+'use strict';
+
+const agentBase       = require('../infrastructure/agentBase');
+const airtableService = require('../infrastructure/airtableService');
+const logger          = require('../../utils/logger');
+
+const PROMPT_PATH  = 'etape2/prompt_etape2_b_T5C_profil.md';
+const SERVICE_NAME = 'agent_t5c';
+
+const VERDICTS = ['TRÈS BON', 'BON', 'SUFFISANT', 'RÉSERVE DE PROTOCOLE', 'DÉFAVORABLE'];
+
+// Extrait la valeur de verdict isolée depuis un libellé complet (« ✅ TRÈS BON — … »).
+function deriveVerdictNiveau(libelleOuNiveau) {
+  const v = String(libelleOuNiveau || '').toUpperCase();
+  for (const k of VERDICTS) { if (v.includes(k)) return k; }
+  return '';
+}
+
+/**
+ * Exécute l'agent T5C pour un candidat.
+ * @param {Object} params
+ * @param {string} params.candidat_id - session_id du candidat
+ * @returns {Promise<{ t5c: boolean, cost: number }>}
+ */
+async function run({ candidat_id }) {
+  logger.info('Agent T5C — démarrage', { candidat_id });
+
+  // Entrée : les 4 lignes T5B déjà produites en base.
+  const t5bRowsRaw = await airtableService.getEtape2T5BRows(candidat_id);
+  if (!t5bRowsRaw || t5bRowsRaw.length === 0) {
+    throw new Error(`Agent T5C : aucune ligne T5B pour ${candidat_id} (lancer l'agent B d'abord)`);
+  }
+
+  // ⭐ Les référentiels des versants (Mission 1, garante 27/08/2026) : la
+  // doctrine des deux faces et des quatre dimensions vit EN BASE — le C la
+  // reçoit telle quelle, il ne porte plus de cadrage figé. Sans elle, PAS de
+  // verdict : l'erreur remonte et arrête le run (jamais de repli silencieux).
+  const referentielEM  = await airtableService.getReferentielEncadrerManager();
+  const referentielDim = await airtableService.getReferentielDimensions();
+
+  // Vue compacte transmise à l'agent (comptages / régimes / densités / synthèses).
+  // On ne transmet pas les portraits longs ni les verbatims_preuves : T5C raisonne
+  // sur les agrégats, pas sur le détail rédactionnel.
+  const lignes_t5b = t5bRowsRaw.map(r => ({
+    excellence:      val(r.excellence),
+    niveau_global:   r.niveau_global || '',
+    pattern:         r.pattern || '',
+    niveau_densite:  val(r.niveau_densite),
+    nb_eleve:        r.nb_eleve || 0,
+    nb_moyen:        r.nb_moyen || 0,
+    nb_faible:       r.nb_faible || 0,
+    nb_nulle:        r.nb_nulle || 0,
+    densite_sommeil: r.densite_sommeil || '',
+    densite_weekend: r.densite_weekend || '',
+    densite_animal:  r.densite_animal || '',
+    densite_panne:   r.densite_panne || '',
+    declencheur:     r.declencheur || '',
+    synthese:        r.synthese || '',
+    reserve:         r.reserve || ''
+  }));
+
+  // ⭐ Le bilan Étape 1 (garante, 09/07) — même contexte que les rédacteurs B :
+  // jamais de verdict écrit sans connaître le bilan pilier du candidat.
+  const contexteEtape1 = await airtableService.getDejaDitEtape1(candidat_id).catch((e) => {
+    logger.error('⚠️ CONTEXTE ÉTAPE 1 MANQUANT au C — verdicts écrits SANS le bilan pilier (violation de protocole à auditer)', {
+      candidat_id, error: e.message
+    });
+    return {};
+  });
+
+  // 🔒 L'état du test complémentaire (garante, 20/07) : la ligne T5B initiale
+  // est immuable (doctrine 03/07) — c'est donc LA SYNTHÈSE du test qui porte
+  // l'état. Le C la reçoit : présente = régime APRÈS-test ; absente = AVANT.
+  const testDec = await airtableService.getTestDecSynthese(candidat_id).catch((e) => {
+    logger.error('⚠️ Synthèse test non lue au C — régime avant/après test indécidable', {
+      candidat_id, error: e.message
+    });
+    return null;
+  });
+
+  const { result, cost } = await agentBase.callAgent({
+    serviceName: SERVICE_NAME,
+    promptPath:  PROMPT_PATH,
+    payload:     { candidat_id, lignes_t5b,
+                   // ⭐ Les doctrines des versants, injectées depuis la base
+                   // (Mission 1, garante 27/08/2026) — reprises telles quelles
+                   // par le prompt, toute reformulation interdite.
+                   referentiel_encadrer_manager:
+                     airtableService.formaterEncadrerManagerPourPrompt(referentielEM),
+                   referentiel_dimensions:
+                     airtableService.formaterDimensionsPourPrompt(referentielDim),
+                   // ⭐ L'état et la mesure du test complémentaire (garante, 20/07)
+                   test_decentration: (testDec && testDec.niveau_global)
+                     ? { niveau_global: testDec.niveau_global,
+                         pattern:       testDec.pattern       || '',
+                         synthese:      testDec.synthese      || '',
+                         reserve:       testDec.reserve       || '',
+                         declencheur:   testDec.declencheur   || '' }
+                     : null,
+                   // ⭐ Le bilan Étape 1 en entrée (garante, 09/07) : le C écrit
+                   // les verdicts, la lecture du découpage et la montée EN
+                   // CONNAISSANCE du bilan pilier du candidat — jamais de
+                   // contradiction nue entre les deux documents.
+                   profil_etape1:   (contexteEtape1 && contexteEtape1.profil_etape1)   || {},
+                   deja_dit_etape1: (contexteEtape1 && contexteEtape1.deja_dit_etape1) || {} },
+    candidatId:  candidat_id
+  });
+
+  const t5c = pick(result, ['T5C', 't5c', 'profil']) || {};
+
+  const t5cFields = {
+    candidat_id,
+    profil_dominant:        t5c.profil_dominant || '',
+    portrait_un_mot:        t5c.portrait_un_mot || '',
+    combinaison:            t5c.combinaison || '',
+    ordre_excellences:      t5c.ordre_excellences || '',
+    ANT_densite:            t5c.ANT_densite || '',
+    DEC_densite:            t5c.DEC_densite || '',
+    MET_densite:            t5c.MET_densite || '',
+    VUE_densite:            t5c.VUE_densite || '',
+    verdict_encadrement:    t5c.verdict_encadrement || '',
+    verdict_management:     t5c.verdict_management || '',
+    verdict_enc_niveau:     t5c.verdict_enc_niveau || deriveVerdictNiveau(t5c.verdict_encadrement),
+    verdict_man_niveau:     t5c.verdict_man_niveau || deriveVerdictNiveau(t5c.verdict_management),
+    B4_conclusions_enc:     t5c.B4_conclusions_enc || '',
+    B4_conclusions_man:     t5c.B4_conclusions_man || '',
+    conditions_encadrement: t5c.conditions_encadrement || '',
+    conditions_management:  t5c.conditions_management || '',
+    montee_autre_face:      t5c.montee_autre_face || '',
+    reserves_globales:      t5c.reserves_globales || ''
+  };
+
+  // 🔒 Versionnage (garante, 22/07) : une écriture faite en connaissance de la
+  // mesure du test est marquée post-test → le service fige le bilan avant-test
+  // (première fois) et miroite celle-ci dans bilan_post_test.
+  if (testDec && testDec.niveau_global) t5cFields.__post_test = true;
+
+  const t5cOk = await airtableService.upsertEtape2T5C(candidat_id, t5cFields);
+
+  logger.info('Agent T5C — terminé', {
+    candidat_id, t5c: t5cOk, cost_usd: (cost || 0).toFixed(4)
+  });
+  return { t5c: t5cOk, cost: cost || 0 };
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────
+function val(v) { return (v && (v.name || v)) || ''; }
+function pick(obj, keys) {
+  if (!obj) return null;
+  for (const k of keys) { if (obj[k] !== undefined) return obj[k]; }
+  return null;
+}
+
+module.exports = { run };
