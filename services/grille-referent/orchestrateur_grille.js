@@ -33,7 +33,10 @@ async function produire(candidat_id) {
   }
 
   // ── 2 · Les quatre agents, et l'assemblage de leurs sorties.
-  const { grille, cost: coutAgent, manquantes } = await agent.executer(payload);
+  // `let` (26/08) : la grille est réassignée par la substitution mécanique de
+  // jargon (2bis) avant les contrôles — `const` levait « Assignment to
+  // constant variable » et arrêtait le pipeline après l'assemblage.
+  let { grille, cost: coutAgent, manquantes } = await agent.executer(payload);
   cost += coutAgent;
 
   // ── 2bis · SAUVEGARDE — première opération après les agents, avant TOUT contrôle
