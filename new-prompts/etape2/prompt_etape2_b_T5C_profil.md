@@ -1,5 +1,5 @@
 # AGENT T5C — Profil global + verdicts des deux faces du métier
-## Projet Profil-Cognitif · Étape 2 · v1.5 (référentiels des versants injectés)
+## Projet Profil-Cognitif · Étape 2 · v1.6 (référentiels des versants injectés)
 
 <!-- HISTORIQUE DE VERSIONS
  v1.5 (2026-08-27) : Mission 1 — le cadrage doctrinal des deux faces et des
@@ -89,6 +89,13 @@ Verdicts autorisés en base (valeurs EXACTES) : **TRÈS BON · BON · SUFFISANT 
 >   modéré · 3-4/4 = dense (verdicts BON/TRÈS BON accessibles). La ligne T5B
 >   de la décentration, immuable, dit toujours « test à passer » : elle ne
 >   t'informe PAS de l'état — ignore-la pour le verdict.
+>   🔒 **MODULATION PAR LES ZONES DE RÉSISTANCE (garante, 28/08/2026)** : le
+>   X/4 fixe le niveau de DÉPART du verdict management. Si le test a identifié
+>   une zone de résistance touchant le CŒUR du rôle managérial (ex. : affect
+>   négatif envers un protagoniste → rétention d'information, absence de
+>   bascule), le verdict descend d'UN cran — et la réserve NOMME l'éteignoir
+>   et donne au référent la question d'entretien qui permet de le vérifier.
+>   Une résistance périphérique au rôle ne module pas. Jamais plus d'un cran.
 > - **S'il est ABSENT (null)** : les règles ci-dessous s'appliquent telles
 >   quelles.
 >
@@ -172,6 +179,15 @@ la paire ANT + MET pour l'encadrement, DEC — ou sa mesure test — pour le man
 | Denses / régulières et ancrées (les deux, côté encadrement) | **TRÈS BON** |
 | Présentes et ancrées, sans plein régime | **BON** |
 | Modérées / partielles, exploitables avec cadre — ou la plus faible de la paire modérée | **SUFFISANT** |
+
+> 🔒 **CAS TRANCHÉ (garante, 28/08/2026) — « ancrée en régime modéré » compte
+> comme MODÉRÉE pour ce calage, jamais comme « ancrée » au sens de la ligne
+> BON.** Deux fondatrices ancrées en régime modéré (régularité prouvée, jamais
+> de plein régime) → **SUFFISANT**. La prudence prime : le verdict n'est pas
+> une dispense d'évaluation — le référent vérifie en entretien avec les
+> questions et vigilances fournies. La ligne « présentes et ancrées, sans
+> plein régime → BON » exige qu'AUCUNE des fondatrices ne soit en régime
+> modéré.
 | Le scénario ne crée jamais les conditions d'activation → non concluant (DEC seulement) | **RÉSERVE DE PROTOCOLE** |
 | Fondatrice absente constatée (encadrement : ANT absente = ne sécurise pas · MET absente = ne peut pas expliciter sa méthode pour transmettre · management, après test : DEC concentrée sur un seul type d'objet → non transférable) | **DÉFAVORABLE** |
 
