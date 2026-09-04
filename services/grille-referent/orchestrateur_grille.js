@@ -1,3 +1,4 @@
+// ⟦LOT 2026-09-04 ab⟧ orchestrateur_grille.js — écrit les 4 champs de profil hors JSON (doctrine 92)
 // services/grille-referent/orchestrateur_grille.js
 // Enchaîne : payload → agent → contrôles → écriture.
 //
@@ -123,6 +124,14 @@ async function produire(candidat_id) {
   await refGrille.upsertGrilleReferent(candidat_id, {
     grille_json:          JSON.stringify(grille),
     cle_tuile:            payload.profil.cle_tuile,
+
+    // ⟦04/09/2026⟧ Les quatre champs de profil, exposés hors du JSON pour que
+    // l'espace référent les lise sans parser la grille — et pour qu'aucun écran
+    // n'ait besoin d'inventer un libellé quand il ne trouve rien (doctrine 92).
+    type_referentiel_libelle:        grille.cartouche?.type_referentiel_libelle || payload.profil.tuile?.titre || '',
+    type_referentiel_zone:           grille.cartouche?.type_referentiel_zone    || payload.profil.tuile?.zone  || '',
+    profil_personnalise_libelle:     grille.cartouche?.profil_personnalise_libelle     || '',
+    profil_personnalise_explication: grille.cartouche?.profil_personnalise_explication || '',
     version_profils:      payload.referentiels.version_profils,
     version_equivalences: payload.referentiels.version_equivalences,
     date_generation:      new Date().toISOString(),
