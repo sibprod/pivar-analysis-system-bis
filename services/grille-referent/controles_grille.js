@@ -1,4 +1,4 @@
-// ⟦LOT 2026-09-04 ac⟧ controles_grille.js — contrôles de la grille référent · ajout 7bis : cohérence cartouche ↔ blocs de dimensions (jurisprudence 04/09)
+// ⟦LOT 2026-09-04 ad⟧ controles_grille.js — contrôles de la grille référent · ajout 7bis : cohérence cartouche ↔ blocs de dimensions (jurisprudence 04/09)
 // services/grille-referent/controles_grille.js
 // Les contrôles de sortie de la grille référent.
 //
@@ -458,6 +458,18 @@ function controler(grille, payload) {
   // Aucun contrôle ne l'a vu : c'est l'œil humain qui a rattrapé. Plus jamais.
   {
     const NOMS = { DEC: 'décentration', ANT: 'anticipation', MET: 'méta-cognition', VUE: 'vue systémique' };
+    // ⟦04/09/2026⟧ Un code interne au cartouche empêche l'écran de rapprocher le
+    // cartouche des blocs (« manques » affichés pour DEC/ANT) et viole l'interdit
+    // des codes au rendu. Le cartouche nomme par le nom exact, comme les blocs.
+    const EXACTS = ['Décentration cognitive', 'Anticipation spontanée', 'Méta-cognition', 'Vue systémique'];
+    for (const dim of tabSafe(grille.cartouche?.dimensions)) {
+      const n = String(dim.nom || '').trim();
+      if (/^(DEC|ANT|MET|VUE)$/i.test(n)) {
+        bloquants.push(`cartouche : dimension nommée par son code « ${n} » — le nom exact est attendu (${EXACTS.join(' · ')})`);
+      } else if (n && !EXACTS.some(e => normaliser(e) === normaliser(n))) {
+        signalements.push(`cartouche : « ${n} » n'est pas un nom exact d'excellence`);
+      }
+    }
     const EXEMPLES_INTERDITS = [
       'très ciblée — réflexion solitaire seulement'   // exemple du prompt_1 : jamais une valeur
     ];
