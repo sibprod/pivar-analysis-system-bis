@@ -1,4 +1,4 @@
-// ⟦LOT 2026-09-04 ab⟧ airtable_grille.js — accès Airtable du module grille · correctif DESALIGNEMENT par ID (jurisprudence 04/09)
+// ⟦LOT 2026-09-04 ac⟧ airtable_grille.js — accès Airtable du module grille · correctif DESALIGNEMENT par ID (jurisprudence 04/09)
 // services/grille-referent/airtable_grille.js
 // Les lecteurs des tables propres à la grille référent.
 //
@@ -190,6 +190,22 @@ async function getBilan4Profil(candidat_id) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Écrit ou remplace la grille du candidat. Le rendu est CONSERVÉ, jamais régénéré. */
+// ⟦04/09/2026⟧ SOURCE PURE — les 5 lignes T3 du candidat, pour le champ de lien piliers_T3_source.
+// Sans ce lien, les lookups T3_roles_source / T3_piliers_source restent vides et la structure
+// affichée n'a plus de garde-fou : c'est la jurisprudence « écart 47 » qui impose ce geste.
+const T_T3_PILIER = 'tblzDIn7P2cOvVvY2';
+async function idsPiliersT3(candidat_id) {
+  try {
+    const recs = await getBase()(T_T3_PILIER)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, fields: [] })
+      .all();
+    return recs.map(r => r.id);
+  } catch (e) {
+    logger.warn('Grille — lien piliers T3 non résolu (lookups vides)', { candidat_id, error: e.message });
+    return [];
+  }
+}
+
 async function upsertGrilleReferent(candidat_id, champs) {
   try {
     const base = getBase();
@@ -197,6 +213,12 @@ async function upsertGrilleReferent(candidat_id, champs) {
       .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
       .firstPage();
     const payload = { candidat_id, ...champs };
+
+    // Le lien de source pure est posé à chaque écriture : il doit suivre le candidat,
+    // même si ses lignes T3 ont été régénérées depuis la grille précédente.
+    const idsT3 = await idsPiliersT3(candidat_id);
+    if (idsT3.length) payload['piliers_T3_source'] = idsT3;
+    else logger.warn('Grille — aucune ligne T3 liée', { candidat_id });
 
     // typecast : Airtable refuse une valeur de liste déroulante qui ne correspond
     // pas EXACTEMENT à un choix configuré — un espace en trop dans un libellé
