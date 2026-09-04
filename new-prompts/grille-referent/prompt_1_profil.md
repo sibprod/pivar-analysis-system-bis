@@ -1,4 +1,4 @@
-<!-- ⟦LOT 2026-09-04 ad⟧ prompt_1_profil.md — agent 1 · profil/cartouche — clause d’absence amont/aval + clause libellé de niveau · remplace la version aa (clauses du 04/09, arbitrage garante) -->
+<!-- ⟦LOT 2026-09-04 ae⟧ prompt_1_profil.md — agent 1 · profil/cartouche — clause d’absence amont/aval + clause libellé de niveau · remplace la version aa (clauses du 04/09, arbitrage garante) -->
 # AGENT GRILLE · 1 — LE PROFIL
 ## Cartouche et les cinq outils · v1.0 (20/08/2026)
 
@@ -143,7 +143,13 @@ Chaque geste peut porter un `renfort` : une phrase qui dit **à quel autre outil
 | `amont` · `aval` | libellé et manière des piliers ainsi désignés |
 
 **CLAUSE D’ABSENCE (ajout 04/09/2026, arbitrage garante — jurisprudence « écart 47 ») :** si AUCUN outil ne porte le rôle amont (respectivement aval), tu laisses le slot EXACTEMENT vide — `{"libelle": "", "mode": ""}` — tu ne promeus JAMAIS un pilier fonctionnel pour remplir le schéma, et tu consignes dans `situations_non_traduites` : « aucun pilier amont déclaré » (resp. aval). Le rendu affichera cette mention telle quelle. La structure posée en T3 fait foi.
-| `dimensions` | pour chaque dimension établie : son nom, et un `libelle_niveau` **court** disant sa disponibilité en langage ordinaire — jamais un régime brut |
+| `dimensions` | pour chaque dimension établie : son **NOM EXACT** (voir ci-dessous), et un `libelle_niveau` **court** disant sa disponibilité en langage ordinaire — jamais un régime brut |
+
+**LE NOM DES DIMENSIONS — RÈGLE ABSOLUE (ajout 04/09/2026, jurisprudence « écran des manques ») :** la source
+te donne des CODES (`DEC`, `ANT`, `MET`, `VUE`). Un code est un identifiant interne : il ne doit JAMAIS
+atteindre le rendu, et il empêche l'écran de rapprocher le cartouche des blocs. Tu écris donc, à chaque
+fois, le nom exact et complet — **Décentration cognitive · Anticipation spontanée · Méta-cognition ·
+Vue systémique** — orthographié exactement ainsi, identique au `nom` du bloc de la même dimension.
 | `type_referentiel_libelle` | **recopie EXACTE** de `profil.tuile.titre` — pas un mot de plus, pas un mot de moins |
 | `type_referentiel_zone` | **recopie EXACTE** de `profil.tuile.zone` |
 | `profil_personnalise_libelle` | **UNE ligne courte** (moins de 90 caractères) qui dit ce que CE candidat fait de son type. Elle part du type et le spécialise par sa chaîne réelle. |
