@@ -1,3 +1,4 @@
+<!-- ⟦LOT 2026-09-04 ac⟧ prompt_1_profil.md — agent 1 · profil/cartouche — clause d’absence amont/aval + clause libellé de niveau · remplace la version aa (clauses du 04/09, arbitrage garante) -->
 # AGENT GRILLE · 1 — LE PROFIL
 ## Cartouche et les cinq outils · v1.0 (20/08/2026)
 
@@ -189,4 +190,4 @@ Exemples de `libelle_niveau` acceptables : « fiable au quotidien » · « s'act
 7. **Tout geste dont la narration dépasse 150 caractères PORTE un titre.** Compte les caractères de chaque narration avant de rendre — c'est vérifiable, et c'est vérifié.
 
 
-**CLAUSE LIBELLÉ DE NIVEAU (ajout 04/09/2026) :** une dimension MESURÉE au régime absent mais DOCUMENTÉE (matière réelle transmise) ne se libelle JAMAIS « non disponible » : son libellé dit l’expression réelle, très ciblée (ex. « très ciblée — réflexion solitaire seulement »). « Non disponible » est réservé au cas NON MESURÉ.
+**CLAUSE LIBELLÉ DE NIVEAU (ajout 04/09/2026, corrigée le 04/09 après contrôle) :** le `libelle_niveau` de CHAQUE dimension du cartouche est DÉRIVÉ du bloc de cette même dimension produit par l’agent des dimensions — il en résume le `quand` en une formule courte, dans TES mots, propres à ce candidat. Trois règles : (1) **aucun libellé n’est recopié d’un exemple** — les exemples ci-dessous illustrent la FORME, jamais le contenu ; (2) le libellé ne doit **jamais contredire** le constat de sa dimension (si le constat dit « traverse tous les contextes sans exception », le libellé ne peut pas dire « sous contrainte ») ; (3) « non disponible » est réservé au cas NON MESURÉ : une dimension dont le bloc existe porte un libellé qui dit son expression réelle, même rare. Formes admises (à remplir avec la matière du candidat, jamais telles quelles) : « — » suivi du contexte d’activation dominant ; ou « stable dans tous les contextes » ; ou « non mesurée — test à passer ».
