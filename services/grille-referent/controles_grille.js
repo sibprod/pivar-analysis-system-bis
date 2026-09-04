@@ -1,4 +1,4 @@
-// ⟦LOT 2026-09-04 ab⟧ controles_grille.js — contrôles de la grille référent · ajout 7bis : cohérence cartouche ↔ blocs de dimensions (jurisprudence 04/09)
+// ⟦LOT 2026-09-04 ac⟧ controles_grille.js — contrôles de la grille référent · ajout 7bis : cohérence cartouche ↔ blocs de dimensions (jurisprudence 04/09)
 // services/grille-referent/controles_grille.js
 // Les contrôles de sortie de la grille référent.
 //
@@ -500,6 +500,45 @@ function controler(grille, payload) {
       const present = tabSafe(grille.cartouche?.dimensions)
         .some(d2 => normaliser(NOMS[String(d2.nom || '').toUpperCase()] || '§') && normaliser(b.nom || '').includes(normaliser(NOMS[String(d2.nom || '').toUpperCase()] || '§')));
       if (!present) signalements.push(`dimension « ${b.nom} » produite mais absente du cartouche`);
+    }
+  }
+
+  // ── 7ter · LE PROFIL PERSONNALISÉ (ajout 04/09/2026, doctrine 92) ──
+  // Le référentiel donne le TYPE ; l'agent en produit la version du candidat.
+  // Sans ces contrôles, le champ pourrait recopier le référentiel (aucune valeur),
+  // baptiser un type inexistant, ou parler à la première personne (registre candidat
+  // servi au référent — c'est exactement ce que faisait l'ancien moteur DRH).
+  {
+    const cart = grille.cartouche || {};
+    const typeLib = String(cart.type_referentiel_libelle || '').trim();
+    const persoLib = String(cart.profil_personnalise_libelle || '').trim();
+    const persoExp = String(cart.profil_personnalise_explication || '').trim();
+
+    if (!typeLib) signalements.push('type_referentiel_libelle vide — le type du référentiel n\'a pas été recopié');
+    if (!String(cart.type_referentiel_zone || '').trim()) signalements.push('type_referentiel_zone vide');
+
+    if (!persoLib) {
+      signalements.push('profil_personnalise_libelle vide — le référent ne verra que le type');
+    } else {
+      if (normaliser(persoLib) === normaliser(typeLib)) {
+        bloquants.push('profil_personnalise_libelle recopie le libellé du référentiel — aucune version du candidat produite');
+      }
+      if (persoLib.length > 120) {
+        signalements.push(`profil_personnalise_libelle trop long (${persoLib.length} caractères) — une ligne suffit`);
+      }
+    }
+    if (!persoExp) signalements.push('profil_personnalise_explication vide');
+
+    // Registre : le référent ne reçoit jamais du « je »/« vous » (registre candidat).
+    const PREMIERE = /(^|[^a-zàâçéèêëîïôûùüÿñæœ])(je |j['’]|vous |votre |vos )/i;
+    for (const [nom, txt] of [['profil_personnalise_libelle', persoLib], ['profil_personnalise_explication', persoExp]]) {
+      if (txt && PREMIERE.test(txt)) {
+        bloquants.push(`${nom} : registre candidat (« je »/« vous ») dans un texte destiné au référent`);
+      }
+    }
+    // Ni chiffres de mesure, ni codes internes dans la version du candidat.
+    if (/\b\d+\s*\/\s*\d+\b/.test(persoExp) || /\bP[1-5]C\d+\b/.test(persoExp + ' ' + persoLib)) {
+      bloquants.push('profil personnalisé : chiffre de mesure ou code interne — interdits au rendu');
     }
   }
 
