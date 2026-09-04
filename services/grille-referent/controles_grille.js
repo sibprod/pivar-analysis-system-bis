@@ -1,4 +1,4 @@
-// ⟦LOT 2026-09-04 ad⟧ controles_grille.js — contrôles de la grille référent · ajout 7bis : cohérence cartouche ↔ blocs de dimensions (jurisprudence 04/09)
+// ⟦LOT 2026-09-04 ae⟧ controles_grille.js — contrôles de la grille référent · ajout 7bis : cohérence cartouche ↔ blocs de dimensions (jurisprudence 04/09)
 // services/grille-referent/controles_grille.js
 // Les contrôles de sortie de la grille référent.
 //
@@ -474,10 +474,22 @@ function controler(grille, payload) {
       'très ciblée — réflexion solitaire seulement'   // exemple du prompt_1 : jamais une valeur
     ];
     const blocs = tabSafe(grille.bloc_dimensions);
-    const blocPour = (code) => blocs.find(b => normaliser(b.nom || '').includes(normaliser(NOMS[code] || '§')));
+    // ⟦04/09/2026 · correctif ae⟧ Le cartouche nomme désormais par NOM EXACT (prompt ae).
+    // L'appariement doit donc se faire sur le nom, avec les codes acceptés seulement
+    // comme entrée héritée — sans quoi tout bloc est déclaré « absent du cartouche »
+    // (4 faux positifs constatés sur la grille du 04/09 15:16).
+    const cleDim = (v) => {
+      const n = normaliser(String(v || ''));
+      if (/^dec/.test(n) || n.includes('decentration')) return 'DEC';
+      if (/^ant/.test(n) || n.includes('anticipation')) return 'ANT';
+      if (/^met/.test(n) || n.includes('meta')) return 'MET';
+      if (/^vue/.test(n) || n.includes('systemique')) return 'VUE';
+      return null;
+    };
+    const blocPour = (code) => blocs.find(b => cleDim(b.nom) === code);
 
     for (const dim of tabSafe(grille.cartouche?.dimensions)) {
-      const code = String(dim.nom || '').toUpperCase();
+      const code = cleDim(dim.nom);   // par nom exact ou code hérité
       const lib  = String(dim.libelle_niveau || '').trim();
       const bloc = blocPour(code);
 
@@ -509,8 +521,8 @@ function controler(grille, payload) {
     }
     // d) un bloc produit sans ligne au cartouche = matière invisible au référent
     for (const b of blocs) {
-      const present = tabSafe(grille.cartouche?.dimensions)
-        .some(d2 => normaliser(NOMS[String(d2.nom || '').toUpperCase()] || '§') && normaliser(b.nom || '').includes(normaliser(NOMS[String(d2.nom || '').toUpperCase()] || '§')));
+      const k = cleDim(b.nom);
+      const present = tabSafe(grille.cartouche?.dimensions).some(d2 => cleDim(d2.nom) === k);
       if (!present) signalements.push(`dimension « ${b.nom} » produite mais absente du cartouche`);
     }
   }
