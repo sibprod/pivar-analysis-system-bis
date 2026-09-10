@@ -32,12 +32,22 @@ const logger          = require('../../utils/logger');
 const PROMPT_PATH  = 'etape2/prompt_etape2_b_T5C_profil.md';
 const SERVICE_NAME = 'agent_t5c';
 
-const VERDICTS = ['TRÈS BON', 'BON', 'SUFFISANT', 'RÉSERVE DE PROTOCOLE', 'DÉFAVORABLE'];
+// ⭐ 10/09/2026 — « DÉFAVORABLE » PROSCRIT (arbitrage garante) : c'est un jugement
+// sur une personne, alors que la méthode ne pose que des conditions d'exercice.
+// Remplacé par « NON ÉTABLI SUR CETTE MESURE » — un constat, pas un verdict.
+// L'ancien libellé reste accepté EN LECTURE seule (bilans figés avant cette date),
+// et il est converti : ce qui a été écrit ne se relit pas avec le mot proscrit.
+const VERDICTS = ['TRÈS BON', 'BON', 'SUFFISANT', 'RÉSERVE DE PROTOCOLE', 'NON ÉTABLI SUR CETTE MESURE'];
+const VERDICTS_HERITES = { 'DÉFAVORABLE': 'NON ÉTABLI SUR CETTE MESURE' };
 
 // Extrait la valeur de verdict isolée depuis un libellé complet (« ✅ TRÈS BON — … »).
 function deriveVerdictNiveau(libelleOuNiveau) {
   const v = String(libelleOuNiveau || '').toUpperCase();
   for (const k of VERDICTS) { if (v.includes(k)) return k; }
+  // Bilans antérieurs au 10/09 : on convertit plutôt que de rendre vide.
+  for (const [ancien, nouveau] of Object.entries(VERDICTS_HERITES)) {
+    if (v.includes(ancien)) return nouveau;
+  }
   return '';
 }
 
