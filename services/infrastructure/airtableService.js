@@ -470,7 +470,7 @@ async function getBilanExcellences(candidat_id, options) {
 
     function jaugeFromVerdict(verdictTxt, niveauTxt) {
       const v = String(verdictTxt || '').toUpperCase();
-      const na = v.includes('RÉSERVE') || v.includes('DÉFAVORABLE') || v.includes('NON');
+      const na = v.includes('RÉSERVE') || v.includes('NON') || v.includes('DÉFAVORABLE');   // « NON » couvre « NON ÉTABLI » · DÉFAVORABLE hérité
       const map = { 'TRÈS BON': 80, 'BON': 62, 'SUFFISANT': 45 };
       let pct = 0, lab = '';
       for (const k of Object.keys(map)) { if (v.includes(k)) { pct = map[k]; lab = k.charAt(0) + k.slice(1).toLowerCase(); break; } }
@@ -535,11 +535,15 @@ async function getBilanExcellences(candidat_id, options) {
       logger.error('Bilan — synthèse test non lue (non bloquant)', { candidat_id, error: eSynth.message });
     }
 
-    // 🔒 MASQUAGE CANDIDAT (garante, 03/07/2026) : le verdict DÉFAVORABLE est
-    // INTERNE (base/recruteur) — le candidat ne le lit JAMAIS. Son bilan affiche
-    // RÉSERVE DE PROTOCOLE + conseil du test complémentaire. Masqué ICI (serveur)
-    // pour que le mot n'atteigne jamais le navigateur, même dans le JSON.
-    if (String(profil.verdict_man_niveau || '').toUpperCase() === 'DÉFAVORABLE') {
+    // 🔒 MASQUAGE CANDIDAT (garante, 03/07/2026) : le verdict interne n'est PAS lu
+    // par le candidat. Son bilan affiche RÉSERVE DE PROTOCOLE + conseil du test
+    // complémentaire. Masqué ICI (serveur) pour que le mot n'atteigne jamais le
+    // navigateur, même dans le JSON.
+    // ⭐ 10/09/2026 — « DÉFAVORABLE » proscrit et remplacé par « NON ÉTABLI SUR
+    // CETTE MESURE ». Les deux sont masqués : le nouveau libellé, et l'ancien qui
+    // subsiste dans les bilans figés avant cette date.
+    const _niv = String(profil.verdict_man_niveau || '').toUpperCase();
+    if (_niv.includes('NON ÉTABLI') || _niv.includes('DÉFAVORABLE')) {
       profil.verdict_man_niveau = 'RÉSERVE DE PROTOCOLE';
       profil.verdict_man = "🛡️ RÉSERVE DE PROTOCOLE — ce parcours n'a pas permis d'établir cette face : un test complémentaire vous est conseillé pour compléter la mesure.";
       profil.jauge_rev = { na: true, val: 'à compléter par le test' };
