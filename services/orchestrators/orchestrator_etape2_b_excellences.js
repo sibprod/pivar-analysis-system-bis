@@ -129,13 +129,19 @@ async function run({ candidat_id, visiteur }) {
       // ⭐ Étape 2c — pré-générer le test de décentration (best effort : un échec
       // ici ne bloque JAMAIS le bilan — le service saute si des réponses existent).
       // Cas couverts (garante, 03/07 — Option B) :
-      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou DÉFAVORABLE
-      //              (interne, affiché réserve au candidat)
+      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou NON ÉTABLI SUR
+      //              CETTE MESURE (interne, affiché réserve au candidat)
+      //   ⭐ 10/09/2026 — « DÉFAVORABLE » proscrit (arbitrage garante) et remplacé
+      //   par « NON ÉTABLI SUR CETTE MESURE ». L'ancien libellé reste testé : sans
+      //   lui, aucun bilan figé avant cette date ne déclencherait plus le test.
       //   affinage : décentration posée en tranche 6-14 (« posé + test proposé »)
       if (!plan.testdec) {
         try {
           const verdict = await airtableService.getEtape2T5CVerdictMan(candidat_id);
-          let besoinTest = (verdict === 'RÉSERVE DE PROTOCOLE' || verdict === 'DÉFAVORABLE');
+          const v = String(verdict || '').toUpperCase();
+          let besoinTest = v.includes('RÉSERVE DE PROTOCOLE')
+                        || v.includes('NON ÉTABLI')
+                        || v.includes('DÉFAVORABLE');   // hérité — ne jamais retirer
           if (!besoinTest) {
             const t5bRows = await airtableService.getEtape2T5BRows(candidat_id);
             const decRow = (t5bRows || []).find(r =>
