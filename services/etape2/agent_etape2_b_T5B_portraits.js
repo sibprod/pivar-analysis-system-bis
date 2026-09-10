@@ -69,8 +69,17 @@ function sortieExploitable(agentOut) {
   const niveau = String(row.niveau_global || '').trim();
   const regime = String(row.pattern || '').trim();
   const manques = [];
+
+  // Le niveau est TOUJOURS exigé : sans lui la ligne ne veut rien dire.
   if (!niveau) manques.push('niveau_global');
-  if (!regime) manques.push('pattern');
+
+  // ⚠ Le régime, lui, est LÉGITIMEMENT VIDE quand la dimension n'a pas été
+  // évaluée dans cette fenêtre — cas de la décentration, dont la mesure vient
+  // du test complémentaire (« Non évalué — test à passer »).
+  // Exiger un régime dans ce cas fait rejouer indéfiniment une sortie correcte.
+  const nonEvaluee = /non\s*[ée]valu/i.test(niveau) || /test\s*[àa]\s*passer/i.test(niveau);
+  if (!regime && !nonEvaluee) manques.push('pattern');
+
   return { ok: manques.length === 0, manques };
 }
 
