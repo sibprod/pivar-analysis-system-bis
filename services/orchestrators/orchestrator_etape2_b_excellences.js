@@ -92,8 +92,27 @@ async function run({ candidat_id, visiteur }) {
     if (plan.b) {
       const rB = await agentT5B.run({ candidat_id });
       totalCost += rB.cost || 0;
+
+      // ⛔ 10/09/2026 (arbitrage garante) — UNE DIMENSION MANQUANTE ARRÊTE LA CHAÎNE.
+      // Motif : les verdicts d'encadrement et de management SE LISENT sur ces
+      // mesures. Passer à l'agent C avec une dimension absente produirait un avis
+      // faux, et rien ne le signalerait. Le candidat reste en attente, visible.
+      if (rB.echecs && rB.echecs.length) {
+        await airtableService.updateVisiteur(candidat_id, {
+          statut_analyse_pivar: 'ETAPE2_AGENT_B_EXCELLENCES',
+          erreur_analyse:       `Dimension(s) non produite(s) après 2 tentatives : ${rB.echecs.join(', ')} — verdicts non calculés, relance nécessaire`,
+          derniere_activite:    new Date().toISOString()
+        });
+        logger.error('Excellences — Agent B : dimension(s) manquante(s), chaîne arrêtée', {
+          candidat_id, echecs: rB.echecs, produites: rB.t5b
+        });
+        return { success: false, stopReason: 'excellences_dimension_manquante',
+                 echecs: rB.echecs, cost: totalCost };
+      }
+
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ETAPE2_AGENT_C_EXCELLENCES',
+        erreur_analyse:       '',
         derniere_activite:    new Date().toISOString()
       });
       logger.info('Excellences — Agent B (T5B) terminé', { candidat_id, t5b: rB.t5b });
@@ -129,19 +148,13 @@ async function run({ candidat_id, visiteur }) {
       // ⭐ Étape 2c — pré-générer le test de décentration (best effort : un échec
       // ici ne bloque JAMAIS le bilan — le service saute si des réponses existent).
       // Cas couverts (garante, 03/07 — Option B) :
-      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou NON ÉTABLI SUR
-      //              CETTE MESURE (interne, affiché réserve au candidat)
-      //   ⭐ 10/09/2026 — « DÉFAVORABLE » proscrit (arbitrage garante) et remplacé
-      //   par « NON ÉTABLI SUR CETTE MESURE ». L'ancien libellé reste testé : sans
-      //   lui, aucun bilan figé avant cette date ne déclencherait plus le test.
+      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou DÉFAVORABLE
+      //              (interne, affiché réserve au candidat)
       //   affinage : décentration posée en tranche 6-14 (« posé + test proposé »)
       if (!plan.testdec) {
         try {
           const verdict = await airtableService.getEtape2T5CVerdictMan(candidat_id);
-          const v = String(verdict || '').toUpperCase();
-          let besoinTest = v.includes('RÉSERVE DE PROTOCOLE')
-                        || v.includes('NON ÉTABLI')
-                        || v.includes('DÉFAVORABLE');   // hérité — ne jamais retirer
+          let besoinTest = (verdict === 'RÉSERVE DE PROTOCOLE' || verdict === 'DÉFAVORABLE');
           if (!besoinTest) {
             const t5bRows = await airtableService.getEtape2T5BRows(candidat_id);
             const decRow = (t5bRows || []).find(r =>
