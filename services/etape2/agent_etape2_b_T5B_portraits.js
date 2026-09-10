@@ -53,6 +53,27 @@ function pick(obj, keys) {
 function val(v) { return (v && (v.name || v)) || ''; }
 
 // Normalise la sortie d'un sous-agent en une ligne T5B prête pour l'upsert.
+/**
+ * ⭐ 10/09/2026 — CONTRÔLE D'EXPLOITABILITÉ (arbitrage garante).
+ * Motif : le 10/09, un JSON mal échappé a été « récupéré » partiellement par le
+ * secours ; l'appel n'ayant pas levé d'exception, la boucle de reprise ne s'est
+ * pas déclenchée et une dimension VIDE a été écrite (ANT de pcc_1771077635499).
+ * Une dimension vide fausse l'avis en aval : l'anticipation fonde l'encadrement.
+ *
+ * Règle : une sortie incomplète est un ÉCHEC, pas un résultat. On rejoue.
+ * Le niveau et le régime sont les deux valeurs sans lesquelles la ligne ne veut
+ * rien dire — le reste peut manquer sans conséquence sur les verdicts.
+ */
+function sortieExploitable(agentOut) {
+  const row = pick(agentOut, ['T5B', 't5b']) || agentOut || {};
+  const niveau = String(row.niveau_global || '').trim();
+  const regime = String(row.pattern || '').trim();
+  const manques = [];
+  if (!niveau) manques.push('niveau_global');
+  if (!regime) manques.push('pattern');
+  return { ok: manques.length === 0, manques };
+}
+
 function toT5BRow(candidat_id, exc, agentOut) {
   const row = pick(agentOut, ['T5B', 't5b']) || agentOut || {};
   const preuves = row.verbatims_preuves;
@@ -102,7 +123,16 @@ async function runSousAgent({ exc, prompt }, candidat_id, lignes, contexte) {
         candidatId:  candidat_id
       });
       cost += res.cost || 0;
-      out = res.result;
+      // ⭐ Une sortie rendue n'est pas une sortie valable : on la contrôle avant
+      // de l'accepter. Sinon la boucle de reprise ne sert jamais.
+      const verdict = sortieExploitable(res.result);
+      if (verdict.ok) {
+        out = res.result;
+      } else {
+        logger.warn('Agent T5B — sortie incomplète, tentative rejouée', {
+          candidat_id, exc, attempt, manques: verdict.manques
+        });
+      }
     } catch (e) {
       logger.warn('Agent T5B — sous-agent illisible', { candidat_id, exc, attempt, error: e.message });
     }
@@ -110,8 +140,11 @@ async function runSousAgent({ exc, prompt }, candidat_id, lignes, contexte) {
   // Ne JAMAIS jeter : on renvoie un statut. Un échec sur une excellence ne doit pas
   // faire tomber les 3 autres (sinon cascade ERREUR alors que 3/4 ont réussi).
   if (!out) {
-    logger.warn('Agent T5B — sous-agent sans sortie exploitable', { candidat_id, exc });
-    return { exc, ok: false, cost };
+    // ⛔ On n'écrit RIEN : la ligne garde sa valeur précédente plutôt que d'être
+    // vidée. Une dimension muette contaminerait les verdicts d'encadrement et de
+    // management, qui se lisent sur ces mesures.
+    logger.error('Agent T5B — dimension NON ÉCRITE après 2 tentatives', { candidat_id, exc });
+    return { exc, ok: false, cost, nonEcrite: true };
   }
 
   try {
