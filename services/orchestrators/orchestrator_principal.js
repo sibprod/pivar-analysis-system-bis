@@ -165,9 +165,18 @@ async function processCandidate(session_id) {
     logger.debug('Healthcheck préalable — squelette (à implémenter Phase D-2)', { candidat_id });
 
     // ─── 3. Marquer en cours ─────────────────────────────────────────────────
+    // ⭐ 10/09/2026 (arbitrage garante) — JOURNAL DE MARCHE.
+    // Motif : « en_cours » est écrasé en quelques centièmes de seconde par le
+    // sous-orchestrateur : personne ne l'a jamais vu. Faute de savoir si une
+    // étape tournait ou était finie, un statut d'ARRIVÉE (ETAPE2_TESTDEC_COMPLET)
+    // a été posé à la main comme s'il était un DÉCLENCHEUR — le codage du test
+    // a été sauté, et les verdicts calculés sans sa mesure.
+    // `progression_analyse` n'était écrit par AUCUN code : il l'est désormais.
+    const _debutRun = Date.now();
     await airtableService.updateVisiteur(candidat_id, {
       statut_analyse_pivar: 'en_cours',
       erreur_analyse:       '',
+      progression_analyse:  `⏳ ${statut_actuel} — démarré ${new Date().toLocaleTimeString('fr-FR')}`,
       derniere_activite:    new Date().toISOString()
     });
 
@@ -200,6 +209,15 @@ async function processCandidate(session_id) {
         totalElapsedSec: (totalElapsedMs / 1000).toFixed(1)
       });
     }
+
+    // ⭐ Journal de marche — fin : ce qui vient de tourner, et en combien de temps.
+    // Visible dans la table, sans ouvrir les logs.
+    await airtableService.updateVisiteur(candidat_id, {
+      progression_analyse: `✓ ${statut_actuel} — terminé ${new Date().toLocaleTimeString('fr-FR')}`
+                         + ` (${((Date.now() - _debutRun) / 1000).toFixed(0)} s)`
+                         + (result?.stopReason ? ` · ${result.stopReason}` : ''),
+      derniere_activite:   new Date().toISOString()
+    }).catch(() => {});
 
     // ─── ⭐ v10.12 — Contrôle mode rapide différé (meilleur effort strict) ──
     // Si un profil rapide existe et n'a jamais été comparé, le protocole venant
@@ -239,6 +257,7 @@ async function processCandidate(session_id) {
       await airtableService.updateVisiteur(candidat_id, {
         statut_analyse_pivar: 'ERREUR',
         erreur_analyse:       (error.message || '').substring(0, 1000),
+        progression_analyse:  `⛔ ${statut_actuel} — échec ${new Date().toLocaleTimeString('fr-FR')}`,
         derniere_activite:    new Date().toISOString()
       });
     } catch (e) {

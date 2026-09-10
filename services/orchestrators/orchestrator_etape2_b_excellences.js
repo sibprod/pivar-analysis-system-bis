@@ -88,6 +88,9 @@ async function run({ candidat_id, visiteur }) {
       logger.info('Excellences — Agent A (T5A) terminé', { candidat_id, lignes: rA.lignes });
     }
 
+    // La grille se pose en toute fin, quel que soit le parcours emprunté.
+    let _grilleARmer = false;
+
     // ─── Agent B — T5B (portraits par excellence) ──────────────────────────
     if (plan.b) {
       const rB = await agentT5B.run({ candidat_id });
@@ -145,16 +148,37 @@ async function run({ candidat_id, visiteur }) {
       });
       logger.info('Excellences — Agent C (T5C) terminé', { candidat_id, t5c: rC.t5c });
 
+      // ⭐ 10/09/2026 (arbitrage garante) — LA GRILLE EST TOUJOURS LA DERNIÈRE.
+      //
+      // Deux parcours, une seule règle : la grille se déclenche APRÈS les verdicts,
+      // jamais avant. C'est l'agent C qui vient de les écrire — c'est donc ici, et
+      // seulement ici, que le déclencheur se pose.
+      //
+      //   sans test  : excellences ────────────────▶ verdicts ▶ GRILLE
+      //   avec test  : excellences ▶ test ▶ dec v2 ▶ verdicts v2 ▶ GRILLE v2
+      //
+      // Motif : lancée avant le recalcul, la grille fige des verdicts périmés —
+      // c'est arrivé le 10/09 (grille de R. produite sur un management v1).
+      // Ce câblage manquait : la fonction traiterFile() de l'orchestrateur grille
+      // arme bien les candidats, mais n'est appelée nulle part.
+      _grilleARmer = true;
+
       // ⭐ Étape 2c — pré-générer le test de décentration (best effort : un échec
       // ici ne bloque JAMAIS le bilan — le service saute si des réponses existent).
       // Cas couverts (garante, 03/07 — Option B) :
-      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou DÉFAVORABLE
-      //              (interne, affiché réserve au candidat)
+      //   remède   : verdict management RÉSERVE DE PROTOCOLE ou NON ÉTABLI SUR
+      //              CETTE MESURE (interne, affiché réserve au candidat)
+      //   ⭐ 10/09/2026 — « DÉFAVORABLE » proscrit (arbitrage garante), remplacé par
+      //   « NON ÉTABLI SUR CETTE MESURE ». L'ancien libellé reste TESTÉ : sans lui,
+      //   aucun bilan figé avant cette date ne déclencherait plus le test.
       //   affinage : décentration posée en tranche 6-14 (« posé + test proposé »)
       if (!plan.testdec) {
         try {
           const verdict = await airtableService.getEtape2T5CVerdictMan(candidat_id);
-          let besoinTest = (verdict === 'RÉSERVE DE PROTOCOLE' || verdict === 'DÉFAVORABLE');
+          const _v = String(verdict || '').toUpperCase();
+          let besoinTest = _v.includes('RÉSERVE DE PROTOCOLE')
+                        || _v.includes('NON ÉTABLI')
+                        || _v.includes('DÉFAVORABLE');   // hérité — ne jamais retirer
           if (!besoinTest) {
             const t5bRows = await airtableService.getEtape2T5BRows(candidat_id);
             const decRow = (t5bRows || []).find(r =>
@@ -180,12 +204,34 @@ async function run({ candidat_id, visiteur }) {
     }
 
     const totalElapsedMs = Date.now() - startTime;
+
+    // ⭐ LA GRILLE, EN TOUT DERNIER — et seulement si les verdicts viennent d'être
+    // écrits. Un candidat à qui l'on vient de générer un test de décentration
+    // n'est PAS armé : sa grille attendra que le test soit passé et codé, puis
+    // que l'agent C repasse — c'est alors que le déclencheur se posera.
+    if (_grilleARmer) {
+      try {
+        await airtableService.updateVisiteur(candidat_id, {
+          statut_analyse_pivar: 'LANCER_BILAN_GRILLE_DRH',
+          derniere_activite:    new Date().toISOString()
+        });
+        logger.info('Excellences — grille armée (verdicts à jour)', { candidat_id });
+      } catch (eArm) {
+        // Non bloquant : les verdicts sont écrits, la grille peut être posée à la main.
+        logger.error('Excellences — armement grille échoué (non bloquant)', {
+          candidat_id, error: eArm.message
+        });
+      }
+    }
+
     logger.info('Orchestrateur Excellences — succès', {
-      candidat_id, statut, totalElapsedMs, totalCostUsd: totalCost.toFixed(4)
+      candidat_id, statut, totalElapsedMs, grille_armee: _grilleARmer,
+      totalCostUsd: totalCost.toFixed(4)
     });
 
     // stopReason (pas success:true) → le principal NE pose PAS "terminé".
-    return { stopReason: 'excellences_done', candidat_id, totalCostUsd: totalCost, totalElapsedMs };
+    return { stopReason: 'excellences_done', candidat_id, grilleArmee: _grilleARmer,
+             totalCostUsd: totalCost, totalElapsedMs };
 
   } catch (error) {
     logger.error('Orchestrateur Excellences — échec', {
