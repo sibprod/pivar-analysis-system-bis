@@ -116,6 +116,16 @@ async function run({ candidat_id }) {
     verbatims_preuves:   Array.isArray(ligne.verbatims_preuves)
                            ? JSON.stringify(ligne.verbatims_preuves)
                            : (ligne.verbatims_preuves || ''),
+    // ⭐ 10/09/2026 (garante) — LES DEUX AUTRES COMPOSANTES DU MANAGEMENT.
+    // Le référentiel exige trois composantes indissociables : l'individualité
+    // (la décentration, notée ci-dessus), LE CADRE posé, et L'OBJECTIF du groupe.
+    // L'agent les vérifiait déjà pour coder — il n'en gardait aucune trace.
+    // Relevés avec leurs verbatims, ils NOURRISSENT les conditions d'exercice
+    // du management sans entrer dans aucun comptage : le verdict continue de se
+    // lire sur la seule décentration.
+    composantes_management: JSON.stringify(
+      (result && result.composantes_management) || { cadre_pose: [], objectif_porte: [] }
+    ),
     date_codage: new Date().toISOString()
   };
 
