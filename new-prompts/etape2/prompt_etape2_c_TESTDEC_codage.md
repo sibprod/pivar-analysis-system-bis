@@ -497,6 +497,50 @@ les autres : une réponse, un niveau).
   consigner l'interférence émotionnelle observée (recouvre/remplace) dans
   `reserve`.
 
+---
+
+## 🔒 LE RELEVÉ DES DEUX AUTRES COMPOSANTES (garante, 10/09/2026)
+
+Tu codes la décentration — cela ne change pas. Mais le management ne se réduit
+pas à elle. Le référentiel pose **trois composantes indissociables** :
+
+> **(1) l'INDIVIDUALITÉ** à faire grandir — lire sa mécanique, partir de SON
+> chemin, driver · **(2) le CADRE** posé, que chacun comprend et dans lequel il
+> joue · **(3) l'OBJECTIF** fixé, celui du groupe.
+>
+> *« Du développement de personnes SANS cadre ni objectif = coaching, pas du
+> management. »* (règle R3 du référentiel)
+
+Tu vérifies **déjà** le cadre et l'objectif quand tu codes : « tenir le cadre et
+le résultat = décentré », « l'objectif lâché → NULLE ». **Mais tu n'en gardes
+aucune trace** — tes verbatims prouvent la décentration, jamais les deux autres.
+
+**Ce que tu ajoutes donc, sans rien changer à ta notation :**
+
+Parcours les dix réponses une seconde fois et relève :
+
+- **`cadre_pose`** — les moments où le candidat **pose, propose ou tient un
+  cadre commun** : une règle partagée, un brief, un temps d'expression des
+  limites, une répartition comprise de tous. *Chaque relevé porte son verbatim
+  exact, recopié tel quel.*
+
+- **`objectif_porte`** — les moments où il **tient l'enjeu du groupe** :
+  nommer le résultat visé, protéger l'objectif quand une individualité menace de
+  le faire dévier, arbitrer au nom du collectif. *Même exigence de verbatim.*
+
+**Ces relevés ne sont PAS notés.** Ils ne modifient ni les niveaux, ni les
+comptages, ni le régime : la décentration reste seule à déterminer le verdict.
+Ils **nourrissent les conditions d'exercice** du management — ce que le référent
+doit savoir pour situer la capacité.
+
+**Si une composante n'apparaît dans aucune réponse**, tu rends un tableau vide.
+C'est un constat sur ce que le test a montré — jamais un manque de la personne,
+et jamais une invention pour remplir.
+
+**Ce qui n'en est pas** : coordonner qui fait quoi (c'est de l'organisation, pas
+un cadre) · rappeler une règle existante sans la partager · mentionner le groupe
+sans tenir son enjeu.
+
 ## SORTIE — un objet JSON STRICT, rien d'autre
 {
   "codages": [
@@ -513,9 +557,21 @@ les autres : une réponse, un niveau).
     "declencheur": "…", "gradient": "…", "synthese": "…", "reserve": "…",
     "portrait_excellence": "…",
     "verbatims_preuves": ["…", "…"]
+  },
+  "composantes_management": {
+    "cadre_pose": [
+      { "numero": 0, "verbatim": "…citation exacte…", "ce_qui_est_pose": "…en une ligne…" }
+    ],
+    "objectif_porte": [
+      { "numero": 0, "verbatim": "…citation exacte…", "enjeu_tenu": "…en une ligne…" }
+    ]
   }
 }
 
 Garde-fous : 10 codages exactement (numéros 1-10) · les comptages nb_* somment à
 10 et correspondent aux codages · `verbatims_preuves` est un VRAI tableau JSON
 (jamais une chaîne échappée) · JSON seul, sans balises de code.
+
+⭐ `composantes_management` : deux tableaux, éventuellement vides. Chaque entrée
+porte **un verbatim exact** — aucun relevé sans citation. Ces tableaux n'entrent
+dans AUCUN comptage : ils ne changent ni `nb_*`, ni `pattern`, ni le verdict.
