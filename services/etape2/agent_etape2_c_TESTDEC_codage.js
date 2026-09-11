@@ -1,3 +1,4 @@
+// ⟦LOT 2026-09-11 ac⟧ agent_etape2_c_TESTDEC_codage.js — les référentiels arrivent à la porte de l'agent
 // services/etape2/agent_etape2_c_TESTDEC_codage.js
 // Agent TESTDEC-COD — Codeur du test complémentaire de décentration (Étape 2c)
 //
@@ -72,6 +73,11 @@ async function run({ candidat_id }) {
   const { result, cost } = await agentBase.callAgent({
     serviceName: SERVICE_NAME,
     promptPath:  PROMPT_PATH,
+    // ⭐ 11/09/2026 (garante) — LA DOCTRINE DE LA DÉCENTRATION, DEPUIS LA BASE.
+    // Elle porte les DEUX échelles (parcours principal sur 25 · test dédié sur 4)
+    // et la règle maîtresse : « ABSENTE n'existe jamais en sortie de test — la
+    // mesure a eu lieu, le bilan est un bilan de capacités ».
+    injectReferentiel: { dimensions: 'DEC', limbique: true },
     payload: {
       candidat_id,
       prenom:          (profil && profil.prenom) || '',
@@ -116,16 +122,6 @@ async function run({ candidat_id }) {
     verbatims_preuves:   Array.isArray(ligne.verbatims_preuves)
                            ? JSON.stringify(ligne.verbatims_preuves)
                            : (ligne.verbatims_preuves || ''),
-    // ⭐ 10/09/2026 (garante) — LES DEUX AUTRES COMPOSANTES DU MANAGEMENT.
-    // Le référentiel exige trois composantes indissociables : l'individualité
-    // (la décentration, notée ci-dessus), LE CADRE posé, et L'OBJECTIF du groupe.
-    // L'agent les vérifiait déjà pour coder — il n'en gardait aucune trace.
-    // Relevés avec leurs verbatims, ils NOURRISSENT les conditions d'exercice
-    // du management sans entrer dans aucun comptage : le verdict continue de se
-    // lire sur la seule décentration.
-    composantes_management: JSON.stringify(
-      (result && result.composantes_management) || { cadre_pose: [], objectif_porte: [] }
-    ),
     date_codage: new Date().toISOString()
   };
 
