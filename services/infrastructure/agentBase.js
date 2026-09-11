@@ -1,3 +1,4 @@
+// ⟦LOT 2026-09-11 ac⟧ agentBase.js — les référentiels arrivent à la porte de l'agent
 // services/infrastructure/agentBase.js
 // Service de base mutualisé pour les agents Profil-Cognitif v10.0
 //
@@ -148,6 +149,7 @@ async function callAgent({
   promptPath,
   payload,
   injectLexique = false,
+  injectReferentiel = null,   // ⭐ 11/09/2026 — voir ci-dessous
   candidatId = null
 }) {
   const startTime = Date.now();
@@ -161,6 +163,55 @@ async function callAgent({
     if (injectLexique) {
       const { lexique_formate } = await loadLexique();
       finalPayload = { ...payload, lexique_reference: lexique_formate };
+    }
+
+    // ⭐ 11/09/2026 (garante) — LES RÉFÉRENTIELS ARRIVENT À LA PORTE DE L'AGENT.
+    //
+    // > « Si dans un prompt c'est écrit "lis le référentiel", ça ne sert à rien :
+    // >   les agents en API doivent RECEVOIR le flux. Ils n'ont pas vocation à aller
+    // >   faire le travail de recherche — tout est supposé être à leur porte. »
+    //
+    // Un agent en API ne peut rien chercher : il reçoit un message et répond. Le
+    // travail de lecture revient donc au code, AVANT l'appel — exactement comme
+    // pour le lexique ci-dessus.
+    //
+    // Usage : injectReferentiel: { dimensions: 'ANT' }  → la ligne ANT du référentiel
+    //         injectReferentiel: { dimensions: 'all' }  → les quatre
+    //         injectReferentiel: { limbique: true }     → la définition du limbique
+    if (injectReferentiel) {
+      const airtableService = require('./airtableService');
+      const ajout = {};
+
+      if (injectReferentiel.dimensions || injectReferentiel.limbique) {
+        const entrees = await airtableService.getReferentielDimensions();
+
+        if (injectReferentiel.dimensions) {
+          const cible = String(injectReferentiel.dimensions).toUpperCase();
+          const retenues = (cible === 'ALL')
+            ? entrees
+            : entrees.filter(e => String(e.code).toUpperCase() === cible);
+
+          if (!retenues.length) {
+            // Jamais de repli silencieux : sans sa doctrine, l'agent ne produit pas.
+            throw new Error(`REFERENTIEL_DIMENSIONS : aucune entrée pour « ${cible} »`);
+          }
+          ajout.referentiel_dimensions = retenues.map(e => ({
+            code:             e.code,
+            doctrine:         e.contenu,
+            grille_regimes:   e.regimes || ''
+          }));
+        }
+
+        if (injectReferentiel.limbique) {
+          const def = entrees.map(e => e.limbique).find(x => x && x.trim());
+          if (!def) {
+            throw new Error('REFERENTIEL_DIMENSIONS : definition_signal_limbique absente');
+          }
+          ajout.definition_signal_limbique = def;
+        }
+      }
+
+      finalPayload = { ...finalPayload, ...ajout };
     }
 
     // 3. Sérialiser le payload en JSON pour le user message
