@@ -1,3 +1,4 @@
+⟦LOT 2026-09-11 ac⟧ prompt_etape1_T1.txt — la définition du limbique vient du message
 ⟦LOT 2026-09-11 ab⟧ prompt_etape1_T1.txt — le signal relevé, jamais l'émotion nommée
 # PROMPT AGENT T1 v4.1 — ANALYSE COGNITIVE TECHNIQUE
 # Profil-Cognitif · Sib Prod
@@ -378,6 +379,11 @@ PY · Autre type — "autre citation"
 > *P1 · Critère d'arrêt par saturation — "je sens que j'ai à peu près fait le tour, que des informations déjà présentées refont surface fréquemment"*
 
 #### `signal_limbique` (Bloc C — production)
+
+⭐ **LA DÉFINITION T'EST FOURNIE — champ `definition_signal_limbique` de ton message.**
+Elle contient le périmètre sourcé (émotions, appétences/aversions, alertes, mémoire
+chargée) et la frontière de ce que nous n'établissons jamais. **Applique-la telle
+qu'elle t'est donnée** : elle fait foi sur ce qui suit.
 
 ⭐ **RÉÉCRIT LE 11/09/2026 — ARBITRAGE DE LA GARANTE.**
 > *« Nous n'avons aucune compétence sur les émotions. Donc on doit les relever,
