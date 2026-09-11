@@ -1,3 +1,4 @@
+// ⟦LOT 2026-09-11 ac⟧ agent_etape1_T1.js — les référentiels arrivent à la porte de l'agent
 // services/etape1/agentT1Service.js
 // Agent T1 — Analyse technique cognitive en aval de l'étape 1.1
 // Profil-Cognitif v10.7
@@ -304,6 +305,12 @@ async function callT1ForScenario({ candidat_id, scenario, responses }) {
     promptPath:    PROMPT_PATH,
     payload,
     injectLexique: false,
+    // ⭐ 11/09/2026 (garante) — la définition du signal limbique arrive À LA PORTE
+    // de l'agent. Il ne va rien chercher : le code la lit en base et la lui pose
+    // dans son message. Sans elle, il inventerait son propre périmètre — ce qui
+    // s'était produit (l'un captait « l'émotion détectée », l'autre regroupait
+    // « par émotion », le troisième affichait « registres émotionnels »).
+    injectReferentiel: { limbique: true },
     candidatId:    candidat_id
   });
 
