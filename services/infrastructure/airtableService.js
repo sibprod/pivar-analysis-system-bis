@@ -1,3 +1,4 @@
+// ⟦LOT 2026-09-11 ag⟧ airtableService.js — une version post-test ne se fait jamais écraser
 // ⟦LOT 2026-09-11 ac⟧ airtableService.js — les référentiels arrivent à la porte de l'agent
 // services/infrastructure/airtableService.js
 // Service Airtable v12.2-fable — Profil-Cognitif
@@ -1241,6 +1242,25 @@ function formaterLexiquePourPrompt(lexique) {
 const TABLE_ID_REFERENTIEL_ENCADRER_MANAGER = 'tblPBW84TxZ09IRNC'; // nom : REFERENTIEL_ENCADRER_MANAGER
 const TABLE_ID_REFERENTIEL_DIMENSIONS       = 'tbl9ccBMvVbfrCgsk'; // nom : REFERENTIEL_DIMENSIONS
 
+/**
+ * ⭐ 11/09/2026 (garante) — Un bilan POST-TEST existe-t-il déjà pour ce candidat ?
+ * Sert au garde-fou de T5C : une version à jour ne doit jamais être écrasée par
+ * une version avant-test, ce qui produirait un bilan contradictoire.
+ */
+async function bilanPostTestExiste(candidat_id) {
+  try {
+    const records = await getBase()(airtableConfig.TABLES.ETAPE2_BILAN4EXCELLENCES)
+      .select({ filterByFormula: `{candidat_id} = "${candidat_id}"`, maxRecords: 1 })
+      .firstPage();
+    if (!records.length) return false;
+    const v = records[0].get('bilan_post_test');
+    return !!(v && String(v).trim());
+  } catch (error) {
+    logger.warn('bilanPostTestExiste — lecture impossible', { candidat_id, error: error.message });
+    return false;   // en cas de doute, on n'empêche pas l'écriture
+  }
+}
+
 async function getReferentielEncadrerManager() {
   try {
     const records = await getBase()(TABLE_ID_REFERENTIEL_ENCADRER_MANAGER)
@@ -2376,6 +2396,7 @@ module.exports = {
   formaterLexiquePourPrompt,
 
   // REFERENTIEL_ENCADRER_MANAGER + REFERENTIEL_DIMENSIONS — ⭐ 27/08/2026
+  bilanPostTestExiste,
   getReferentielEncadrerManager,
   getReferentielDimensions,
   formaterEncadrerManagerPourPrompt,
