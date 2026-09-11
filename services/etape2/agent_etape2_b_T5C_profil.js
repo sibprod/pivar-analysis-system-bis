@@ -1,3 +1,5 @@
+// ⟦LOT 2026-09-11 am⟧ agent_etape2_b_T5C_profil.js — la table d'attribution vient du référentiel
+// ⟦LOT 2026-09-11 ag⟧ agent_etape2_b_T5C_profil.js — une version post-test ne se fait jamais écraser
 // services/etape2/agentT5C.js
 // Agent T5C — Profil global + verdicts des deux faces du métier (Étape 2)
 //
@@ -70,6 +72,9 @@ async function run({ candidat_id }) {
   // doctrine des deux faces et des quatre dimensions vit EN BASE — le C la
   // reçoit telle quelle, il ne porte plus de cadrage figé. Sans elle, PAS de
   // verdict : l'erreur remonte et arrête le run (jamais de repli silencieux).
+  // ⭐ 11/09/2026 — le référentiel porte désormais SA TABLE D'ATTRIBUTION :
+  // les 25 combinaisons pour manager, la règle de la plus faible pour encadrer.
+  // L'agent la reçoit ; il ne l'invente pas et ne la mémorise pas.
   const referentielEM  = await airtableService.getReferentielEncadrerManager();
   const referentielDim = await airtableService.getReferentielDimensions();
 
@@ -168,7 +173,36 @@ async function run({ candidat_id }) {
   // 🔒 Versionnage (garante, 22/07) : une écriture faite en connaissance de la
   // mesure du test est marquée post-test → le service fige le bilan avant-test
   // (première fois) et miroite celle-ci dans bilan_post_test.
-  if (testDec && testDec.niveau_global) t5cFields.__post_test = true;
+  const aLaMesure = !!(testDec && testDec.niveau_global);
+  if (aLaMesure) t5cFields.__post_test = true;
+
+  // ⛔ 11/09/2026 (garante) — UNE VERSION POST-TEST NE SE FAIT JAMAIS ÉCRASER
+  //    PAR UNE VERSION AVANT-TEST.
+  //
+  // Motif, constaté le 10/09 sur R. : le codage du test avait été sauté, l'agent a
+  // donc tourné SANS la mesure — et il a écrit une version « avant-test » par-dessus
+  // une version post-test. Résultat : son management est repassé de SUFFISANT à
+  // NON ÉTABLI, et les champs vivants conseillaient de passer un test que les deux
+  // autres champs attestaient avoir été passé. C'est la contradiction lue en visu.
+  //
+  // Si un post-test existe en base et que la mesure n'arrive pas jusqu'ici, ce n'est
+  // pas un cas normal : la mesure EXISTE et n'a pas été transmise. On s'arrête.
+  if (!aLaMesure) {
+    const dejaPostTest = await airtableService.bilanPostTestExiste(candidat_id).catch(() => false);
+    if (dejaPostTest) {
+      const msg = `T5C refuse d'écrire : un bilan POST-TEST existe déjà pour ${candidat_id}, `
+                + `mais la mesure du test n'a pas été reçue. Écrire ici écraserait la version `
+                + `à jour par une version avant-test. Vérifier que le codage du test a bien tourné.`;
+      logger.error('⛔ T5C — écriture refusée (régression avant-test)', { candidat_id });
+      throw new Error(msg);
+    }
+  }
+
+  // Marqueur d'état, lisible en base : on sait d'un coup d'œil ce que portent les
+  // champs vivants — sans avoir à comparer des dates ou à ouvrir deux visualisations.
+  t5cFields.version_bilan_etat = aLaMesure
+    ? `POST-TEST · mesure de décentration reçue · écrit le ${new Date().toISOString().slice(0,16).replace('T',' ')}`
+    : `AVANT-TEST · aucune mesure de décentration · écrit le ${new Date().toISOString().slice(0,16).replace('T',' ')}`;
 
   const t5cOk = await airtableService.upsertEtape2T5C(candidat_id, t5cFields);
 
