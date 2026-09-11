@@ -1,3 +1,4 @@
+// ⟦LOT 2026-09-11 am⟧ airtableService.js — la table d'attribution vient du référentiel
 // ⟦LOT 2026-09-11 ag⟧ airtableService.js — une version post-test ne se fait jamais écraser
 // ⟦LOT 2026-09-11 ac⟧ airtableService.js — les référentiels arrivent à la porte de l'agent
 // services/infrastructure/airtableService.js
@@ -1274,12 +1275,17 @@ async function getReferentielEncadrerManager() {
     //   · definition_signal_limbique : le périmètre du limbique et sa frontière
     // Sans eux, l'agent applique une copie figée dans son prompt — qui diverge
     // dès que la base change, sans que rien ne le signale.
+    // ⭐ 11/09/2026 (garante) — LA TABLE D'ATTRIBUTION VIT EN BASE.
+    // « Comme ça on l'a dans le référentiel, et la prochaine fois qu'on y touche,
+    //   ce sera à la source. »
+    // Elle porte, pour MANAGER, les 25 combinaisons décentration × vue systémique
+    // avec leur verdict ET ce que l'analyse doit poser sur l'état des appuis ;
+    // pour ENCADRER, la règle de la plus faible des deux fondatrices.
     const entrees = records
       .map(r => ({
-        code:       r.fields.code || '',
-        contenu:    r.fields.contenu || '',
-        regimes:    r.fields.grille_regimes || '',
-        limbique:   r.fields.definition_signal_limbique || ''
+        code:        r.fields.code || '',
+        contenu:     r.fields.contenu || '',
+        attribution: r.fields.table_attribution_verdict || ''
       }))
       .filter(e => e.code && e.contenu);
 
@@ -1345,10 +1351,20 @@ function formaterEncadrerManagerPourPrompt(entrees) {
     lignes.push(`## ${e.code}`);
     lignes.push(e.contenu);
     lignes.push('');
+    // ⭐ 11/09/2026 — LA TABLE D'ATTRIBUTION, transmise avec la face qu'elle régit.
+    // L'agent n'a rien à déduire : il lit la combinaison des régimes et pose le
+    // verdict. Et il lit ce que l'analyse doit poser sur l'état des appuis.
+    if (e.attribution && String(e.attribution).trim()) {
+      lignes.push(`### ${e.code} — RÈGLE D'ATTRIBUTION DU VERDICT (applique-la telle quelle)`);
+      lignes.push(e.attribution);
+      lignes.push('');
+    }
   }
 
   lignes.push('---');
   lignes.push("**RÈGLE ABSOLUE** : ces définitions, objets du geste, dimensions fondatrices/contributives et règles de démêlage font foi, mot pour mot. Toute reformulation, toute hiérarchie non écrite ici, toute catégorie inventée est interdite.");
+  lignes.push('');
+  lignes.push("**LA TABLE D'ATTRIBUTION REMPLACE TOUTE RÈGLE DE VERDICT QUE TU AURAIS APPRISE.** Tu lis la combinaison des régimes dans la table, tu poses le verdict qu'elle donne, et tu rends dans ton analyse ce que la colonne « CE QUE TU POSES » indique sur l'état des appuis. Le second critère pèse moins — il ne compte pas moins : sa présence est un acquis qui se nomme, même quand elle ne change pas le niveau.");
 
   return lignes.join('\n');
 }
