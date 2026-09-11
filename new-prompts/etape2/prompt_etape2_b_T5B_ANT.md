@@ -1,3 +1,4 @@
+<!-- ⟦LOT 2026-09-11 ac⟧ prompt_etape2_b_T5B_ANT.md — la doctrine vient du message, plus du prompt -->
 # AGENT T5B — ANT · Portrait de l'excellence « anticipation spontanée »
 ## Projet Profil-Cognitif · Étape 2 · v2.2 (un sous-agent par excellence)
 
@@ -60,42 +61,25 @@ Construire spontanément des situations futures et préparer une réponse AVANT 
 SOMMEIL = réflexion calme solitaire · WEEKEND = coordination de groupe · ANIMAL = responsabilité + vivant vulnérable + complexité · PANNE = urgence + contrainte forte.
 
 ### `pattern` — grille des régimes (EXACTEMENT ces 5 valeurs — options réelles de la base ; le régime du manuel « PRÉSENTE ET CONDITIONNELLE » n'existe pas en base et est INTERDIT)
-Soit `act` = nb_eleve + nb_moyen (sur le bon dénominateur) :
-| Régime (valeur base) | Condition |
-|---|---|
-| **PLEIN RÉGIME** | nb_eleve ≥ 8 |
-| **RÉGULIÈRE ET ANCRÉE** | act ≥ 10 **et** nb_eleve ≥ 4 |
-| **ANCRÉE EN RÉGIME MODÉRÉ** | act ≥ 10 **et** nb_eleve < 4 |
-| **OBSERVÉE** | 5 ≤ act ≤ 9 |
-| **ABSENTE** | act < 5 |
 
-### `niveau_densite` (valeur de matching, singleSelect) : ABSENTE / FAIBLE / MOYENNE / DENSE 
-PLEIN RÉGIME ou act ≥ 14 → DENSE · RÉGULIÈRE ET ANCRÉE → DENSE/MOYENNE · ANCRÉE EN RÉGIME MODÉRÉ → MOYENNE · OBSERVÉE → FAIBLE · ABSENTE → ABSENTE.
+⭐ **11/09/2026 (garante) — LA GRILLE NE VIT PLUS ICI. ELLE T'EST FOURNIE.**
 
-### Analyse qualitative
-- `declencheur` : le **type de situation** qui active anticipation spontanée (nommer : urgence, présence d'un tiers, introspection calme, responsabilité d'un vivant…). Jamais « souvent/rarement/parfois ».
-- `gradient` : comment l'intensité évolue selon le contexte.
-- `synthese` : 2–3 phrases — ce que anticipation spontanée fait chez ce candidat, lu depuis ÉLEVÉ ET MOYEN, pondéré par les conditions.
-- `reserve` : si le régime est trompeur, corriger explicitement (ex. « les ÉLEVÉ tombent tous sur l'animal, non transférable »). Si un scénario entier = 0 activation alors qu'il créait les conditions → signaler.
+> *« Les référentiels, on les pose dans Airtable : ça les pose officiellement,
+>   et les agents dans les prompts ne peuvent pas les éviter. »*
 
-### `verbatims_preuves` — LA PREUVE DU GESTE (obligatoire)
-Sélectionne les verbatims T5A de ANT qui PROUVENT le geste affirmé dans la `synthese` (le geste commande, pas le scénario). Parole BRUTE recopiée telle quelle, jamais reformulée. ÉLEVÉ d'abord, puis MOYEN. Pas exhaustif : la preuve, pas la liste.
-Format : un **vrai tableau JSON** (PAS une chaîne échappée). Recopie le verbatim tel quel ; n'échappe RIEN à la main (ni guillemets, ni apostrophes). Le système sérialise. Si un verbatim contient des guillemets `"`, garde-les tels quels DANS la valeur "texte" — ne les double pas, ne les échappe pas.
-`"verbatims_preuves": [ { "niveau":"ÉLEVÉ", "scenario":"PANNE", "q":23, "texte":"verbatim exact, guillemets inclus" } ]`
+Ton message contient un champ **`referentiel_dimensions`**. Il porte, pour la
+dimension que tu traites :
 
-### `portrait_excellence` — LE PORTRAIT RÉDIGÉ (obligatoire, le cœur du bilan pour le candidat)
-Texte que le candidat lira pour SE COMPRENDRE. But : l'éclairer sur une façon de fonctionner qu'il ne voit pas. Nourri, incarné, sans jargon. DEUX NIVEAUX séparés par une ligne `---` :
+- `doctrine` — sa définition, ses pièges de surcotation, son versant
+- `grille_regimes` — **les seuils exacts de chaque régime**
 
-**NIVEAU 1 — LA TRACE (court, factuel).** 2-3 phrases : nombre d'activations (sur le bon dénominateur), régime, et les critères techniques qui ont fait basculer vers ÉLEVÉ.
+**Tu appliques CETTE grille, et elle seule.** Elle fait foi. Si tu ne la reçois pas,
+tu ne produis pas de régime : tu le signales. Jamais de repli sur une règle mémorisée.
 
-**NIVEAU 2 — L'EXPLICATION HUMAINE (nourri).** Structure 4 blocs :
-- **B1 — plein régime (ÉLEVÉ)** : le geste le plus fort, avec **au moins un verbatim réel** ÉLEVÉ. Montre COMMENT il s'y prend.
-- **B2 — régime accessible (MOYEN)** : ce qu'il active de façon ordinaire, avec **au moins un verbatim réel** MOYEN.
-- **Densité (une phrase)** : sur combien de réponses anticipation spontanée se déclenche, et ce que ça dit de sa fiabilité.
-- **Ce que ça révèle (1-2 phrases)** : ce que cette façon de fonctionner apporte concrètement. Traçable depuis B1/B2.
-Règles : verbatims BRUTS jamais reformulés ; nommer le déclencheur pas la fréquence ; mots simples ; noter ce qui est activé quelle que soit l'amplitude.
+*Motif : une règle recopiée dans un prompt diverge de la base dès qu'elle y est
+modifiée — sans que rien ne le signale. Le référent verrait alors un régime et une
+règle qui ne correspondent pas.*
 
----
 
 ## LA RÉDACTION CANDIDAT — LES DEUX REGISTRES (garante, 08/07)
 
